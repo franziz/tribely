@@ -7,13 +7,49 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Aggregate root in the `users` bounded context.
+/// Owns identity-as-known-to-the-business: who someone is to others on the platform.
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  displayName  String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  credential Credential?
 
   @@map("users")
+}
+
+/// Aggregate root in the `auth` bounded context.
+/// Owns the secret material used to authenticate a user. Lives separately from User
+/// so credential rotation, password changes, and future auth methods (OAuth, passkeys)
+/// don't touch the User aggregate.
+model Credential {
+  userId         String   @id
+  passwordHash   String
+  passwordSetAt  DateTime @default(now())
+  lastSignedInAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credentials")
+}
+
+/// Transactional outbox: domain events written in the same Postgres transaction
+/// as the data change that produced them. Dispatcher polls and publishes.
+model OutboxEvent {
+  id            String    @id @default(cuid())
+  type          String
+  aggregateType String
+  aggregateId   String
+  payload       Json
+  occurredAt    DateTime  @default(now())
+  processedAt   DateTime?
+  attempts      Int       @default(0)
+  lastError     String?
+
+  @@index([processedAt, occurredAt])
+  @@index([aggregateType, aggregateId])
+  @@map("outbox_events")
 }
