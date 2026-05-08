@@ -1,6 +1,6 @@
 # Node
 node_modules/
-.pnpm-store/
+.npm/
 *.log
 npm-debug.log*
 yarn-debug.log*

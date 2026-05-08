@@ -3,23 +3,33 @@
   "version": "0.0.1",
   "private": true,
   "description": "Tribely monorepo — Flutter mobile app + Hono API",
-  "packageManager": "pnpm@9.15.0",
+  "workspaces": [
+    "apps/api"
+  ],
   "engines": {
     "node": ">=20.18.0",
-    "pnpm": ">=9.0.0"
+    "npm": ">=10.0.0"
   },
   "scripts": {
-    "api:dev": "pnpm --filter @tribely/api dev",
-    "api:build": "pnpm --filter @tribely/api build",
-    "api:start": "pnpm --filter @tribely/api start",
-    "api:db:generate": "pnpm --filter @tribely/api db:generate",
-    "api:db:migrate": "pnpm --filter @tribely/api db:migrate",
+    "api:dev": "npm run dev --workspace=@tribely/api",
+    "api:dev:fresh": "node scripts/kill-port.mjs 3000 && npm run api:dev",
+    "api:kill-port": "node scripts/kill-port.mjs 3000",
+    "api:build": "npm run build --workspace=@tribely/api",
+    "api:start": "npm run start --workspace=@tribely/api",
+    "api:db:generate": "npm run db:generate --workspace=@tribely/api",
+    "api:db:migrate": "npm run db:migrate --workspace=@tribely/api",
+    "api:db:migrate:create": "npm run db:migrate:create --workspace=@tribely/api",
+    "api:db:migrate:deploy": "npm run db:migrate:deploy --workspace=@tribely/api",
+    "api:db:studio": "npm run db:studio --workspace=@tribely/api",
     "mobile:run": "cd apps/mobile && flutter run",
     "mobile:build:apk": "cd apps/mobile && flutter build apk",
     "mobile:build:ios": "cd apps/mobile && flutter build ios",
-    "lint": "pnpm -r --parallel lint",
-    "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r --parallel test",
+    "mobile:codegen": "cd apps/mobile && dart run build_runner build --delete-conflicting-outputs",
+    "migrate": "npm run api:db:migrate && npm run mobile:codegen",
+    "codegen": "npm run api:db:generate && npm run mobile:codegen",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
