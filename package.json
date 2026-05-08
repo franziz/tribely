@@ -1,0 +1,29 @@
+{
+  "name": "tribely",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Tribely monorepo — Flutter mobile app + Hono API",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.18.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "api:dev": "pnpm --filter @tribely/api dev",
+    "api:build": "pnpm --filter @tribely/api build",
+    "api:start": "pnpm --filter @tribely/api start",
+    "api:db:generate": "pnpm --filter @tribely/api db:generate",
+    "api:db:migrate": "pnpm --filter @tribely/api db:migrate",
+    "mobile:run": "cd apps/mobile && flutter run",
+    "mobile:build:apk": "cd apps/mobile && flutter build apk",
+    "mobile:build:ios": "cd apps/mobile && flutter build ios",
+    "lint": "pnpm -r --parallel lint",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r --parallel test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}
