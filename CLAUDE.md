@@ -2,89 +2,228 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Conventions are *enforced* by skills in `.claude/skills/`.** CLAUDE.md is for the *why*; skills are the *how*. Skills are namespaced by target — `/api-*` for backend, `/mobile-*` for Flutter. Never use a backend skill on Flutter code or vice versa.
+
+## What Tribely is
+
+A mobile app where solo travelers create events (drinks, hike, museum, dinner) and others request to join. Launching in **Singapore first**. Some architectural decisions hinge on this — single-user mobile view, English-only MVP, deferred payments. Don't recommend Bali/Lisbon-first launch strategies.
+
 ## Repo shape
 
-Monorepo with a Flutter mobile app and a Hono/TypeScript backend. They co-evolve, so an API change usually requires a matching client change in the same PR.
-
 ```
-apps/api      — Hono + Prisma + Postgres backend
+apps/api      — Hono + Prisma + Postgres backend (modular monolith with domain events)
 apps/mobile   — Flutter app (Riverpod + go_router + Dio + fpdart)
 ```
 
-There is **no** `packages/shared`. A TS-only shared package can't be consumed by Flutter, so cross-language type sharing is deferred to OpenAPI codegen (Zod → OpenAPI spec → generated Dart client into `apps/mobile/lib/src/generated/`) when it's actually needed. Don't reintroduce `packages/shared` unless a second TS consumer exists (admin web, worker, etc.).
+The backend is a modular monolith structured so individual features can be extracted to their own services later by swapping the in-process event bus for NATS/Kafka — without changing feature code. Don't introduce microservices preemptively. Full first-time setup is in [README.md](./README.md).
 
 ## Commands
 
-### Backend (`apps/api`, run from repo root)
+### Backend
 
 ```bash
-pnpm install                    # install JS deps for the workspace
-pnpm api:dev                    # tsx watch on src/index.ts
-pnpm api:build                  # tsc → dist/
-pnpm api:start                  # node dist/index.js (after build)
-pnpm api:db:generate            # prisma generate
-pnpm api:db:migrate             # prisma migrate dev (creates migration + applies)
-pnpm --filter @tribely/api db:migrate:deploy   # production migrations
-pnpm --filter @tribely/api db:studio           # prisma studio
-pnpm --filter @tribely/api typecheck
-pnpm --filter @tribely/api test                # vitest run
-pnpm --filter @tribely/api test:watch
+npm install                                     # install JS deps for the workspace
+npm run api:dev                                 # tsx watch
+npm run api:dev:fresh                           # kill any THIS-project process on port 3000, then start
+npm run api:kill-port                           # safely free port 3000 (refuses to kill processes from other projects)
+npm run api:build                               # tsc → dist/
+npm run api:db:migrate                          # prisma migrate dev (applies pending; prompts for name on schema drift)
+npm run api:db:migrate:create                   # prisma migrate dev --create-only (generate without applying)
+npm run api:db:studio
+npm run typecheck                               # all workspaces
+npm run test                                    # all workspaces
+npm run --workspace=@tribely/api test path/to/foo.test.ts   # single test
 ```
 
-Single test: `pnpm --filter @tribely/api exec vitest run path/to/foo.test.ts` (or `-t "test name"` for grep).
+`apps/api/.env` must exist before `npm run api:dev`. Copy `.env.example`; set `DATABASE_URL` and a `JWT_SECRET` of ≥32 chars. Env is parsed by Zod at boot — invalid values throw.
 
-`apps/api/.env` must exist before `pnpm api:dev` works. Copy `.env.example` and set `DATABASE_URL` and a `JWT_SECRET` of ≥32 chars — env is parsed by Zod at boot and will throw on invalid values (`apps/api/src/core/config/env.ts`).
-
-### Mobile (`apps/mobile`)
+### Mobile
 
 ```bash
-melos bootstrap                                          # pub get across Flutter packages
-cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # one-time, fills in iOS/Android folders (non-destructive)
-flutter run --dart-define=API_BASE_URL=http://localhost:3000
+melos bootstrap
+cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # REQUIRED on first run — repo ships without ios/android folders
+flutter run --dart-define=API_BASE_URL=http://localhost:3000                   # http://10.0.2.2:3000 on Android emulator
 melos run analyze
 melos run test
 melos run build_runner          # one-shot codegen
-melos run build_runner:watch
+cd apps/mobile && flutter test test/path/to/foo_test.dart                      # single test
 ```
 
-Single Flutter test: `cd apps/mobile && flutter test test/path/to/foo_test.dart`.
+### Cross-stack
 
-Android emulator → use `http://10.0.2.2:3000` instead of `localhost` for the API base URL.
+```bash
+npm run migrate                 # api:db:migrate + mobile:codegen
+npm run codegen                 # api:db:generate + mobile:codegen
+```
 
-## Architecture (Clean Architecture / DDD)
+## Architecture — backend (`apps/api`)
 
-Both apps use the **same three-layer split** per feature: `domain/` → `data/` → `presentation/`. Cross-feature plumbing lives in `core/`. Match the existing `auth/` feature exactly when adding a new feature — it's the canonical template.
+Sources: [Robert Martin's Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), [Eric Evans's DDD layered architecture](https://www.domainlanguage.com/ddd/), [Domain-Driven Hexagon](https://github.com/Sairyss/domain-driven-hexagon), [Ardalis Clean Architecture](https://github.com/ardalis/cleanarchitecture).
 
-### The non-obvious conventions
+### Layers (per feature)
 
-These differ from typical Flutter Clean Architecture tutorials and were chosen deliberately. Don't "fix" them:
+```
+features/<name>/
+  domain/                              # Enterprise business rules. ZERO infra imports.
+    entities/                          # Aggregate roots — extend AggregateRoot, methods not data bags
+    value-objects/                     # Email, Password — private ctor + create() factory
+    events/                            # Domain events this feature emits
+    services/                          # ONLY true domain services (stateless ops across aggregates)
+    repositories/                      # Interfaces — methods accept optional TxContext
+    ports/                             # Outbound interfaces: PasswordHasher, TokenIssuer, Mailer, Clock
+  application/                         # Application business rules — orchestration only
+    usecases/                          # One class per user intent. Constructor injection.
+                                       # Wraps state-changing work in unitOfWork.run(...)
+  infrastructure/                      # Driven adapters
+    persistence/                       # <aggregate>.prisma-repository.ts + <aggregate>.mapper.ts
+    adapters/                          # Concrete impls of domain ports — JWT, argon2, mailer, clock
+  presentation/                        # Driving adapters
+    http/  controllers/  routes/  schemas/   # Zod schemas
+    events/                            # Subscribers — translate bus events into use case calls
+```
 
-- **Datasource interfaces live in `data/datasources/`, colocated with their impl. NOT in `domain/`.** The Repository is the only data abstraction the domain knows about. Datasources are an internal detail of the repository (e.g., the repo coordinates `RemoteDataSource` + `LocalDataSource` for offline-first, cache-then-network, etc.). If domain knew about datasources, the repository pattern would be leaking its implementation.
-- **Domain has `entities/`, NOT `models/`.** Models (DTOs with JSON serialization) live in `data/models/` and own the `toEntity()` mapper.
-- **`domain/services/` is reserved for genuine external dependencies the *business* cares about** — mailer, payment gateway, push, JWT token issuance. Not data fetching plumbing.
-- **One use case per user intent.** `SignInUseCase`, not `AuthUseCase.signIn(...)`. Use cases are the only thing controllers/StateNotifiers should call.
-- **Mobile repositories return `Either<Failure, T>` (fpdart); API repositories throw `AppError`.** This is asymmetric on purpose:
-  - API: throwing flows into Hono's `onError` middleware (`apps/api/src/core/middleware/error-handler.ts`) which produces a uniform `{ error: { code, message, details? } }` HTTP shape. Errors are constructed via the `AppError.validation/unauthorized/notFound/conflict/...` factories — don't throw raw `Error`.
-  - Mobile: UI needs to render error states declaratively, so failures are part of the type signature. The repository impl catches `DioException` and maps the inner `ServerException`/`NetworkException` to a typed `Failure` (see `auth_repository_impl.dart` `_runAuth` for the pattern to copy).
-- **Domain layer never imports from `data/` or `presentation/`.** Domain has no Prisma, no Dio, no Flutter, no Hono imports.
+### Why `application/` and `domain/` are separate (4-layer)
 
-### DI
+Robert Martin's Clean Architecture defines two distinct kinds of business rules:
 
-- **API**: hand-rolled DI in `apps/api/src/core/di/container.ts`. `buildContainer()` constructs all singletons in dependency order. Wire new use cases here, then expose them through controllers.
-- **Mobile**: `get_it` in `apps/mobile/lib/src/core/di/service_locator.dart` for the dependency graph; Riverpod providers in each feature wrap the use cases for UI consumption (`auth_providers.dart` is the template). The split: `get_it` for "what does the app depend on" (set up once at boot), Riverpod for "what does this widget tree depend on" (with rebuild semantics).
+- **Enterprise Business Rules** (Evans's Domain Layer) — exist regardless of any application. "A user has an email." Embodied as Entities, Value Objects, Aggregates.
+- **Application Business Rules** (Evans's Application Layer) — specific to *this* application's flows. "Sign-up creates a credential AND a user atomically and emits two events." Embodied as use cases.
 
-### Routes & state
+The split gives reusability (domain works for API + ops CLI + scheduled jobs), testability (domain tests are pure), and future extraction (domain travels untouched when extracting a service).
 
-- API: routes are built per-feature (`buildAuthRoutes(container)`) and mounted in `apps/api/src/core/../app.ts`. Validation uses `zValidator` from `@hono/zod-validator`; the schema files in `presentation/schemas/` are the source of truth for both validation and types.
-- Mobile: `go_router` in `apps/mobile/lib/src/core/router/app_router.dart`. Auth state is a sealed class hierarchy (`AuthState` → `AuthInitial`/`AuthLoading`/`AuthAuthenticated`/`AuthUnauthenticated`/`AuthError`); pages `ref.listen` for transitions and `ref.watch` for render state.
+### Why `infrastructure/` and `presentation/` are separate (driven vs. driving adapters)
 
-## Adding a new feature
+Hexagonal architecture: every adapter either *receives* a call from outside (driving — HTTP controller, event subscriber, CLI) or *makes* a call outside (driven — DB repository, mailer, payment gateway). They sit on opposite sides of the application core.
 
-1. **Backend** — duplicate `apps/api/src/features/auth/`, rename, edit. Register use cases in `core/di/container.ts`. Mount routes in `core/../app.ts`.
-2. **Mobile** — duplicate `apps/mobile/lib/src/features/auth/`, rename. Register datasource/repository/use cases in `core/di/service_locator.dart`. Add routes in `core/router/app_router.dart`. Build a Riverpod provider file matching `auth_providers.dart`.
+A subscriber listens for an event and calls a use case — same role as a controller, just for the bus instead of HTTP. So subscribers live in `presentation/events/`, not `application/`.
 
-Don't introduce a new layering shape per feature — consistency is the point.
+### Aggregates and events
+
+Aggregates extend `AggregateRoot` (in `core/domain/`). State-changing methods record events. Application services pull events off the aggregate after a successful operation and publish them via `EventPublisher` inside the same `UnitOfWork`:
+
+```typescript
+const credential = Credential.issue({ userId, passwordHash, now });   // records event
+await unitOfWork.run(async (ctx) => {
+  await credentials.save(credential, ctx);
+  await events.publish(ctx, ...credential.pullEvents());              // atomic with save
+});
+```
+
+IDs are generated by the use case via `createId()` from `@paralleldrive/cuid2`, NOT by the database. This keeps the domain authoritative over identity. `Aggregate.create({ id, ... })` accepts its id explicitly.
+
+### Transactional outbox
+
+`EventPublisher.publish(ctx, ...events)` writes to `outbox_events` in the supplied transaction. The `OutboxDispatcher` polls and dispatches via `EventBus`. At-least-once delivery — **handlers must be idempotent**.
+
+### TxContext is opaque to the domain
+
+`UnitOfWork.run(work)` passes a `TxContext` to the closure. Domain code treats it as an opaque marker — only infrastructure adapters (via `unwrapTx` in `core/db/prisma-unit-of-work.ts`) can extract the underlying Prisma transaction client. **No Prisma type leaks into the domain.**
+
+### Bounded-context rule
+
+Feature B never queries feature A's tables directly. It either:
+1. Calls A's repository through its public interface (cross-feature import allowed for *interfaces*, never impls).
+2. Subscribes to A's domain events and maintains its own read model (preferred for true decoupling).
+
+## Architecture — mobile (`apps/mobile`)
+
+Sources: [TDD Clean Architecture for Flutter (Reso Coder)](https://github.com/ResoCoder/flutter-tdd-clean-architecture-course), [Flutter Clean Architecture with Riverpod](https://github.com/uuttssaavv/flutter-clean-architecture-riverpod).
+
+### Layers (per feature) — 3 layers, NOT 4
+
+```
+features/<snake_name>/
+  domain/                              # Pure Dart — no Flutter, no Dio, no Riverpod
+    entities/                          # Equatable classes
+    repositories/                      # Abstract interfaces returning Either<Failure, T>
+    usecases/                          # Implements UseCase<T, Params>; Future<Either<Failure, T>>
+  data/
+    models/                            # JSON serialization + toEntity()
+    datasources/                       # RemoteDataSource (interface + impl colocated)
+    repositories/                      # Concrete impls — catch DioException → Failure
+  presentation/
+    pages/                             # ConsumerWidget screens
+    widgets/                           # Feature-scoped widgets
+    providers/                         # Riverpod providers wiring use cases
+    controllers/                       # StateNotifier — owns state transitions
+    state/                             # Sealed state classes
+```
+
+### Why Flutter is 3-layer (NOT 4-layer like the API)
+
+Flutter use cases are thin wrappers: `call(params) => repository.method()`. They don't orchestrate transactions, multiple aggregates, or events. Adding an `application/` layer for thin wrappers is over-engineering on the client. Reso Coder's tutorial and the Riverpod community examples both keep use cases in `domain/usecases/` — we follow that convention. **The asymmetry is intentional**, not an inconsistency to "fix."
+
+### Why mobile keeps `data/datasources/` (the API doesn't)
+
+On the API, Prisma is the persistence layer — a separate datasource layer adds dead weight. On the mobile, the datasource layer is meaningful (REST + cache + local DB are genuinely different sources, and the repository orchestrates them). The Flutter community convention earns its keep here.
+
+### Why repositories return `Either<Failure, T>` on mobile but throw on API
+
+- API: throwing `AppError` flows into Hono's `onError` middleware producing a uniform HTTP shape.
+- Mobile: UI needs to render error states declaratively; failures are part of the type signature, eliminating uncaught-exception UI bugs.
+
+## Common conventions across both stacks
+
+### What is a "feature"
+
+A feature folder = a **bounded context**: a slice of the domain with its own ubiquitous language, its own aggregate(s), its own lifecycle.
+
+**Tests for "is this a feature?":**
+1. Owns at least one aggregate root + persistence nobody else writes to (backend) / a coherent set of screens with their own state (mobile).
+2. Has its own verbs the business cares about (`CreateEvent`, `ApproveJoinRequest`).
+3. Could be extracted to its own service (backend) or its own package (mobile) later without rewriting it.
+4. The domain expert recognizes its name as a thing in the business.
+
+**NOT a feature:**
+- Infrastructure (event bus, file storage, logging) → `core/`.
+- Only invoked from one feature with no independent lifecycle → sub-concept inside that feature.
+- Data another feature already owns (avatar upload is part of `users`).
+
+**Naming:** plural noun, kebab-case backend (`events`, `join-requests`), snake_case mobile (`events`, `join_requests`).
+
+### One use case per intent
+
+`CreateEventUseCase`, not `EventsUseCase.create(...)`. One file per intent. Both stacks.
+
+## Adding new code — use the skills
+
+```
+# Backend
+/api-new-feature <plural-kebab-name>
+/api-new-entity <feature> <SingularName>
+/api-new-usecase <feature> <verb-noun>
+/api-new-event <feature> <verb-past>
+/api-new-value-object <feature> <Name>
+/api-create-migration [<migration-name>]
+/api-review-architecture [<git-ref>]
+
+# Mobile
+/mobile-new-feature <plural-kebab-name>
+/mobile-new-usecase <feature> <verb-noun>
+/mobile-new-page <feature> <page-name> [--stateful]
+/mobile-review-architecture [<git-ref>]
+```
+
+Full skill index: [.claude/skills/README.md](./.claude/skills/README.md). Skills validate input and refuse misapplied invocations (singular feature names, wrong stack, past-tense use case verbs, etc.).
+
+### Manual wiring after scaffolding (deliberately not automated)
+
+After scaffolding, you must:
+1. Register dependencies in `apps/api/src/core/di/container.ts` or `apps/mobile/lib/src/core/di/service_locator.dart`.
+2. Mount routes (`apps/api/src/app.ts` for backend, `apps/mobile/lib/src/core/router/app_router.dart` for mobile).
+3. Backend subscribers: call `register<Name>Subscribers(bus)` from `buildContainer()`.
+4. Backend schema changes: use `/api-create-migration`.
+
+## Common gotchas
+
+- **Events must be past-tense** (`event-created`, not `create-event` — that's a use case).
+- **No `data/datasources/` on the API.** Backend uses `infrastructure/persistence/<aggregate>.prisma-repository.ts` directly.
+- **No Prisma types in `domain/` or `application/` (backend).** Only `@/core/db/unit-of-work.port` is allowed. The opaque `TxContext` is intentional.
+- **Mobile is single-user-view-only right now.** The mobile `auth` feature owns its own User entity for "the current user." When mobile starts viewing other users' profiles, split into a `users` feature mirroring the backend.
+- **Mobile `flutter create` is required on first run** — repo ships without `ios/`/`android/` folders.
+- **`outbox_events` rows are not deleted after dispatch** — dispatcher sets `processedAt`. Migrations that drop the table lose in-flight events.
+- **Don't apply API skills to mobile or vice versa.** They have intentionally different layering. Skills carry scope guards but the AI should also reject misapplied invocations on its own.
 
 ## Collaboration style
 
-The repo owner explicitly invites pushback on architectural choices. When something is asked for that conflicts with the conventions above, name the trade-off and propose the alternative rather than silently complying or silently refusing.
+The repo owner explicitly invites pushback on architectural choices. When something is asked for that conflicts with the conventions above, name the trade-off and propose the alternative rather than silently complying or silently refusing. Conventions exist for documented reasons — but they're not laws. Argue back when a rule isn't earning its weight.

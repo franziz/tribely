@@ -2,6 +2,10 @@
 
 Monorepo containing the Tribely mobile app (Flutter) and API (Hono + TypeScript).
 
+## What Tribely is
+
+Tribely is a mobile app where solo travelers create events (drinks, hike, museum, dinner) and others request to join. Launching in **Singapore first**.
+
 ## Why a monorepo
 
 The mobile and backend co-evolve: an API change usually requires a matching client change. Keeping both in one repo means:
@@ -10,76 +14,26 @@ The mobile and backend co-evolve: an API change usually requires a matching clie
 - Atomic commits that span both sides.
 - One repo to clone, one place to track issues.
 
-Cross-language type sharing (TS ↔ Dart) isn't possible via direct import. When we need it, the plan is **OpenAPI codegen**: define schemas once on the API side (Zod), generate an OpenAPI spec, generate a typed Dart client into `apps/mobile/lib/src/generated/`. Until that's set up, types are duplicated between sides on purpose — kept in sync manually because there's only one feature.
+Cross-language type sharing (TS ↔ Dart) isn't possible via direct import. When we need it, the plan is **OpenAPI codegen**: define schemas once on the API side (Zod), generate an OpenAPI spec, generate a typed Dart client into `apps/mobile/lib/src/generated/`. Until then, types are duplicated and kept in sync manually.
 
 ## Layout
 
 ```
 .
 ├── apps/
-│   ├── api/          # Hono + Prisma + Postgres backend
-│   └── mobile/       # Flutter app (Riverpod + go_router + Dio)
-├── pnpm-workspace.yaml
-├── melos.yaml
+│   ├── api/          # Hono + Prisma + Postgres backend (4-layer Clean Arch)
+│   └── mobile/       # Flutter app (3-layer Clean Arch, Riverpod + go_router + Dio)
+├── .claude/skills/   # Project-scoped scaffolding + review skills (api-*, mobile-*)
+├── package.json      # npm workspaces — only TS packages
+├── melos.yaml        # Melos — Flutter packages
 └── tsconfig.base.json
 ```
-
-## Architecture (Clean Architecture / DDD)
-
-Both apps follow the same layering. **Repository is the only data abstraction the domain knows about.** Datasources are an internal detail of the data layer.
-
-### API (`apps/api/src/features/<name>/`)
-
-```
-domain/
-  entities/            Pure business types (no I/O)
-  repositories/        Interfaces — what domain can fetch/save
-  services/            External-dependency interfaces (mailer, payment, push)
-  usecases/            One class per user intent — the only thing controllers call
-data/
-  models/              DTOs / Prisma row mappers (toEntity)
-  datasources/         Interface + Prisma impl colocated
-  repositories/        Concrete impls of domain repositories
-  services/            Concrete impls of domain services (jwt, sendgrid, etc.)
-presentation/
-  routes/              Hono route registration
-  controllers/         Thin glue between request → use case → response
-  schemas/             Zod schemas (validation + types)
-```
-
-Cross-feature plumbing lives in `apps/api/src/core/`: env config, Prisma client, error types, Hono middleware, DI container.
-
-### Mobile (`apps/mobile/lib/src/features/<name>/`)
-
-```
-domain/
-  entities/            Pure Dart classes
-  repositories/        Abstract interfaces returning Either<Failure, T>
-  usecases/            Implements UseCase<T, Params>
-data/
-  models/              fromJson / toEntity DTOs
-  datasources/         AuthRemoteDatasource + Impl colocated
-  repositories/        Concrete impls catching DioException → Failure
-presentation/
-  pages/               ConsumerWidget screens
-  widgets/             Feature-scoped widgets
-  providers/           Riverpod providers (use case + controller wiring)
-  controllers/         StateNotifier — owns AuthState transitions
-  state/               Sealed state classes
-```
-
-Cross-feature plumbing lives in `apps/mobile/lib/src/core/`: config, DI (`get_it`), networking (`dio`), routing (`go_router`), error types, theme, secure storage.
-
-### Why repositories return `Either<Failure, T>` on mobile but throw on API
-
-- API: throwing `AppError` is fine because Hono's `onError` middleware converts to HTTP responses uniformly.
-- Mobile: UI needs to render error states declaratively. `Either` makes failures part of the type, eliminating uncaught-exception UI bugs.
 
 ## Setup
 
 ### Prereqs
 
-- Node ≥ 20.18, pnpm ≥ 9
+- Node ≥ 20.18, npm ≥ 10
 - Flutter ≥ 3.24, Dart ≥ 3.5
 - Postgres 15+ (or Docker)
 - Melos (Flutter task runner): `dart pub global activate melos`
@@ -88,17 +42,17 @@ Cross-feature plumbing lives in `apps/mobile/lib/src/core/`: config, DI (`get_it
 
 ```bash
 # Install JS deps
-pnpm install
+npm install
 
 # Bootstrap Flutter packages
 melos bootstrap
 
 # Set up DB
 cp apps/api/.env.example apps/api/.env
-# edit DATABASE_URL + JWT_SECRET
-pnpm api:db:migrate
+# edit DATABASE_URL + JWT_SECRET (≥32 chars)
+npm run api:db:migrate
 
-# Add Flutter platform code (run once)
+# Add Flutter platform code (REQUIRED — repo ships without ios/android folders)
 cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .
 ```
 
@@ -106,25 +60,33 @@ cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .
 
 ```bash
 # Run API
-pnpm api:dev
+npm run api:dev
 
 # Run mobile (with API base URL override)
 cd apps/mobile
-flutter run --dart-define=API_BASE_URL=http://localhost:3000
+flutter run --dart-define=API_BASE_URL=http://localhost:3000   # http://10.0.2.2:3000 on Android emulator
 
-# Codegen (freezed/json_serializable)
-melos run build_runner
+# Run all migrations + codegen across the monorepo
+npm run migrate
+
+# Just codegen
+npm run codegen
 ```
 
-## Adding a new feature
+## Architecture (Clean Architecture / DDD)
 
-1. **Backend** — copy the `auth` feature folder under `apps/api/src/features/`, rename, edit. Wire it into `core/di/container.ts` and `app.ts`.
-2. **Mobile** — copy the `auth` feature folder under `apps/mobile/lib/src/features/`, rename. Register dependencies in `core/di/service_locator.dart` and add routes in `core/router/app_router.dart`.
-3. **Shared types across stack** — duplicate the type on both sides for now. When duplication starts to hurt, add OpenAPI codegen (Zod → OpenAPI → Dart client) rather than reaching for a shared TS package — Flutter can't import TS directly.
+Both apps follow Clean Architecture, but deliberately use different layer counts:
 
-## Conventions
+- **Backend = 4-layer** (`domain/application/infrastructure/presentation`) — backend use cases orchestrate transactions, multiple aggregates, and domain events; the application layer earns its keep.
+- **Flutter = 3-layer** (`domain/data/presentation`) — Flutter use cases are thin wrappers around a repository call; an `application/` layer would just add noise.
 
-- One use case per user intent (`SignInUseCase`, not `AuthUseCase.signIn(...)`).
-- Domain knows about repositories and (occasionally) domain services. Domain never imports anything from `data/`.
-- Datasource interfaces live in `data/datasources/` next to their implementation, not in `domain/`. The repository is the abstraction the domain depends on.
-- Models (`data/models/`) own JSON serialization and the `toEntity()` mapper.
+See [CLAUDE.md](./CLAUDE.md) for the full architecture decisions, citations to canonical sources (Robert Martin, Eric Evans, Reso Coder), and the reasoning behind every layer.
+
+## Adding new code
+
+Use the project skills under `.claude/skills/` — they enforce the layout consistently:
+
+- Backend: `/api-new-feature`, `/api-new-entity`, `/api-new-usecase`, `/api-new-event`, `/api-new-value-object`, `/api-create-migration`, `/api-review-architecture`.
+- Mobile: `/mobile-new-feature`, `/mobile-new-usecase`, `/mobile-new-page`, `/mobile-review-architecture`.
+
+Each skill validates input and refuses bad ones (singular feature names, past-tense use case verbs, wrong target stack). Manual wiring (DI, route mounting, Prisma schema) stays manual on purpose.
