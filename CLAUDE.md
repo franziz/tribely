@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Conventions are *enforced* by skills in `.claude/skills/`.** CLAUDE.md is for the *why*; skills are the *how*. Skills are namespaced by target — `/api-*` for backend, `/mobile-*` for Flutter. Never use a backend skill on Flutter code or vice versa.
+> **Conventions are _enforced_ by skills in `.claude/skills/`.** CLAUDE.md is for the _why_; skills are the _how_. Skills are namespaced by target — `/api-*` for backend, `/mobile-*` for Flutter. Never use a backend skill on Flutter code or vice versa.
 
 ## What Tribely is
 
@@ -39,17 +39,16 @@ npm run --workspace=@tribely/api test path/to/foo.test.ts   # single test
 
 ### Mobile
 
-The mobile workspace uses **Melos 7.x + Dart 3.6+ Pub Workspaces**. Configuration lives in the root `pubspec.yaml` under the `melos:` key (NOT a separate `melos.yaml` — that's the deprecated 6.x style). `apps/mobile/pubspec.yaml` declares `resolution: workspace`.
+The mobile package is a single Flutter app at `apps/mobile/`. There is **no Melos and no Pub Workspaces** — Melos was dropped in TRI-1 because Pub Workspaces breaks `custom_lint`'s analyzer plugin in CI, and with one Flutter package the orchestration overhead doesn't earn its weight. Reintroduce Melos (and possibly Pub Workspaces) when a second Flutter package arrives AND `custom_lint` ships verified workspace support.
 
 ```bash
-dart pub global activate melos                                                  # one-time
-dart pub get                                                                    # bootstraps the pub workspace from root pubspec.yaml
+cd apps/mobile && flutter pub get                                              # fetch deps
 cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # REQUIRED on first run — repo ships without ios/android folders
 npm run mobile:run                                                              # reads apps/mobile/.env.json (use http://10.0.2.2:<port> on Android emulator)
-melos run analyze
-melos run test
-melos run build_runner          # one-shot codegen
-melos run build_runner:watch    # codegen watch mode
+npm run mobile:analyze                                                          # cd apps/mobile && flutter analyze
+npm run mobile:test                                                             # cd apps/mobile && flutter test
+npm run mobile:codegen                                                          # cd apps/mobile && dart run build_runner build --delete-conflicting-outputs
+cd apps/mobile && dart run build_runner watch --delete-conflicting-outputs     # watch mode
 cd apps/mobile && flutter test test/path/to/foo_test.dart                      # single test
 ```
 
@@ -91,13 +90,13 @@ features/<name>/
 Robert Martin's Clean Architecture defines two distinct kinds of business rules:
 
 - **Enterprise Business Rules** (Evans's Domain Layer) — exist regardless of any application. "A user has an email." Embodied as Entities, Value Objects, Aggregates.
-- **Application Business Rules** (Evans's Application Layer) — specific to *this* application's flows. "Sign-up creates a credential AND a user atomically and emits two events." Embodied as use cases.
+- **Application Business Rules** (Evans's Application Layer) — specific to _this_ application's flows. "Sign-up creates a credential AND a user atomically and emits two events." Embodied as use cases.
 
 The split gives reusability (domain works for API + ops CLI + scheduled jobs), testability (domain tests are pure), and future extraction (domain travels untouched when extracting a service).
 
 ### Why `infrastructure/` and `presentation/` are separate (driven vs. driving adapters)
 
-Hexagonal architecture: every adapter either *receives* a call from outside (driving — HTTP controller, event subscriber, CLI) or *makes* a call outside (driven — DB repository, mailer, payment gateway). They sit on opposite sides of the application core.
+Hexagonal architecture: every adapter either _receives_ a call from outside (driving — HTTP controller, event subscriber, CLI) or _makes_ a call outside (driven — DB repository, mailer, payment gateway). They sit on opposite sides of the application core.
 
 A subscriber listens for an event and calls a use case — same role as a controller, just for the bus instead of HTTP. So subscribers live in `presentation/events/`, not `application/`.
 
@@ -106,10 +105,10 @@ A subscriber listens for an event and calls a use case — same role as a contro
 Aggregates extend `AggregateRoot` (in `core/domain/`). State-changing methods record events. Application services pull events off the aggregate after a successful operation and publish them via `EventPublisher` inside the same `UnitOfWork`:
 
 ```typescript
-const credential = Credential.issue({ userId, passwordHash, now });   // records event
+const credential = Credential.issue({ userId, passwordHash, now }); // records event
 await unitOfWork.run(async (ctx) => {
   await credentials.save(credential, ctx);
-  await events.publish(ctx, ...credential.pullEvents());              // atomic with save
+  await events.publish(ctx, ...credential.pullEvents()); // atomic with save
 });
 ```
 
@@ -126,7 +125,8 @@ IDs are generated by the use case via `createId()` from `@paralleldrive/cuid2`, 
 ### Bounded-context rule
 
 Feature B never queries feature A's tables directly. It either:
-1. Calls A's repository through its public interface (cross-feature import allowed for *interfaces*, never impls).
+
+1. Calls A's repository through its public interface (cross-feature import allowed for _interfaces_, never impls).
 2. Subscribes to A's domain events and maintains its own read model (preferred for true decoupling).
 
 ## Architecture — mobile (`apps/mobile`)
@@ -173,12 +173,14 @@ On the API, Prisma is the persistence layer — a separate datasource layer adds
 A feature folder = a **bounded context**: a slice of the domain with its own ubiquitous language, its own aggregate(s), its own lifecycle.
 
 **Tests for "is this a feature?":**
+
 1. Owns at least one aggregate root + persistence nobody else writes to (backend) / a coherent set of screens with their own state (mobile).
 2. Has its own verbs the business cares about (`CreateEvent`, `ApproveJoinRequest`).
 3. Could be extracted to its own service (backend) or its own package (mobile) later without rewriting it.
 4. The domain expert recognizes its name as a thing in the business.
 
 **NOT a feature:**
+
 - Infrastructure (event bus, file storage, logging) → `core/`.
 - Only invoked from one feature with no independent lifecycle → sub-concept inside that feature.
 - Data another feature already owns (avatar upload is part of `users`).
@@ -213,6 +215,7 @@ Full skill index: [.claude/skills/README.md](./.claude/skills/README.md). Skills
 ### Manual wiring after scaffolding (deliberately not automated)
 
 After scaffolding, you must:
+
 1. Register dependencies in `apps/api/src/core/di/container.ts` or `apps/mobile/lib/src/core/di/service_locator.dart`.
 2. Mount routes (`apps/api/src/app.ts` for backend, `apps/mobile/lib/src/core/router/app_router.dart` for mobile).
 3. Backend subscribers: call `register<Name>Subscribers(bus)` from `buildContainer()`.

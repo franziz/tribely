@@ -12,14 +12,16 @@ description: BACKEND ONLY. Scaffold a domain event in apps/api/src/features/<fea
 **Scope guard:** Backend API only. Domain events are a backend concept (transactional outbox, EventBus, subscribers). Mobile reacts to backend events through API responses, not its own event system.
 
 Examples:
+
 - `/api-new-event events event-created` → constant `EVENT_CREATED = 'events.eventCreated'`
 - `/api-new-event join-requests request-approved` → constant `REQUEST_APPROVED = 'joinRequests.requestApproved'`
 
 ## Validate
 
 REFUSE if:
+
 - `<feature>` doesn't exist.
-- Name is not in past tense — events record what *happened*. Use `event-created` not `create-event` (that's a use case).
+- Name is not in past tense — events record what _happened_. Use `event-created` not `create-event` (that's a use case).
 - Would overwrite an existing event file.
 
 ## Scaffold

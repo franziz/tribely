@@ -11,9 +11,7 @@ export type CredentialIssuedEvent = DomainEvent<CredentialIssuedPayload> & {
   type: typeof CREDENTIAL_ISSUED;
 };
 
-export const credentialIssued = (
-  payload: CredentialIssuedPayload,
-): CredentialIssuedEvent => ({
+export const credentialIssued = (payload: CredentialIssuedPayload): CredentialIssuedEvent => ({
   type: CREDENTIAL_ISSUED,
   aggregateType: 'Credential',
   aggregateId: payload.userId,

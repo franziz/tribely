@@ -1,0 +1,36 @@
+name: Setup Mobile
+description: Install Flutter (version from apps/mobile/pubspec.yaml), fetch pub deps, and run build_runner codegen.
+
+inputs:
+  flutter-channel:
+    description: Flutter release channel.
+    required: false
+    default: stable
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Flutter
+      uses: subosito/flutter-action@e938fdf56512cc96ef2f93601a5a40bde3801046 # v2.19.0
+      with:
+        channel: ${{ inputs.flutter-channel }}
+        # SOT: apps/mobile/pubspec.yaml `environment.flutter`. Bumping Flutter is
+        # one file edit, not three.
+        flutter-version-file: apps/mobile/pubspec.yaml
+        # Cache is intentionally OFF. subosito's pub-cache restore left partial
+        # state that broke custom_lint resolution: pub get reported "Got
+        # dependencies" but riverpod_lint's lib files were missing on disk.
+        # Cost: ~1–2 min extra per run for fresh Flutter SDK + pub get. Worth
+        # it for reliability. Revisit when subosito releases a version with
+        # finer cache control (split SDK vs pub-cache).
+        cache: false
+
+    - name: Pub get
+      shell: bash
+      working-directory: apps/mobile
+      run: flutter pub get
+
+    - name: Build runner (codegen)
+      shell: bash
+      working-directory: apps/mobile
+      run: dart run build_runner build --delete-conflicting-outputs

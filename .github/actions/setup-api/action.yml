@@ -1,0 +1,25 @@
+name: Setup API
+description: Install Node (from .nvmrc), restore npm cache, install deps, generate Prisma client.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Generate Prisma client
+      shell: bash
+      # Prisma 7 reads `prisma.config.ts` even for `generate`, and that config
+      # resolves DATABASE_URL via env() — so the var must exist or generation
+      # fails. The value isn't used (no DB connection during codegen); it just
+      # needs to parse as a URL.
+      env:
+        DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+      run: npm run api:db:generate

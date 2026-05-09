@@ -12,12 +12,14 @@ description: FLUTTER ONLY. Scaffold a Flutter use case in apps/mobile/lib/src/fe
 **Scope guard:** Flutter only. Flutter use cases are thin wrappers around a single repository call returning `Either<Failure, T>` (Reso Coder convention). Backend use cases orchestrate transactions and events — completely different shape. Use `/api-new-usecase` for the API.
 
 Examples:
+
 - `/mobile-new-usecase events create-event` → `events/domain/usecases/create_event_usecase.dart` → class `CreateEventUseCase`
 - `/mobile-new-usecase users get-profile` → class `GetProfileUseCase`
 
 ## Validate
 
 REFUSE if:
+
 - `<feature>` doesn't exist under `apps/mobile/lib/src/features/`.
 - Verb is past tense (use cases are intents — present tense).
 - File would overwrite an existing one.

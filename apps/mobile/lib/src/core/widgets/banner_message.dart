@@ -21,12 +21,13 @@ class BannerMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final accentSoft =
-        dark ? TribelyColors.nightAccentSoft : TribelyColors.paperAccentSoft;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final accentSoft = dark
+        ? TribelyColors.nightAccentSoft
+        : TribelyColors.paperAccentSoft;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
 
     return Container(
       decoration: BoxDecoration(
@@ -44,9 +45,9 @@ class BannerMessage extends StatelessWidget {
               children: [
                 Text(
                   message,
-                  style: TribelyType.bodyM(ink).copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TribelyType.bodyM(
+                    ink,
+                  ).copyWith(fontWeight: FontWeight.w500),
                 ),
                 if (action != null) ...[
                   const SizedBox(height: 6),

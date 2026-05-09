@@ -28,6 +28,7 @@ If you're unsure whether the concept is a feature, ask the user the four checkli
 ## Walk through the bounded-context checklist
 
 Before creating files, confirm with the user:
+
 1. Does this own at least one aggregate root + persistence nobody else writes to?
 2. Does it have its own verbs the business cares about?
 3. Could it be extracted to its own service later without rewriting it?

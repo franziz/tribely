@@ -35,6 +35,7 @@ Each rule has a name, a check, and a citation. Cite verbatim.
 ### domain-purity
 
 **Check:** Files under `apps/api/src/features/*/domain/**/*.ts` must NOT import from:
+
 - `@prisma/client`
 - `hono` or `@hono/*`
 - `dio`, `argon2`, `jose`, `bcrypt`, `nodemailer`, `axios`, `node:fs`, `node:net`, `node:http`
@@ -102,6 +103,7 @@ If no violations: `✓ No architecture violations found across <N> files.`
 ## Be honest about limits
 
 The skill catches structural and import-graph issues. It does NOT catch:
+
 - Wrong domain modeling
 - Missing events (a state change that should emit one but doesn't)
 - Use cases that orchestrate too much

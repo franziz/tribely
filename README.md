@@ -87,38 +87,38 @@ cp apps/mobile/.env.example.json apps/mobile/.env.json
 
 **Backend (`apps/api`)**
 
-| Command | Purpose |
-| --- | --- |
-| `npm run api:dev` | tsx watch on `src/index.ts` |
-| `npm run api:dev:fresh` | Free port 3000 (only this project's process), then start dev |
-| `npm run api:kill-port` | Free port 3000 safely (refuses processes from other projects) |
-| `npm run api:build` | tsc → `dist/` |
-| `npm run api:start` | `node dist/index.js` (after build) |
-| `npm run api:db:migrate` | Apply pending migrations + prompt for name on schema drift |
-| `npm run api:db:migrate:create` | Generate a migration file without applying |
-| `npm run api:db:studio` | Open Prisma Studio |
-| `npm run --workspace=@tribely/api test path/to/foo.test.ts` | Run a single test |
+| Command                                                     | Purpose                                                       |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `npm run api:dev`                                           | tsx watch on `src/index.ts`                                   |
+| `npm run api:dev:fresh`                                     | Free port 3000 (only this project's process), then start dev  |
+| `npm run api:kill-port`                                     | Free port 3000 safely (refuses processes from other projects) |
+| `npm run api:build`                                         | tsc → `dist/`                                                 |
+| `npm run api:start`                                         | `node dist/index.js` (after build)                            |
+| `npm run api:db:migrate`                                    | Apply pending migrations + prompt for name on schema drift    |
+| `npm run api:db:migrate:create`                             | Generate a migration file without applying                    |
+| `npm run api:db:studio`                                     | Open Prisma Studio                                            |
+| `npm run --workspace=@tribely/api test path/to/foo.test.ts` | Run a single test                                             |
 
 **Mobile (`apps/mobile`)**
 
-| Command | Purpose |
-| --- | --- |
-| `npm run mobile:run` | Run mobile (reads `apps/mobile/.env.json` via `--dart-define-from-file`) |
-| `npm run mobile:build:apk` / `mobile:build:ios` | Release build (also reads `.env.json`) |
-| `melos run analyze` | flutter analyze across packages |
-| `melos run test` | flutter test across packages |
-| `melos run build_runner` | One-shot codegen |
-| `melos run build_runner:watch` | Watch-mode codegen |
-| `flutter test test/path/to/foo_test.dart` | Run a single test |
+| Command                                         | Purpose                                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run mobile:run`                            | Run mobile (reads `apps/mobile/.env.json` via `--dart-define-from-file`) |
+| `npm run mobile:build:apk` / `mobile:build:ios` | Release build (also reads `.env.json`)                                   |
+| `melos run analyze`                             | flutter analyze across packages                                          |
+| `melos run test`                                | flutter test across packages                                             |
+| `melos run build_runner`                        | One-shot codegen                                                         |
+| `melos run build_runner:watch`                  | Watch-mode codegen                                                       |
+| `flutter test test/path/to/foo_test.dart`       | Run a single test                                                        |
 
 **Cross-stack (run from repo root)**
 
-| Command | Purpose |
-| --- | --- |
-| `npm run typecheck` | tsc --noEmit across all TS workspaces |
-| `npm run test` | vitest across all TS workspaces |
-| `npm run migrate` | API DB migrate + mobile codegen |
-| `npm run codegen` | API Prisma generate + mobile build_runner |
+| Command             | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `npm run typecheck` | tsc --noEmit across all TS workspaces     |
+| `npm run test`      | vitest across all TS workspaces           |
+| `npm run migrate`   | API DB migrate + mobile codegen           |
+| `npm run codegen`   | API Prisma generate + mobile build_runner |
 
 ---
 
@@ -126,12 +126,12 @@ cp apps/mobile/.env.example.json apps/mobile/.env.json
 
 Both apps follow Clean Architecture, but deliberately use different layer counts.
 
-|  | Backend (`apps/api`) | Mobile (`apps/mobile`) |
-| --- | --- | --- |
-| Layers | 4 — `domain` / `application` / `infrastructure` / `presentation` | 3 — `domain` / `data` / `presentation` |
-| Why | Use cases orchestrate transactions, multiple aggregates, events | Use cases are thin wrappers; an `application/` layer would add noise |
-| State | `AggregateRoot` records events; outbox guarantees atomicity | Riverpod 3 `Notifier` + sealed states + fpdart `Either<Failure, T>` |
-| Errors | Repositories throw `AppError`; Hono middleware uniforms it | Repositories return `Either<Failure, T>` for declarative UI states |
+|        | Backend (`apps/api`)                                             | Mobile (`apps/mobile`)                                               |
+| ------ | ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Layers | 4 — `domain` / `application` / `infrastructure` / `presentation` | 3 — `domain` / `data` / `presentation`                               |
+| Why    | Use cases orchestrate transactions, multiple aggregates, events  | Use cases are thin wrappers; an `application/` layer would add noise |
+| State  | `AggregateRoot` records events; outbox guarantees atomicity      | Riverpod 3 `Notifier` + sealed states + fpdart `Either<Failure, T>`  |
+| Errors | Repositories throw `AppError`; Hono middleware uniforms it       | Repositories return `Either<Failure, T>` for declarative UI states   |
 
 See [CLAUDE.md](./CLAUDE.md) for full conventions: citations (Robert Martin, Eric Evans, Domain-Driven Hexagon, Ardalis, Reso Coder), why each layer exists, ports/adapters, the bounded-context rule, common gotchas.
 
@@ -188,19 +188,19 @@ The full login design spec — rationale, screen-by-screen, all states, microcop
 
 Project-scoped Claude Code skills under `.claude/skills/` enforce the conventions. Each skill validates input and refuses misapplied invocations (singular feature names, past-tense use case verbs, wrong target stack).
 
-| Skill | Scope | Purpose |
-| --- | --- | --- |
-| `/api-new-feature` | Backend | Bootstrap a bounded-context feature (4-layer scaffold) |
-| `/api-new-entity` | Backend | Aggregate root + paired Prisma mapper |
-| `/api-new-usecase` | Backend | Orchestrating use case in `application/usecases/` |
-| `/api-new-event` | Backend | Domain event with `<feature>.<verbPastTense>` naming |
-| `/api-new-value-object` | Backend | VO with private ctor + `create()` factory |
-| `/api-create-migration` | Backend | Generate Prisma migration with AI-suggested name + destructive-change warnings |
-| `/api-review-architecture` | Backend | Check changed `apps/api/**` files against 13 architecture rules |
-| `/mobile-new-feature` | Mobile | Bootstrap a feature (3-layer scaffold, Reso Coder convention) |
-| `/mobile-new-usecase` | Mobile | Use case implementing `UseCase<T, Params>` returning `Future<Either<Failure, T>>` |
-| `/mobile-new-page` | Mobile | `ConsumerWidget` page; `--stateful` adds Notifier controller + sealed state |
-| `/mobile-review-architecture` | Mobile | Check changed `apps/mobile/lib/**` files against Flutter rules |
+| Skill                         | Scope   | Purpose                                                                           |
+| ----------------------------- | ------- | --------------------------------------------------------------------------------- |
+| `/api-new-feature`            | Backend | Bootstrap a bounded-context feature (4-layer scaffold)                            |
+| `/api-new-entity`             | Backend | Aggregate root + paired Prisma mapper                                             |
+| `/api-new-usecase`            | Backend | Orchestrating use case in `application/usecases/`                                 |
+| `/api-new-event`              | Backend | Domain event with `<feature>.<verbPastTense>` naming                              |
+| `/api-new-value-object`       | Backend | VO with private ctor + `create()` factory                                         |
+| `/api-create-migration`       | Backend | Generate Prisma migration with AI-suggested name + destructive-change warnings    |
+| `/api-review-architecture`    | Backend | Check changed `apps/api/**` files against 13 architecture rules                   |
+| `/mobile-new-feature`         | Mobile  | Bootstrap a feature (3-layer scaffold, Reso Coder convention)                     |
+| `/mobile-new-usecase`         | Mobile  | Use case implementing `UseCase<T, Params>` returning `Future<Either<Failure, T>>` |
+| `/mobile-new-page`            | Mobile  | `ConsumerWidget` page; `--stateful` adds Notifier controller + sealed state       |
+| `/mobile-review-architecture` | Mobile  | Check changed `apps/mobile/lib/**` files against Flutter rules                    |
 
 Manual wiring (DI registration, route mounting, Prisma schema edits) stays manual on purpose — those need judgement about exact placement.
 

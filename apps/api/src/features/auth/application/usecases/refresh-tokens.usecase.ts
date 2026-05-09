@@ -86,11 +86,7 @@ export class RefreshTokensUseCase {
     await this.unitOfWork.run(async (ctx) => {
       await this.refreshTokens.save(presented, ctx);
       await this.refreshTokens.save(newToken, ctx);
-      await this.events.publish(
-        ctx,
-        ...presented.pullEvents(),
-        ...newToken.pullEvents(),
-      );
+      await this.events.publish(ctx, ...presented.pullEvents(), ...newToken.pullEvents());
     });
 
     const accessToken = await this.accessTokens.issue({ userId: user.id, email: user.email.value });

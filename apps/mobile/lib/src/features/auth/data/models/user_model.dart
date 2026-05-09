@@ -10,12 +10,12 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: json['id'] as String,
-        email: json['email'] as String,
-        displayName: json['displayName'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
+    id: json['id'] as String,
+    email: json['email'] as String,
+    displayName: json['displayName'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    updatedAt: DateTime.parse(json['updatedAt'] as String),
+  );
 
   final String id;
   final String email;
@@ -24,10 +24,10 @@ class UserModel {
   final DateTime updatedAt;
 
   User toEntity() => User(
-        id: id,
-        email: email,
-        displayName: displayName,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-      );
+    id: id,
+    email: email,
+    displayName: displayName,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
 }

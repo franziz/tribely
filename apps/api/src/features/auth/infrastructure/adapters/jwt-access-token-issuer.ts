@@ -23,7 +23,7 @@ const parseDurationSeconds = (value: string): number => {
     case 'd':
       return n * 60 * 60 * 24;
     default:
-      throw new Error(`Invalid TTL unit: ${match[2]}`);
+      throw new Error(`Invalid TTL unit: ${match[2] ?? 'unknown'}`);
   }
 };
 
@@ -41,7 +41,7 @@ export class JwtAccessTokenIssuer implements AccessTokenIssuer {
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(subject.userId)
       .setIssuedAt()
-      .setExpirationTime(`${seconds}s`)
+      .setExpirationTime(`${seconds.toString()}s`)
       .sign(secret);
     return {
       value,

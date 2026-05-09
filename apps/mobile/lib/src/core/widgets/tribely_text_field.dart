@@ -59,11 +59,16 @@ class _TribelyTextFieldState extends State<TribelyTextField> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink = dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
     final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final border = dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
     final hasError = widget.errorText != null;
 
     final color = hasError ? accent : (_focused ? accent : border);
@@ -113,7 +118,10 @@ class _TribelyTextFieldState extends State<TribelyTextField> {
                 errorBorder: InputBorder.none,
                 focusedErrorBorder: InputBorder.none,
                 suffixIcon: widget.suffix,
-                suffixIconConstraints: const BoxConstraints(minHeight: 56, minWidth: 0),
+                suffixIconConstraints: const BoxConstraints(
+                  minHeight: 56,
+                  minWidth: 0,
+                ),
               ),
             ),
           ),

@@ -16,10 +16,7 @@ import 'package:flutter/material.dart';
 ///   - Cell size 6dp at density ~0.18 keeps the visual feel without the
 ///     ~600k-iteration paint of a denser sampling.
 class GrainOverlay extends StatelessWidget {
-  const GrainOverlay({
-    required this.opacity,
-    super.key,
-  });
+  const GrainOverlay({required this.opacity, super.key});
 
   /// Recommended: 0.03 light, 0.04 dark (per spec).
   final double opacity;
@@ -30,10 +27,7 @@ class GrainOverlay extends StatelessWidget {
       child: RepaintBoundary(
         child: Opacity(
           opacity: opacity,
-          child: CustomPaint(
-            painter: _GrainPainter(),
-            size: Size.infinite,
-          ),
+          child: CustomPaint(painter: _GrainPainter(), size: Size.infinite),
         ),
       ),
     );

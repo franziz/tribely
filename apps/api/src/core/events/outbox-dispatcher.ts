@@ -19,7 +19,7 @@ export class OutboxDispatcher {
   private readonly intervalMs: number;
   private readonly batchSize: number;
   private readonly maxAttempts: number;
-  private timer?: NodeJS.Timeout;
+  private timer: NodeJS.Timeout | undefined;
   private running = false;
   private stopped = false;
 
@@ -78,7 +78,7 @@ export class OutboxDispatcher {
           type: row.type,
           aggregateType: row.aggregateType,
           aggregateId: row.aggregateId,
-          payload: row.payload as unknown,
+          payload: row.payload,
           version: 1,
         });
         await this.db.outboxEvent.update({

@@ -15,7 +15,12 @@ const defaultKey = (c: Context): string => {
   // Hono runs behind reverse proxies in production. Honor x-forwarded-for if
   // the deployer trusts it; otherwise fall back to remote addr from the env.
   const xff = c.req.header('x-forwarded-for');
-  if (xff) return xff.split(',')[0]!.trim();
+  if (xff) {
+    // `split(',')` always returns ≥1 element when xff is non-empty, but TS
+    // can't prove that — use `?? xff` rather than a non-null assertion.
+    const first = xff.split(',')[0] ?? xff;
+    return first.trim();
+  }
   return c.req.header('cf-connecting-ip') ?? 'unknown';
 };
 
@@ -23,10 +28,7 @@ const defaultKey = (c: Context): string => {
  * Rate-limit middleware. On exceed, throws AppError with code VALIDATION_ERROR
  * (mapped to 429 below). Suitable for sign-in / sign-up / refresh hot paths.
  */
-export const rateLimit = (
-  limiter: RateLimiter,
-  options: RateLimitOptions,
-): MiddlewareHandler => {
+export const rateLimit = (limiter: RateLimiter, options: RateLimitOptions): MiddlewareHandler => {
   const compose = options.keyFor ?? defaultKey;
   return async (c, next) => {
     const key = `${options.bucket}:${compose(c)}`;

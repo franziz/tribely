@@ -66,6 +66,10 @@ class AuthFormError extends AuthFormState {
   final String? suggestSignInWithEmail;
 
   @override
-  List<Object?> get props =>
-      [failure, bannerMessage, retryAfterSeconds, suggestSignInWithEmail];
+  List<Object?> get props => [
+    failure,
+    bannerMessage,
+    retryAfterSeconds,
+    suggestSignInWithEmail,
+  ];
 }

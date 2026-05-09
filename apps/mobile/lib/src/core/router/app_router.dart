@@ -25,9 +25,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       final isSplash = loc == '/splash';
-      final isAuthFlow = loc == '/welcome' ||
-          loc == '/sign-in' ||
-          loc == '/sign-up';
+      final isAuthFlow =
+          loc == '/welcome' || loc == '/sign-in' || loc == '/sign-up';
 
       switch (session) {
         case SessionRestoring():
@@ -81,7 +80,7 @@ class _SessionRouterListenable extends ChangeNotifier {
   _SessionRouterListenable(this.ref) {
     _sub = ref.listen<SessionState>(
       sessionControllerProvider,
-      (_, __) => notifyListeners(),
+      (_, _) => notifyListeners(),
       fireImmediately: false,
     );
   }

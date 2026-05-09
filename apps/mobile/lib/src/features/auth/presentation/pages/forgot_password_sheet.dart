@@ -27,10 +27,12 @@ class _ForgotPasswordSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
 
     return SafeArea(
       child: Padding(

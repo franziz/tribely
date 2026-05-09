@@ -32,10 +32,12 @@ class AuthPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
 
     return Scaffold(
       body: SafeArea(
@@ -47,17 +49,34 @@ class AuthPageScaffold extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  IconButton(
-                    icon: Icon(Icons.arrow_back, color: ink),
-                    onPressed: () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      } else {
-                        context.go(backFallback);
-                      }
-                    },
-                    padding: EdgeInsets.zero,
+                  // Two things going on here:
+                  // 1) `Align` opts this single child out of the parent
+                  //    Column's `crossAxisAlignment: stretch` so the button
+                  //    keeps a fixed 48x48 size (instead of the tap ripple
+                  //    spanning the full row width).
+                  // 2) `padding: EdgeInsets.zero` + `alignment: centerLeft`
+                  //    on IconButton anchors the arrow to the LEFT edge of
+                  //    its 48x48 tap area, so the icon's visual position
+                  //    aligns with the title text's left edge below — both
+                  //    sit at the SingleChildScrollView's 24px left padding.
+                  Align(
                     alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back, color: ink),
+                      onPressed: () {
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        } else {
+                          context.go(backFallback);
+                        }
+                      },
+                      padding: EdgeInsets.zero,
+                      alignment: Alignment.centerLeft,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text(title, style: TribelyType.displayL(ink)),

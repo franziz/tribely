@@ -45,9 +45,21 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
   //   sign-in: 10/min per IP — legit users retry on typos.
   //   refresh: 30/min per IP — legit clients may refresh frequently with short access TTL.
   //   sign-out / sign-out-all / me: no global rate limit (auth-required, low risk).
-  const limitSignUp = rateLimit(deps.rateLimiter, { bucket: 'sign-up', limit: 5, windowSeconds: 60 });
-  const limitSignIn = rateLimit(deps.rateLimiter, { bucket: 'sign-in', limit: 10, windowSeconds: 60 });
-  const limitRefresh = rateLimit(deps.rateLimiter, { bucket: 'refresh', limit: 30, windowSeconds: 60 });
+  const limitSignUp = rateLimit(deps.rateLimiter, {
+    bucket: 'sign-up',
+    limit: 5,
+    windowSeconds: 60,
+  });
+  const limitSignIn = rateLimit(deps.rateLimiter, {
+    bucket: 'sign-in',
+    limit: 10,
+    windowSeconds: 60,
+  });
+  const limitRefresh = rateLimit(deps.rateLimiter, {
+    bucket: 'refresh',
+    limit: 30,
+    windowSeconds: 60,
+  });
 
   return new Hono<{ Variables: AuthVariables }>()
     .post('/sign-up', limitSignUp, zValidator('json', signUpBodySchema), (c) =>

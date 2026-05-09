@@ -55,18 +55,19 @@ class _WelcomePageState extends ConsumerState<WelcomePage>
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final surface =
-        dark ? TribelyColors.nightSurface : TribelyColors.paperSurface;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final surface = dark
+        ? TribelyColors.nightSurface
+        : TribelyColors.paperSurface;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
 
     final session = ref.watch(sessionControllerProvider);
-    final reason =
-        session is SessionUnauthenticated ? session.reason : null;
+    final reason = session is SessionUnauthenticated ? session.reason : null;
 
     return Scaffold(
       backgroundColor: surface,
@@ -96,8 +97,12 @@ class _WelcomePageState extends ConsumerState<WelcomePage>
                           ),
                           child: IntrinsicHeight(
                             child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(28, 24, 28, 24),
+                              padding: const EdgeInsets.fromLTRB(
+                                28,
+                                24,
+                                28,
+                                24,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -105,8 +110,9 @@ class _WelcomePageState extends ConsumerState<WelcomePage>
                                     BannerMessage(
                                       message: reason,
                                       onDismiss: () => ref
-                                          .read(sessionControllerProvider
-                                              .notifier)
+                                          .read(
+                                            sessionControllerProvider.notifier,
+                                          )
                                           .dismissReason(),
                                     ),
                                     const SizedBox(height: 16),
@@ -118,7 +124,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage>
                                   ),
                                   const SizedBox(height: 14),
                                   Text(
-                                    "Solo travelers create real-life events. You join the ones that sound like you.",
+                                    'Solo travelers create real-life events. You join the ones that sound like you.',
                                     style: TribelyType.bodyL(inkSecondary),
                                   ),
                                   const Spacer(),
@@ -132,10 +138,9 @@ class _WelcomePageState extends ConsumerState<WelcomePage>
                                       onPressed: () => context.go('/sign-in'),
                                       child: Text(
                                         'I already have one',
-                                        style: TribelyType.bodyM(accent)
-                                            .copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                        style: TribelyType.bodyM(
+                                          accent,
+                                        ).copyWith(fontWeight: FontWeight.w600),
                                       ),
                                     ),
                                   ),
@@ -165,8 +170,9 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final accent =
-        dark ? TribelyColors.nightPrimary : TribelyColors.paperAccent;
+    final accent = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperAccent;
 
     // RepaintBoundary isolates the parallax layer — the slow continuous
     // translate doesn't invalidate the rest of the screen each frame.
@@ -177,7 +183,7 @@ class _Hero extends StatelessWidget {
           children: [
             AnimatedBuilder(
               animation: parallax,
-              builder: (_, __) {
+              builder: (_, _) {
                 // Sine ease (not the default linear .value) — eliminates the
                 // snap at the reverse turn-around point.
                 final t = parallax.value;
@@ -188,7 +194,7 @@ class _Hero extends StatelessWidget {
                   child: Image.asset(
                     'assets/images/welcome-hero.webp',
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _Fallback(),
+                    errorBuilder: (_, _, _) => const _Fallback(),
                     // Decode at a fixed pixel height to avoid re-decoding on
                     // resize and to cap memory. cacheHeight is on
                     // Image.asset, not on the generic Image() constructor.
@@ -205,10 +211,7 @@ class _Hero extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   stops: const [0.55, 1.0],
-                  colors: [
-                    Colors.transparent,
-                    accent.withValues(alpha: 0.18),
-                  ],
+                  colors: [Colors.transparent, accent.withValues(alpha: 0.18)],
                 ),
               ),
             ),
@@ -228,8 +231,9 @@ class _Fallback extends StatelessWidget {
     final surface = dark
         ? TribelyColors.nightSurfaceHigh
         : TribelyColors.paperSurfaceHigh;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
     return Container(
       color: surface,
       child: Center(child: InkMark(size: 120, color: ink, animate: false)),

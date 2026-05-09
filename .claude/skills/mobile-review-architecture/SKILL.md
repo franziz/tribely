@@ -25,6 +25,7 @@ description: FLUTTER ONLY. Review changed apps/mobile/** Dart files against the 
 ### domain-purity-mobile
 
 **Check:** Files under `apps/mobile/lib/src/features/*/domain/**/*.dart` must NOT import:
+
 - `package:flutter/*`
 - `package:dio/*`, `package:shared_preferences/*`, `package:flutter_secure_storage/*`
 - `package:flutter_riverpod/*`, `package:get_it/*`, `package:go_router/*`
@@ -50,6 +51,7 @@ Allowed: `package:equatable`, `package:fpdart`, `package:meta`, and core helpers
 ### model-extends-or-converts-to-entity
 
 **Check:** Files in `apps/mobile/lib/src/features/*/data/models/*_model.dart` should either:
+
 - Extend the corresponding entity, OR
 - Provide a `toEntity()` method that returns the entity type.
 
@@ -92,6 +94,7 @@ Same shape as the API review: grouped by severity, sorted by file path, each ent
 ## Be honest about limits
 
 The skill catches structural issues. It does NOT catch:
+
 - Missing error handling in widgets (showing raw failure messages, etc.)
 - Riverpod misuse (rebuild storms, leaked controllers)
 - Performance issues (unnecessary `setState`, expensive `build` methods)

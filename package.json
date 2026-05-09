@@ -7,7 +7,7 @@
     "apps/api"
   ],
   "engines": {
-    "node": ">=20.18.0",
+    "node": ">=22.12.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
@@ -26,15 +26,21 @@
     "mobile:build:apk": "cd apps/mobile && flutter build apk --dart-define-from-file=.env.json",
     "mobile:build:ios": "cd apps/mobile && flutter build ios --dart-define-from-file=.env.json",
     "mobile:codegen": "cd apps/mobile && dart run build_runner build --delete-conflicting-outputs",
+    "mobile:analyze": "cd apps/mobile && flutter analyze",
+    "mobile:test": "cd apps/mobile && flutter test",
+    "mobile:test:coverage": "cd apps/mobile && flutter test --coverage",
+    "mobile:format": "cd apps/mobile && dart format .",
+    "mobile:format:check": "cd apps/mobile && dart format --set-exit-if-changed --output none .",
     "migrate": "npm run api:db:migrate && npm run mobile:codegen",
     "codegen": "npm run api:db:generate && npm run mobile:codegen",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+    "audit": "npm audit --audit-level=high",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
-    "prettier": "^3.4.2",
-    "typescript": "^5.7.2"
+    "prettier": "^3.4.2"
   }
 }

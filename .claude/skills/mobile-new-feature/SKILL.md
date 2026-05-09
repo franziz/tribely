@@ -22,6 +22,7 @@ Flutter use cases are thin wrappers: `Future<Either<Failure, T>> call(Params) =>
 ## Validate
 
 REFUSE and explain if:
+
 - Name is singular (`event` instead of `events`).
 - Name suggests infrastructure (`logging`, `cache`, `network`) — those belong in `apps/mobile/lib/src/core/`.
 - Name is too vague (`common`, `shared`, `utils`, `data`).
