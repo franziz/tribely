@@ -5,7 +5,7 @@ inputs:
   flutter-version:
     description: Exact Flutter SDK version to install. Must ship Dart >= 3.9 (Melos 7.5+ requirement).
     required: false
-    default: '3.35.0'
+    default: '3.41.9'
   flutter-channel:
     description: Flutter release channel.
     required: false

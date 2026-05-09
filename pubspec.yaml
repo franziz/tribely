@@ -3,8 +3,8 @@ description: Tribely Dart Pub Workspace — coordinates Flutter packages under a
 publish_to: none
 
 environment:
-  sdk: ^3.9.0
-  flutter: ">=3.35.0"
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
 
 # Dart 3.6+ Pub Workspaces — every entry must contain a pubspec.yaml that
 # declares `resolution: workspace`. Add additional Flutter packages here
