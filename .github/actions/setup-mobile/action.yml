@@ -3,9 +3,9 @@ description: Install Flutter, activate Melos, fetch pub deps, and run build_runn
 
 inputs:
   flutter-version:
-    description: Exact Flutter SDK version to install.
+    description: Exact Flutter SDK version to install. Must ship Dart >= 3.8 (Melos 7 requirement).
     required: false
-    default: '3.27.4'
+    default: '3.32.0'
   flutter-channel:
     description: Flutter release channel.
     required: false
