@@ -16,6 +16,8 @@ build/
 .env
 .env.local
 .env.*.local
+.env.json
+!.env.example.json
 
 # Editor
 .vscode/*

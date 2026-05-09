@@ -1,0 +1,53 @@
+name: tribely_workspace
+description: Tribely Dart Pub Workspace — coordinates Flutter packages under apps/mobile/. Managed by Melos 7.x.
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+# Dart 3.6+ Pub Workspaces — every entry must contain a pubspec.yaml that
+# declares `resolution: workspace`. Add additional Flutter packages here
+# (e.g. apps/mobile/packages/<shared-package>) when they appear.
+workspace:
+  - apps/mobile
+
+dev_dependencies:
+  melos: ^7.5.0
+
+melos:
+  repository: https://github.com/tribely/tribely
+
+  scripts:
+    analyze:
+      description: "Run flutter analyze across all Flutter packages."
+      run: melos exec -- flutter analyze
+      packageFilters:
+        flutter: true
+
+    test:
+      description: "Run flutter test across all Flutter packages."
+      run: melos exec -- flutter test
+      packageFilters:
+        flutter: true
+
+    format:
+      description: "Run dart format across all Flutter packages."
+      run: melos exec -- dart format .
+      packageFilters:
+        flutter: true
+
+    build_runner:
+      description: "One-shot build_runner build in packages that depend on it."
+      run: melos exec -- dart run build_runner build --delete-conflicting-outputs
+      exec:
+        concurrency: 1
+        orderDependents: true
+      packageFilters:
+        dependsOn: build_runner
+
+    build_runner:watch:
+      description: "build_runner watch mode for active codegen development."
+      run: melos exec -- dart run build_runner watch --delete-conflicting-outputs
+      packageFilters:
+        dependsOn: build_runner
