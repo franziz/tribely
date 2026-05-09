@@ -26,9 +26,19 @@ jobs:
         working-directory: apps/mobile
         run: dart format --set-exit-if-changed --output none .
 
-      - name: Analyze
+      # Per invertase/dart_custom_lint docs: in CI, use the two documented
+      # commands separately rather than `flutter analyze` which tries to
+      # load custom_lint as an analyzer plugin. The plugin host is fragile
+      # in fresh CI environments (it auto-generates lib/custom_lint_client.dart
+      # with stale package version refs and fails to start). The plugin block
+      # in analysis_options.yaml stays — that's for IDE live diagnostics.
+      - name: Analyze (core analyzer rules)
         working-directory: apps/mobile
-        run: flutter analyze
+        run: dart analyze --fatal-infos
+
+      - name: Lint (custom_lint rules — riverpod_lint, etc.)
+        working-directory: apps/mobile
+        run: dart run custom_lint
 
       - name: Test (with coverage)
         working-directory: apps/mobile
