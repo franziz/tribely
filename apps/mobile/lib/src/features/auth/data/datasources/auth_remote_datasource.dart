@@ -45,7 +45,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       data: {
         'email': email,
         'password': password,
-        ?'deviceLabel': deviceLabel,
+        'deviceLabel': ?deviceLabel,
       },
     );
     return AuthResponseModel.fromJson(response.data!);
@@ -64,7 +64,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         'email': email,
         'password': password,
         'displayName': displayName,
-        ?'deviceLabel': deviceLabel,
+        'deviceLabel': ?deviceLabel,
       },
     );
     return AuthResponseModel.fromJson(response.data!);
@@ -79,7 +79,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       '/auth/refresh',
       data: {
         'refreshToken': refreshToken,
-        ?'deviceLabel': deviceLabel,
+        'deviceLabel': ?deviceLabel,
       },
     );
     return AuthResponseModel.fromJson(response.data!);
