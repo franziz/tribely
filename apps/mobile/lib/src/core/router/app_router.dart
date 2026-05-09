@@ -1,18 +1,64 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/sign_in_page.dart';
 import '../../features/auth/presentation/pages/sign_up_page.dart';
+import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/presentation/pages/welcome_page.dart';
+import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/auth/presentation/state/auth_state.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Bridges Riverpod's session state into a Listenable that go_router can
+  // watch. Disposed automatically when the appRouterProvider is invalidated
+  // (e.g. on hot reload).
+  final notifier = _SessionRouterListenable(ref);
+  ref.onDispose(notifier.dispose);
+
   return GoRouter(
-    initialLocation: '/sign-in',
+    initialLocation: '/splash',
+    refreshListenable: notifier,
+    redirect: (context, state) {
+      final session = ref.read(sessionControllerProvider);
+      final loc = state.matchedLocation;
+
+      final isSplash = loc == '/splash';
+      final isAuthFlow = loc == '/welcome' ||
+          loc == '/sign-in' ||
+          loc == '/sign-up';
+
+      switch (session) {
+        case SessionRestoring():
+          // Stay on splash until restore completes.
+          return isSplash ? null : '/splash';
+        case SessionUnauthenticated():
+          if (isSplash) return '/welcome';
+          return null; // allow welcome / sign-in / sign-up
+        case SessionAuthenticated():
+          if (isSplash || isAuthFlow) return '/home';
+          return null;
+      }
+    },
     routes: [
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, state) => const SplashPage(),
+      ),
+      GoRoute(
+        path: '/welcome',
+        name: 'welcome',
+        builder: (context, state) => const WelcomePage(),
+      ),
       GoRoute(
         path: '/sign-in',
         name: 'signIn',
-        builder: (context, state) => const SignInPage(),
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'];
+          return SignInPage(prefilledEmail: email);
+        },
       ),
       GoRoute(
         path: '/sign-up',
@@ -27,3 +73,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Bridges Riverpod's session state into a [Listenable] for go_router's
+/// [GoRouter.refreshListenable]. When session state changes, this notifier
+/// fires and go_router re-evaluates `redirect`.
+class _SessionRouterListenable extends ChangeNotifier {
+  _SessionRouterListenable(this.ref) {
+    _sub = ref.listen<SessionState>(
+      sessionControllerProvider,
+      (_, __) => notifyListeners(),
+      fireImmediately: false,
+    );
+  }
+  final Ref ref;
+  late final ProviderSubscription<SessionState> _sub;
+
+  @override
+  void dispose() {
+    _sub.close();
+    super.dispose();
+  }
+}

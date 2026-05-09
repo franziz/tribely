@@ -14,6 +14,11 @@ class ApiClient {
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 15),
             contentType: 'application/json',
+            // Skip ngrok's "browser warning" interstitial when tunneling
+            // through ngrok free-tier URLs. Harmless on non-ngrok backends.
+            // Required because iOS's native HTTP stack can send a User-Agent
+            // ngrok mistakes for a browser.
+            headers: const {'ngrok-skip-browser-warning': 'true'},
           ),
         ) {
     dio.interceptors.add(_AuthInterceptor(_tokenStorage));

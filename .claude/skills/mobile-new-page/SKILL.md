@@ -89,20 +89,27 @@ class <PascalName>Error extends <PascalName>State {
 
 ### Controller at `presentation/controllers/<page_name>_controller.dart`
 
+Riverpod 3.x `Notifier` (NOT the deprecated `StateNotifier`):
+
 ```dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// import use cases this controller calls
+import '../providers/<feature>_providers.dart';
 import '../state/<page_name>_state.dart';
 
-class <PascalName>Controller extends StateNotifier<<PascalName>State> {
-  <PascalName>Controller(/* TODO: inject use cases */) : super(const <PascalName>Initial());
+class <PascalName>Controller extends Notifier<<PascalName>State> {
+  @override
+  <PascalName>State build() => const <PascalName>Initial();
 
-  // TODO: methods that load data + transition state, e.g.:
+  // Resolve dependencies via `ref.read(...)` inside methods rather than
+  // constructor-injecting them — standard Riverpod 3.x convention.
+  //
+  // Example:
   //
   // Future<void> load() async {
   //   state = const <PascalName>Loading();
-  //   final result = await _useCase(NoParams());
+  //   final useCase = ref.read(<someUseCaseProvider>);
+  //   final result = await useCase(NoParams());
   //   state = result.match(
   //     (failure) => <PascalName>Error(failure),
   //     (data) => <PascalName>Loaded(data),
@@ -117,9 +124,7 @@ The skill should ADD a provider entry to `apps/mobile/lib/src/features/<feature>
 
 ```dart
 final <camelName>ControllerProvider =
-    StateNotifierProvider<<PascalName>Controller, <PascalName>State>((ref) {
-  return <PascalName>Controller(/* TODO: pass use cases */);
-});
+    NotifierProvider<<PascalName>Controller, <PascalName>State>(<PascalName>Controller.new);
 ```
 
 ### Update the page to consume the controller

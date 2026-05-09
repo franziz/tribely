@@ -13,6 +13,8 @@ description: FLUTTER ONLY. Scaffold a new feature in apps/mobile/lib/src/feature
 
 Creates `apps/mobile/lib/src/features/<name>/` matching the canonical layout (`auth` is the reference template).
 
+After scaffolding any new Flutter package (not just features inside `apps/mobile`), remember Melos 7.x + Pub Workspaces requires `resolution: workspace` in the new package's `pubspec.yaml` and a corresponding entry in the root `pubspec.yaml`'s `workspace:` list.
+
 ## Why Flutter is 3-layer (not 4-layer like the API)
 
 Flutter use cases are thin wrappers: `Future<Either<Failure, T>> call(Params) => repository.method()`. They don't orchestrate transactions, multiple aggregates, or events. Adding an `application/` layer for thin wrappers is over-engineering on the client. Flutter community standard (Reso Coder, Riverpod examples) keeps use cases in `domain/usecases/`. We follow the convention.

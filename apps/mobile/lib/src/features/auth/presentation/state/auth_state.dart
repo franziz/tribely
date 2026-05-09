@@ -3,37 +3,69 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/auth_session.dart';
 
-sealed class AuthState extends Equatable {
-  const AuthState();
-
+/// SessionState — what `SessionController` exposes.
+sealed class SessionState extends Equatable {
+  const SessionState();
   @override
   List<Object?> get props => [];
 }
 
-class AuthInitial extends AuthState {
-  const AuthInitial();
+/// App is booting; we haven't determined whether the user is signed in.
+/// The splash screen renders while we're in this state.
+class SessionRestoring extends SessionState {
+  const SessionRestoring();
 }
 
-class AuthLoading extends AuthState {
-  const AuthLoading();
+class SessionUnauthenticated extends SessionState {
+  const SessionUnauthenticated({this.reason});
+  final String? reason; // optional banner copy on /welcome
+  @override
+  List<Object?> get props => [reason];
 }
 
-class AuthAuthenticated extends AuthState {
-  const AuthAuthenticated(this.session);
+class SessionAuthenticated extends SessionState {
+  const SessionAuthenticated(this.session);
   final AuthSession session;
-
   @override
   List<Object?> get props => [session];
 }
 
-class AuthUnauthenticated extends AuthState {
-  const AuthUnauthenticated();
+/// AuthFormState — what `SignInController` and `SignUpController` expose.
+/// Drives the form's button state, banners, validation copy.
+sealed class AuthFormState extends Equatable {
+  const AuthFormState();
+  @override
+  List<Object?> get props => [];
 }
 
-class AuthError extends AuthState {
-  const AuthError(this.failure);
+class AuthFormIdle extends AuthFormState {
+  const AuthFormIdle();
+}
+
+class AuthFormSubmitting extends AuthFormState {
+  const AuthFormSubmitting();
+}
+
+class AuthFormSuccess extends AuthFormState {
+  const AuthFormSuccess();
+}
+
+/// Form-level error (banner copy + optional rate-limit countdown + optional
+/// pre-fill hint for the email-already-exists 409 case).
+class AuthFormError extends AuthFormState {
+  const AuthFormError({
+    required this.failure,
+    this.bannerMessage,
+    this.retryAfterSeconds,
+    this.suggestSignInWithEmail,
+  });
+
   final Failure failure;
+  final String? bannerMessage;
+  final int? retryAfterSeconds;
+  final String? suggestSignInWithEmail;
 
   @override
-  List<Object?> get props => [failure];
+  List<Object?> get props =>
+      [failure, bannerMessage, retryAfterSeconds, suggestSignInWithEmail];
 }
