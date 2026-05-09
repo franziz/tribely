@@ -9,7 +9,7 @@ inputs:
   melos-version:
     description: Exact Melos version to activate (must match pubspec dev_dependency).
     required: false
-    default: '7.5.0'
+    default: '6.3.3'
 
 runs:
   using: composite
@@ -22,29 +22,17 @@ runs:
         # one file edit, not three.
         flutter-version-file: apps/mobile/pubspec.yaml
         cache: true
-        # Force-invalidate the pub-cache: subosito's restore can leave it in
-        # a partial state where pub get reports "Got dependencies" but the
-        # actual lib files (e.g. riverpod_lint-3.1.3/lib/riverpod_lint.dart)
-        # are missing. Bumping the version suffix on this key (v2 → v3 → ...)
-        # busts all old caches and forces a fresh pub get.
-        pub-cache-key: "flutter-pub-v2-:os:-:channel:-:version:-:arch:-:hash:"
 
     - name: Activate Melos
       shell: bash
       run: dart pub global activate melos ${{ inputs.melos-version }}
 
-    - name: Pub get (workspace)
+    # Melos 6.x bootstrap runs `flutter pub get` per package — gives each
+    # package its own .dart_tool/package_config.json, which custom_lint's
+    # analyzer plugin needs to resolve transitive deps.
+    - name: Bootstrap (pub get per package)
       shell: bash
-      run: dart pub get
-
-    # Pub Workspaces resolve at the root, but custom_lint's analyzer plugin
-    # runs from apps/mobile/.dart_tool/ — running flutter pub get from the
-    # member directory ensures the per-member package_config stub exists so
-    # the plugin can find transitive deps like custom_lint_builder.
-    - name: Pub get (mobile package)
-      shell: bash
-      working-directory: apps/mobile
-      run: flutter pub get
+      run: melos bootstrap
 
     - name: Build runner (codegen)
       shell: bash

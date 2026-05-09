@@ -1,22 +1,28 @@
 name: tribely_workspace
-description: Tribely Dart Pub Workspace — coordinates Flutter packages under apps/mobile/. Managed by Melos 7.x.
+description: Tribely root manifest — hosts Melos config that orchestrates Flutter packages under apps/mobile/.
 publish_to: none
 
 environment:
   sdk: ^3.11.0
   flutter: 3.41.9
 
-# Dart 3.6+ Pub Workspaces — every entry must contain a pubspec.yaml that
-# declares `resolution: workspace`. Required by Melos 7.x (legacy
-# `packages:` config is no longer supported).
-workspace:
-  - apps/mobile
-
 dev_dependencies:
-  melos: 7.5.0
+  melos: 6.3.3
+
+# NOTE: Pinned to Melos 6.3.3 (NOT 7.x). Melos 7.x requires Dart 3.6+ Pub
+# Workspaces — and Pub Workspaces breaks custom_lint's analyzer plugin in
+# CI: the plugin runs from `apps/mobile/.dart_tool/` and can't resolve
+# transitive deps like `custom_lint_builder` because the workspace's
+# package_config lives only at the workspace root. With one Flutter package,
+# the legacy `packages:` config (Melos 6.x) avoids this entirely.
+# Reintroduce Pub Workspaces + Melos 7.x when invertase/dart_custom_lint
+# ships verified workspace support.
 
 melos:
   repository: https://github.com/tribely/tribely
+
+  packages:
+    - apps/mobile
 
   scripts:
     analyze:
