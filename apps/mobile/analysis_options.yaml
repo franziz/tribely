@@ -35,10 +35,12 @@ linter:
     # ── Error prevention (catches real bugs) ──────────────────────────────
     - always_declare_return_types
     - avoid_dynamic_calls
-    - avoid_returning_null_for_future
     - cancel_subscriptions
     - close_sinks
     - unawaited_futures # Future not awaited — common async bug
+    # NOTE: `avoid_returning_null_for_future` was removed in Dart 3.3.0 —
+    # null safety makes the rule redundant (you literally can't return
+    # null from a non-nullable Future<T>).
 
     # ── Style / readability ──────────────────────────────────────────────
     - prefer_single_quotes
