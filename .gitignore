@@ -68,3 +68,6 @@ coverage/
 # Codegen
 *.g.dart
 *.freezed.dart
+
+# One-time GitHub ruleset import artifact (uploaded via Settings → Rules)
+/ruleset-main.json

@@ -55,12 +55,16 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.api == 'true' || github.event_name == 'push'
     uses: ./.github/workflows/_api.yml
+    permissions:
+      contents: read
 
   mobile:
     name: Mobile
     needs: detect-changes
     if: needs.detect-changes.outputs.mobile == 'true' || github.event_name == 'push'
     uses: ./.github/workflows/_mobile.yml
+    permissions:
+      contents: read
 
   pr-title:
     name: PR title
