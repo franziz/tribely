@@ -2,10 +2,10 @@ import { SignJWT, jwtVerify } from 'jose';
 import { env } from '@/core/config/env.js';
 import { AppError } from '@/core/errors/app-error.js';
 import type {
-  AuthTokens,
-  TokenIssuer,
+  AccessToken,
+  AccessTokenIssuer,
   TokenSubject,
-} from '../../domain/ports/token-issuer.port.js';
+} from '../../domain/ports/access-token-issuer.port.js';
 
 const secret = new TextEncoder().encode(env.JWT_SECRET);
 
@@ -27,33 +27,29 @@ const parseDurationSeconds = (value: string): number => {
   }
 };
 
-export class JwtTokenIssuer implements TokenIssuer {
-  async issue(subject: TokenSubject): Promise<AuthTokens> {
-    const accessSec = parseDurationSeconds(env.JWT_ACCESS_TTL);
-    const refreshSec = parseDurationSeconds(env.JWT_REFRESH_TTL);
-
-    const accessToken = await new SignJWT({ email: subject.email })
+/**
+ * JWT-backed access token issuer. Access tokens are short-lived (default 15m)
+ * stateless tokens — verification is a signature check, no DB roundtrip.
+ *
+ * Refresh tokens are NOT JWTs; they're opaque and stored hashed (see
+ * Sha256RefreshTokenHasher).
+ */
+export class JwtAccessTokenIssuer implements AccessTokenIssuer {
+  async issue(subject: TokenSubject): Promise<AccessToken> {
+    const seconds = parseDurationSeconds(env.JWT_ACCESS_TTL);
+    const value = await new SignJWT({ email: subject.email })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(subject.userId)
       .setIssuedAt()
-      .setExpirationTime(`${accessSec}s`)
+      .setExpirationTime(`${seconds}s`)
       .sign(secret);
-
-    const refreshToken = await new SignJWT({ type: 'refresh' })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setSubject(subject.userId)
-      .setIssuedAt()
-      .setExpirationTime(`${refreshSec}s`)
-      .sign(secret);
-
     return {
-      accessToken,
-      refreshToken,
-      accessTokenExpiresAt: new Date(Date.now() + accessSec * 1000),
+      value,
+      expiresAt: new Date(Date.now() + seconds * 1000),
     };
   }
 
-  async verifyAccess(token: string): Promise<TokenSubject> {
+  async verify(token: string): Promise<TokenSubject> {
     try {
       const { payload } = await jwtVerify(token, secret);
       if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {

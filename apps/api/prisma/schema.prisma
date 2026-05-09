@@ -1,10 +1,12 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
+// Prisma 7+: the datasource block no longer accepts `url`. Connection URLs
+// for `prisma migrate` / `prisma studio` live in `prisma.config.ts`; the
+// runtime PrismaClient connects via a driver adapter (see core/db/prisma.ts).
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 /// Aggregate root in the `users` bounded context.
@@ -16,7 +18,8 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  credential Credential?
+  credential    Credential?
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -34,6 +37,35 @@ model Credential {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("credentials")
+}
+
+/// Long-lived authentication credential. Each row is a single "session" — one device
+/// or one logical client. Lives in the `auth` bounded context. The token itself is
+/// hashed (SHA-256 over a 32-byte random secret); plaintext is shown to the client
+/// once at issue time and never persisted.
+///
+/// Rotation: when /auth/refresh is called, the current token is marked revoked
+/// (revokedReason='rotated') and a new RefreshToken is issued, with `rotatedToId`
+/// pointing to the new row — preserving the chain for reuse-detection forensics.
+///
+/// Reuse-detection: if a token whose revokedAt is set (already-rotated) is presented
+/// again, treat it as theft and revoke ALL of the user's tokens.
+model RefreshToken {
+  id            String    @id @default(cuid())
+  userId        String
+  tokenHash     String    @unique
+  issuedAt      DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String? // 'rotated' | 'signed_out' | 'reuse_detected' | 'sign_out_all'
+  lastUsedAt    DateTime?
+  rotatedToId   String? // chain pointer to the next token after rotation
+  deviceLabel   String? // optional, derived from User-Agent
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@map("refresh_tokens")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction

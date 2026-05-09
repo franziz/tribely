@@ -20,6 +20,12 @@ export const buildApp = (): { app: Hono; container: Container } => {
     buildAuthRoutes({
       signUp: container.signUpUseCase,
       signIn: container.signInUseCase,
+      refresh: container.refreshTokensUseCase,
+      signOut: container.signOutUseCase,
+      signOutAll: container.signOutAllUseCase,
+      getUser: container.getUserUseCase,
+      accessTokens: container.accessTokens,
+      rateLimiter: container.rateLimiter,
     }),
   );
   app.route('/users', buildUserRoutes({ getUser: container.getUserUseCase }));

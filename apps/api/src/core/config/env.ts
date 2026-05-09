@@ -1,3 +1,7 @@
+// Load `apps/api/.env` into process.env before Zod parses below.
+// This must be the very first import in the module — otherwise the schema
+// runs against an empty process.env and the app crashes at boot.
+import 'dotenv/config';
 import { z } from 'zod';
 
 const envSchema = z.object({
