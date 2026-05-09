@@ -48,19 +48,25 @@ export class AuthController {
   ) {}
 
   signUpAction = async (c: Context, body: SignUpBody) => {
-    const result = await this.signUp.execute(body);
+    const result = await this.signUp.execute({
+      ...body,
+      deviceLabel: body.deviceLabel ?? null,
+    });
     return c.json(toAuthResponse(result), 201);
   };
 
   signInAction = async (c: Context, body: SignInBody) => {
-    const result = await this.signIn.execute(body);
+    const result = await this.signIn.execute({
+      ...body,
+      deviceLabel: body.deviceLabel ?? null,
+    });
     return c.json(toAuthResponse(result), 200);
   };
 
   refreshAction = async (c: Context, body: RefreshBody) => {
     const result = await this.refreshTokens.execute({
       refreshTokenPlaintext: body.refreshToken,
-      deviceLabel: body.deviceLabel,
+      deviceLabel: body.deviceLabel ?? null,
     });
     return c.json(toAuthResponse(result), 200);
   };

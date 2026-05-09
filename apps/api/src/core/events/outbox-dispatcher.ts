@@ -19,7 +19,7 @@ export class OutboxDispatcher {
   private readonly intervalMs: number;
   private readonly batchSize: number;
   private readonly maxAttempts: number;
-  private timer?: NodeJS.Timeout;
+  private timer: NodeJS.Timeout | undefined;
   private running = false;
   private stopped = false;
 
