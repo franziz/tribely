@@ -17,7 +17,13 @@ runs:
         # SOT: apps/mobile/pubspec.yaml `environment.flutter`. Bumping Flutter is
         # one file edit, not three.
         flutter-version-file: apps/mobile/pubspec.yaml
-        cache: true
+        # Cache is intentionally OFF. subosito's pub-cache restore left partial
+        # state that broke custom_lint resolution: pub get reported "Got
+        # dependencies" but riverpod_lint's lib files were missing on disk.
+        # Cost: ~1–2 min extra per run for fresh Flutter SDK + pub get. Worth
+        # it for reliability. Revisit when subosito releases a version with
+        # finer cache control (split SDK vs pub-cache).
+        cache: false
 
     - name: Pub get
       shell: bash
