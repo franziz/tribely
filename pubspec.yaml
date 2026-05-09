@@ -45,7 +45,9 @@ melos:
 
     build_runner:
       description: "One-shot build_runner build in packages that depend on it."
-      run: melos exec -- dart run build_runner build --delete-conflicting-outputs
+      # When `exec:` provides options, Melos auto-wraps `run:` in `melos exec`.
+      # Don't repeat the `melos exec --` prefix or Melos refuses to run.
+      run: dart run build_runner build --delete-conflicting-outputs
       exec:
         concurrency: 1
         orderDependents: true
