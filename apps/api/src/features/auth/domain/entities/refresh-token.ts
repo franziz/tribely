@@ -1,17 +1,11 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
-import {
-  refreshTokenIssued,
-} from '../events/refresh-token-issued.event.js';
+import { refreshTokenIssued } from '../events/refresh-token-issued.event.js';
 import {
   refreshTokenRevoked,
   type RefreshTokenRevokedReason,
 } from '../events/refresh-token-revoked.event.js';
-import {
-  refreshTokenRotated,
-} from '../events/refresh-token-rotated.event.js';
-import {
-  refreshTokenReuseDetected,
-} from '../events/refresh-token-reuse-detected.event.js';
+import { refreshTokenRotated } from '../events/refresh-token-rotated.event.js';
+import { refreshTokenReuseDetected } from '../events/refresh-token-reuse-detected.event.js';
 
 /**
  * RefreshToken aggregate root — represents one logical session for a user.

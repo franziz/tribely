@@ -25,12 +25,7 @@ export class User extends AggregateRoot {
     super();
   }
 
-  static register(input: {
-    id: string;
-    email: Email;
-    displayName: DisplayName;
-    now: Date;
-  }): User {
+  static register(input: { id: string; email: Email; displayName: DisplayName; now: Date }): User {
     const user = new User(input.id, input.email, input.displayName, input.now, input.now);
     user.record(
       userRegistered({

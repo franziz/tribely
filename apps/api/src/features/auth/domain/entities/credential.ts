@@ -27,11 +27,7 @@ export class Credential extends AggregateRoot {
     super();
   }
 
-  static issue(input: {
-    userId: string;
-    passwordHash: HashedPassword;
-    now: Date;
-  }): Credential {
+  static issue(input: { userId: string; passwordHash: HashedPassword; now: Date }): Credential {
     const credential = new Credential(input.userId, input.passwordHash, input.now, null);
     credential.record(
       credentialIssued({ userId: input.userId, issuedAt: input.now.toISOString() }),

@@ -13,11 +13,7 @@ interface Bucket {
 export class InMemoryRateLimiter implements RateLimiter {
   private readonly buckets = new Map<string, Bucket>();
 
-  async consume(
-    key: string,
-    limit: number,
-    windowSeconds: number,
-  ): Promise<RateLimitResult> {
+  async consume(key: string, limit: number, windowSeconds: number): Promise<RateLimitResult> {
     const now = Date.now();
     const existing = this.buckets.get(key);
 

@@ -23,10 +23,7 @@ const defaultKey = (c: Context): string => {
  * Rate-limit middleware. On exceed, throws AppError with code VALIDATION_ERROR
  * (mapped to 429 below). Suitable for sign-in / sign-up / refresh hot paths.
  */
-export const rateLimit = (
-  limiter: RateLimiter,
-  options: RateLimitOptions,
-): MiddlewareHandler => {
+export const rateLimit = (limiter: RateLimiter, options: RateLimitOptions): MiddlewareHandler => {
   const compose = options.keyFor ?? defaultKey;
   return async (c, next) => {
     const key = `${options.bucket}:${compose(c)}`;

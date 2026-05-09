@@ -64,11 +64,7 @@ export class SignInUseCase {
     await this.unitOfWork.run(async (ctx) => {
       await this.credentials.save(credential, ctx);
       await this.refreshTokens.save(refreshToken, ctx);
-      await this.events.publish(
-        ctx,
-        ...credential.pullEvents(),
-        ...refreshToken.pullEvents(),
-      );
+      await this.events.publish(ctx, ...credential.pullEvents(), ...refreshToken.pullEvents());
     });
 
     const accessToken = await this.accessTokens.issue({ userId: user.id, email: email.value });
