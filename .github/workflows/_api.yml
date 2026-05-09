@@ -1,0 +1,44 @@
+name: API checks
+
+on:
+  workflow_call:
+
+jobs:
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Setup API
+        uses: ./.github/actions/setup-api
+
+      - name: Format check
+        run: npm run --workspace=@tribely/api format:check
+
+      - name: Typecheck
+        run: npm run --workspace=@tribely/api typecheck
+
+      - name: Lint
+        run: npm run --workspace=@tribely/api lint
+
+      - name: Test (with coverage)
+        run: npm run --workspace=@tribely/api test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: api-coverage
+          path: apps/api/coverage/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Audit dependencies (warn-only)
+        run: npm audit --audit-level=high
+        continue-on-error: true

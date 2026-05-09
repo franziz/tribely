@@ -1,0 +1,90 @@
+version: 2
+
+updates:
+  # GitHub Actions — workflows + composite actions.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+      include: scope
+    labels:
+      - dependencies
+      - github-actions
+
+  # npm — root + apps/api workspace (npm workspaces hoist).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 10
+    groups:
+      typescript-eslint:
+        patterns:
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
+          - '@eslint/*'
+          - 'eslint'
+      vitest:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+      prisma:
+        patterns:
+          - 'prisma'
+          - '@prisma/*'
+      hono:
+        patterns:
+          - 'hono'
+          - '@hono/*'
+      types:
+        patterns:
+          - '@types/*'
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+    labels:
+      - dependencies
+      - api
+
+  # Pub (Flutter / Dart) — single mobile package.
+  - package-ecosystem: pub
+    directory: /apps/mobile
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 10
+    groups:
+      riverpod:
+        patterns:
+          - 'flutter_riverpod'
+          - 'riverpod_*'
+      freezed-codegen:
+        patterns:
+          - 'freezed'
+          - 'freezed_*'
+          - 'json_*'
+          - 'build_runner'
+      flutter-test:
+        patterns:
+          - 'mocktail'
+          - 'flutter_lints'
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+    labels:
+      - dependencies
+      - mobile

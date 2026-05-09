@@ -31,7 +31,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+    "format": "prettier --write \"package.json\" \"apps/*/package.json\" \"tsconfig*.json\"",
+    "format:check": "prettier --check \"package.json\" \"apps/*/package.json\" \"tsconfig*.json\""
   },
   "devDependencies": {
     "prettier": "^3.4.2",

@@ -37,6 +37,12 @@ melos:
       packageFilters:
         flutter: true
 
+    format:check:
+      description: "Verify formatting across all Flutter packages (fails on diff)."
+      run: melos exec -- dart format --set-exit-if-changed --output none .
+      packageFilters:
+        flutter: true
+
     build_runner:
       description: "One-shot build_runner build in packages that depend on it."
       run: melos exec -- dart run build_runner build --delete-conflicting-outputs

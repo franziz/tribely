@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Default-deny: each job grants only the permissions it needs.
+permissions: {}
+
+# Cancel superseded runs on the same ref (e.g. force-push to a PR branch).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: read
+      contents: read
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # v4.0.0
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.base.json'
+              - '.nvmrc'
+              - '.github/actions/setup-api/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/_api.yml'
+            mobile:
+              - 'apps/mobile/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - '.github/actions/setup-mobile/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/_mobile.yml'
+
+  api:
+    name: API
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true' || github.event_name == 'push'
+    uses: ./.github/workflows/_api.yml
+
+  mobile:
+    name: Mobile
+    needs: detect-changes
+    if: needs.detect-changes.outputs.mobile == 'true' || github.event_name == 'push'
+    uses: ./.github/workflows/_mobile.yml
+
+  pr-title:
+    name: PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Lint PR title (Conventional Commits)
+        uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017 # v5.5.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            test
+            build
+            ci
+            perf
+            style
+            revert
+          requireScope: false
+          subjectPattern: ^[A-Za-z].+$
+          subjectPatternError: |
+            The PR subject (after the type/scope) must start with a letter and not be empty.
+
+  # Aggregate gate. Required-check on `main` is just this single job;
+  # path-filtered skips don't break protection rules.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [detect-changes, api, mobile, pr-title]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Verify upstream jobs
+        run: |
+          set -euo pipefail
+          declare -A results=(
+            [detect-changes]="${{ needs.detect-changes.result }}"
+            [api]="${{ needs.api.result }}"
+            [mobile]="${{ needs.mobile.result }}"
+            [pr-title]="${{ needs.pr-title.result }}"
+          )
+          fail=0
+          for job in "${!results[@]}"; do
+            r="${results[$job]}"
+            echo "$job: $r"
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::Upstream job '$job' result was '$r'"
+              fail=1
+            fi
+          done
+          exit $fail

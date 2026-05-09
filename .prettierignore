@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+coverage
+.dart_tool
+package-lock.json
+pubspec.lock
+**/*.g.dart
+**/*.freezed.dart
+prisma/migrations
+.github/workflows/*.yml
+.github/actions/**/action.yml
