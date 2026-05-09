@@ -42,11 +42,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/auth/sign-in',
-      data: {
-        'email': email,
-        'password': password,
-        'deviceLabel': ?deviceLabel,
-      },
+      data: {'email': email, 'password': password, 'deviceLabel': ?deviceLabel},
     );
     return AuthResponseModel.fromJson(response.data!);
   }
@@ -77,10 +73,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/auth/refresh',
-      data: {
-        'refreshToken': refreshToken,
-        'deviceLabel': ?deviceLabel,
-      },
+      data: {'refreshToken': refreshToken, 'deviceLabel': ?deviceLabel},
     );
     return AuthResponseModel.fromJson(response.data!);
   }
