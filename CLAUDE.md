@@ -39,13 +39,17 @@ npm run --workspace=@tribely/api test path/to/foo.test.ts   # single test
 
 ### Mobile
 
+The mobile workspace uses **Melos 7.x + Dart 3.6+ Pub Workspaces**. Configuration lives in the root `pubspec.yaml` under the `melos:` key (NOT a separate `melos.yaml` — that's the deprecated 6.x style). `apps/mobile/pubspec.yaml` declares `resolution: workspace`.
+
 ```bash
-melos bootstrap
+dart pub global activate melos                                                  # one-time
+dart pub get                                                                    # bootstraps the pub workspace from root pubspec.yaml
 cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # REQUIRED on first run — repo ships without ios/android folders
-flutter run --dart-define=API_BASE_URL=http://localhost:3000                   # http://10.0.2.2:3000 on Android emulator
+npm run mobile:run                                                              # reads apps/mobile/.env.json (use http://10.0.2.2:<port> on Android emulator)
 melos run analyze
 melos run test
 melos run build_runner          # one-shot codegen
+melos run build_runner:watch    # codegen watch mode
 cd apps/mobile && flutter test test/path/to/foo_test.dart                      # single test
 ```
 
