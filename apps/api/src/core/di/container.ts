@@ -50,7 +50,7 @@ const parseDurationSeconds = (value: string): number => {
     case 'd':
       return n * 60 * 60 * 24;
     default:
-      throw new Error(`Invalid TTL unit: ${match[2]}`);
+      throw new Error(`Invalid TTL unit: ${match[2] ?? 'unknown'}`);
   }
 };
 

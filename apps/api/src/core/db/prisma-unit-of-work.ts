@@ -11,8 +11,10 @@ type PrismaTxContext = TxContext & {
   readonly __tx: Prisma.TransactionClient;
 };
 
-const wrap = (tx: Prisma.TransactionClient): PrismaTxContext =>
-  ({ __brand: 'TxContext', __tx: tx }) as PrismaTxContext;
+const wrap = (tx: Prisma.TransactionClient): PrismaTxContext => ({
+  __brand: 'TxContext',
+  __tx: tx,
+});
 
 /**
  * Adapter-internal helper. Infrastructure code (repositories, event publisher)
@@ -20,11 +22,10 @@ const wrap = (tx: Prisma.TransactionClient): PrismaTxContext =>
  * Throws if the context did not originate from PrismaUnitOfWork.
  */
 export const unwrapTx = (ctx: TxContext): Prisma.TransactionClient => {
-  const candidate = ctx as PrismaTxContext;
-  if (!candidate.__tx) {
+  if (!('__tx' in ctx)) {
     throw new Error('TxContext was not produced by PrismaUnitOfWork');
   }
-  return candidate.__tx;
+  return (ctx as PrismaTxContext).__tx;
 };
 
 export class PrismaUnitOfWork implements UnitOfWork {

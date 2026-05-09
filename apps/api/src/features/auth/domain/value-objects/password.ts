@@ -10,7 +10,9 @@ export class Password {
 
   static create(raw: string): Password {
     if (raw.length < Password.MIN || raw.length > Password.MAX) {
-      throw AppError.validation(`Password must be ${Password.MIN}-${Password.MAX} characters`);
+      throw AppError.validation(
+        `Password must be ${String(Password.MIN)}-${String(Password.MAX)} characters`,
+      );
     }
     return new Password(raw);
   }

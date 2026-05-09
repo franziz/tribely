@@ -78,7 +78,7 @@ export class OutboxDispatcher {
           type: row.type,
           aggregateType: row.aggregateType,
           aggregateId: row.aggregateId,
-          payload: row.payload as unknown,
+          payload: row.payload,
           version: 1,
         });
         await this.db.outboxEvent.update({

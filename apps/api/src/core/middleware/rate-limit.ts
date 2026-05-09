@@ -15,7 +15,12 @@ const defaultKey = (c: Context): string => {
   // Hono runs behind reverse proxies in production. Honor x-forwarded-for if
   // the deployer trusts it; otherwise fall back to remote addr from the env.
   const xff = c.req.header('x-forwarded-for');
-  if (xff) return xff.split(',')[0]!.trim();
+  if (xff) {
+    // `split(',')` always returns ≥1 element when xff is non-empty, but TS
+    // can't prove that — use `?? xff` rather than a non-null assertion.
+    const first = xff.split(',')[0] ?? xff;
+    return first.trim();
+  }
   return c.req.header('cf-connecting-ip') ?? 'unknown';
 };
 

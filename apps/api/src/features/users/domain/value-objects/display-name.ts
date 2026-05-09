@@ -7,7 +7,7 @@ export class DisplayName {
     const trimmed = raw.trim();
     if (trimmed.length < DisplayName.MIN || trimmed.length > DisplayName.MAX) {
       throw AppError.validation(
-        `Display name must be ${DisplayName.MIN}-${DisplayName.MAX} characters`,
+        `Display name must be ${String(DisplayName.MIN)}-${String(DisplayName.MAX)} characters`,
       );
     }
     return new DisplayName(trimmed);
