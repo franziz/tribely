@@ -124,7 +124,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage>
                                   ),
                                   const SizedBox(height: 14),
                                   Text(
-                                    "Solo travelers create real-life events. You join the ones that sound like you.",
+                                    'Solo travelers create real-life events. You join the ones that sound like you.',
                                     style: TribelyType.bodyL(inkSecondary),
                                   ),
                                   const Spacer(),
@@ -183,7 +183,7 @@ class _Hero extends StatelessWidget {
           children: [
             AnimatedBuilder(
               animation: parallax,
-              builder: (_, __) {
+              builder: (_, _) {
                 // Sine ease (not the default linear .value) — eliminates the
                 // snap at the reverse turn-around point.
                 final t = parallax.value;
@@ -194,7 +194,7 @@ class _Hero extends StatelessWidget {
                   child: Image.asset(
                     'assets/images/welcome-hero.webp',
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _Fallback(),
+                    errorBuilder: (_, _, _) => const _Fallback(),
                     // Decode at a fixed pixel height to avoid re-decoding on
                     // resize and to cap memory. cacheHeight is on
                     // Image.asset, not on the generic Image() constructor.

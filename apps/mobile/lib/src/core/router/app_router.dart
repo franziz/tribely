@@ -80,7 +80,7 @@ class _SessionRouterListenable extends ChangeNotifier {
   _SessionRouterListenable(this.ref) {
     _sub = ref.listen<SessionState>(
       sessionControllerProvider,
-      (_, __) => notifyListeners(),
+      (_, _) => notifyListeners(),
       fireImmediately: false,
     );
   }

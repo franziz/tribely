@@ -13,8 +13,9 @@ PasswordStrength assessPassword(String value) {
   final hasNumOrSym =
       value.contains(RegExp(r'[0-9]')) ||
       value.contains(RegExp(r'[^a-zA-Z0-9]'));
-  if (value.length >= 12 && hasMixed && hasNumOrSym)
+  if (value.length >= 12 && hasMixed && hasNumOrSym) {
     return PasswordStrength.strong;
+  }
   return PasswordStrength.ok;
 }
 

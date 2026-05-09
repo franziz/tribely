@@ -123,7 +123,7 @@ class _LoadingDotsState extends State<_LoadingDots>
     }
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) {
+      builder: (_, _) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(3, (i) {

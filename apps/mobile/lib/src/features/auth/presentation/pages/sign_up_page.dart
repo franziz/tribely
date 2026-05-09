@@ -66,8 +66,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     _validateEmail();
     if (_displayNameError != null ||
         _emailError != null ||
-        _password.text.length < 8)
+        _password.text.length < 8) {
       return;
+    }
     await ref
         .read(signUpControllerProvider.notifier)
         .submit(
