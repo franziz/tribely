@@ -31,6 +31,12 @@ melos:
       packageFilters:
         flutter: true
 
+    test:coverage:
+      description: "Run flutter test --coverage across all Flutter packages."
+      run: melos exec -- flutter test --coverage
+      packageFilters:
+        flutter: true
+
     format:
       description: "Run dart format across all Flutter packages."
       run: melos exec -- dart format .

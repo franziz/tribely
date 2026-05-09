@@ -28,6 +28,7 @@
     "mobile:codegen": "melos run build_runner",
     "mobile:analyze": "melos run analyze",
     "mobile:test": "melos run test",
+    "mobile:test:coverage": "melos run test:coverage",
     "mobile:format": "melos run format",
     "mobile:format:check": "melos run format:check",
     "migrate": "npm run api:db:migrate && npm run mobile:codegen",

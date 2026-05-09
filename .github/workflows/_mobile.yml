@@ -25,8 +25,7 @@ jobs:
         run: melos run analyze
 
       - name: Test (with coverage)
-        working-directory: apps/mobile
-        run: flutter test --coverage
+        run: melos run test:coverage
 
       - name: Upload coverage report
         if: always()
