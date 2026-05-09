@@ -31,6 +31,17 @@ runs:
       shell: bash
       run: dart pub get
 
+    # Pub Workspaces put package_config.json at the workspace root only.
+    # custom_lint's analyzer plugin runs from `apps/mobile/.dart_tool/` and
+    # doesn't walk up — without a per-member package_config, it fails to
+    # resolve transitive deps like `custom_lint_builder`. Running
+    # `flutter pub get` from the member directory creates the stub
+    # package_config inside `apps/mobile/.dart_tool/`.
+    - name: Pub get (mobile package)
+      shell: bash
+      working-directory: apps/mobile
+      run: flutter pub get
+
     - name: Build runner (codegen)
       shell: bash
       run: melos run build_runner
