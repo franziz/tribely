@@ -14,8 +14,8 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required AuthRemoteDatasource remote,
     required TokenStorage tokenStorage,
-  })  : _remote = remote,
-        _tokenStorage = tokenStorage;
+  }) : _remote = remote,
+       _tokenStorage = tokenStorage;
 
   final AuthRemoteDatasource _remote;
   final TokenStorage _tokenStorage;
@@ -24,20 +24,20 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, AuthSession>> signIn({
     required String email,
     required String password,
-  }) =>
-      _runAuth(() => _remote.signIn(email: email, password: password));
+  }) => _runAuth(() => _remote.signIn(email: email, password: password));
 
   @override
   Future<Either<Failure, AuthSession>> signUp({
     required String email,
     required String password,
     required String displayName,
-  }) =>
-      _runAuth(() => _remote.signUp(
-            email: email,
-            password: password,
-            displayName: displayName,
-          ));
+  }) => _runAuth(
+    () => _remote.signUp(
+      email: email,
+      password: password,
+      displayName: displayName,
+    ),
+  );
 
   @override
   Future<Either<Failure, AuthSession>> refresh() async {

@@ -62,15 +62,17 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   Future<void> _submit() async {
     _validateEmailOnBlur();
     if (_emailError != null || _password.text.isEmpty) {
-      setState(() => _passwordError =
-          _password.text.isEmpty ? 'Password is required.' : null);
+      setState(
+        () => _passwordError = _password.text.isEmpty
+            ? 'Password is required.'
+            : null,
+      );
       return;
     }
     setState(() => _passwordError = null);
-    await ref.read(signInControllerProvider.notifier).submit(
-          email: _email.text.trim(),
-          password: _password.text,
-        );
+    await ref
+        .read(signInControllerProvider.notifier)
+        .submit(email: _email.text.trim(), password: _password.text);
   }
 
   @override
@@ -113,12 +115,13 @@ class _SignInForm extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final border =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
 
     final formState = ref.watch(signInControllerProvider);
     final submitting = formState is AuthFormSubmitting;
@@ -126,8 +129,8 @@ class _SignInForm extends ConsumerWidget {
     final buttonState = success
         ? PrimaryButtonState.success
         : submitting
-            ? PrimaryButtonState.loading
-            : PrimaryButtonState.idle;
+        ? PrimaryButtonState.loading
+        : PrimaryButtonState.idle;
 
     return Opacity(
       opacity: submitting ? 0.6 : 1.0,
@@ -168,8 +171,10 @@ class _SignInForm extends ConsumerWidget {
               child: TextButton(
                 onPressed: () => showForgotPasswordSheet(context),
                 style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   minimumSize: const Size(48, 48),
                 ),
                 child: Text(
@@ -183,10 +188,13 @@ class _SignInForm extends ConsumerWidget {
             // on every keystroke is this button. The rest of the form
             // (and the entire scaffold above) stays still.
             ListenableBuilder(
-              listenable:
-                  Listenable.merge([emailController, passwordController]),
+              listenable: Listenable.merge([
+                emailController,
+                passwordController,
+              ]),
               builder: (context, _) {
-                final canSubmit = emailController.text.trim().isNotEmpty &&
+                final canSubmit =
+                    emailController.text.trim().isNotEmpty &&
                     passwordController.text.isNotEmpty;
                 return PrimaryButton(
                   label: 'Sign in',
@@ -201,10 +209,7 @@ class _SignInForm extends ConsumerWidget {
                 Expanded(child: Divider(color: border)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'or',
-                    style: TribelyType.caption(inkSecondary),
-                  ),
+                  child: Text('or', style: TribelyType.caption(inkSecondary)),
                 ),
                 Expanded(child: Divider(color: border)),
               ],
@@ -228,8 +233,10 @@ class _SignInForm extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: border,
                       borderRadius: BorderRadius.circular(4),
@@ -253,9 +260,9 @@ class _SignInForm extends ConsumerWidget {
                       const TextSpan(text: 'New to Tribely?  '),
                       TextSpan(
                         text: 'Create an account',
-                        style: TribelyType.bodyM(accent).copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: TribelyType.bodyM(
+                          accent,
+                        ).copyWith(fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),

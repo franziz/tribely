@@ -27,14 +27,18 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final primary =
-        dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
-    final onPrimary =
-        dark ? TribelyColors.nightSurface : TribelyColors.paperSurfaceHigh;
-    final disabledBg =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
-    final disabledFg =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
+    final onPrimary = dark
+        ? TribelyColors.nightSurface
+        : TribelyColors.paperSurfaceHigh;
+    final disabledBg = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+    final disabledFg = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
 
     final disabled = onPressed == null && state == PrimaryButtonState.idle;
     final bg = disabled ? disabledBg : primary;
@@ -56,23 +60,23 @@ class PrimaryButton extends StatelessWidget {
               duration: TribelyMotion.short,
               child: switch (state) {
                 PrimaryButtonState.idle => Text(
-                    label,
-                    key: const ValueKey('idle'),
-                    style: TribelyType.button(fg),
-                  ),
+                  label,
+                  key: const ValueKey('idle'),
+                  style: TribelyType.button(fg),
+                ),
                 PrimaryButtonState.loading => _LoadingDots(
-                    key: const ValueKey('loading'),
-                    color: fg,
-                  ),
+                  key: const ValueKey('loading'),
+                  color: fg,
+                ),
                 PrimaryButtonState.success => Row(
-                    key: const ValueKey('success'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(successLabel, style: TribelyType.button(fg)),
-                      const SizedBox(width: 8),
-                      Icon(Icons.check, color: fg, size: 18),
-                    ],
-                  ),
+                  key: const ValueKey('success'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(successLabel, style: TribelyType.button(fg)),
+                    const SizedBox(width: 8),
+                    Icon(Icons.check, color: fg, size: 18),
+                  ],
+                ),
               },
             ),
           ),

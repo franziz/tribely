@@ -96,13 +96,14 @@ class SessionController extends Notifier<SessionState> {
   SessionUnauthenticated _unauthenticatedFor(Failure failure) {
     return switch (failure) {
       NetworkFailure() => const SessionUnauthenticated(
-          reason:
-              "We couldn't check your session. You can sign in once you're online.",
-        ),
+        reason:
+            "We couldn't check your session. You can sign in once you're online.",
+      ),
       AuthFailure(:final message) when message == 'No stored refresh token' =>
         const SessionUnauthenticated(),
-      AuthFailure() =>
-        const SessionUnauthenticated(reason: 'Please sign in again.'),
+      AuthFailure() => const SessionUnauthenticated(
+        reason: 'Please sign in again.',
+      ),
       _ => const SessionUnauthenticated(reason: 'Please sign in again.'),
     };
   }

@@ -25,9 +25,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       final isSplash = loc == '/splash';
-      final isAuthFlow = loc == '/welcome' ||
-          loc == '/sign-in' ||
-          loc == '/sign-up';
+      final isAuthFlow =
+          loc == '/welcome' || loc == '/sign-in' || loc == '/sign-up';
 
       switch (session) {
         case SessionRestoring():

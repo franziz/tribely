@@ -13,12 +13,7 @@ import '../design/typography.dart';
 ///     Once complete, the plain [Text] renders without a saveLayer — Flutter
 ///     can short-circuit straight to a glyph atlas blit.
 class InkMark extends StatefulWidget {
-  const InkMark({
-    this.size = 80,
-    this.color,
-    this.animate = true,
-    super.key,
-  });
+  const InkMark({this.size = 80, this.color, this.animate = true, super.key});
 
   final double size;
   final Color? color;
@@ -28,17 +23,13 @@ class InkMark extends StatefulWidget {
   State<InkMark> createState() => _InkMarkState();
 }
 
-class _InkMarkState extends State<InkMark>
-    with SingleTickerProviderStateMixin {
+class _InkMarkState extends State<InkMark> with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: TribelyMotion.brand,
-    );
+    _ctrl = AnimationController(vsync: this, duration: TribelyMotion.brand);
     if (widget.animate) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _ctrl.forward();
@@ -84,8 +75,9 @@ class _InkMarkState extends State<InkMark>
                 : AnimatedBuilder(
                     animation: _ctrl,
                     builder: (context, child) {
-                      final progress =
-                          Curves.easeOutCubic.transform(_ctrl.value);
+                      final progress = Curves.easeOutCubic.transform(
+                        _ctrl.value,
+                      );
                       // Once revealed, render plain text — no saveLayer.
                       if (progress >= 0.999) return child!;
                       return ShaderMask(
@@ -96,14 +88,8 @@ class _InkMarkState extends State<InkMark>
                           return LinearGradient(
                             begin: Alignment.centerLeft,
                             end: Alignment.centerRight,
-                            colors: const [
-                              Colors.black,
-                              Colors.transparent,
-                            ],
-                            stops: [
-                              start.clamp(0.0, 1.0),
-                              end.clamp(0.0, 1.0),
-                            ],
+                            colors: const [Colors.black, Colors.transparent],
+                            stops: [start.clamp(0.0, 1.0), end.clamp(0.0, 1.0)],
                           ).createShader(rect);
                         },
                         blendMode: BlendMode.dstIn,

@@ -12,12 +12,12 @@ class SignInController extends Notifier<AuthFormState> {
   Future<void> submit({required String email, required String password}) async {
     state = const AuthFormSubmitting();
     final useCase = ref.read(signInUseCaseProvider);
-    final result = await useCase(SignInParams(email: email, password: password));
+    final result = await useCase(
+      SignInParams(email: email, password: password),
+    );
     state = result.match(
-      (failure) => AuthFormError(
-        failure: failure,
-        bannerMessage: _bannerFor(failure),
-      ),
+      (failure) =>
+          AuthFormError(failure: failure, bannerMessage: _bannerFor(failure)),
       (session) {
         ref.read(sessionControllerProvider.notifier).setAuthenticated(session);
         return const AuthFormSuccess();

@@ -25,12 +25,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
-    _greetingTimer = Timer(
-      const Duration(milliseconds: 3000),
-      () {
-        if (mounted) setState(() => _greetingVisible = false);
-      },
-    );
+    _greetingTimer = Timer(const Duration(milliseconds: 3000), () {
+      if (mounted) setState(() => _greetingVisible = false);
+    });
   }
 
   @override
@@ -42,14 +39,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
 
     final session = ref.watch(sessionControllerProvider);
-    final user =
-        session is SessionAuthenticated ? session.session.user : null;
+    final user = session is SessionAuthenticated ? session.session.user : null;
     final firstName = user?.displayName.split(' ').first ?? '';
 
     return Scaffold(
@@ -81,10 +79,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'You\'re in.',
-                          style: TribelyType.displayL(ink),
-                        ),
+                        Text('You\'re in.', style: TribelyType.displayL(ink)),
                         const SizedBox(height: 16),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 32),

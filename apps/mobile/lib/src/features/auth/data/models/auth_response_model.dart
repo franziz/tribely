@@ -24,8 +24,9 @@ class AuthResponseModel {
   });
 
   factory AuthResponseModel.fromJson(Map<String, dynamic> json) {
-    final access =
-        _IssuedTokenModel.fromJson(json['accessToken'] as Map<String, dynamic>);
+    final access = _IssuedTokenModel.fromJson(
+      json['accessToken'] as Map<String, dynamic>,
+    );
     final refresh = _IssuedTokenModel.fromJson(
       json['refreshToken'] as Map<String, dynamic>,
     );
@@ -45,10 +46,10 @@ class AuthResponseModel {
   final DateTime refreshTokenExpiresAt;
 
   AuthSession toEntity() => AuthSession(
-        user: user.toEntity(),
-        accessToken: accessToken,
-        accessTokenExpiresAt: accessTokenExpiresAt,
-        refreshToken: refreshToken,
-        refreshTokenExpiresAt: refreshTokenExpiresAt,
-      );
+    user: user.toEntity(),
+    accessToken: accessToken,
+    accessTokenExpiresAt: accessTokenExpiresAt,
+    refreshToken: refreshToken,
+    refreshTokenExpiresAt: refreshTokenExpiresAt,
+  );
 }

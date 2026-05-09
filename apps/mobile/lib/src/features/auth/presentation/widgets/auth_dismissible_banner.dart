@@ -24,10 +24,7 @@ import '../state/auth_state.dart';
 typedef AuthFormStateWatcher = AuthFormState Function(WidgetRef ref);
 
 class AuthDismissibleBanner extends ConsumerStatefulWidget {
-  const AuthDismissibleBanner({
-    required this.watch,
-    super.key,
-  });
+  const AuthDismissibleBanner({required this.watch, super.key});
 
   final AuthFormStateWatcher watch;
 
@@ -47,8 +44,9 @@ class _AuthDismissibleBannerState extends ConsumerState<AuthDismissibleBanner> {
       return const SizedBox.shrink();
     }
 
-    final suggestion =
-        state is AuthFormError ? state.suggestSignInWithEmail : null;
+    final suggestion = state is AuthFormError
+        ? state.suggestSignInWithEmail
+        : null;
     final action = suggestion != null
         ? BannerAction(
             label: 'Sign in instead →',

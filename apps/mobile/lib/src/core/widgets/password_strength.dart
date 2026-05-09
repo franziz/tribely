@@ -11,30 +11,30 @@ PasswordStrength assessPassword(String value) {
   final hasMixed =
       value.contains(RegExp(r'[A-Z]')) && value.contains(RegExp(r'[a-z]'));
   final hasNumOrSym =
-      value.contains(RegExp(r'[0-9]')) || value.contains(RegExp(r'[^a-zA-Z0-9]'));
-  if (value.length >= 12 && hasMixed && hasNumOrSym) return PasswordStrength.strong;
+      value.contains(RegExp(r'[0-9]')) ||
+      value.contains(RegExp(r'[^a-zA-Z0-9]'));
+  if (value.length >= 12 && hasMixed && hasNumOrSym)
+    return PasswordStrength.strong;
   return PasswordStrength.ok;
 }
 
 /// Three-pip strength indicator. Discrete states are easier to perceive than
 /// a continuous bar and don't imply a misleading 0–100 score.
 class PasswordStrengthMeter extends StatelessWidget {
-  const PasswordStrengthMeter({
-    required this.strength,
-    super.key,
-  });
+  const PasswordStrengthMeter({required this.strength, super.key});
 
   final PasswordStrength strength;
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final success =
-        dark ? TribelyColors.nightSuccess : TribelyColors.paperSuccess;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final success = dark
+        ? TribelyColors.nightSuccess
+        : TribelyColors.paperSuccess;
     final dim = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;

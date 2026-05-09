@@ -13,11 +13,18 @@ import '../state/auth_state.dart';
 
 // --- Use cases (resolved via get_it) ---
 
-final signInUseCaseProvider = Provider<SignInUseCase>((_) => sl<SignInUseCase>());
-final signUpUseCaseProvider = Provider<SignUpUseCase>((_) => sl<SignUpUseCase>());
-final refreshSessionUseCaseProvider =
-    Provider<RefreshSessionUseCase>((_) => sl<RefreshSessionUseCase>());
-final signOutUseCaseProvider = Provider<SignOutUseCase>((_) => sl<SignOutUseCase>());
+final signInUseCaseProvider = Provider<SignInUseCase>(
+  (_) => sl<SignInUseCase>(),
+);
+final signUpUseCaseProvider = Provider<SignUpUseCase>(
+  (_) => sl<SignUpUseCase>(),
+);
+final refreshSessionUseCaseProvider = Provider<RefreshSessionUseCase>(
+  (_) => sl<RefreshSessionUseCase>(),
+);
+final signOutUseCaseProvider = Provider<SignOutUseCase>(
+  (_) => sl<SignOutUseCase>(),
+);
 final getMeUseCaseProvider = Provider<GetMeUseCase>((_) => sl<GetMeUseCase>());
 
 // --- Controllers (Riverpod 3.x Notifier API) ---

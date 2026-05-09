@@ -66,8 +66,11 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     _validateEmail();
     if (_displayNameError != null ||
         _emailError != null ||
-        _password.text.length < 8) return;
-    await ref.read(signUpControllerProvider.notifier).submit(
+        _password.text.length < 8)
+      return;
+    await ref
+        .read(signUpControllerProvider.notifier)
+        .submit(
           email: _email.text.trim(),
           password: _password.text,
           displayName: _displayName.text.trim(),
@@ -117,10 +120,10 @@ class _SignUpForm extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
 
     final formState = ref.watch(signUpControllerProvider);
     final submitting = formState is AuthFormSubmitting;
@@ -128,8 +131,8 @@ class _SignUpForm extends ConsumerWidget {
     final buttonState = success
         ? PrimaryButtonState.success
         : submitting
-            ? PrimaryButtonState.loading
-            : PrimaryButtonState.idle;
+        ? PrimaryButtonState.loading
+        : PrimaryButtonState.idle;
 
     return Opacity(
       opacity: submitting ? 0.6 : 1.0,
@@ -201,7 +204,8 @@ class _SignUpForm extends ConsumerWidget {
                 passwordController,
               ]),
               builder: (context, _) {
-                final canSubmit = displayNameController.text.trim().isNotEmpty &&
+                final canSubmit =
+                    displayNameController.text.trim().isNotEmpty &&
                     emailController.text.trim().isNotEmpty &&
                     passwordController.text.length >= 8;
                 return PrimaryButton(
@@ -222,9 +226,9 @@ class _SignUpForm extends ConsumerWidget {
                       const TextSpan(text: 'Already have an account?  '),
                       TextSpan(
                         text: 'Sign in',
-                        style: TribelyType.bodyM(accent).copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: TribelyType.bodyM(
+                          accent,
+                        ).copyWith(fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
