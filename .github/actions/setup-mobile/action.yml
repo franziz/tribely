@@ -27,16 +27,14 @@ runs:
       shell: bash
       run: dart pub global activate melos ${{ inputs.melos-version }}
 
-    - name: Pub get (workspace)
+    # Root pubspec only has melos as a dev_dep — pub get there for that.
+    - name: Pub get (root)
       shell: bash
       run: dart pub get
 
-    # Pub Workspaces put package_config.json at the workspace root only.
-    # custom_lint's analyzer plugin runs from `apps/mobile/.dart_tool/` and
-    # doesn't walk up — without a per-member package_config, it fails to
-    # resolve transitive deps like `custom_lint_builder`. Running
-    # `flutter pub get` from the member directory creates the stub
-    # package_config inside `apps/mobile/.dart_tool/`.
+    # Mobile package now resolves independently (no Pub Workspace) so it
+    # gets its own package_config.json — required for custom_lint to
+    # resolve transitive deps like `custom_lint_builder`.
     - name: Pub get (mobile package)
       shell: bash
       working-directory: apps/mobile
