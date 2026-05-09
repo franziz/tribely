@@ -126,11 +126,17 @@ Configuration coverage to verify:
 
 **Severity:** warn for uncovered files; error for files Prettier shouldn't touch but is being asked to.
 
-### melos-script-shape
+### no-melos-resurrection
 
-**Check:** Melos scripts (in root `pubspec.yaml`'s `melos.scripts`) must follow these rules:
+**Check:** Tribely deliberately dropped Melos in TRI-1 (see CLAUDE.md → Mobile section, and the corresponding feedback memory). Flag any reappearance:
 
-- A script with an `exec:` block providing options (e.g. `concurrency`, `orderDependents`) MUST NOT prefix its `run:` with `melos exec --` — Melos auto-wraps; doubling errors out.
+- Root `pubspec.yaml` exists (it shouldn't — there's no Pub Workspace and no Melos config).
+- `apps/mobile/pubspec.yaml` declares `resolution: workspace`.
+- `package.json` mobile scripts call `melos run X` instead of `cd apps/mobile && flutter|dart X`.
+- CI workflows install Melos via `dart pub global activate melos`.
+- Any reference to a `melos:` config block.
+
+Reintroducing Melos is allowed ONLY when (1) a second Flutter package exists and (2) `custom_lint` has verified Pub Workspaces support upstream. Until then, treat Melos resurrection as a regression.
 - A script without an `exec:` block IS allowed to prefix `run:` with `melos exec --`.
 
 **Severity:** error.
