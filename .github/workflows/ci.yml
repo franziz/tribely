@@ -45,8 +45,6 @@ jobs:
               - '.github/workflows/_api.yml'
             mobile:
               - 'apps/mobile/**'
-              - 'pubspec.yaml'
-              - 'pubspec.lock'
               - '.github/actions/setup-mobile/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_mobile.yml'

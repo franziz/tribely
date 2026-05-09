@@ -39,17 +39,16 @@ npm run --workspace=@tribely/api test path/to/foo.test.ts   # single test
 
 ### Mobile
 
-The mobile workspace uses **Melos 7.x + Dart 3.6+ Pub Workspaces**. Configuration lives in the root `pubspec.yaml` under the `melos:` key (NOT a separate `melos.yaml` — that's the deprecated 6.x style). `apps/mobile/pubspec.yaml` declares `resolution: workspace`.
+The mobile package is a single Flutter app at `apps/mobile/`. There is **no Melos and no Pub Workspaces** — Melos was dropped in TRI-1 because Pub Workspaces breaks `custom_lint`'s analyzer plugin in CI, and with one Flutter package the orchestration overhead doesn't earn its weight. Reintroduce Melos (and possibly Pub Workspaces) when a second Flutter package arrives AND `custom_lint` ships verified workspace support.
 
 ```bash
-dart pub global activate melos                                                  # one-time
-dart pub get                                                                    # bootstraps the pub workspace from root pubspec.yaml
+cd apps/mobile && flutter pub get                                              # fetch deps
 cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # REQUIRED on first run — repo ships without ios/android folders
 npm run mobile:run                                                              # reads apps/mobile/.env.json (use http://10.0.2.2:<port> on Android emulator)
-melos run analyze
-melos run test
-melos run build_runner          # one-shot codegen
-melos run build_runner:watch    # codegen watch mode
+npm run mobile:analyze                                                          # cd apps/mobile && flutter analyze
+npm run mobile:test                                                             # cd apps/mobile && flutter test
+npm run mobile:codegen                                                          # cd apps/mobile && dart run build_runner build --delete-conflicting-outputs
+cd apps/mobile && dart run build_runner watch --delete-conflicting-outputs     # watch mode
 cd apps/mobile && flutter test test/path/to/foo_test.dart                      # single test
 ```
 

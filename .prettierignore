@@ -19,7 +19,6 @@ prisma/migrations
 .github/actions/**/action.yml
 
 # Pub-specific YAML (Dart pub manages format)
-pubspec.yaml
 apps/mobile/pubspec.yaml
 apps/mobile/analysis_options.yaml
 

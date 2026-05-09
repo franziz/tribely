@@ -23,13 +23,16 @@ jobs:
         uses: ./.github/actions/setup-mobile
 
       - name: Format check
-        run: melos run format:check
+        working-directory: apps/mobile
+        run: dart format --set-exit-if-changed --output none .
 
       - name: Analyze
-        run: melos run analyze
+        working-directory: apps/mobile
+        run: flutter analyze
 
       - name: Test (with coverage)
-        run: melos run test:coverage
+        working-directory: apps/mobile
+        run: flutter test --coverage
 
       - name: Upload coverage report
         if: always()

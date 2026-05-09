@@ -1,15 +1,11 @@
 name: Setup Mobile
-description: Install Flutter (version from apps/mobile/pubspec.yaml), activate Melos, fetch pub deps, and run build_runner codegen.
+description: Install Flutter (version from apps/mobile/pubspec.yaml), fetch pub deps, and run build_runner codegen.
 
 inputs:
   flutter-channel:
     description: Flutter release channel.
     required: false
     default: stable
-  melos-version:
-    description: Exact Melos version to activate (must match pubspec dev_dependency).
-    required: false
-    default: '6.3.3'
 
 runs:
   using: composite
@@ -23,17 +19,12 @@ runs:
         flutter-version-file: apps/mobile/pubspec.yaml
         cache: true
 
-    - name: Activate Melos
+    - name: Pub get
       shell: bash
-      run: dart pub global activate melos ${{ inputs.melos-version }}
-
-    # Melos 6.x bootstrap runs `flutter pub get` per package — gives each
-    # package its own .dart_tool/package_config.json, which custom_lint's
-    # analyzer plugin needs to resolve transitive deps.
-    - name: Bootstrap (pub get per package)
-      shell: bash
-      run: melos bootstrap
+      working-directory: apps/mobile
+      run: flutter pub get
 
     - name: Build runner (codegen)
       shell: bash
-      run: melos run build_runner
+      working-directory: apps/mobile
+      run: dart run build_runner build --delete-conflicting-outputs
