@@ -23,6 +23,7 @@ The reason this is a skill (and not just an npm script): naming, diff analysis, 
 ### 1. Detect schema diff
 
 Run:
+
 ```bash
 cd apps/api && npx prisma migrate diff \
   --from-migrations prisma/migrations \
@@ -35,18 +36,21 @@ This produces the SQL that would be generated. If the output is empty: tell the 
 ### 2. Analyze the diff
 
 Read the SQL output and `prisma/schema.prisma` to understand:
+
 - **What changed:** added tables, dropped tables, added columns, dropped columns, renamed columns, changed types, added indexes, added constraints.
 - **Risk level:** is this destructive (drop column, drop table, change type), additive (new column with default, new table), or neutral (added index)?
 
 ### 3. Warn on destructive changes
 
 If the diff includes ANY of:
+
 - `DROP TABLE`
 - `DROP COLUMN`
 - `ALTER COLUMN ... TYPE` (incompatible type change)
 - `RENAME COLUMN` / `RENAME TABLE` (Prisma can't always detect renames — these usually surface as drop+add and lose data)
 
 → STOP and explain to the user:
+
 - Exactly which columns/tables are affected.
 - Whether data will be lost.
 - For renames: ask if it's actually a rename (then suggest hand-editing the migration file with `ALTER TABLE ... RENAME` instead of relying on auto-generated drop+add).
@@ -56,14 +60,14 @@ Get explicit confirmation before proceeding.
 
 ### 4. Suggest a name
 
-Look at the diff and propose a `snake_case` name describing the *intent*, not the *mechanism*:
+Look at the diff and propose a `snake_case` name describing the _intent_, not the _mechanism_:
 
-| Diff | Bad name | Good name |
-|---|---|---|
-| Adds `Event` model | `add_event_table` | `add_events` |
-| Adds `User.locale` column | `add_locale_column` | `add_user_locale` |
-| Splits `User` into `User` + `Credential` | `migration_2` | `split_user_and_credential` |
-| Adds index on `users.email` | `add_index` | `add_users_email_index` |
+| Diff                                     | Bad name            | Good name                   |
+| ---------------------------------------- | ------------------- | --------------------------- |
+| Adds `Event` model                       | `add_event_table`   | `add_events`                |
+| Adds `User.locale` column                | `add_locale_column` | `add_user_locale`           |
+| Splits `User` into `User` + `Credential` | `migration_2`       | `split_user_and_credential` |
+| Adds index on `users.email`              | `add_index`         | `add_users_email_index`     |
 
 Confirm the name with the user. Accept their override.
 
@@ -74,7 +78,8 @@ cd apps/api && npx prisma migrate dev --name <confirmed-name>
 ```
 
 This will:
-- Apply any *previous* unapplied migrations first (if there were any).
+
+- Apply any _previous_ unapplied migrations first (if there were any).
 - Generate the new migration file at `apps/api/prisma/migrations/<timestamp>_<name>/migration.sql`.
 - Apply the new migration.
 - Regenerate `@prisma/client` so TypeScript types match the new schema.

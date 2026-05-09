@@ -4,7 +4,7 @@ publish_to: none
 
 environment:
   sdk: ^3.11.0
-  flutter: ">=3.41.0"
+  flutter: 3.41.9
 
 # Dart 3.6+ Pub Workspaces — every entry must contain a pubspec.yaml that
 # declares `resolution: workspace`. Add additional Flutter packages here
@@ -13,7 +13,7 @@ workspace:
   - apps/mobile
 
 dev_dependencies:
-  melos: ^7.5.0
+  melos: 7.5.0
 
 melos:
   repository: https://github.com/tribely/tribely

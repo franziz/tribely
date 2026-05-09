@@ -1,12 +1,32 @@
+# Dependencies / build outputs
 node_modules
 dist
 build
 coverage
 .dart_tool
+
+# Lockfiles (auto-generated)
 package-lock.json
 pubspec.lock
+
+# Codegen
 **/*.g.dart
 **/*.freezed.dart
 prisma/migrations
+
+# CI YAML — Prettier can break GitHub Actions-specific syntax
 .github/workflows/*.yml
 .github/actions/**/action.yml
+
+# Pub-specific YAML (Dart pub manages format)
+pubspec.yaml
+apps/mobile/pubspec.yaml
+apps/mobile/analysis_options.yaml
+
+# Flutter-generated platform code
+apps/mobile/ios/
+apps/mobile/android/
+apps/mobile/macos/
+apps/mobile/windows/
+apps/mobile/linux/
+apps/mobile/web/

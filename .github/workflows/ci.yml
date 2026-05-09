@@ -39,6 +39,7 @@ jobs:
               - 'package-lock.json'
               - 'tsconfig.base.json'
               - '.nvmrc'
+              - '.prettierignore'
               - '.github/actions/setup-api/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_api.yml'
@@ -104,6 +105,7 @@ jobs:
     needs: [detect-changes, api, mobile, pr-title]
     runs-on: ubuntu-latest
     timeout-minutes: 1
+    permissions: {}
     steps:
       - name: Verify upstream jobs
         run: |

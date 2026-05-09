@@ -12,12 +12,14 @@ description: BACKEND ONLY. Scaffold an aggregate root entity in apps/api/src/fea
 **Scope guard:** Backend API only. Backend entities are aggregate roots that record domain events and have rich behavior. Flutter entities are simpler value-equality classes (Equatable).
 
 Examples:
+
 - `/api-new-entity events Event` → `events/domain/entities/event.ts` + `events/infrastructure/persistence/event.mapper.ts`
 - `/api-new-entity users User` → `users/domain/entities/user.ts` + mapper
 
 ## Validate
 
 REFUSE and explain if:
+
 - `<feature>` doesn't exist under `apps/api/src/features/`.
 - Name is plural (`Events` instead of `Event`) — entities are singular.
 - Name is camelCase or kebab-case — must be PascalCase singular noun.

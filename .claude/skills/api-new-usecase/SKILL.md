@@ -12,15 +12,17 @@ description: BACKEND ONLY. Scaffold a use case in apps/api/src/features/<feature
 **Scope guard:** Backend API only. The use case shape here orchestrates UnitOfWork + EventPublisher + repositories. Flutter use cases are simpler wrappers and live in `domain/usecases/`; use `/mobile-new-usecase`.
 
 Examples:
+
 - `/api-new-usecase events create-event` → `events/application/usecases/create-event.usecase.ts` → class `CreateEventUseCase`
 - `/api-new-usecase users update-profile` → class `UpdateProfileUseCase`
 
 ## Validate
 
 REFUSE and explain if:
+
 - `<feature>` doesn't exist under `apps/api/src/features/`.
 - `<verb-noun>` is not in the form `<verb>-<noun>` (`/api-new-usecase events list-events` not `/api-new-usecase events events`).
-- Verb is past tense — use cases describe an *intent*, present tense (`create-event`, not `event-created`; past tense is for events).
+- Verb is past tense — use cases describe an _intent_, present tense (`create-event`, not `event-created`; past tense is for events).
 - File would overwrite an existing one.
 
 ## Scaffold

@@ -13,12 +13,14 @@ description: FLUTTER ONLY. Scaffold a Flutter page (screen) as a ConsumerWidget 
 **Scope guard:** Flutter only. Pages are a UI concept — there's no equivalent on the backend.
 
 Examples:
+
 - `/mobile-new-page events list` → `events/presentation/pages/list_page.dart`
 - `/mobile-new-page events create --stateful` → adds `controllers/create_controller.dart` + `state/create_state.dart`
 
 ## Validate
 
 REFUSE if:
+
 - `<feature>` doesn't exist under `apps/mobile/lib/src/features/`.
 - `<page-name>` is not snake_case kebab-able.
 - File would overwrite an existing one.

@@ -8,16 +8,16 @@ Imagine the cover of a thoughtful travel quarterly published in Singapore — co
 
 ### Why this direction (not the obvious ones)
 
-- Tribely is about *real places and real people meeting in person*. A globe icon, a stock Bali sunset, or a Material You blue tells the wrong story. Singapore at 7pm — when offices empty and people stream toward dinner with strangers — is the actual product moment. Design captures that, not "travel" in the abstract.
+- Tribely is about _real places and real people meeting in person_. A globe icon, a stock Bali sunset, or a Material You blue tells the wrong story. Singapore at 7pm — when offices empty and people stream toward dinner with strangers — is the actual product moment. Design captures that, not "travel" in the abstract.
 - Trust + safety must read in the first second. Restrained typography + generous spacing + an editorial tone telegraphs "considered" and "premium." Loud animations and gradient buttons would suggest dating-app or airdrop-startup, both wrong category.
 - "Premium but human" is delivered through warmth — paper-cream not pure white, ember not red, deep teak teal not corporate blue. No purple gradient. No glassmorphism. No Material You.
 
 ## Type system
 
-| Role | Family | Source | Default | Why |
-|---|---|---|---|---|
-| Display | **Fraunces** (variable serif, SOFT axis) | Google Fonts | 36/42, italic 400 | Editorial weight, warm soul, soft axis adds friendly hand-cut feel |
-| Body | **General Sans** (variable, weights 400–700) | Fontshare | 15/22, 400 | Humanist sans with character — *not* Inter, Geist, or Space Grotesk |
+| Role    | Family                                       | Source       | Default           | Why                                                                 |
+| ------- | -------------------------------------------- | ------------ | ----------------- | ------------------------------------------------------------------- |
+| Display | **Fraunces** (variable serif, SOFT axis)     | Google Fonts | 36/42, italic 400 | Editorial weight, warm soul, soft axis adds friendly hand-cut feel  |
+| Body    | **General Sans** (variable, weights 400–700) | Fontshare    | 15/22, 400        | Humanist sans with character — _not_ Inter, Geist, or Space Grotesk |
 
 The signature is **italic-display headlines** — gives Tribely a confident-but-warm voice no travel app has.
 
@@ -63,7 +63,7 @@ Success         #82B091
 Grain           4% noise overlay
 ```
 
-Why teak + coral over the obvious blue + orange (Stripe-clone) or purple + green (AI-startup-clone): complementary-adjacent, photographic, warm, *unique*. Errors in coral feel firm but not alarming — an auth app shouldn't blare red.
+Why teak + coral over the obvious blue + orange (Stripe-clone) or purple + green (AI-startup-clone): complementary-adjacent, photographic, warm, _unique_. Errors in coral feel firm but not alarming — an auth app shouldn't blare red.
 
 ## Motion principles
 
@@ -77,12 +77,14 @@ Why teak + coral over the obvious blue + orange (Stripe-clone) or purple + green
 ## Screen 1 — Splash / Cold start
 
 The first 1.5–2s of the app. Two paths after this screen:
+
 - Stored refresh token → silently call `POST /auth/refresh` → `/home`
 - No token / refresh failed → `/welcome`
 
 Layout: ink-brush stroke draws itself centered (800ms), wordmark "TRIBELY" in Fraunces Italic 28pt fades up 200ms after, "Restoring your session…" caption fades in only if the boot exceeds 1.5s.
 
 States:
+
 - Default (≤1.5s): ink + wordmark, no copy. Minimum hold establishes brand presence.
 - Slow (>1.5s, <5s): "Restoring your session…" caption.
 - Refresh failed: navigate to `/welcome` with a one-line top banner: "Please sign in again." Auto-dismisses after 4s.
@@ -103,9 +105,10 @@ Layout (mobile portrait): edge-to-edge mood photograph (hawker centre at dusk, l
 - Primary CTA filled, 56dp height: "Create an account"
 - Text-link secondary: "I already have one"
 
-**Rationale for putting the photo above the text:** Tribely is about places. The image telegraphs the product before any word does. Most auth screens lead with the brand or a promise; we lead with a *moment*.
+**Rationale for putting the photo above the text:** Tribely is about places. The image telegraphs the product before any word does. Most auth screens lead with the brand or a promise; we lead with a _moment_.
 
 States:
+
 - Default
 - Image still loading (or asset missing): a flat warm-cream block with the ink mark centered, no copy yet.
 
@@ -113,24 +116,24 @@ States:
 
 ## Screen 3 — Sign In
 
-Layout: large back arrow (32dp) top-left. Display L italic "Welcome back." Body L secondary "Sign in to your Tribely account." Email field, password field with a "show / hide" *text* toggle (NOT eye icon — accessible, translatable, bigger tap target). "Forgot password?" caption-link right-aligned. Primary CTA "Sign in" 56dp filled, full-width. Below: "Or continue with Google" ghost button — DISABLED with "Coming soon" caption.
+Layout: large back arrow (32dp) top-left. Display L italic "Welcome back." Body L secondary "Sign in to your Tribely account." Email field, password field with a "show / hide" _text_ toggle (NOT eye icon — accessible, translatable, bigger tap target). "Forgot password?" caption-link right-aligned. Primary CTA "Sign in" 56dp filled, full-width. Below: "Or continue with Google" ghost button — DISABLED with "Coming soon" caption.
 
 Inputs: 1.5dp border, 12px radius, focus state = 4dp soft ember-coral glow (NOT a sharp 2dp ring).
 
 ### States — Sign in form
 
-| State | Behavior |
-|---|---|
-| **Idle (empty)** | Sign in button DISABLED. Inputs at rest. |
-| **Idle (filled)** | Sign in button ACTIVE. |
-| **Validating** | Email format checked on `blur`, never while typing. Inline error: small triangle accent + caption in coral, below the field. Field border becomes coral. |
-| **Submitting** | Button text replaces with 3-dot pulse animation (•••). Inputs disabled (opacity 0.5). Form has subtle vertical shimmer (very subtle — 6% brightness oscillation, 1.5s loop). Cursor remains on the focused field if any. |
-| **Success** | Button text becomes "You're in." for 400ms with a tiny coral check ✓ animating in. Then the page fades to warm-cream, `/home` fades up. |
-| **Error 401** | Banner above the form: "That email and password didn't match. Try again, or reset your password." Inputs stay populated; password field empty for re-entry. |
-| **Error 429** | Banner: "Too many attempts. Try again in {N} seconds." with live-counting timer (uses API's `Retry-After`). Sign in button DISABLED while timer runs. |
-| **Network failure** | Banner: "Couldn't reach Tribely. Check your connection." Sign in button stays ACTIVE so the user can retry. |
-| **Server 5xx** | Banner: "Something's off on our end. Give it a moment." |
-| **Reduced motion** | Pulse → static "•••" without animation. Shimmer disabled. |
+| State               | Behavior                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Idle (empty)**    | Sign in button DISABLED. Inputs at rest.                                                                                                                                                                                 |
+| **Idle (filled)**   | Sign in button ACTIVE.                                                                                                                                                                                                   |
+| **Validating**      | Email format checked on `blur`, never while typing. Inline error: small triangle accent + caption in coral, below the field. Field border becomes coral.                                                                 |
+| **Submitting**      | Button text replaces with 3-dot pulse animation (•••). Inputs disabled (opacity 0.5). Form has subtle vertical shimmer (very subtle — 6% brightness oscillation, 1.5s loop). Cursor remains on the focused field if any. |
+| **Success**         | Button text becomes "You're in." for 400ms with a tiny coral check ✓ animating in. Then the page fades to warm-cream, `/home` fades up.                                                                                  |
+| **Error 401**       | Banner above the form: "That email and password didn't match. Try again, or reset your password." Inputs stay populated; password field empty for re-entry.                                                              |
+| **Error 429**       | Banner: "Too many attempts. Try again in {N} seconds." with live-counting timer (uses API's `Retry-After`). Sign in button DISABLED while timer runs.                                                                    |
+| **Network failure** | Banner: "Couldn't reach Tribely. Check your connection." Sign in button stays ACTIVE so the user can retry.                                                                                                              |
+| **Server 5xx**      | Banner: "Something's off on our end. Give it a moment."                                                                                                                                                                  |
+| **Reduced motion**  | Pulse → static "•••" without animation. Shimmer disabled.                                                                                                                                                                |
 
 Banner style: soft-coral background, 1px ember coral left-border, 12dp padding, body M weight 500, dismissible × on the right.
 
@@ -138,19 +141,21 @@ Banner style: soft-coral background, 1px ember coral left-border, 12dp padding, 
 
 ## Screen 4 — Sign Up
 
-Layout: same chrome as Sign In. Display L italic "Welcome." Body L secondary "Tell us a few things to get started." Display name field with helper "This is what other travelers will see." Email field. Password field with show/hide + 3-pip strength meter (▰▰▱) and helper "8+ characters." Trust microcopy *above* the CTA (italic caption): "We'll never share your email. You can change anything later." Primary CTA "Create account."
+Layout: same chrome as Sign In. Display L italic "Welcome." Body L secondary "Tell us a few things to get started." Display name field with helper "This is what other travelers will see." Email field. Password field with show/hide + 3-pip strength meter (▰▰▱) and helper "8+ characters." Trust microcopy _above_ the CTA (italic caption): "We'll never share your email. You can change anything later." Primary CTA "Create account."
 
 Detail decisions:
+
 - Strength indicator: **three pip-bars** (▱→▰), not a continuous bar. Discrete states are easier to perceive at a glance and don't imply a misleading 0–100 score.
-- Trust microcopy *above* the CTA. Reading order = "I see the form fields → I see the trust statement → I commit." Below the CTA it'd be missed.
+- Trust microcopy _above_ the CTA. Reading order = "I see the form fields → I see the trust statement → I commit." Below the CTA it'd be missed.
 - No phone field. Some Singapore apps lead with phone-OTP — out of MVP scope.
 
 ### States — Sign up form
 
 Same as sign-in plus:
+
 - **Display-name validation**: min 2, max 50, accepts Unicode (Chinese/Tamil/Malay names work). On blur.
-- **Password strength**: updates *while typing* (not blur — they need feedback as they choose). 8+ chars = OK; 12+ with mixed = Strong. Feedback only, not blocking.
-- **Error 409 (email exists)**: special banner "An account with that email already exists." with inline "Sign in instead →" button that navigates to `/sign-in` *with the email pre-filled*. The highest-friction failure deserves the gentlest recovery.
+- **Password strength**: updates _while typing_ (not blur — they need feedback as they choose). 8+ chars = OK; 12+ with mixed = Strong. Feedback only, not blocking.
+- **Error 409 (email exists)**: special banner "An account with that email already exists." with inline "Sign in instead →" button that navigates to `/sign-in` _with the email pre-filled_. The highest-friction failure deserves the gentlest recovery.
 
 ---
 
@@ -170,15 +175,15 @@ This is the honest MVP. Don't ship a broken reset link; don't hide the entry poi
 
 The transition is the brand moment.
 
-| T | Step |
-|---|---|
-| T+0 | Sign-in CTA pressed |
-| T+0–300ms | Form shimmers; button shows ••• pulse |
-| T+API | Token issued + refresh token persisted |
-| T+0 | Button text → "You're in." with ✓ inline (300ms) |
-| T+300ms | Whole screen fades to warm-cream (250ms ease-in-out) |
-| T+550ms | `/home` fades up (250ms ease-out) |
-| T+800ms | `/home` complete; greeting "Welcome, {firstName}." fades in at top (200ms), holds 3000ms, fades out (200ms) — auto-dismiss |
+| T         | Step                                                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| T+0       | Sign-in CTA pressed                                                                                                        |
+| T+0–300ms | Form shimmers; button shows ••• pulse                                                                                      |
+| T+API     | Token issued + refresh token persisted                                                                                     |
+| T+0       | Button text → "You're in." with ✓ inline (300ms)                                                                           |
+| T+300ms   | Whole screen fades to warm-cream (250ms ease-in-out)                                                                       |
+| T+550ms   | `/home` fades up (250ms ease-out)                                                                                          |
+| T+800ms   | `/home` complete; greeting "Welcome, {firstName}." fades in at top (200ms), holds 3000ms, fades out (200ms) — auto-dismiss |
 
 `displayName` is parsed by first whitespace; if no spaces, the whole name is shown. Localization-safe.
 
@@ -227,7 +232,7 @@ All <60 chars. None rely on English wordplay. None use imperative shouting.
 - Headlines tested for 30% length expansion (French/German/Vietnamese).
 - Display name accepts Unicode letters; does NOT enforce ASCII.
 - `Email` value object is the same one the API uses — no client-only stricter rules.
-- RTL is *not* in MVP. Singapore doesn't need RTL; defer Arabic/Hebrew when those markets come.
+- RTL is _not_ in MVP. Singapore doesn't need RTL; defer Arabic/Hebrew when those markets come.
 
 ## What we are explicitly NOT doing
 

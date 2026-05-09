@@ -1,17 +1,13 @@
 name: Setup Mobile
-description: Install Flutter, activate Melos, fetch pub deps, and run build_runner codegen.
+description: Install Flutter (version from apps/mobile/pubspec.yaml), activate Melos, fetch pub deps, and run build_runner codegen.
 
 inputs:
-  flutter-version:
-    description: Exact Flutter SDK version to install. Must ship Dart >= 3.9 (Melos 7.5+ requirement).
-    required: false
-    default: '3.41.9'
   flutter-channel:
     description: Flutter release channel.
     required: false
     default: stable
   melos-version:
-    description: Exact Melos version to activate.
+    description: Exact Melos version to activate (must match pubspec dev_dependency).
     required: false
     default: '7.5.0'
 
@@ -22,7 +18,9 @@ runs:
       uses: subosito/flutter-action@e938fdf56512cc96ef2f93601a5a40bde3801046 # v2.19.0
       with:
         channel: ${{ inputs.flutter-channel }}
-        flutter-version: ${{ inputs.flutter-version }}
+        # SOT: apps/mobile/pubspec.yaml `environment.flutter`. Bumping Flutter is
+        # one file edit, not three.
+        flutter-version-file: apps/mobile/pubspec.yaml
         cache: true
 
     - name: Activate Melos

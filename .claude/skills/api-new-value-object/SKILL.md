@@ -12,12 +12,14 @@ description: BACKEND ONLY. Scaffold a value object in apps/api/src/features/<fea
 **Scope guard:** Backend API only. If the user wants a Dart VO for Flutter, ask first — Flutter side typically uses simpler classes and we don't currently have a `/mobile-new-value-object` skill (Flutter VOs are rarer in our stack).
 
 Examples:
+
 - `/api-new-value-object users Email`
 - `/api-new-value-object events Capacity`
 
 ## Validate
 
 REFUSE if:
+
 - `<feature>` doesn't exist.
 - Name is not PascalCase singular noun.
 - Would overwrite an existing file.
