@@ -26,9 +26,17 @@ jobs:
         working-directory: apps/mobile
         run: dart format --set-exit-if-changed --output none .
 
-      - name: Analyze
+      # Per invertase/dart_custom_lint docs: in CI, run
+      # `dart run custom_lint` for custom_lint rules (riverpod_lint, etc.)
+      # — NOT `flutter analyze`'s plugin host, which is fragile. The
+      # plugin block in analysis_options.yaml stays for IDE diagnostics.
+      - name: Analyze (core analyzer rules)
         working-directory: apps/mobile
-        run: flutter analyze
+        run: flutter analyze --no-fatal-warnings || dart analyze --fatal-infos
+
+      - name: Lint (custom_lint — riverpod_lint, etc.)
+        working-directory: apps/mobile
+        run: dart run custom_lint
 
       - name: Test (with coverage)
         working-directory: apps/mobile
