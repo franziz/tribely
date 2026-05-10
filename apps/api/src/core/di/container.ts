@@ -2,6 +2,9 @@ import { env } from '../config/env.js';
 import { PrismaUnitOfWork } from '../db/prisma-unit-of-work.js';
 import { prisma, type Db } from '../db/prisma.js';
 import type { UnitOfWork } from '../db/unit-of-work.port.js';
+import type { EmailSender } from '../email/email-sender.port.js';
+import { LoggingEmailSender } from '../email/logging-email-sender.js';
+import { ResendEmailSender } from '../email/resend-email-sender.js';
 import {
   InProcessEventBus,
   OutboxDispatcher,
@@ -36,6 +39,19 @@ import { UserPrismaRepository } from '@/features/users/infrastructure/persistenc
 import { registerUsersSubscribers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
+const buildEmailSender = (): EmailSender => {
+  if (env.EMAIL_TRANSPORT === 'resend') {
+    // Zod's superRefine on env guarantees RESEND_API_KEY is set here, but
+    // an explicit check keeps the type narrowing local and avoids a
+    // non-null assertion (banned by strictTypeChecked).
+    if (!env.RESEND_API_KEY) {
+      throw new Error('EMAIL_TRANSPORT=resend requires RESEND_API_KEY');
+    }
+    return new ResendEmailSender(env.RESEND_API_KEY, env.EMAIL_FROM);
+  }
+  return new LoggingEmailSender();
+};
+
 const parseDurationSeconds = (value: string): number => {
   const match = /^(\d+)([smhd])$/.exec(value);
   if (!match) throw new Error(`Invalid TTL: ${value}`);
@@ -62,6 +78,7 @@ export interface Container {
   unitOfWork: UnitOfWork;
   dispatcher: OutboxDispatcher;
   rateLimiter: RateLimiter;
+  emailSender: EmailSender;
 
   // Users
   userRepository: UserRepository;
@@ -89,6 +106,7 @@ export const buildContainer = (): Container => {
   const unitOfWork = new PrismaUnitOfWork(db);
   const dispatcher = new OutboxDispatcher(db, bus);
   const rateLimiter = new InMemoryRateLimiter();
+  const emailSender = buildEmailSender();
 
   // --- Users ---
   const userRepository = new UserPrismaRepository(db);
@@ -162,6 +180,7 @@ export const buildContainer = (): Container => {
     unitOfWork,
     dispatcher,
     rateLimiter,
+    emailSender,
     userRepository,
     getUserUseCase,
     credentialRepository,
