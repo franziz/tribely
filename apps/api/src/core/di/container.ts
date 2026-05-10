@@ -46,6 +46,14 @@ import { UserPrismaRepository } from '@/features/users/infrastructure/persistenc
 import { registerUsersSubscribers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
+import { RecordEventDispatchUseCase } from '@/features/audit/application/usecases/record-event-dispatch.usecase.js';
+import { RecordEventPublishedUseCase } from '@/features/audit/application/usecases/record-event-published.usecase.js';
+import { RecordHttpCallUseCase } from '@/features/audit/application/usecases/record-http-call.usecase.js';
+import { EventAuditLogPrismaRepository } from '@/features/audit/infrastructure/persistence/event-audit-log.prisma-repository.js';
+import { HttpAuditLogPrismaRepository } from '@/features/audit/infrastructure/persistence/http-audit-log.prisma-repository.js';
+import type { EventAuditLogRepository } from '@/features/audit/domain/repositories/event-audit-log.repository.js';
+import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
+
 const buildEmailSender = (): EmailSender => {
   if (env.EMAIL_TRANSPORT === 'resend') {
     // Zod's superRefine on env guarantees RESEND_API_KEY is set here, but
@@ -108,6 +116,13 @@ export interface Container {
   issueEmailVerificationUseCase: IssueEmailVerificationUseCase;
   verifyEmailUseCase: VerifyEmailUseCase;
   resendEmailVerificationUseCase: ResendEmailVerificationUseCase;
+
+  // Audit
+  httpAuditLogRepository: HttpAuditLogRepository;
+  eventAuditLogRepository: EventAuditLogRepository;
+  recordHttpCallUseCase: RecordHttpCallUseCase;
+  recordEventPublishedUseCase: RecordEventPublishedUseCase;
+  recordEventDispatchUseCase: RecordEventDispatchUseCase;
 }
 
 export const buildContainer = (): Container => {
@@ -206,6 +221,13 @@ export const buildContainer = (): Container => {
     issueEmailVerificationUseCase,
   );
 
+  // --- Audit ---
+  const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
+  const eventAuditLogRepository = new EventAuditLogPrismaRepository(db);
+  const recordHttpCallUseCase = new RecordHttpCallUseCase(httpAuditLogRepository);
+  const recordEventPublishedUseCase = new RecordEventPublishedUseCase(eventAuditLogRepository);
+  const recordEventDispatchUseCase = new RecordEventDispatchUseCase(eventAuditLogRepository);
+
   // --- Subscribers ---
   registerUsersSubscribers(bus);
   registerAuthSubscribers(bus, { issueEmailVerification: issueEmailVerificationUseCase });
@@ -236,5 +258,10 @@ export const buildContainer = (): Container => {
     issueEmailVerificationUseCase,
     verifyEmailUseCase,
     resendEmailVerificationUseCase,
+    httpAuditLogRepository,
+    eventAuditLogRepository,
+    recordHttpCallUseCase,
+    recordEventPublishedUseCase,
+    recordEventDispatchUseCase,
   };
 };

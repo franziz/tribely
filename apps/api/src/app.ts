@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import { buildContainer, type Container } from './core/di/container.js';
+import { auditHttp } from './core/middleware/audit-http.js';
 import { errorHandler } from './core/middleware/error-handler.js';
 import { requestContext } from './core/middleware/request-context.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
@@ -16,6 +17,10 @@ export const buildApp = (): { app: Hono; container: Container } => {
   // domain events. Routes / requireAuth / publisher / dispatcher all read
   // it via getRequestContext().
   app.use('*', requestContext());
+  // auditHttp records the request *after* `next()` returns — so it sees
+  // the final response status (including statuses set by errorHandler when
+  // an exception was thrown). Must be after requestContext.
+  app.use('*', auditHttp(container.recordHttpCallUseCase));
   app.use('*', honoLogger());
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
