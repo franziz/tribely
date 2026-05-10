@@ -42,7 +42,9 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(verifyEmailControllerProvider);
     final session = ref.watch(sessionControllerProvider);
-    final email = session is SessionAuthenticated ? session.session.user.email : '';
+    final email = session is SessionAuthenticated
+        ? session.session.user.email
+        : '';
 
     final dark = Theme.of(context).brightness == Brightness.dark;
     final inkSecondary = dark
@@ -54,8 +56,11 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
     final success = state is VerifyEmailSuccess;
     final cooldown = state.resendCooldownSeconds;
 
-    final bannerMessage = state is VerifyEmailError ? state.bannerMessage : null;
-    final showBanner = bannerMessage != null && bannerMessage != _dismissedMessage;
+    final bannerMessage = state is VerifyEmailError
+        ? state.bannerMessage
+        : null;
+    final showBanner =
+        bannerMessage != null && bannerMessage != _dismissedMessage;
 
     final buttonState = success
         ? PrimaryButtonState.success
