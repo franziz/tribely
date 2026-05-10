@@ -88,11 +88,78 @@ Allowed core imports from domain: `@/core/domain/*`, `@/core/errors/*`, `@/core/
 
 ### subscriber-location
 
-**Check:** `bus.subscribe(` calls should live in `presentation/events/index.ts`. Flag occurrences in `application/`, `domain/`, or `infrastructure/`. **Severity:** warn.
+**Check:** Event-handler registration must live in `presentation/events/`. Flag any of the following outside that path:
+
+- `bus.subscribe(` (legacy bus, removed in TRI-38 but rule kept for posterity)
+- `registry.register(` (post-TRI-38 ConsumerRegistry pattern)
+- Direct `Consumer<...>` factory definitions (e.g. files exporting `(): Consumer<E> => ({ name, topic, handle })`)
+
+Acceptable locations: `apps/api/src/features/<feature>/presentation/events/<verb-on-event>.consumer.ts` (the consumer file itself) and `apps/api/src/features/<feature>/presentation/events/index.ts` (the register fn).
+
+**Severity:** error for `registry.register(` in `application/`/`domain/`/`infrastructure/`; warn for misplaced consumer files.
+
+### driving-adapter-location
+
+**Check:** Files in `core/middleware/` must NOT import from `@/features/<X>/application/**` or `@/features/<X>/infrastructure/**`. A middleware that drives a specific feature is a *driving adapter for that feature* and belongs at `apps/api/src/features/<X>/presentation/middleware/`.
+
+Cross-cutting middleware that doesn't know about any specific feature (e.g. CORS, request-context, error-handler, rate-limit, require-auth) stays in `core/middleware/` — fine.
+
+**Severity:** error.
 
 ### port-naming
 
 **Check:** Files in `domain/ports/*.ts` should be named `<thing>.port.ts`. **Severity:** warn.
+
+### no-inline-class-instantiation-in-call
+
+**Check:** Forbid `<expr>.<fn>(new <ClassName>(...))` and `<fn>(new <ClassName>(...), ...)` patterns where a class instance is constructed inline as a call argument. Construct first, name it, pass the variable.
+
+```ts
+// ❌ rejected
+this.repo.save(new User({ id, email, ... }));
+
+// ✓ accepted
+const user = new User({ id, email, ... });
+await this.repo.save(user);
+```
+
+**Why:** inline instantiation hides the construction site, makes the value unobservable in debuggers, and frustrates `pullEvents()` / aggregate-method-recording patterns where the constructed aggregate must be referenced again *after* the call. This is also where dual-call bugs hide ("did I record the event before saving? after?").
+
+Exceptions: pass-through DTOs that exist solely to bridge an interface boundary (e.g. `new Date()` or `new Error('msg')` literals — primitive-shaped, no semantic identity). Apply the rule to *project-defined* classes — anything imported from `@/features/**`, `@/core/domain/**`, `@/core/events/**`.
+
+**Severity:** error.
+
+### service-returns-model-only
+
+**Check:** Use cases (`apps/api/src/features/*/application/usecases/*.usecase.ts`) and domain services that return a model (entity / aggregate / value object) MUST return that model directly — not wrapped in `{ model, ...extra }`, not as a tuple, not as a plain object that bundles the model with metadata.
+
+```ts
+// ❌ rejected — bundles model with extras
+async execute(input): Promise<{ user: User; tokenIssued: string; deviceLabel: string | null }> { ... }
+
+// ✓ accepted — single return type
+async execute(input): Promise<User> { ... }
+
+// ✓ accepted — explicit DTO type *defined as a domain concept*
+async execute(input): Promise<IssuedAuthSession> { ... }
+//   where IssuedAuthSession is a named DTO in application/dto/ — NOT an inline object literal
+```
+
+**Why:** ad-hoc `{ model, ...extra }` returns scatter the contract across call sites, defeat exhaustive use case typing, and tempt callers to destructure-and-mutate rather than treat the model as the source of truth. If the use case genuinely needs to return more than the model, the bundle MUST be a named DTO type defined in `application/dto/<name>.ts` — not an anonymous object literal in the return position.
+
+**Severity:** error for inline object literals; allowed for named DTOs.
+
+### no-rule-workaround
+
+**Meta-rule.** When a use case, controller, or service appears to *technically* satisfy the named rules above by routing around their intent — flag it. Examples to look for:
+
+- Returning `{ model: user, ...everythingElse }` from a use case after `service-returns-model-only` was added (workaround: hides the violation behind a shape that passes type-checks but defeats the purpose).
+- Inlining `new User({...})` inside `repo.save({ ...new User({...}), audit: 'note' })` (workaround: nests the forbidden pattern one level deeper).
+- Naming a forbidden import via `import * as anything from '...'` to dodge the import-graph check (workaround: alias-bypass).
+- Adding a no-op `ctx?: TxContext` parameter to silence `repository-tx-context` while the impl ignores it (workaround: false compliance).
+- Putting feature-specific middleware in `core/middleware/` and re-exporting from a feature path so the import-graph check passes (workaround: indirection laundering).
+
+**Severity:** error. Cite which named rule the pattern is trying to dodge. The reviewer's job is to catch *intent*, not just literal regex matches. When in doubt, flag for human judgement rather than silently accepting.
 
 ## Output format
 

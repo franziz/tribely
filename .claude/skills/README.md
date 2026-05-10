@@ -12,6 +12,8 @@ Skills are **namespaced by target** (`api-*` for backend, `mobile-*` for Flutter
 | `/api-new-usecase`         | Add a use case in `application/usecases/` (orchestrates UnitOfWork + EventPublisher + repos)         |
 | `/api-new-entity`          | Add an aggregate root extending `AggregateRoot`, with paired Prisma mapper                           |
 | `/api-new-event`           | Add a domain event with `<feature>.<verbPastTense>` naming                                           |
+| `/api-new-producer`        | Add a domain event + producer-side guidance (ALS-based requestId propagation, TRI-38)                |
+| `/api-new-consumer`        | Add a `Consumer<TEvent>` for the per-consumer-offsets event bus (TRI-38)                             |
 | `/api-new-value-object`    | Add a VO with private ctor + `create()` factory                                                      |
 | `/api-create-migration`    | Generate a new Prisma migration from schema diff (suggests names, warns on destructive changes)      |
 | `/api-review-architecture` | Review changed `apps/api/**` files against 13 architecture rules                                     |

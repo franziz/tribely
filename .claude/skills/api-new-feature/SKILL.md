@@ -67,15 +67,16 @@ apps/api/src/features/<name>/
 `presentation/events/index.ts` body:
 
 ```ts
-import type { EventBus } from '@/core/events/event-bus.port.js';
+import type { ConsumerRegistry } from '@/core/events/consumer-registry.js';
 
 /**
- * Subscribers for events the `<name>` feature reacts to.
- * Other features that care about <name>'s events register their handlers
- * from their own presentation/events/index.ts — not here.
+ * Register every consumer the `<name>` feature owns. Add Consumer objects
+ * via `registry.register(...)` here. Other features that care about
+ * <name>'s events register their consumers from their own
+ * presentation/events/index.ts — not here.
  */
-export const register<PascalName>Subscribers = (bus: EventBus): void => {
-  // Subscribe handlers here when this feature needs to react to events.
+export const register<PascalName>Consumers = (registry: ConsumerRegistry): void => {
+  // registry.register(somethingOnUserRegistered({ /* deps */ }));
 };
 ```
 
@@ -96,7 +97,11 @@ NEXT STEPS (manual — these require judgement):
      /api-new-value-object <name> <Name>
 
   4. Define domain events for state changes other features care about:
-     /api-new-event <name> <verb-past>
+     /api-new-producer <name> <verb-past>
+     (or /api-new-event for the bare event-only scaffold)
+
+  4a. Define consumers when this feature reacts to other features' events:
+     /api-new-consumer <name> <verb-imperative>-on-<source-event>
 
   5. Define outbound ports for external dependencies:
      - Create files manually in domain/ports/<name>.port.ts
@@ -117,7 +122,7 @@ NEXT STEPS (manual — these require judgement):
 
   9. Wire dependencies in apps/api/src/core/di/container.ts.
  10. Mount routes in apps/api/src/app.ts.
- 11. Call register<PascalName>Subscribers(bus) at the end of buildContainer().
+ 11. Call register<PascalName>Consumers(consumerRegistry) at the end of buildContainer().
 ```
 
 DO NOT auto-edit `container.ts`, `app.ts`, or the Prisma schema — those require judgement about exact placement.

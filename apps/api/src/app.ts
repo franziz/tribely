@@ -3,6 +3,8 @@ import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import { buildContainer, type Container } from './core/di/container.js';
 import { errorHandler } from './core/middleware/error-handler.js';
+import { requestContext } from './core/middleware/request-context.js';
+import { auditHttp } from './features/audit/presentation/middleware/audit-http.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 
@@ -11,6 +13,14 @@ export const buildApp = (): { app: Hono; container: Container } => {
   const app = new Hono();
 
   app.use('*', cors());
+  // Open the AsyncLocalStorage frame BEFORE any code that might publish
+  // domain events. Routes / requireAuth / publisher / dispatcher all read
+  // it via getRequestContext().
+  app.use('*', requestContext());
+  // auditHttp records the request *after* `next()` returns — so it sees
+  // the final response status (including statuses set by errorHandler when
+  // an exception was thrown). Must be after requestContext.
+  app.use('*', auditHttp(container.recordHttpCallUseCase));
   app.use('*', honoLogger());
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
