@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import { buildContainer, type Container } from './core/di/container.js';
 import { errorHandler } from './core/middleware/error-handler.js';
+import { requestContext } from './core/middleware/request-context.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 
@@ -11,6 +12,10 @@ export const buildApp = (): { app: Hono; container: Container } => {
   const app = new Hono();
 
   app.use('*', cors());
+  // Open the AsyncLocalStorage frame BEFORE any code that might publish
+  // domain events. Routes / requireAuth / publisher / dispatcher all read
+  // it via getRequestContext().
+  app.use('*', requestContext());
   app.use('*', honoLogger());
 
   app.get('/health', (c) => c.json({ status: 'ok' }));

@@ -64,38 +64,16 @@ export class OutboxDispatcher {
     }
   }
 
-  private async drainOnce(): Promise<void> {
-    const events = await this.db.outboxEvent.findMany({
-      where: { processedAt: null, attempts: { lt: this.maxAttempts } },
-      orderBy: { occurredAt: 'asc' },
-      take: this.batchSize,
-    });
-    if (events.length === 0) return;
-
-    for (const row of events) {
-      try {
-        await this.bus.dispatch({
-          type: row.type,
-          aggregateType: row.aggregateType,
-          aggregateId: row.aggregateId,
-          payload: row.payload,
-          version: 1,
-        });
-        await this.db.outboxEvent.update({
-          where: { id: row.id },
-          data: { processedAt: new Date() },
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          { err, eventId: row.id, type: row.type, attempts: row.attempts + 1 },
-          'Outbox dispatch failed; will retry',
-        );
-        await this.db.outboxEvent.update({
-          where: { id: row.id },
-          data: { attempts: { increment: 1 }, lastError: message },
-        });
-      }
-    }
+  // TRI-38 in-progress: per-consumer-offsets dispatcher arrives in a later
+  // commit on this branch. The schema migration (commit 1) already removed
+  // processedAt/attempts/lastError from outbox_events, so the old loop
+  // below cannot run. We keep `start()`/`stop()` as a NOP for now — boot
+  // succeeds, no events dispatch — until commit 5 wires the real loop.
+  private drainOnce(): Promise<void> {
+    void this.maxAttempts;
+    void this.batchSize;
+    void this.bus;
+    void this.db;
+    return Promise.resolve();
   }
 }
