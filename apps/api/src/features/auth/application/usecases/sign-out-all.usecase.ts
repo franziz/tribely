@@ -2,6 +2,7 @@ import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '../../domain/ports/clock.port.js';
 import type { RefreshTokenRepository } from '../../domain/repositories/refresh-token.repository.js';
+import type { SignOutAllResult } from '../dto/auth-result.js';
 
 export interface SignOutAllInput {
   userId: string;
@@ -22,7 +23,7 @@ export class SignOutAllUseCase {
     private readonly clock: Clock,
   ) {}
 
-  async execute(input: SignOutAllInput): Promise<{ revokedCount: number }> {
+  async execute(input: SignOutAllInput): Promise<SignOutAllResult> {
     const now = this.clock.now();
 
     let revokedCount = 0;

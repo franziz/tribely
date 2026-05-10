@@ -12,3 +12,13 @@ export interface IssuedAuthSession {
   refreshTokenPlaintext: string;
   refreshTokenExpiresAt: Date;
 }
+
+/**
+ * Result of `SignOutAllUseCase.execute(...)` — how many active refresh tokens
+ * the user had that we just revoked. Trivial today, but a named DTO so the
+ * use case signature stays explicit + future fields (e.g. `revokedAt`,
+ * `affectedDeviceLabels`) extend without churning every call site.
+ */
+export interface SignOutAllResult {
+  revokedCount: number;
+}
