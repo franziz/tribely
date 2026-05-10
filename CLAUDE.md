@@ -59,6 +59,18 @@ npm run migrate                 # api:db:migrate + mobile:codegen
 npm run codegen                 # api:db:generate + mobile:codegen
 ```
 
+## CI
+
+GitHub Actions workflows live in `.github/workflows/`:
+
+- `ci.yml` — entry: triggers, path filters via `dorny/paths-filter`, dispatches reusable jobs, `ci-passed` aggregate gate
+- `_api.yml`, `_mobile.yml` — reusable workflows (`workflow_call`)
+- Composite actions in `.github/actions/{setup-api,setup-mobile}/`
+
+When adding a new check surface (deploy, e2e, web): create a new reusable workflow + composite action, dispatch from `ci.yml`. Don't touch existing files.
+
+All third-party actions are SHA-pinned with `# vX.Y.Z` comments — Dependabot only alerts on SHA-pinned actions.
+
 ## Architecture — backend (`apps/api`)
 
 Sources: [Robert Martin's Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), [Eric Evans's DDD layered architecture](https://www.domainlanguage.com/ddd/), [Domain-Driven Hexagon](https://github.com/Sairyss/domain-driven-hexagon), [Ardalis Clean Architecture](https://github.com/ardalis/cleanarchitecture).
@@ -208,6 +220,9 @@ A feature folder = a **bounded context**: a slice of the domain with its own ubi
 /mobile-new-usecase <feature> <verb-noun>
 /mobile-new-page <feature> <page-name> [--stateful]
 /mobile-review-architecture [<git-ref>]
+
+# Cross-stack
+/repo-review-consistency [<glob>]    # tooling / CI / SOT consistency audit (flagging only)
 ```
 
 Full skill index: [.claude/skills/README.md](./.claude/skills/README.md). Skills validate input and refuse misapplied invocations (singular feature names, wrong stack, past-tense use case verbs, etc.).
@@ -230,6 +245,10 @@ After scaffolding, you must:
 - **Mobile `flutter create` is required on first run** — repo ships without `ios/`/`android/` folders.
 - **`outbox_events` rows are not deleted after dispatch** — dispatcher sets `processedAt`. Migrations that drop the table lose in-flight events.
 - **Don't apply API skills to mobile or vice versa.** They have intentionally different layering. Skills carry scope guards but the AI should also reject misapplied invocations on its own.
+- **Mobile lint plugin: top-level `plugins:`, NOT `analyzer.plugins: - custom_lint`.** `riverpod_lint` uses the Dart 3.5+ `analysis_server_plugin` mechanism in `apps/mobile/analysis_options.yaml`. The `analyzer.plugins:` form (custom_lint host) has an upstream synthesizer bug that breaks resolution.
+- **Branch protection on `main` is NOT enforced** (GitHub free-tier private repo limitation). CI checks are advisory; manual discipline replaces automated gating until plan upgrade. `ruleset-main.json` at repo root is uploaded but inert.
+- **For pub.dev / npm version ground truth, query the registry API, not git tags.** `curl https://pub.dev/api/packages/<pkg>` returns actual published versions plus analyzer/sdk constraints. Git tags can include unreleased prereleases (e.g., `0.10.0+1` exists as a tag but not on pub.dev).
+- **Lint configs are deliberately strict.** API uses `tseslint.configs.strictTypeChecked`; mobile uses `flutter_lints` + 8 added rules + Dart's `strict-casts/inference/raw-types`. Tighten code to satisfy lints — don't loosen the lint config.
 
 ## Collaboration style
 

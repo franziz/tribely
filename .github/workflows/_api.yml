@@ -32,6 +32,15 @@ jobs:
         run: npm run --workspace=@tribely/api lint
 
       - name: Test (with coverage)
+        # env.ts parses process.env at module load and throws on missing
+        # required vars. Tests don't hit the DB, but importing anything
+        # that transitively loads env (e.g., the logger) needs these set.
+        # Real secrets are not needed — placeholders that satisfy the Zod
+        # schema are enough.
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/tribely_test?schema=public
+          JWT_SECRET: ci-placeholder-secret-must-be-at-least-32-chars
         run: npm run --workspace=@tribely/api test:coverage
 
       - name: Upload coverage report
