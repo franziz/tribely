@@ -1,21 +1,10 @@
-import type { EventBus } from '@/core/events/event-bus.port.js';
-import { logger } from '@/core/middleware/logger.js';
-import {
-  USER_REGISTERED,
-  type UserRegisteredEvent,
-} from '../../domain/events/user-registered.event.js';
+import type { ConsumerRegistry } from '@/core/events/consumer-registry.js';
+import { logUserRegistered } from './log-user-registered.consumer.js';
 
 /**
- * Subscribers for events the `users` feature reacts to. Even though the
- * feature emits userRegistered itself, no internal handler is required —
- * other features (e.g. notifications) subscribe from their own
- * presentation/events/index.ts.
+ * Register every consumer the `users` feature owns. Called once at boot
+ * from buildContainer().
  */
-export const registerUsersSubscribers = (bus: EventBus): void => {
-  bus.subscribe<UserRegisteredEvent>(USER_REGISTERED, (event) => {
-    logger.info(
-      { userId: event.payload.userId, email: event.payload.email },
-      'users.userRegistered',
-    );
-  });
+export const registerUsersConsumers = (registry: ConsumerRegistry): void => {
+  registry.register(logUserRegistered());
 };

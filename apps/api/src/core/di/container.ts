@@ -6,10 +6,9 @@ import type { EmailSender } from '../email/email-sender.port.js';
 import { LoggingEmailSender } from '../email/logging-email-sender.js';
 import { ResendEmailSender } from '../email/resend-email-sender.js';
 import {
-  InProcessEventBus,
+  ConsumerRegistry,
   OutboxDispatcher,
   OutboxEventPublisher,
-  type EventBus,
   type EventPublisher,
 } from '../events/index.js';
 import { InMemoryRateLimiter } from '../security/in-memory-rate-limiter.js';
@@ -31,7 +30,7 @@ import { SignOutAllUseCase } from '@/features/auth/application/usecases/sign-out
 import { SignOutUseCase } from '@/features/auth/application/usecases/sign-out.usecase.js';
 import { SignUpUseCase } from '@/features/auth/application/usecases/sign-up.usecase.js';
 import { VerifyEmailUseCase } from '@/features/auth/application/usecases/verify-email.usecase.js';
-import { registerAuthSubscribers } from '@/features/auth/presentation/events/index.js';
+import { registerAuthConsumers } from '@/features/auth/presentation/events/index.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { PasswordHasher } from '@/features/auth/domain/ports/password-hasher.port.js';
@@ -43,7 +42,7 @@ import type { RefreshTokenRepository } from '@/features/auth/domain/repositories
 
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
-import { registerUsersSubscribers } from '@/features/users/presentation/events/index.js';
+import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
 import { RecordEventDispatchUseCase } from '@/features/audit/application/usecases/record-event-dispatch.usecase.js';
@@ -88,7 +87,7 @@ const parseDurationSeconds = (value: string): number => {
 export interface Container {
   // Core
   db: Db;
-  bus: EventBus;
+  consumerRegistry: ConsumerRegistry;
   publisher: EventPublisher;
   unitOfWork: UnitOfWork;
   dispatcher: OutboxDispatcher;
@@ -128,10 +127,10 @@ export interface Container {
 export const buildContainer = (): Container => {
   // --- Core ---
   const db = prisma;
-  const bus = new InProcessEventBus();
+  const consumerRegistry = new ConsumerRegistry();
   const publisher = new OutboxEventPublisher();
   const unitOfWork = new PrismaUnitOfWork(db);
-  const dispatcher = new OutboxDispatcher(db, bus);
+  const dispatcher = new OutboxDispatcher(db, consumerRegistry);
   const rateLimiter = new InMemoryRateLimiter();
   const emailSender = buildEmailSender();
 
@@ -228,13 +227,15 @@ export const buildContainer = (): Container => {
   const recordEventPublishedUseCase = new RecordEventPublishedUseCase(eventAuditLogRepository);
   const recordEventDispatchUseCase = new RecordEventDispatchUseCase(eventAuditLogRepository);
 
-  // --- Subscribers ---
-  registerUsersSubscribers(bus);
-  registerAuthSubscribers(bus, { issueEmailVerification: issueEmailVerificationUseCase });
+  // --- Consumers (per-consumer offsets registry) ---
+  registerUsersConsumers(consumerRegistry);
+  registerAuthConsumers(consumerRegistry, {
+    issueEmailVerification: issueEmailVerificationUseCase,
+  });
 
   return {
     db,
-    bus,
+    consumerRegistry,
     publisher,
     unitOfWork,
     dispatcher,
