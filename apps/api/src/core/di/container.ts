@@ -227,6 +227,17 @@ export const buildContainer = (): Container => {
   const recordEventPublishedUseCase = new RecordEventPublishedUseCase(eventAuditLogRepository);
   const recordEventDispatchUseCase = new RecordEventDispatchUseCase(eventAuditLogRepository);
 
+  // Wire audit hooks into the events core. The publisher + dispatcher have
+  // no compile-time dependency on the audit feature — the binding lives
+  // here so the cross-cutting concern stays a wiring detail, not a layering
+  // violation.
+  publisher.setAuditHook({
+    onPublished: (events, ctx) => recordEventPublishedUseCase.execute(events, ctx),
+  });
+  dispatcher.setOutcomeReporter({
+    onOutcome: (input) => recordEventDispatchUseCase.execute(input),
+  });
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
