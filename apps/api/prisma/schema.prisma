@@ -93,19 +93,96 @@ model EmailVerificationToken {
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction
-/// as the data change that produced them. Dispatcher polls and publishes.
+/// as the data change that produced them. Append-only — the dispatcher tracks
+/// progress per consumer in `consumer_offsets`, not on the event row.
+///
+/// `seq` is the monotonic offset consumers commit against. `requestId` /
+/// `actorUserId` carry HTTP correlation forward into the dispatch tick (the
+/// dispatcher re-establishes the AsyncLocalStorage frame from these fields).
 model OutboxEvent {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
+  seq           BigInt   @unique @default(autoincrement())
   type          String
   aggregateType String
   aggregateId   String
   payload       Json
-  occurredAt    DateTime  @default(now())
-  processedAt   DateTime?
-  attempts      Int       @default(0)
-  lastError     String?
+  occurredAt    DateTime @default(now())
+  requestId     String?
+  actorUserId   String?
 
-  @@index([processedAt, occurredAt])
+  @@index([seq])
+  @@index([type, seq])
   @@index([aggregateType, aggregateId])
   @@map("outbox_events")
+}
+
+/// Per-consumer offset cursor. Each registered Consumer has one row identified
+/// by `consumerName` (e.g. `auth.issueEmailVerificationOnUserRegistered`).
+///
+/// Maps to Kafka's `__consumer_offsets` topic: `committedSeq` is what the
+/// consumer has finished processing; `inFlightSeq` is the row currently being
+/// retried (head-of-line block — dispatcher will not advance past a failure
+/// until that specific event succeeds or hits `maxAttempts` and is parked).
+///
+/// `blockedAt` is set when attempts exceeds the consumer's max — manual
+/// intervention required (clear `blockedAt` + reset `attempts` to resume).
+model ConsumerOffset {
+  consumerName String    @id
+  topic        String
+  committedSeq BigInt    @default(0)
+  inFlightSeq  BigInt?
+  attempts     Int       @default(0)
+  lastError    String?
+  lastErrorAt  DateTime?
+  blockedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([topic])
+  @@index([blockedAt])
+  @@map("consumer_offsets")
+}
+
+/// Audit row per inbound HTTP request. Bounded context: `audit` feature.
+/// Body content is intentionally NOT stored (PDPA-friendly); only headers,
+/// status, duration, actor identity. Domain payloads from the request live in
+/// `outbox_events` already.
+model HttpAuditLog {
+  id          String   @id @default(cuid())
+  requestId   String   @unique
+  method      String
+  path        String
+  status      Int
+  durationMs  Int
+  actorUserId String?
+  ip          String?
+  userAgent   String?
+  errorCode   String?
+  receivedAt  DateTime @default(now())
+
+  @@index([actorUserId, receivedAt])
+  @@index([receivedAt])
+  @@map("http_audit_logs")
+}
+
+/// Audit row per event lifecycle phase. `phase` distinguishes:
+///   - `published`  (consumerName=null) — event was written to the outbox
+///   - `dispatched` — consumer handled successfully
+///   - `failed`     — consumer threw; will retry next tick
+///   - `blocked`    — consumer hit maxAttempts; parked for manual review
+model EventAuditLog {
+  id           String   @id @default(cuid())
+  requestId    String?
+  eventSeq     BigInt
+  eventType    String
+  consumerName String?
+  phase        String
+  attempt      Int?
+  errorMessage String?
+  recordedAt   DateTime @default(now())
+
+  @@index([requestId])
+  @@index([eventSeq, consumerName])
+  @@index([consumerName, phase, recordedAt])
+  @@map("event_audit_logs")
 }
