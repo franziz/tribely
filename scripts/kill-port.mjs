@@ -2,7 +2,9 @@
 /**
  * Safely free a TCP port held by a process belonging to THIS repository.
  *
- * Usage: node scripts/kill-port.mjs <port>
+ * Usage:
+ *   node scripts/kill-port.mjs <port>      # explicit
+ *   node scripts/kill-port.mjs             # read PORT from apps/api/.env
  *
  * Behavior:
  *   - Looks up the LISTENing process on <port> via lsof.
@@ -11,20 +13,37 @@
  *     with an informative message — protects against killing unrelated work.
  *   - If port is already free, exits 0 silently.
  *
- * Designed to be chained: `node scripts/kill-port.mjs 3000 && npm run api:dev`.
+ * Designed to be chained: `node scripts/kill-port.mjs && npm run api:dev`.
  */
 
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-const PORT = process.argv[2];
-if (!PORT || !/^\d+$/.test(PORT)) {
-  console.error('Usage: node scripts/kill-port.mjs <port>');
-  process.exit(2);
+const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** Reads PORT=<n> from apps/api/.env (falls back to 3000). */
+function portFromApiEnv() {
+  try {
+    const envText = readFileSync(resolve(PROJECT_ROOT, 'apps/api/.env'), 'utf8');
+    for (const raw of envText.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const m = /^PORT\s*=\s*(\d+)\s*$/.exec(line);
+      if (m) return m[1];
+    }
+  } catch {
+    // file missing — fall through
+  }
+  return '3000';
 }
 
-const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const PORT = process.argv[2] ?? portFromApiEnv();
+if (!/^\d+$/.test(PORT)) {
+  console.error('Usage: node scripts/kill-port.mjs [<port>]');
+  process.exit(2);
+}
 
 let listing = '';
 try {
