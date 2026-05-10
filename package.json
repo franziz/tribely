@@ -12,8 +12,8 @@
   },
   "scripts": {
     "api:dev": "npm run dev --workspace=@tribely/api",
-    "api:dev:fresh": "node scripts/kill-port.mjs 3000 && npm run api:dev",
-    "api:kill-port": "node scripts/kill-port.mjs 3000",
+    "api:dev:fresh": "node scripts/kill-port.mjs && npm run api:dev",
+    "api:kill-port": "node scripts/kill-port.mjs",
     "api:build": "npm run build --workspace=@tribely/api",
     "api:start": "npm run start --workspace=@tribely/api",
     "api:db:generate": "npm run db:generate --workspace=@tribely/api",
