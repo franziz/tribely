@@ -22,6 +22,7 @@ model User {
   credential               Credential?
   refreshTokens            RefreshToken[]
   emailVerificationTokens  EmailVerificationToken[]
+  passwordResetTokens      PasswordResetToken[]
 
   @@map("users")
 }
@@ -59,7 +60,7 @@ model RefreshToken {
   issuedAt      DateTime  @default(now())
   expiresAt     DateTime
   revokedAt     DateTime?
-  revokedReason String? // 'rotated' | 'signed_out' | 'reuse_detected' | 'sign_out_all'
+  revokedReason String? // 'rotated' | 'signed_out' | 'reuse_detected' | 'sign_out_all' | 'password_reset'
   lastUsedAt    DateTime?
   rotatedToId   String? // chain pointer to the next token after rotation
   deviceLabel   String? // optional, derived from User-Agent
@@ -90,6 +91,31 @@ model EmailVerificationToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("email_verification_tokens")
+}
+
+/// One-time password-reset code. Lives in the `auth` bounded context.
+/// Same shape as EmailVerificationToken (both compose the OneTimeCodeLifecycle
+/// VO at the domain layer), but a separate table — different lifecycle, different
+/// retention, different audit trail. The 6-digit code shown to the user is hashed
+/// (SHA-256) at rest. Only one open token per user at a time — issuing a new one
+/// invalidates any prior open row (single open invariant). `attempts` counts
+/// wrong-code submissions; the row self-invalidates once attempts hits the cap to
+/// defeat brute-force.
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  userId      String
+  codeHash    String
+  issuedAt    DateTime  @default(now())
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int       @default(0)
+  invalidated Boolean   @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction

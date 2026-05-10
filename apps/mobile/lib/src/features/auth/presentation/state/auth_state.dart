@@ -117,3 +117,68 @@ class VerifyEmailError extends VerifyEmailState {
 class VerifyEmailResendSent extends VerifyEmailState {
   const VerifyEmailResendSent({super.resendCooldownSeconds = 60});
 }
+
+/// ForgotPasswordState — drives the email-entry sheet on the sign-in page.
+sealed class ForgotPasswordState extends Equatable {
+  const ForgotPasswordState();
+  @override
+  List<Object?> get props => [];
+}
+
+class ForgotPasswordIdle extends ForgotPasswordState {
+  const ForgotPasswordIdle();
+}
+
+class ForgotPasswordSubmitting extends ForgotPasswordState {
+  const ForgotPasswordSubmitting();
+}
+
+/// Server has accepted the request — UI shows the neutral "if your email is on
+/// file…" message. Holds the submitted email so the reset page can pre-fill it.
+class ForgotPasswordSent extends ForgotPasswordState {
+  const ForgotPasswordSent(this.email);
+  final String email;
+  @override
+  List<Object?> get props => [email];
+}
+
+class ForgotPasswordError extends ForgotPasswordState {
+  const ForgotPasswordError({
+    required this.failure,
+    required this.bannerMessage,
+  });
+  final Failure failure;
+  final String bannerMessage;
+  @override
+  List<Object?> get props => [failure, bannerMessage];
+}
+
+/// ResetPasswordState — drives the reset page (code + new-password fields).
+sealed class ResetPasswordState extends Equatable {
+  const ResetPasswordState();
+  @override
+  List<Object?> get props => [];
+}
+
+class ResetPasswordIdle extends ResetPasswordState {
+  const ResetPasswordIdle();
+}
+
+class ResetPasswordSubmitting extends ResetPasswordState {
+  const ResetPasswordSubmitting();
+}
+
+class ResetPasswordSuccess extends ResetPasswordState {
+  const ResetPasswordSuccess();
+}
+
+class ResetPasswordError extends ResetPasswordState {
+  const ResetPasswordError({
+    required this.failure,
+    required this.bannerMessage,
+  });
+  final Failure failure;
+  final String bannerMessage;
+  @override
+  List<Object?> get props => [failure, bannerMessage];
+}

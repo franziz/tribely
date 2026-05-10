@@ -11,6 +11,8 @@ import {
   OutboxEventPublisher,
   type EventPublisher,
 } from '../events/index.js';
+import type { Logger } from '../observability/logger.port.js';
+import { PinoLogger } from '../observability/pino-logger.js';
 import { InMemoryRateLimiter } from '../security/in-memory-rate-limiter.js';
 import type { RateLimiter } from '../security/rate-limiter.port.js';
 
@@ -21,10 +23,13 @@ import { Sha256VerificationCodeHasher } from '@/features/auth/infrastructure/ada
 import { SystemClock } from '@/features/auth/infrastructure/adapters/system-clock.js';
 import { CredentialPrismaRepository } from '@/features/auth/infrastructure/persistence/credential.prisma-repository.js';
 import { EmailVerificationTokenPrismaRepository } from '@/features/auth/infrastructure/persistence/email-verification-token.prisma-repository.js';
+import { PasswordResetTokenPrismaRepository } from '@/features/auth/infrastructure/persistence/password-reset-token.prisma-repository.js';
 import { RefreshTokenPrismaRepository } from '@/features/auth/infrastructure/persistence/refresh-token.prisma-repository.js';
 import { IssueEmailVerificationUseCase } from '@/features/auth/application/usecases/issue-email-verification.usecase.js';
 import { RefreshTokensUseCase } from '@/features/auth/application/usecases/refresh-tokens.usecase.js';
+import { RequestPasswordResetUseCase } from '@/features/auth/application/usecases/request-password-reset.usecase.js';
 import { ResendEmailVerificationUseCase } from '@/features/auth/application/usecases/resend-email-verification.usecase.js';
+import { ResetPasswordUseCase } from '@/features/auth/application/usecases/reset-password.usecase.js';
 import { SignInUseCase } from '@/features/auth/application/usecases/sign-in.usecase.js';
 import { SignOutAllUseCase } from '@/features/auth/application/usecases/sign-out-all.usecase.js';
 import { SignOutUseCase } from '@/features/auth/application/usecases/sign-out.usecase.js';
@@ -38,6 +43,7 @@ import type { RefreshTokenHasher } from '@/features/auth/domain/ports/refresh-to
 import type { VerificationCodeHasher } from '@/features/auth/domain/ports/verification-code-hasher.port.js';
 import type { CredentialRepository } from '@/features/auth/domain/repositories/credential.repository.js';
 import type { EmailVerificationTokenRepository } from '@/features/auth/domain/repositories/email-verification-token.repository.js';
+import type { PasswordResetTokenRepository } from '@/features/auth/domain/repositories/password-reset-token.repository.js';
 import type { RefreshTokenRepository } from '@/features/auth/domain/repositories/refresh-token.repository.js';
 
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
@@ -93,6 +99,7 @@ export interface Container {
   dispatcher: OutboxDispatcher;
   rateLimiter: RateLimiter;
   emailSender: EmailSender;
+  logger: Logger;
 
   // Users
   userRepository: UserRepository;
@@ -102,6 +109,7 @@ export interface Container {
   credentialRepository: CredentialRepository;
   refreshTokenRepository: RefreshTokenRepository;
   emailVerificationTokenRepository: EmailVerificationTokenRepository;
+  passwordResetTokenRepository: PasswordResetTokenRepository;
   passwordHasher: PasswordHasher;
   accessTokens: AccessTokenIssuer;
   refreshHasher: RefreshTokenHasher;
@@ -115,6 +123,8 @@ export interface Container {
   issueEmailVerificationUseCase: IssueEmailVerificationUseCase;
   verifyEmailUseCase: VerifyEmailUseCase;
   resendEmailVerificationUseCase: ResendEmailVerificationUseCase;
+  requestPasswordResetUseCase: RequestPasswordResetUseCase;
+  resetPasswordUseCase: ResetPasswordUseCase;
 
   // Audit
   httpAuditLogRepository: HttpAuditLogRepository;
@@ -133,6 +143,7 @@ export const buildContainer = (): Container => {
   const dispatcher = new OutboxDispatcher(db, consumerRegistry);
   const rateLimiter = new InMemoryRateLimiter();
   const emailSender = buildEmailSender();
+  const logger: Logger = new PinoLogger();
 
   // --- Users ---
   const userRepository = new UserPrismaRepository(db);
@@ -142,6 +153,7 @@ export const buildContainer = (): Container => {
   const credentialRepository = new CredentialPrismaRepository(db);
   const refreshTokenRepository = new RefreshTokenPrismaRepository(db);
   const emailVerificationTokenRepository = new EmailVerificationTokenPrismaRepository(db);
+  const passwordResetTokenRepository = new PasswordResetTokenPrismaRepository(db);
   const passwordHasher = new Argon2PasswordHasher();
   const accessTokens = new JwtAccessTokenIssuer();
   const refreshHasher = new Sha256RefreshTokenHasher();
@@ -149,6 +161,7 @@ export const buildContainer = (): Container => {
   const clock = new SystemClock();
   const refreshTokenTtlSeconds = parseDurationSeconds(env.JWT_REFRESH_TTL);
   const emailVerificationTtlSeconds = parseDurationSeconds(env.EMAIL_VERIFICATION_TTL);
+  const passwordResetTtlSeconds = parseDurationSeconds(env.PASSWORD_RESET_TTL);
 
   const signUpUseCase = new SignUpUseCase(
     unitOfWork,
@@ -219,6 +232,27 @@ export const buildContainer = (): Container => {
     userRepository,
     issueEmailVerificationUseCase,
   );
+  const requestPasswordResetUseCase = new RequestPasswordResetUseCase(
+    unitOfWork,
+    userRepository,
+    passwordResetTokenRepository,
+    verificationCodeHasher,
+    publisher,
+    emailSender,
+    clock,
+    logger,
+    passwordResetTtlSeconds,
+  );
+  const resetPasswordUseCase = new ResetPasswordUseCase(
+    unitOfWork,
+    userRepository,
+    credentialRepository,
+    passwordResetTokenRepository,
+    passwordHasher,
+    verificationCodeHasher,
+    publisher,
+    clock,
+  );
 
   // --- Audit ---
   const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
@@ -242,6 +276,7 @@ export const buildContainer = (): Container => {
   registerUsersConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
     issueEmailVerification: issueEmailVerificationUseCase,
+    signOutAll: signOutAllUseCase,
   });
 
   return {
@@ -252,11 +287,13 @@ export const buildContainer = (): Container => {
     dispatcher,
     rateLimiter,
     emailSender,
+    logger,
     userRepository,
     getUserUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,
+    passwordResetTokenRepository,
     passwordHasher,
     accessTokens,
     refreshHasher,
@@ -270,6 +307,8 @@ export const buildContainer = (): Container => {
     issueEmailVerificationUseCase,
     verifyEmailUseCase,
     resendEmailVerificationUseCase,
+    requestPasswordResetUseCase,
+    resetPasswordUseCase,
     httpAuditLogRepository,
     eventAuditLogRepository,
     recordHttpCallUseCase,

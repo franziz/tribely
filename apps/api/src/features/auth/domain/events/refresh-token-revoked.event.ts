@@ -6,7 +6,8 @@ export type RefreshTokenRevokedReason =
   | 'rotated'
   | 'signed_out'
   | 'reuse_detected'
-  | 'sign_out_all';
+  | 'sign_out_all'
+  | 'password_reset';
 
 export interface RefreshTokenRevokedPayload {
   refreshTokenId: string;

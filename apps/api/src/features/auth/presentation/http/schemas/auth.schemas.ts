@@ -32,6 +32,16 @@ export const verifyEmailBodySchema = z.object({
   code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
 });
 
+export const forgotPasswordBodySchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordBodySchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+  newPassword: z.string().min(8).max(128),
+});
+
 // ---- Responses ----
 
 const issuedTokenSchema = z.object({
@@ -56,5 +66,7 @@ export type SignInBody = z.infer<typeof signInBodySchema>;
 export type RefreshBody = z.infer<typeof refreshBodySchema>;
 export type SignOutBody = z.infer<typeof signOutBodySchema>;
 export type VerifyEmailBody = z.infer<typeof verifyEmailBodySchema>;
+export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
+export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 export type SignOutAllResponse = z.infer<typeof signOutAllResponseSchema>;

@@ -118,6 +118,40 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> requestPasswordReset({
+    required String email,
+  }) async {
+    try {
+      await _remote.requestPasswordReset(email: email);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    try {
+      await _remote.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
   /// Centralized auth-flow error mapping. Persists tokens on success.
   /// Strongly typed — the duck-typed `(model as dynamic).toEntity()` of the
   /// previous version silently broke when the API response shape changed.

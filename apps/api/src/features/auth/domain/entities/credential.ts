@@ -1,5 +1,6 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { credentialIssued } from '../events/credential-issued.event.js';
+import { passwordReset } from '../events/password-reset.event.js';
 import { userSignedIn } from '../events/user-signed-in.event.js';
 import type { HashedPassword } from '../value-objects/hashed-password.js';
 
@@ -16,12 +17,16 @@ import type { HashedPassword } from '../value-objects/hashed-password.js';
  *
  * State changes (record events):
  *   - `markSignedIn(now)` — bumps lastSignedInAt, emits `auth.userSignedIn`.
+ *   - `changePassword(newHash, now)` — replaces the password hash and bumps
+ *     passwordSetAt, emits `auth.passwordReset`. Used by the password-reset
+ *     flow; the use case must also revoke active refresh tokens in the same
+ *     UnitOfWork (handled by `ResetPasswordUseCase`).
  */
 export class Credential extends AggregateRoot {
   private constructor(
     public readonly userId: string,
     private _passwordHash: HashedPassword,
-    public readonly passwordSetAt: Date,
+    private _passwordSetAt: Date,
     private _lastSignedInAt: Date | null,
   ) {
     super();
@@ -53,6 +58,10 @@ export class Credential extends AggregateRoot {
     return this._passwordHash;
   }
 
+  get passwordSetAt(): Date {
+    return this._passwordSetAt;
+  }
+
   get lastSignedInAt(): Date | null {
     return this._lastSignedInAt;
   }
@@ -60,5 +69,17 @@ export class Credential extends AggregateRoot {
   markSignedIn(now: Date): void {
     this._lastSignedInAt = now;
     this.record(userSignedIn({ userId: this.userId, signedInAt: now.toISOString() }));
+  }
+
+  /**
+   * Replace the password hash. Records `auth.passwordReset` so consumers can
+   * react (audit, invalidate caches, etc.). The use case is responsible for
+   * the companion side-effect of revoking active refresh tokens — keeping
+   * those concerns inside the same UnitOfWork.
+   */
+  changePassword(newHash: HashedPassword, now: Date): void {
+    this._passwordHash = newHash;
+    this._passwordSetAt = now;
+    this.record(passwordReset({ userId: this.userId, resetAt: now.toISOString() }));
   }
 }
