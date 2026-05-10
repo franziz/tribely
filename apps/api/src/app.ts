@@ -2,9 +2,9 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import { buildContainer, type Container } from './core/di/container.js';
-import { auditHttp } from './core/middleware/audit-http.js';
 import { errorHandler } from './core/middleware/error-handler.js';
 import { requestContext } from './core/middleware/request-context.js';
+import { auditHttp } from './features/audit/presentation/middleware/audit-http.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 

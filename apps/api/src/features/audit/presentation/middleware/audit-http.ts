@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
-import { logger } from './logger.js';
-import { AppError } from '../errors/app-error.js';
-import type { RecordHttpCallUseCase } from '@/features/audit/application/usecases/record-http-call.usecase.js';
+import { AppError } from '@/core/errors/app-error.js';
+import { logger } from '@/core/middleware/logger.js';
+import type { RecordHttpCallUseCase } from '../../application/usecases/record-http-call.usecase.js';
 
 /**
  * Hono middleware that records one row per inbound HTTP request to
