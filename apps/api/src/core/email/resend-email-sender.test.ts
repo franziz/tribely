@@ -21,20 +21,17 @@ describe('ResendEmailSender', () => {
       sendMock.mockResolvedValueOnce({ data: { id: 'em_1' }, error: null });
       const sender = new ResendEmailSender('re_test_key', 'Tribely <noreply@tribely.app>');
 
-      await sender.sendVerification({
-        to: 'user@example.com',
-        verifyUrl: 'https://app.tribely/verify?t=abc',
-      });
+      await sender.sendVerification({ to: 'user@example.com', code: '123456' });
 
       expect(sendMock).toHaveBeenCalledTimes(1);
       const payload = sendMock.mock.calls[0]?.[0];
       expect(payload).toMatchObject({
         from: 'Tribely <noreply@tribely.app>',
         to: 'user@example.com',
-        subject: 'Verify your Tribely email',
+        subject: 'Your Tribely verification code',
       });
-      expect(payload.html).toContain('https://app.tribely/verify?t=abc');
-      expect(payload.text).toContain('https://app.tribely/verify?t=abc');
+      expect(payload.html).toContain('123456');
+      expect(payload.text).toContain('123456');
     });
 
     it('throws when Resend returns an error', async () => {
@@ -45,7 +42,7 @@ describe('ResendEmailSender', () => {
       const sender = new ResendEmailSender('re_test_key', 'Tribely <noreply@tribely.app>');
 
       await expect(
-        sender.sendVerification({ to: 'bogus', verifyUrl: 'https://x/verify' }),
+        sender.sendVerification({ to: 'bogus', code: '123456' }),
       ).rejects.toThrow(/Resend send failed: validation_error: Invalid `to` address/);
     });
   });
@@ -55,10 +52,7 @@ describe('ResendEmailSender', () => {
       sendMock.mockResolvedValueOnce({ data: { id: 'em_2' }, error: null });
       const sender = new ResendEmailSender('re_test_key', 'Tribely <noreply@tribely.app>');
 
-      await sender.sendPasswordReset({
-        to: 'user@example.com',
-        resetUrl: 'https://app.tribely/reset?t=xyz',
-      });
+      await sender.sendPasswordReset({ to: 'user@example.com', code: '654321' });
 
       expect(sendMock).toHaveBeenCalledTimes(1);
       const payload = sendMock.mock.calls[0]?.[0];
@@ -67,8 +61,8 @@ describe('ResendEmailSender', () => {
         to: 'user@example.com',
         subject: 'Reset your Tribely password',
       });
-      expect(payload.html).toContain('https://app.tribely/reset?t=xyz');
-      expect(payload.text).toContain('https://app.tribely/reset?t=xyz');
+      expect(payload.html).toContain('654321');
+      expect(payload.text).toContain('654321');
     });
 
     it('throws when Resend returns an error', async () => {
@@ -79,7 +73,7 @@ describe('ResendEmailSender', () => {
       const sender = new ResendEmailSender('re_test_key', 'Tribely <noreply@tribely.app>');
 
       await expect(
-        sender.sendPasswordReset({ to: 'user@example.com', resetUrl: 'https://x/reset' }),
+        sender.sendPasswordReset({ to: 'user@example.com', code: '654321' }),
       ).rejects.toThrow(/Resend send failed: rate_limit_exceeded: Too many requests/);
     });
   });

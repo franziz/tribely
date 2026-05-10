@@ -27,6 +27,14 @@ abstract class AuthRemoteDatasource {
   Future<void> signOutAll();
 
   Future<UserModel> me();
+
+  /// Submits a 6-digit code from the user's verification email. On success
+  /// the API responds with the updated user (emailVerifiedAt populated).
+  Future<UserModel> verifyEmail({required String code});
+
+  /// Re-issues a verification code for the current user. Server applies a
+  /// 1/min/user rate limit; the UI mirrors that with a local cooldown.
+  Future<void> resendVerification();
 }
 
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
@@ -95,5 +103,19 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   Future<UserModel> me() async {
     final response = await _dio.get<Map<String, dynamic>>('/auth/me');
     return UserModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<UserModel> verifyEmail({required String code}) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/verify-email',
+      data: {'code': code},
+    );
+    return UserModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> resendVerification() async {
+    await _dio.post<void>('/auth/resend-verification');
   }
 }

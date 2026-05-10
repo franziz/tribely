@@ -36,6 +36,7 @@ String _bannerFor(Failure failure) {
     ServerFailure(:final statusCode) when statusCode == 429 =>
       'Too many attempts. Try again in a minute.',
     ServerFailure() => "Something's off on our end. Give it a moment.",
+    EmailNotVerifiedFailure() => failure.message,
     ValidationFailure() => failure.message,
     UnknownFailure() => failure.message,
   };

@@ -24,6 +24,14 @@ class AuthSession extends Equatable {
   bool get accessTokenExpired => DateTime.now().isAfter(accessTokenExpiresAt);
   bool get refreshTokenExpired => DateTime.now().isAfter(refreshTokenExpiresAt);
 
+  AuthSession copyWith({User? user}) => AuthSession(
+    user: user ?? this.user,
+    accessToken: accessToken,
+    accessTokenExpiresAt: accessTokenExpiresAt,
+    refreshToken: refreshToken,
+    refreshTokenExpiresAt: refreshTokenExpiresAt,
+  );
+
   @override
   List<Object?> get props => [
     user,

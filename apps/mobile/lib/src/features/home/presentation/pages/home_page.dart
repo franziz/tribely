@@ -10,6 +10,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/grain_overlay.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
+import '../../../auth/presentation/widgets/email_not_verified_banner.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -57,6 +58,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           SafeArea(
             child: Column(
               children: [
+                const EmailNotVerifiedBanner(),
                 // Greeting overlay — auto-dismisses after 3s.
                 AnimatedSwitcher(
                   duration: TribelyMotion.medium,

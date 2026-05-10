@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../domain/usecases/get_me_usecase.dart';
 import '../../domain/usecases/refresh_session_usecase.dart';
+import '../../domain/usecases/resend_verification_usecase.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
 import '../../domain/usecases/sign_up_usecase.dart';
+import '../../domain/usecases/verify_email_usecase.dart';
 import '../controllers/session_controller.dart';
 import '../controllers/sign_in_controller.dart';
 import '../controllers/sign_up_controller.dart';
+import '../controllers/verify_email_controller.dart';
 import '../state/auth_state.dart';
 
 // --- Use cases (resolved via get_it) ---
@@ -26,6 +29,12 @@ final signOutUseCaseProvider = Provider<SignOutUseCase>(
   (_) => sl<SignOutUseCase>(),
 );
 final getMeUseCaseProvider = Provider<GetMeUseCase>((_) => sl<GetMeUseCase>());
+final verifyEmailUseCaseProvider = Provider<VerifyEmailUseCase>(
+  (_) => sl<VerifyEmailUseCase>(),
+);
+final resendVerificationUseCaseProvider = Provider<ResendVerificationUseCase>(
+  (_) => sl<ResendVerificationUseCase>(),
+);
 
 // --- Controllers (Riverpod 3.x Notifier API) ---
 
@@ -37,3 +46,8 @@ final signInControllerProvider =
 
 final signUpControllerProvider =
     NotifierProvider<SignUpController, AuthFormState>(SignUpController.new);
+
+final verifyEmailControllerProvider =
+    NotifierProvider<VerifyEmailController, VerifyEmailState>(
+      VerifyEmailController.new,
+    );

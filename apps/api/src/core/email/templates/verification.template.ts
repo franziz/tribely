@@ -4,13 +4,14 @@ export interface EmailContent {
   text: string;
 }
 
-export const verificationTemplate = ({ verifyUrl }: { verifyUrl: string }): EmailContent => ({
-  subject: 'Verify your Tribely email',
+export const verificationTemplate = ({ code }: { code: string }): EmailContent => ({
+  subject: 'Your Tribely verification code',
   text: [
     'Welcome to Tribely.',
     '',
-    'Confirm your email address to start joining and creating events:',
-    verifyUrl,
+    `Your verification code is: ${code}`,
+    '',
+    'Enter this code in the app to verify your email. The code expires in 48 hours.',
     '',
     "If you didn't sign up for Tribely, you can ignore this message.",
   ].join('\n'),
@@ -20,12 +21,11 @@ export const verificationTemplate = ({ verifyUrl }: { verifyUrl: string }): Emai
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;">
       <tr><td>
         <h1 style="margin:0 0 16px;font-size:20px;font-weight:600;">Welcome to Tribely</h1>
-        <p style="margin:0 0 24px;line-height:1.5;">Confirm your email address to start joining and creating events.</p>
-        <p style="margin:0 0 24px;">
-          <a href="${verifyUrl}" style="display:inline-block;padding:12px 20px;border-radius:8px;background:#0f172a;color:#ffffff;text-decoration:none;font-weight:600;">Verify email</a>
+        <p style="margin:0 0 24px;line-height:1.5;">Enter this code in the app to verify your email:</p>
+        <p style="margin:0 0 24px;text-align:center;">
+          <span style="display:inline-block;padding:16px 24px;border-radius:8px;background:#0f172a;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${code}</span>
         </p>
-        <p style="margin:0 0 8px;color:#64748b;font-size:13px;">Or paste this link into your browser:</p>
-        <p style="margin:0 0 24px;word-break:break-all;font-size:13px;"><a href="${verifyUrl}" style="color:#0f172a;">${verifyUrl}</a></p>
+        <p style="margin:0 0 8px;color:#64748b;font-size:13px;">This code expires in 48 hours.</p>
         <p style="margin:0;color:#64748b;font-size:13px;">If you didn't sign up for Tribely, you can ignore this message.</p>
       </td></tr>
     </table>

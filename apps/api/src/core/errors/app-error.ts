@@ -2,6 +2,7 @@ export type AppErrorCode =
   | 'VALIDATION_ERROR'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
+  | 'EMAIL_NOT_VERIFIED'
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'INTERNAL';
@@ -29,6 +30,10 @@ export class AppError extends Error {
 
   static forbidden(message = 'Forbidden'): AppError {
     return new AppError('FORBIDDEN', message, 403);
+  }
+
+  static emailNotVerified(message = 'Email not verified'): AppError {
+    return new AppError('EMAIL_NOT_VERIFIED', message, 403);
   }
 
   static notFound(message = 'Not found'): AppError {

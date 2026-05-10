@@ -13,28 +13,28 @@ describe('LoggingEmailSender', () => {
     infoSpy.mockRestore();
   });
 
-  it('sendVerification resolves and logs to/verifyUrl', async () => {
+  it('sendVerification resolves and logs to/code', async () => {
     const sender = new LoggingEmailSender();
     await expect(
-      sender.sendVerification({ to: 'user@example.com', verifyUrl: 'https://x/verify?t=1' }),
+      sender.sendVerification({ to: 'user@example.com', code: '123456' }),
     ).resolves.toBeUndefined();
 
     expect(infoSpy).toHaveBeenCalledTimes(1);
     expect(infoSpy).toHaveBeenCalledWith(
-      { to: 'user@example.com', verifyUrl: 'https://x/verify?t=1' },
+      { to: 'user@example.com', code: '123456' },
       expect.stringContaining('email.sendVerification'),
     );
   });
 
-  it('sendPasswordReset resolves and logs to/resetUrl', async () => {
+  it('sendPasswordReset resolves and logs to/code', async () => {
     const sender = new LoggingEmailSender();
     await expect(
-      sender.sendPasswordReset({ to: 'user@example.com', resetUrl: 'https://x/reset?t=2' }),
+      sender.sendPasswordReset({ to: 'user@example.com', code: '654321' }),
     ).resolves.toBeUndefined();
 
     expect(infoSpy).toHaveBeenCalledTimes(1);
     expect(infoSpy).toHaveBeenCalledWith(
-      { to: 'user@example.com', resetUrl: 'https://x/reset?t=2' },
+      { to: 'user@example.com', code: '654321' },
       expect.stringContaining('email.sendPasswordReset'),
     );
   });

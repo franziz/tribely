@@ -73,3 +73,47 @@ class AuthFormError extends AuthFormState {
     suggestSignInWithEmail,
   ];
 }
+
+/// VerifyEmailState — drives the verify-email page (code field, submit
+/// button, resend button + cooldown).
+sealed class VerifyEmailState extends Equatable {
+  const VerifyEmailState({this.resendCooldownSeconds = 0});
+  final int resendCooldownSeconds;
+
+  @override
+  List<Object?> get props => [resendCooldownSeconds];
+}
+
+class VerifyEmailIdle extends VerifyEmailState {
+  const VerifyEmailIdle({super.resendCooldownSeconds = 0});
+}
+
+class VerifyEmailSubmitting extends VerifyEmailState {
+  const VerifyEmailSubmitting({super.resendCooldownSeconds = 0});
+}
+
+class VerifyEmailResending extends VerifyEmailState {
+  const VerifyEmailResending({super.resendCooldownSeconds = 0});
+}
+
+class VerifyEmailSuccess extends VerifyEmailState {
+  const VerifyEmailSuccess();
+}
+
+class VerifyEmailError extends VerifyEmailState {
+  const VerifyEmailError({
+    required this.failure,
+    required this.bannerMessage,
+    super.resendCooldownSeconds = 0,
+  });
+
+  final Failure failure;
+  final String bannerMessage;
+
+  @override
+  List<Object?> get props => [...super.props, failure, bannerMessage];
+}
+
+class VerifyEmailResendSent extends VerifyEmailState {
+  const VerifyEmailResendSent({super.resendCooldownSeconds = 60});
+}
