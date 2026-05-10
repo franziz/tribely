@@ -14,10 +14,9 @@ export interface EmailVerificationInvalidatedPayload {
   invalidatedAt: string;
 }
 
-export type EmailVerificationInvalidatedEvent =
-  DomainEvent<EmailVerificationInvalidatedPayload> & {
-    type: typeof EMAIL_VERIFICATION_INVALIDATED;
-  };
+export type EmailVerificationInvalidatedEvent = DomainEvent<EmailVerificationInvalidatedPayload> & {
+  type: typeof EMAIL_VERIFICATION_INVALIDATED;
+};
 
 export const emailVerificationInvalidated = (
   payload: EmailVerificationInvalidatedPayload,

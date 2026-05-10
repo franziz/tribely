@@ -57,14 +57,7 @@ describe('VerifyEmailUseCase', () => {
     events = new FakeEventPublisher();
     hasher = new FakeVerificationCodeHasher();
     clock = new FixedClock(new Date('2026-02-02T00:00:00Z'));
-    useCase = new VerifyEmailUseCase(
-      new FakeUnitOfWork(),
-      users,
-      tokens,
-      hasher,
-      events,
-      clock,
-    );
+    useCase = new VerifyEmailUseCase(new FakeUnitOfWork(), users, tokens, hasher, events, clock);
   });
 
   it('verifies the user + consumes the token + publishes events', async () => {
@@ -98,27 +91,27 @@ describe('VerifyEmailUseCase', () => {
   it('400 when no open token', async () => {
     users.put(buildUser());
 
-    await expect(
-      useCase.execute({ userId: 'user_1', code: '482917' }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(useCase.execute({ userId: 'user_1', code: '482917' })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
   });
 
   it('400 when token expired', async () => {
     users.put(buildUser());
     tokens.put(buildToken({ expiresAt: new Date('2026-02-01T12:00:00Z') }));
 
-    await expect(
-      useCase.execute({ userId: 'user_1', code: '482917' }),
-    ).rejects.toBeInstanceOf(AppError);
+    await expect(useCase.execute({ userId: 'user_1', code: '482917' })).rejects.toBeInstanceOf(
+      AppError,
+    );
   });
 
   it('400 + increments attempts on wrong code', async () => {
     users.put(buildUser());
     tokens.put(buildToken());
 
-    await expect(
-      useCase.execute({ userId: 'user_1', code: '000000' }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(useCase.execute({ userId: 'user_1', code: '000000' })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
 
     expect(tokens.all()[0]?.attempts).toBe(1);
     expect(tokens.all()[0]?.invalidated).toBe(false);
@@ -129,9 +122,9 @@ describe('VerifyEmailUseCase', () => {
     tokens.put(buildToken());
 
     for (let i = 0; i < 5; i += 1) {
-      await expect(
-        useCase.execute({ userId: 'user_1', code: '000000' }),
-      ).rejects.toBeInstanceOf(AppError);
+      await expect(useCase.execute({ userId: 'user_1', code: '000000' })).rejects.toBeInstanceOf(
+        AppError,
+      );
     }
 
     expect(tokens.all()[0]?.invalidated).toBe(true);
@@ -142,8 +135,8 @@ describe('VerifyEmailUseCase', () => {
   });
 
   it('404 when user does not exist', async () => {
-    await expect(
-      useCase.execute({ userId: 'ghost', code: '482917' }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(useCase.execute({ userId: 'ghost', code: '482917' })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 });

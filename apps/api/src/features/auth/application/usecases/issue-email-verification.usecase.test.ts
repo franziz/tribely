@@ -71,9 +71,7 @@ describe('IssueEmailVerificationUseCase', () => {
     expect(token.codeHash).toBe('h:482917');
     expect(token.expiresAt.getTime() - clock.now().getTime()).toBe(TTL_SECONDS * 1000);
 
-    expect(email.sent).toEqual([
-      { kind: 'verification', to: 'alice@example.com', code: '482917' },
-    ]);
+    expect(email.sent).toEqual([{ kind: 'verification', to: 'alice@example.com', code: '482917' }]);
 
     expect(events.published.map((e) => e.type)).toContain(EMAIL_VERIFICATION_ISSUED);
   });

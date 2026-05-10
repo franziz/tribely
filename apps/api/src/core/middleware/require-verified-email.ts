@@ -24,9 +24,7 @@ export const requireVerifiedEmail = (users: UserRepository) =>
       throw AppError.unauthorized('User not found');
     }
     if (!user.isEmailVerified()) {
-      throw AppError.emailNotVerified(
-        'Verify your email before performing this action.',
-      );
+      throw AppError.emailNotVerified('Verify your email before performing this action.');
     }
     await next();
   });

@@ -103,12 +103,8 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     )
     .post('/sign-out-all', auth, (c) => controller.signOutAllAction(c, c.get('userId')))
     .get('/me', auth, (c) => controller.meAction(c, c.get('userId')))
-    .post(
-      '/verify-email',
-      auth,
-      limitVerifyEmail,
-      zValidator('json', verifyEmailBodySchema),
-      (c) => controller.verifyEmailAction(c, c.get('userId'), c.req.valid('json')),
+    .post('/verify-email', auth, limitVerifyEmail, zValidator('json', verifyEmailBodySchema), (c) =>
+      controller.verifyEmailAction(c, c.get('userId'), c.req.valid('json')),
     )
     .post('/resend-verification', auth, limitResendVerification, (c) =>
       controller.resendVerificationAction(c, c.get('userId')),

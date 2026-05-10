@@ -1,9 +1,7 @@
 import type { EmailVerificationToken as EmailVerificationTokenRow } from '@prisma/client';
 import { EmailVerificationToken } from '../../domain/entities/email-verification-token.js';
 
-export const toEmailVerificationToken = (
-  row: EmailVerificationTokenRow,
-): EmailVerificationToken =>
+export const toEmailVerificationToken = (row: EmailVerificationTokenRow): EmailVerificationToken =>
   EmailVerificationToken.rehydrate({
     id: row.id,
     userId: row.userId,

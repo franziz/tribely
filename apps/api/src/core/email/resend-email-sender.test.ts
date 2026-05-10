@@ -41,9 +41,9 @@ describe('ResendEmailSender', () => {
       });
       const sender = new ResendEmailSender('re_test_key', 'Tribely <noreply@tribely.app>');
 
-      await expect(
-        sender.sendVerification({ to: 'bogus', code: '123456' }),
-      ).rejects.toThrow(/Resend send failed: validation_error: Invalid `to` address/);
+      await expect(sender.sendVerification({ to: 'bogus', code: '123456' })).rejects.toThrow(
+        /Resend send failed: validation_error: Invalid `to` address/,
+      );
     });
   });
 

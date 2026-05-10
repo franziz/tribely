@@ -5,9 +5,7 @@ import type { EmailVerificationToken } from '../../domain/entities/email-verific
 import type { EmailVerificationTokenRepository } from '../../domain/repositories/email-verification-token.repository.js';
 import { toEmailVerificationToken, toRow } from './email-verification-token.mapper.js';
 
-export class EmailVerificationTokenPrismaRepository
-  implements EmailVerificationTokenRepository
-{
+export class EmailVerificationTokenPrismaRepository implements EmailVerificationTokenRepository {
   constructor(private readonly db: Db) {}
 
   async findById(id: string, ctx?: TxContext): Promise<EmailVerificationToken | null> {
@@ -16,10 +14,7 @@ export class EmailVerificationTokenPrismaRepository
     return row ? toEmailVerificationToken(row) : null;
   }
 
-  async findOpenByUserId(
-    userId: string,
-    ctx?: TxContext,
-  ): Promise<EmailVerificationToken | null> {
+  async findOpenByUserId(userId: string, ctx?: TxContext): Promise<EmailVerificationToken | null> {
     const client = ctx ? unwrapTx(ctx) : this.db;
     const row = await client.emailVerificationToken.findFirst({
       where: {
