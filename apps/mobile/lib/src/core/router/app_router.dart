@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/sign_in_page.dart';
 import '../../features/auth/presentation/pages/sign_up_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/presentation/pages/verify_email_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
@@ -27,16 +28,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isSplash = loc == '/splash';
       final isAuthFlow =
           loc == '/welcome' || loc == '/sign-in' || loc == '/sign-up';
+      final isVerify = loc == '/verify-email';
 
       switch (session) {
         case SessionRestoring():
           // Stay on splash until restore completes.
           return isSplash ? null : '/splash';
         case SessionUnauthenticated():
-          if (isSplash) return '/welcome';
+          if (isSplash || isVerify) return '/welcome';
           return null; // allow welcome / sign-in / sign-up
-        case SessionAuthenticated():
-          if (isSplash || isAuthFlow) return '/home';
+        case SessionAuthenticated(:final session):
+          // Authenticated but unverified: route everything except /verify-email
+          // back to /verify-email so sensitive actions can't be reached. The
+          // banner on /home is still useful as a backup signal once we let
+          // the user choose to dismiss the verify gate (TBD).
+          if (!session.user.isEmailVerified) {
+            return isVerify ? null : '/verify-email';
+          }
+          if (isSplash || isAuthFlow || isVerify) return '/home';
           return null;
       }
     },
@@ -63,6 +72,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/sign-up',
         name: 'signUp',
         builder: (context, state) => const SignUpPage(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        name: 'verifyEmail',
+        builder: (context, state) => const VerifyEmailPage(),
       ),
       GoRoute(
         path: '/home',

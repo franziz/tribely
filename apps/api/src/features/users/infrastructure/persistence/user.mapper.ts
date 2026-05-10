@@ -10,6 +10,7 @@ export const toUser = (row: UserRow): User =>
     displayName: DisplayName.create(row.displayName),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    emailVerifiedAt: row.emailVerifiedAt,
   });
 
 export const toRow = (user: User): UserRow => ({
@@ -18,4 +19,5 @@ export const toRow = (user: User): UserRow => ({
   displayName: user.displayName.value,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
+  emailVerifiedAt: user.emailVerifiedAt,
 });

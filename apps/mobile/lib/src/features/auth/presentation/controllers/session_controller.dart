@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecase/usecase.dart';
 import '../../domain/entities/auth_session.dart';
+import '../../domain/entities/user.dart';
 import '../providers/auth_providers.dart';
 import '../state/auth_state.dart';
 
@@ -70,6 +71,16 @@ class SessionController extends Notifier<SessionState> {
   /// Called by SignInController / SignUpController on successful auth.
   void setAuthenticated(AuthSession session) {
     state = SessionAuthenticated(session);
+  }
+
+  /// Replace the user inside the current session — e.g. after email
+  /// verification flips `emailVerifiedAt` from null to a timestamp. No-op if
+  /// not currently authenticated.
+  void setUser(User user) {
+    final current = state;
+    if (current is SessionAuthenticated) {
+      state = SessionAuthenticated(current.session.copyWith(user: user));
+    }
   }
 
   Future<void> signOut() async {

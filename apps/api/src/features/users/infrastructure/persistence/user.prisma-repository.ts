@@ -31,6 +31,7 @@ export class UserPrismaRepository implements UserRepository {
         email: row.email,
         displayName: row.displayName,
         updatedAt: row.updatedAt,
+        emailVerifiedAt: row.emailVerifiedAt,
       },
     });
   }

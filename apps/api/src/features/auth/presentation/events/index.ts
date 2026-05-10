@@ -1,6 +1,11 @@
 import type { EventBus } from '@/core/events/event-bus.port.js';
 import { logger } from '@/core/middleware/logger.js';
 import {
+  USER_REGISTERED,
+  type UserRegisteredEvent,
+} from '@/features/users/domain/events/user-registered.event.js';
+import type { IssueEmailVerificationUseCase } from '../../application/usecases/issue-email-verification.usecase.js';
+import {
   CREDENTIAL_ISSUED,
   type CredentialIssuedEvent,
 } from '../../domain/events/credential-issued.event.js';
@@ -25,9 +30,29 @@ import {
   type UserSignedInEvent,
 } from '../../domain/events/user-signed-in.event.js';
 
-export const registerAuthSubscribers = (bus: EventBus): void => {
+export interface AuthSubscriberDeps {
+  issueEmailVerification: IssueEmailVerificationUseCase;
+}
+
+export const registerAuthSubscribers = (bus: EventBus, deps: AuthSubscriberDeps): void => {
   bus.subscribe<CredentialIssuedEvent>(CREDENTIAL_ISSUED, (event) => {
     logger.info({ userId: event.payload.userId }, 'auth.credentialIssued');
+  });
+
+  // After a user registers, issue + email a verification code. Runs through
+  // the transactional outbox, so this is at-least-once — IssueEmailVerification
+  // is idempotent on userId. Failures here are logged but not rethrown:
+  // sign-up has already committed, and the user can hit /resend-verification
+  // if the email never arrives.
+  bus.subscribe<UserRegisteredEvent>(USER_REGISTERED, async (event) => {
+    try {
+      await deps.issueEmailVerification.execute({ userId: event.payload.userId });
+    } catch (err) {
+      logger.error(
+        { err, userId: event.payload.userId },
+        'auth.issueEmailVerification failed (user can resend)',
+      );
+    }
   });
 
   bus.subscribe<UserSignedInEvent>(USER_SIGNED_IN, (event) => {

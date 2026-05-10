@@ -94,6 +94,30 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, User>> verifyEmail({required String code}) async {
+    try {
+      final model = await _remote.verifyEmail(code: code);
+      return Right(model.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resendVerification() async {
+    try {
+      await _remote.resendVerification();
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
   /// Centralized auth-flow error mapping. Persists tokens on success.
   /// Strongly typed — the duck-typed `(model as dynamic).toEntity()` of the
   /// previous version silently broke when the API response shape changed.
@@ -123,6 +147,15 @@ class AuthRepositoryImpl implements AuthRepository {
       switch (inner.statusCode) {
         case 401:
           return AuthFailure(inner.message, code: inner.code);
+        case 403:
+          if (inner.code == 'EMAIL_NOT_VERIFIED') {
+            return EmailNotVerifiedFailure(inner.message, code: inner.code);
+          }
+          return ServerFailure(
+            inner.message,
+            statusCode: 403,
+            code: inner.code,
+          );
         case 409:
           return ValidationFailure(inner.message, code: inner.code);
         case 429:

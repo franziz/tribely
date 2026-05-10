@@ -12,14 +12,16 @@ generator client {
 /// Aggregate root in the `users` bounded context.
 /// Owns identity-as-known-to-the-business: who someone is to others on the platform.
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  displayName String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String    @id @default(cuid())
+  email           String    @unique
+  displayName     String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  credential    Credential?
-  refreshTokens RefreshToken[]
+  credential               Credential?
+  refreshTokens            RefreshToken[]
+  emailVerificationTokens  EmailVerificationToken[]
 
   @@map("users")
 }
@@ -66,6 +68,28 @@ model RefreshToken {
 
   @@index([userId, revokedAt])
   @@map("refresh_tokens")
+}
+
+/// One-time email verification code. Lives in the `auth` bounded context.
+/// The 6-digit code shown to the user is hashed (SHA-256) at rest. Only one
+/// open token per user at a time — issuing a new one revokes any prior open
+/// row (single open invariant). `attempts` counts wrong-code submissions; use
+/// cases invalidate the row once attempts hits the cap to defeat brute-force.
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  codeHash    String
+  issuedAt    DateTime  @default(now())
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int       @default(0)
+  invalidated Boolean   @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction

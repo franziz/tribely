@@ -34,10 +34,7 @@ describe('ResendEmailSender (integration)', () => {
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
       await expect(
-        sender.sendVerification({
-          to: 'delivered@resend.dev',
-          verifyUrl: 'https://example.tribely.app/auth/verify?token=integration-test',
-        }),
+        sender.sendVerification({ to: 'delivered@resend.dev', code: '482917' }),
       ).resolves.toBeUndefined();
     },
     15_000,
@@ -48,10 +45,7 @@ describe('ResendEmailSender (integration)', () => {
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
       await expect(
-        sender.sendPasswordReset({
-          to: 'delivered@resend.dev',
-          resetUrl: 'https://example.tribely.app/auth/reset?token=integration-test',
-        }),
+        sender.sendPasswordReset({ to: 'delivered@resend.dev', code: '739104' }),
       ).resolves.toBeUndefined();
     },
     15_000,
@@ -62,10 +56,7 @@ describe('ResendEmailSender (integration)', () => {
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
       await expect(
-        sender.sendVerification({
-          to: realRecipient ?? '',
-          verifyUrl: 'https://example.tribely.app/auth/verify?token=eyeball-test',
-        }),
+        sender.sendVerification({ to: realRecipient ?? '', code: '482917' }),
       ).resolves.toBeUndefined();
     },
     15_000,
@@ -76,10 +67,7 @@ describe('ResendEmailSender (integration)', () => {
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
       await expect(
-        sender.sendPasswordReset({
-          to: realRecipient ?? '',
-          resetUrl: 'https://example.tribely.app/auth/reset?token=eyeball-test',
-        }),
+        sender.sendPasswordReset({ to: realRecipient ?? '', code: '739104' }),
       ).resolves.toBeUndefined();
     },
     15_000,

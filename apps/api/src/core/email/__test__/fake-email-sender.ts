@@ -3,13 +3,13 @@ import type { EmailSender } from '../email-sender.port.js';
 export interface RecordedVerification {
   kind: 'verification';
   to: string;
-  verifyUrl: string;
+  code: string;
 }
 
 export interface RecordedPasswordReset {
   kind: 'password-reset';
   to: string;
-  resetUrl: string;
+  code: string;
 }
 
 export type RecordedEmail = RecordedVerification | RecordedPasswordReset;
@@ -22,13 +22,13 @@ export type RecordedEmail = RecordedVerification | RecordedPasswordReset;
 export class FakeEmailSender implements EmailSender {
   readonly sent: RecordedEmail[] = [];
 
-  sendVerification(input: { to: string; verifyUrl: string }): Promise<void> {
-    this.sent.push({ kind: 'verification', to: input.to, verifyUrl: input.verifyUrl });
+  sendVerification(input: { to: string; code: string }): Promise<void> {
+    this.sent.push({ kind: 'verification', to: input.to, code: input.code });
     return Promise.resolve();
   }
 
-  sendPasswordReset(input: { to: string; resetUrl: string }): Promise<void> {
-    this.sent.push({ kind: 'password-reset', to: input.to, resetUrl: input.resetUrl });
+  sendPasswordReset(input: { to: string; code: string }): Promise<void> {
+    this.sent.push({ kind: 'password-reset', to: input.to, code: input.code });
     return Promise.resolve();
   }
 }

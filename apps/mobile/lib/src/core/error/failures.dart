@@ -34,6 +34,13 @@ class AuthFailure extends Failure {
   const AuthFailure(super.message, {super.code});
 }
 
+/// 403 with code EMAIL_NOT_VERIFIED. Distinct from AuthFailure (401) so the
+/// UI can route the user to the verify-email screen instead of treating it
+/// as a hard sign-out.
+class EmailNotVerifiedFailure extends Failure {
+  const EmailNotVerifiedFailure(super.message, {super.code});
+}
+
 class UnknownFailure extends Failure {
   const UnknownFailure(super.message, {super.code});
 }

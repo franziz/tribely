@@ -23,13 +23,13 @@ export class ResendEmailSender implements EmailSender {
     this.client = new Resend(apiKey);
   }
 
-  async sendVerification(input: { to: string; verifyUrl: string }): Promise<void> {
-    const { subject, html, text } = verificationTemplate({ verifyUrl: input.verifyUrl });
+  async sendVerification(input: { to: string; code: string }): Promise<void> {
+    const { subject, html, text } = verificationTemplate({ code: input.code });
     await this.send(input.to, subject, html, text);
   }
 
-  async sendPasswordReset(input: { to: string; resetUrl: string }): Promise<void> {
-    const { subject, html, text } = passwordResetTemplate({ resetUrl: input.resetUrl });
+  async sendPasswordReset(input: { to: string; code: string }): Promise<void> {
+    const { subject, html, text } = passwordResetTemplate({ code: input.code });
     await this.send(input.to, subject, html, text);
   }
 

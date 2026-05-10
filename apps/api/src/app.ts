@@ -24,6 +24,8 @@ export const buildApp = (): { app: Hono; container: Container } => {
       signOut: container.signOutUseCase,
       signOutAll: container.signOutAllUseCase,
       getUser: container.getUserUseCase,
+      verifyEmail: container.verifyEmailUseCase,
+      resendVerification: container.resendEmailVerificationUseCase,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
     }),

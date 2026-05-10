@@ -46,6 +46,7 @@
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.18.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.2.4"
   }
 }

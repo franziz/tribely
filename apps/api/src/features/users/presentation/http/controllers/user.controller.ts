@@ -7,6 +7,7 @@ const toResponse = (user: User): UserResponse => ({
   id: user.id,
   email: user.email.value,
   displayName: user.displayName.value,
+  emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
   createdAt: user.createdAt.toISOString(),
   updatedAt: user.updatedAt.toISOString(),
 });

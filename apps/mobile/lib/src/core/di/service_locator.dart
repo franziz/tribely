@@ -9,9 +9,11 @@ import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/get_me_usecase.dart';
 import '../../features/auth/domain/usecases/refresh_session_usecase.dart';
+import '../../features/auth/domain/usecases/resend_verification_usecase.dart';
 import '../../features/auth/domain/usecases/sign_in_usecase.dart';
 import '../../features/auth/domain/usecases/sign_out_usecase.dart';
 import '../../features/auth/domain/usecases/sign_up_usecase.dart';
+import '../../features/auth/domain/usecases/verify_email_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -44,4 +46,8 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => RefreshSessionUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => SignOutUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton(() => GetMeUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(() => VerifyEmailUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+    () => ResendVerificationUseCase(sl<AuthRepository>()),
+  );
 }

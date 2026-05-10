@@ -30,4 +30,12 @@ abstract class AuthRepository {
 
   /// Fetch the currently-authenticated user.
   Future<Either<Failure, User>> me();
+
+  /// Submit the 6-digit code from the verification email. Returns the
+  /// freshly-verified user on success so the UI can update state without
+  /// a follow-up `me` call.
+  Future<Either<Failure, User>> verifyEmail({required String code});
+
+  /// Re-issue a verification code for the current user.
+  Future<Either<Failure, void>> resendVerification();
 }

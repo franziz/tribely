@@ -18,20 +18,27 @@ import type { RateLimiter } from '../security/rate-limiter.port.js';
 import { Argon2PasswordHasher } from '@/features/auth/infrastructure/adapters/argon2-password-hasher.js';
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
 import { Sha256RefreshTokenHasher } from '@/features/auth/infrastructure/adapters/sha256-refresh-token-hasher.js';
+import { Sha256VerificationCodeHasher } from '@/features/auth/infrastructure/adapters/sha256-verification-code-hasher.js';
 import { SystemClock } from '@/features/auth/infrastructure/adapters/system-clock.js';
 import { CredentialPrismaRepository } from '@/features/auth/infrastructure/persistence/credential.prisma-repository.js';
+import { EmailVerificationTokenPrismaRepository } from '@/features/auth/infrastructure/persistence/email-verification-token.prisma-repository.js';
 import { RefreshTokenPrismaRepository } from '@/features/auth/infrastructure/persistence/refresh-token.prisma-repository.js';
+import { IssueEmailVerificationUseCase } from '@/features/auth/application/usecases/issue-email-verification.usecase.js';
 import { RefreshTokensUseCase } from '@/features/auth/application/usecases/refresh-tokens.usecase.js';
+import { ResendEmailVerificationUseCase } from '@/features/auth/application/usecases/resend-email-verification.usecase.js';
 import { SignInUseCase } from '@/features/auth/application/usecases/sign-in.usecase.js';
 import { SignOutAllUseCase } from '@/features/auth/application/usecases/sign-out-all.usecase.js';
 import { SignOutUseCase } from '@/features/auth/application/usecases/sign-out.usecase.js';
 import { SignUpUseCase } from '@/features/auth/application/usecases/sign-up.usecase.js';
+import { VerifyEmailUseCase } from '@/features/auth/application/usecases/verify-email.usecase.js';
 import { registerAuthSubscribers } from '@/features/auth/presentation/events/index.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { PasswordHasher } from '@/features/auth/domain/ports/password-hasher.port.js';
 import type { RefreshTokenHasher } from '@/features/auth/domain/ports/refresh-token-hasher.port.js';
+import type { VerificationCodeHasher } from '@/features/auth/domain/ports/verification-code-hasher.port.js';
 import type { CredentialRepository } from '@/features/auth/domain/repositories/credential.repository.js';
+import type { EmailVerificationTokenRepository } from '@/features/auth/domain/repositories/email-verification-token.repository.js';
 import type { RefreshTokenRepository } from '@/features/auth/domain/repositories/refresh-token.repository.js';
 
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
@@ -87,15 +94,20 @@ export interface Container {
   // Auth
   credentialRepository: CredentialRepository;
   refreshTokenRepository: RefreshTokenRepository;
+  emailVerificationTokenRepository: EmailVerificationTokenRepository;
   passwordHasher: PasswordHasher;
   accessTokens: AccessTokenIssuer;
   refreshHasher: RefreshTokenHasher;
+  verificationCodeHasher: VerificationCodeHasher;
   clock: Clock;
   signUpUseCase: SignUpUseCase;
   signInUseCase: SignInUseCase;
   refreshTokensUseCase: RefreshTokensUseCase;
   signOutUseCase: SignOutUseCase;
   signOutAllUseCase: SignOutAllUseCase;
+  issueEmailVerificationUseCase: IssueEmailVerificationUseCase;
+  verifyEmailUseCase: VerifyEmailUseCase;
+  resendEmailVerificationUseCase: ResendEmailVerificationUseCase;
 }
 
 export const buildContainer = (): Container => {
@@ -115,11 +127,14 @@ export const buildContainer = (): Container => {
   // --- Auth ---
   const credentialRepository = new CredentialPrismaRepository(db);
   const refreshTokenRepository = new RefreshTokenPrismaRepository(db);
+  const emailVerificationTokenRepository = new EmailVerificationTokenPrismaRepository(db);
   const passwordHasher = new Argon2PasswordHasher();
   const accessTokens = new JwtAccessTokenIssuer();
   const refreshHasher = new Sha256RefreshTokenHasher();
+  const verificationCodeHasher = new Sha256VerificationCodeHasher();
   const clock = new SystemClock();
   const refreshTokenTtlSeconds = parseDurationSeconds(env.JWT_REFRESH_TTL);
+  const emailVerificationTtlSeconds = parseDurationSeconds(env.EMAIL_VERIFICATION_TTL);
 
   const signUpUseCase = new SignUpUseCase(
     unitOfWork,
@@ -168,10 +183,32 @@ export const buildContainer = (): Container => {
     publisher,
     clock,
   );
+  const issueEmailVerificationUseCase = new IssueEmailVerificationUseCase(
+    unitOfWork,
+    userRepository,
+    emailVerificationTokenRepository,
+    verificationCodeHasher,
+    publisher,
+    emailSender,
+    clock,
+    emailVerificationTtlSeconds,
+  );
+  const verifyEmailUseCase = new VerifyEmailUseCase(
+    unitOfWork,
+    userRepository,
+    emailVerificationTokenRepository,
+    verificationCodeHasher,
+    publisher,
+    clock,
+  );
+  const resendEmailVerificationUseCase = new ResendEmailVerificationUseCase(
+    userRepository,
+    issueEmailVerificationUseCase,
+  );
 
   // --- Subscribers ---
   registerUsersSubscribers(bus);
-  registerAuthSubscribers(bus);
+  registerAuthSubscribers(bus, { issueEmailVerification: issueEmailVerificationUseCase });
 
   return {
     db,
@@ -185,14 +222,19 @@ export const buildContainer = (): Container => {
     getUserUseCase,
     credentialRepository,
     refreshTokenRepository,
+    emailVerificationTokenRepository,
     passwordHasher,
     accessTokens,
     refreshHasher,
+    verificationCodeHasher,
     clock,
     signUpUseCase,
     signInUseCase,
     refreshTokensUseCase,
     signOutUseCase,
     signOutAllUseCase,
+    issueEmailVerificationUseCase,
+    verifyEmailUseCase,
+    resendEmailVerificationUseCase,
   };
 };
