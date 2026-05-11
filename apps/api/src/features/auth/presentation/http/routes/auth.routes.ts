@@ -5,7 +5,9 @@ import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import type { RefreshTokensUseCase } from '../../../application/usecases/refresh-tokens.usecase.js';
+import type { RequestPasswordResetUseCase } from '../../../application/usecases/request-password-reset.usecase.js';
 import type { ResendEmailVerificationUseCase } from '../../../application/usecases/resend-email-verification.usecase.js';
+import type { ResetPasswordUseCase } from '../../../application/usecases/reset-password.usecase.js';
 import type { SignInUseCase } from '../../../application/usecases/sign-in.usecase.js';
 import type { SignOutAllUseCase } from '../../../application/usecases/sign-out-all.usecase.js';
 import type { SignOutUseCase } from '../../../application/usecases/sign-out.usecase.js';
@@ -14,7 +16,9 @@ import type { VerifyEmailUseCase } from '../../../application/usecases/verify-em
 import type { AccessTokenIssuer } from '../../../domain/ports/access-token-issuer.port.js';
 import { AuthController } from '../controllers/auth.controller.js';
 import {
+  forgotPasswordBodySchema,
   refreshBodySchema,
+  resetPasswordBodySchema,
   signInBodySchema,
   signOutBodySchema,
   signUpBodySchema,
@@ -30,6 +34,8 @@ export interface AuthRouteDeps {
   getUser: GetUserUseCase;
   verifyEmail: VerifyEmailUseCase;
   resendVerification: ResendEmailVerificationUseCase;
+  requestPasswordReset: RequestPasswordResetUseCase;
+  resetPassword: ResetPasswordUseCase;
   accessTokens: AccessTokenIssuer;
   rateLimiter: RateLimiter;
 }
@@ -44,6 +50,8 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     deps.getUser,
     deps.verifyEmail,
     deps.resendVerification,
+    deps.requestPasswordReset,
+    deps.resetPassword,
   );
   const auth = requireAuth(deps.accessTokens);
 
@@ -87,6 +95,32 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     windowSeconds: 60,
     keyFor: userKey,
   });
+  // forgot-password runs two rate limits in series:
+  //   - 5/min/IP defends against credential-stuffing bots that scan a list
+  //     of emails from one source.
+  //   - 1/min/email defends against email-bomb / spam directed at a single
+  //     account from many IPs. The email key is derived from the JSON body
+  //     (which has already been validated by zValidator below in the route
+  //     chain — middleware order matters: zValidator runs first).
+  const limitForgotPasswordIp = rateLimit(deps.rateLimiter, {
+    bucket: 'forgot-password-ip',
+    limit: 5,
+    windowSeconds: 60,
+  });
+  const limitForgotPasswordEmail = rateLimit(deps.rateLimiter, {
+    bucket: 'forgot-password-email',
+    limit: 1,
+    windowSeconds: 60,
+    keyFor: (c: Context) => {
+      const body = (c.req as { valid?: (k: 'json') => { email?: string } }).valid?.('json');
+      return (body?.email ?? 'unknown').toLowerCase();
+    },
+  });
+  const limitResetPassword = rateLimit(deps.rateLimiter, {
+    bucket: 'reset-password',
+    limit: 10,
+    windowSeconds: 60,
+  });
 
   return new Hono<{ Variables: AuthVariables }>()
     .post('/sign-up', limitSignUp, zValidator('json', signUpBodySchema), (c) =>
@@ -108,5 +142,15 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     )
     .post('/resend-verification', auth, limitResendVerification, (c) =>
       controller.resendVerificationAction(c, c.get('userId')),
+    )
+    .post(
+      '/forgot-password',
+      limitForgotPasswordIp,
+      zValidator('json', forgotPasswordBodySchema),
+      limitForgotPasswordEmail,
+      (c) => controller.forgotPasswordAction(c, c.req.valid('json')),
+    )
+    .post('/reset-password', limitResetPassword, zValidator('json', resetPasswordBodySchema), (c) =>
+      controller.resetPasswordAction(c, c.req.valid('json')),
     );
 };

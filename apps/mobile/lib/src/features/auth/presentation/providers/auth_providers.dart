@@ -3,11 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../domain/usecases/get_me_usecase.dart';
 import '../../domain/usecases/refresh_session_usecase.dart';
+import '../../domain/usecases/request_password_reset_usecase.dart';
 import '../../domain/usecases/resend_verification_usecase.dart';
+import '../../domain/usecases/reset_password_usecase.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
 import '../../domain/usecases/sign_up_usecase.dart';
 import '../../domain/usecases/verify_email_usecase.dart';
+import '../controllers/forgot_password_controller.dart';
+import '../controllers/reset_password_controller.dart';
 import '../controllers/session_controller.dart';
 import '../controllers/sign_in_controller.dart';
 import '../controllers/sign_up_controller.dart';
@@ -35,6 +39,13 @@ final verifyEmailUseCaseProvider = Provider<VerifyEmailUseCase>(
 final resendVerificationUseCaseProvider = Provider<ResendVerificationUseCase>(
   (_) => sl<ResendVerificationUseCase>(),
 );
+final requestPasswordResetUseCaseProvider =
+    Provider<RequestPasswordResetUseCase>(
+      (_) => sl<RequestPasswordResetUseCase>(),
+    );
+final resetPasswordUseCaseProvider = Provider<ResetPasswordUseCase>(
+  (_) => sl<ResetPasswordUseCase>(),
+);
 
 // --- Controllers (Riverpod 3.x Notifier API) ---
 
@@ -50,4 +61,14 @@ final signUpControllerProvider =
 final verifyEmailControllerProvider =
     NotifierProvider<VerifyEmailController, VerifyEmailState>(
       VerifyEmailController.new,
+    );
+
+final forgotPasswordControllerProvider =
+    NotifierProvider<ForgotPasswordController, ForgotPasswordState>(
+      ForgotPasswordController.new,
+    );
+
+final resetPasswordControllerProvider =
+    NotifierProvider<ResetPasswordController, ResetPasswordState>(
+      ResetPasswordController.new,
     );

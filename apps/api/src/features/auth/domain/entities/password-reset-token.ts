@@ -1,47 +1,35 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
-import { emailVerificationConsumed } from '../events/email-verification-consumed.event.js';
+import { passwordResetRequested } from '../events/password-reset-requested.event.js';
+import { passwordResetTokenConsumed } from '../events/password-reset-token-consumed.event.js';
 import {
-  emailVerificationInvalidated,
-  type EmailVerificationInvalidatedReason,
-} from '../events/email-verification-invalidated.event.js';
-import { emailVerificationIssued } from '../events/email-verification-issued.event.js';
-import {
-  ONE_TIME_CODE_MAX_ATTEMPTS,
-  OneTimeCodeLifecycle,
-} from '../value-objects/one-time-code-lifecycle.js';
+  passwordResetTokenInvalidated,
+  type PasswordResetTokenInvalidatedReason,
+} from '../events/password-reset-token-invalidated.event.js';
+import { OneTimeCodeLifecycle } from '../value-objects/one-time-code-lifecycle.js';
 
 /**
- * Re-exported for callers/tests that referenced the old constant location.
- * The shared value-object owns the canonical value; this is just an alias.
- */
-export const EMAIL_VERIFICATION_MAX_ATTEMPTS = ONE_TIME_CODE_MAX_ATTEMPTS;
-
-/**
- * EmailVerificationToken aggregate root — one open token per user at a time.
+ * PasswordResetToken aggregate root — one open token per user at a time.
  *
- * The plaintext 6-digit code is shown to the user via email; only the hash is
- * persisted (SHA-256 over the plaintext). This is sufficient because the user
- * scope is implicit at verify time (the verify endpoint is auth-required) and
- * the attempts cap defeats brute-force.
- *
- * Composes a `OneTimeCodeLifecycle` for the shared state-machine
- * (codeHash + issuedAt + expiresAt + consumedAt + attempts + invalidated).
- * Domain events stay aggregate-specific so consumers + auditors keep
- * the clean `auth.emailVerification*` vocabulary.
+ * Same shape as EmailVerificationToken (both compose `OneTimeCodeLifecycle`)
+ * but a separate aggregate, separate persistence table, and a separate
+ * event vocabulary so consumers and audit logs see clean signals (no
+ * discriminator field, no shared topic).
  *
  * Construction:
- *   - issue(...) — first-time issue, records issued event.
+ *   - issue(...) — first-time issue, records `auth.passwordResetRequested`.
  *   - rehydrate(...) — from persistence, no events.
  *
- * State transitions (each records an event):
- *   - consume(now) — successful match. Marks consumed.
+ * State transitions:
+ *   - consume(now) — successful match. Marks consumed; records
+ *     `auth.passwordResetTokenConsumed`. The companion `auth.passwordReset`
+ *     event is emitted by the Credential aggregate when its password is
+ *     actually changed in the same UnitOfWork.
  *   - registerFailedAttempt(now) — wrong code submitted. Increments attempts;
  *     auto-invalidates with reason='too_many_attempts' once cap is hit.
  *   - invalidate(reason, now) — caller-driven invalidation, e.g. 'replaced'
- *     when issuing a new token, or 'already_verified' when the user is already
- *     verified.
+ *     when issuing a new token over an existing open one.
  */
-export class EmailVerificationToken extends AggregateRoot {
+export class PasswordResetToken extends AggregateRoot {
   private constructor(
     public readonly id: string,
     public readonly userId: string,
@@ -56,15 +44,15 @@ export class EmailVerificationToken extends AggregateRoot {
     codeHash: string;
     expiresAt: Date;
     now: Date;
-  }): EmailVerificationToken {
+  }): PasswordResetToken {
     const lifecycle = OneTimeCodeLifecycle.create({
       codeHash: input.codeHash,
       issuedAt: input.now,
       expiresAt: input.expiresAt,
     });
-    const token = new EmailVerificationToken(input.id, input.userId, lifecycle);
+    const token = new PasswordResetToken(input.id, input.userId, lifecycle);
     token.record(
-      emailVerificationIssued({
+      passwordResetRequested({
         tokenId: input.id,
         userId: input.userId,
         issuedAt: input.now.toISOString(),
@@ -83,7 +71,7 @@ export class EmailVerificationToken extends AggregateRoot {
     consumedAt: Date | null;
     attempts: number;
     invalidated: boolean;
-  }): EmailVerificationToken {
+  }): PasswordResetToken {
     const lifecycle = OneTimeCodeLifecycle.rehydrate({
       codeHash: state.codeHash,
       issuedAt: state.issuedAt,
@@ -92,7 +80,7 @@ export class EmailVerificationToken extends AggregateRoot {
       attempts: state.attempts,
       invalidated: state.invalidated,
     });
-    return new EmailVerificationToken(state.id, state.userId, lifecycle);
+    return new PasswordResetToken(state.id, state.userId, lifecycle);
   }
 
   get codeHash(): string {
@@ -135,7 +123,7 @@ export class EmailVerificationToken extends AggregateRoot {
     const result = this.lifecycle.consume(now);
     if (result.wasAlreadyConsumed) return;
     this.record(
-      emailVerificationConsumed({
+      passwordResetTokenConsumed({
         tokenId: this.id,
         userId: this.userId,
         consumedAt: now.toISOString(),
@@ -147,7 +135,7 @@ export class EmailVerificationToken extends AggregateRoot {
     const result = this.lifecycle.registerFailedAttempt(now);
     if (result.becameInvalid) {
       this.record(
-        emailVerificationInvalidated({
+        passwordResetTokenInvalidated({
           tokenId: this.id,
           userId: this.userId,
           reason: 'too_many_attempts',
@@ -157,11 +145,11 @@ export class EmailVerificationToken extends AggregateRoot {
     }
   }
 
-  invalidate(reason: EmailVerificationInvalidatedReason, now: Date): void {
+  invalidate(reason: PasswordResetTokenInvalidatedReason, now: Date): void {
     const result = this.lifecycle.invalidate(now);
     if (result.wasAlreadyInvalidated) return;
     this.record(
-      emailVerificationInvalidated({
+      passwordResetTokenInvalidated({
         tokenId: this.id,
         userId: this.userId,
         reason,

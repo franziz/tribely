@@ -35,6 +35,17 @@ abstract class AuthRemoteDatasource {
   /// Re-issues a verification code for the current user. Server applies a
   /// 1/min/user rate limit; the UI mirrors that with a local cooldown.
   Future<void> resendVerification();
+
+  /// Trigger a password-reset email for the given address. Server returns
+  /// 200 regardless of whether the email is on file (enumeration safety).
+  Future<void> requestPasswordReset({required String email});
+
+  /// Complete a password reset with the 6-digit code + new password.
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 }
 
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
@@ -117,5 +128,25 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   @override
   Future<void> resendVerification() async {
     await _dio.post<void>('/auth/resend-verification');
+  }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/auth/forgot-password',
+      data: {'email': email},
+    );
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _dio.post<void>(
+      '/auth/reset-password',
+      data: {'email': email, 'code': code, 'newPassword': newPassword},
+    );
   }
 }

@@ -38,4 +38,18 @@ abstract class AuthRepository {
 
   /// Re-issue a verification code for the current user.
   Future<Either<Failure, void>> resendVerification();
+
+  /// Issue a password-reset code to the given email. Always returns success
+  /// regardless of whether the email is on file (server enforces enumeration
+  /// safety) — the UI shows a neutral confirmation message either way.
+  Future<Either<Failure, void>> requestPasswordReset({required String email});
+
+  /// Submit the 6-digit code + new password to complete a reset. On success
+  /// the server has invalidated all of the user's sessions; the UI returns
+  /// to /sign-in.
+  Future<Either<Failure, void>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  });
 }

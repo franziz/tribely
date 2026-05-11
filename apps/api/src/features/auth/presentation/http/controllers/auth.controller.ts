@@ -3,7 +3,9 @@ import type { GetUserUseCase } from '@/features/users/application/usecases/get-u
 import type { User } from '@/features/users/domain/entities/user.js';
 import type { UserResponse } from '@/features/users/presentation/http/schemas/user.schemas.js';
 import type { RefreshTokensUseCase } from '../../../application/usecases/refresh-tokens.usecase.js';
+import type { RequestPasswordResetUseCase } from '../../../application/usecases/request-password-reset.usecase.js';
 import type { ResendEmailVerificationUseCase } from '../../../application/usecases/resend-email-verification.usecase.js';
+import type { ResetPasswordUseCase } from '../../../application/usecases/reset-password.usecase.js';
 import type { SignInUseCase } from '../../../application/usecases/sign-in.usecase.js';
 import type { SignOutAllUseCase } from '../../../application/usecases/sign-out-all.usecase.js';
 import type { SignOutUseCase } from '../../../application/usecases/sign-out.usecase.js';
@@ -12,7 +14,9 @@ import type { VerifyEmailUseCase } from '../../../application/usecases/verify-em
 import type { IssuedAuthSession } from '../../../application/dto/auth-result.js';
 import type {
   AuthResponse,
+  ForgotPasswordBody,
   RefreshBody,
+  ResetPasswordBody,
   SignInBody,
   SignOutAllResponse,
   SignOutBody,
@@ -51,6 +55,8 @@ export class AuthController {
     private readonly getUser: GetUserUseCase,
     private readonly verifyEmail: VerifyEmailUseCase,
     private readonly resendVerification: ResendEmailVerificationUseCase,
+    private readonly requestPasswordReset: RequestPasswordResetUseCase,
+    private readonly resetPassword: ResetPasswordUseCase,
   ) {}
 
   signUpAction = async (c: Context, body: SignUpBody) => {
@@ -99,6 +105,26 @@ export class AuthController {
 
   resendVerificationAction = async (c: Context, userId: string) => {
     await this.resendVerification.execute({ userId });
+    return c.body(null, 204);
+  };
+
+  // Always returns 200 with the same neutral message — never reveals whether
+  // the email is on file (enumeration safety). The use case silently no-ops
+  // for unknown / unverified accounts and info-logs for ops.
+  forgotPasswordAction = async (c: Context, body: ForgotPasswordBody) => {
+    await this.requestPasswordReset.execute({ email: body.email });
+    return c.json(
+      { ok: true, message: 'If your email is on file, you’ll get a reset code shortly.' },
+      200,
+    );
+  };
+
+  resetPasswordAction = async (c: Context, body: ResetPasswordBody) => {
+    await this.resetPassword.execute({
+      email: body.email,
+      code: body.code,
+      newPassword: body.newPassword,
+    });
     return c.body(null, 204);
   };
 }

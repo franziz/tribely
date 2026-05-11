@@ -169,7 +169,12 @@ class _SignInForm extends ConsumerWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () => showForgotPasswordSheet(context),
+                onPressed: () => showForgotPasswordSheet(
+                  context,
+                  prefilledEmail: emailController.text.trim().isEmpty
+                      ? null
+                      : emailController.text.trim(),
+                ),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

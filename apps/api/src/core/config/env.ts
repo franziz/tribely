@@ -16,6 +16,7 @@ const envSchema = z
     JWT_ACCESS_TTL: z.string().default('15m'),
     JWT_REFRESH_TTL: z.string().default('30d'),
     EMAIL_VERIFICATION_TTL: z.string().default('48h'),
+    PASSWORD_RESET_TTL: z.string().default('24h'),
 
     // Email — `log` writes to the logger (dev default), `resend` hits the
     // real Resend API. Selection is explicit (not inferred from key
