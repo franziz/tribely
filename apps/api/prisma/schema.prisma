@@ -11,11 +11,26 @@ generator client {
 
 /// Aggregate root in the `users` bounded context.
 /// Owns identity-as-known-to-the-business: who someone is to others on the platform.
+///
+/// Profile fields added in TRI-7 (all optional):
+///   - bio          free-text self-description, max 300 chars
+///   - avatarUrl    nullable URL; no upload pipeline (CEO constraint, TRI-7)
+///   - languages    array of BCP-47-aligned codes from the platform picklist
+///   - interests    array of activity codes from the platform picklist
+///   - currentCity  free-text city name, max 80 chars (no geo-restriction)
+///   - travelerType TEXT column, CHECK constraint enforces 'local'|'traveling'|'expat'
+///                  per TRI-41 convention (string column + DB CHECK, not Prisma enum)
 model User {
   id              String    @id @default(cuid())
   email           String    @unique
   displayName     String
   emailVerifiedAt DateTime?
+  bio             String?
+  avatarUrl       String?
+  languages       String[]
+  interests       String[]
+  currentCity     String?
+  travelerType    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

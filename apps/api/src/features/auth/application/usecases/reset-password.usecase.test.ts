@@ -30,6 +30,12 @@ const buildUser = (verifiedAt: Date | null = new Date('2026-01-01T00:00:00Z')): 
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     emailVerifiedAt: verifiedAt,
+    bio: null,
+    avatarUrl: null,
+    languages: [],
+    interests: [],
+    currentCity: null,
+    travelerType: null,
   });
 
 const buildCredential = (): CredentialEntity => {

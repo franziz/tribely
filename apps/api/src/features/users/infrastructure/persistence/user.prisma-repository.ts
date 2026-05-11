@@ -32,6 +32,12 @@ export class UserPrismaRepository implements UserRepository {
         displayName: row.displayName,
         updatedAt: row.updatedAt,
         emailVerifiedAt: row.emailVerifiedAt,
+        bio: row.bio,
+        avatarUrl: row.avatarUrl,
+        languages: row.languages,
+        interests: row.interests,
+        currentCity: row.currentCity,
+        travelerType: row.travelerType,
       },
     });
   }

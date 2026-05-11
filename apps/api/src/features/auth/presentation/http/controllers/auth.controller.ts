@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 import type { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import type { User } from '@/features/users/domain/entities/user.js';
-import type { UserResponse } from '@/features/users/presentation/http/schemas/user.schemas.js';
 import type { RefreshTokensUseCase } from '../../../application/usecases/refresh-tokens.usecase.js';
 import type { RequestPasswordResetUseCase } from '../../../application/usecases/request-password-reset.usecase.js';
 import type { ResendEmailVerificationUseCase } from '../../../application/usecases/resend-email-verification.usecase.js';
@@ -14,6 +13,7 @@ import type { VerifyEmailUseCase } from '../../../application/usecases/verify-em
 import type { IssuedAuthSession } from '../../../application/dto/auth-result.js';
 import type {
   AuthResponse,
+  AuthUserDto,
   ForgotPasswordBody,
   RefreshBody,
   ResetPasswordBody,
@@ -24,17 +24,23 @@ import type {
   VerifyEmailBody,
 } from '../schemas/auth.schemas.js';
 
-const toUserResponse = (user: User): UserResponse => ({
+const toAuthUserDto = (user: User): AuthUserDto => ({
   id: user.id,
   email: user.email.value,
   displayName: user.displayName.value,
   emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+  bio: user.bio?.value ?? null,
+  avatarUrl: user.avatarUrl?.value ?? null,
+  languages: user.languages.map((l) => l.value),
+  interests: user.interests.map((i) => i.value),
+  currentCity: user.currentCity?.value ?? null,
+  travelerType: user.travelerType?.value ?? null,
   createdAt: user.createdAt.toISOString(),
   updatedAt: user.updatedAt.toISOString(),
 });
 
 const toAuthResponse = (session: IssuedAuthSession): AuthResponse => ({
-  user: toUserResponse(session.user),
+  user: toAuthUserDto(session.user),
   accessToken: {
     value: session.accessToken.value,
     expiresAt: session.accessToken.expiresAt.toISOString(),
@@ -95,12 +101,12 @@ export class AuthController {
 
   meAction = async (c: Context, userId: string) => {
     const user = await this.getUser.execute({ id: userId });
-    return c.json(toUserResponse(user), 200);
+    return c.json(toAuthUserDto(user), 200);
   };
 
   verifyEmailAction = async (c: Context, userId: string, body: VerifyEmailBody) => {
     const result = await this.verifyEmail.execute({ userId, code: body.code });
-    return c.json(toUserResponse(result.user), 200);
+    return c.json(toAuthUserDto(result.user), 200);
   };
 
   resendVerificationAction = async (c: Context, userId: string) => {
@@ -114,7 +120,7 @@ export class AuthController {
   forgotPasswordAction = async (c: Context, body: ForgotPasswordBody) => {
     await this.requestPasswordReset.execute({ email: body.email });
     return c.json(
-      { ok: true, message: 'If your email is on file, you’ll get a reset code shortly.' },
+      { ok: true, message: "If your email is on file, you'll get a reset code shortly." },
       200,
     );
   };

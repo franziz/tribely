@@ -47,6 +47,7 @@ import type { PasswordResetTokenRepository } from '@/features/auth/domain/reposi
 import type { RefreshTokenRepository } from '@/features/auth/domain/repositories/refresh-token.repository.js';
 
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
+import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
@@ -122,6 +123,7 @@ export interface Container {
   // Users
   userRepository: UserRepository;
   getUserUseCase: GetUserUseCase;
+  updateUserProfileUseCase: UpdateUserProfileUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -182,6 +184,11 @@ export const buildContainer = (): Container => {
   // --- Users ---
   const userRepository = new UserPrismaRepository(db);
   const getUserUseCase = new GetUserUseCase(userRepository);
+  const updateUserProfileUseCase = new UpdateUserProfileUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+  );
 
   // --- Auth ---
   const credentialRepository = new CredentialPrismaRepository(db);
@@ -368,6 +375,7 @@ export const buildContainer = (): Container => {
     logger,
     userRepository,
     getUserUseCase,
+    updateUserProfileUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,

@@ -66,6 +66,12 @@ describe('User aggregate', () => {
         createdAt: new Date('2026-01-01T00:00:00Z'),
         updatedAt: verifiedAt,
         emailVerifiedAt: verifiedAt,
+        bio: null,
+        avatarUrl: null,
+        languages: [],
+        interests: [],
+        currentCity: null,
+        travelerType: null,
       });
       expect(user.isEmailVerified()).toBe(true);
       expect(user.emailVerifiedAt).toEqual(verifiedAt);

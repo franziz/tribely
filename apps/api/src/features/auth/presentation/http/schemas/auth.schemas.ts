@@ -1,5 +1,30 @@
 import { z } from 'zod';
-import { userResponseSchema } from '@/features/users/presentation/http/schemas/user.schemas.js';
+
+// ---------------------------------------------------------------------------
+// Local user DTO for auth responses.
+// This duplicates the shape returned by users/presentation intentionally —
+// cross-feature presentation imports are forbidden (A11). The auth feature
+// owns this DTO; if the users response shape evolves, update here too.
+// ---------------------------------------------------------------------------
+
+const TRAVELER_TYPE_VALUES = ['local', 'traveling', 'expat'] as const;
+
+export const authUserDtoSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  displayName: z.string(),
+  emailVerifiedAt: z.string().nullable(),
+  bio: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  languages: z.array(z.string()),
+  interests: z.array(z.string()),
+  currentCity: z.string().nullable(),
+  travelerType: z.enum(TRAVELER_TYPE_VALUES).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type AuthUserDto = z.infer<typeof authUserDtoSchema>;
 
 // ---- Bodies ----
 
@@ -50,7 +75,7 @@ const issuedTokenSchema = z.object({
 });
 
 export const authResponseSchema = z.object({
-  user: userResponseSchema,
+  user: authUserDtoSchema,
   accessToken: issuedTokenSchema,
   refreshToken: issuedTokenSchema,
 });

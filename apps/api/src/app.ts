@@ -46,7 +46,15 @@ export const buildApp = (): { app: Hono; container: Container } => {
       rateLimiter: container.rateLimiter,
     }),
   );
-  app.route('/users', buildUserRoutes({ getUser: container.getUserUseCase }));
+  app.route(
+    '/users',
+    buildUserRoutes({
+      getUser: container.getUserUseCase,
+      updateUserProfile: container.updateUserProfileUseCase,
+      accessTokens: container.accessTokens,
+      clock: container.clock,
+    }),
+  );
   app.route(
     '/events',
     buildEventRoutes({

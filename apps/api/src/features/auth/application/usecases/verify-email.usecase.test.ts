@@ -25,6 +25,12 @@ const buildUser = (verifiedAt: Date | null = null): User =>
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     emailVerifiedAt: verifiedAt,
+    bio: null,
+    avatarUrl: null,
+    languages: [],
+    interests: [],
+    currentCity: null,
+    travelerType: null,
   });
 
 const buildToken = (

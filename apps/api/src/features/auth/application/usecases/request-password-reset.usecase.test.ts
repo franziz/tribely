@@ -28,6 +28,12 @@ const buildUser = (overrides: { verifiedAt?: Date | null } = {}): User => {
     createdAt: now,
     updatedAt: now,
     emailVerifiedAt: verifiedAt,
+    bio: null,
+    avatarUrl: null,
+    languages: [],
+    interests: [],
+    currentCity: null,
+    travelerType: null,
   });
 };
 
