@@ -43,6 +43,7 @@ export const toEvent = (row: EventRow): Event => {
     description: row.description,
     venue: Venue.create({
       address: row.venueAddress,
+      city: row.venueCity,
       latitude: row.venueLatitude.toNumber(),
       longitude: row.venueLongitude.toNumber(),
     }),
@@ -71,6 +72,7 @@ export const toRow = (event: Event): Prisma.EventUncheckedCreateInput => ({
   title: event.title,
   description: event.description,
   venueAddress: event.venue.address,
+  venueCity: event.venue.city,
   venueLatitude: event.venue.latitude,
   venueLongitude: event.venue.longitude,
   startsAt: event.startsAt,

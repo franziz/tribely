@@ -4,6 +4,7 @@ import { eventCancelled } from '../events/event-cancelled.event.js';
 import { eventCompleted } from '../events/event-completed.event.js';
 import { eventCreated } from '../events/event-created.event.js';
 import { eventPublished } from '../events/event-published.event.js';
+import { eventUpdated } from '../events/event-updated.event.js';
 import type { Capacity } from '../value-objects/capacity.js';
 import type { EventCategory } from '../value-objects/event-category.js';
 import type { Venue } from '../value-objects/venue.js';
@@ -116,6 +117,7 @@ export class Event extends AggregateRoot {
         description,
         venue: {
           address: input.venue.address,
+          city: input.venue.city,
           latitude: input.venue.latitude,
           longitude: input.venue.longitude,
         },
@@ -202,6 +204,107 @@ export class Event extends AggregateRoot {
   }
   get updatedAt(): Date {
     return this._updatedAt;
+  }
+
+  /**
+   * Apply a partial edit. Allowed only while the event is `draft` or
+   * `published` — cancelled / completed events are terminal and immutable.
+   * Validates the post-edit state against the same invariants as `create`
+   * (titles/descriptions in range, endsAt > startsAt, startsAt > now).
+   *
+   * No-op if no field actually changes (don't bump `updatedAt`, don't emit
+   * `events.eventUpdated`). Records one `events.eventUpdated` event with a
+   * full post-edit snapshot otherwise.
+   */
+  edit(
+    patch: {
+      title?: string;
+      description?: string | null;
+      venue?: Venue;
+      startsAt?: Date;
+      endsAt?: Date;
+      capacity?: Capacity;
+      category?: EventCategory;
+      costSplit?: CostSplit;
+      approvalMode?: ApprovalMode;
+    },
+    now: Date,
+  ): void {
+    if (this._status !== 'draft' && this._status !== 'published') {
+      throw AppError.conflict(`Cannot edit event in status: ${this._status}`);
+    }
+
+    const nextTitle = patch.title !== undefined ? patch.title.trim() : this._title;
+    if (nextTitle.length < TITLE_MIN || nextTitle.length > TITLE_MAX) {
+      throw AppError.validation(
+        `Event title must be ${String(TITLE_MIN)}-${String(TITLE_MAX)} characters`,
+      );
+    }
+    const nextDescription =
+      patch.description !== undefined ? normalizeDescription(patch.description) : this._description;
+    if (nextDescription !== null && nextDescription.length > DESCRIPTION_MAX) {
+      throw AppError.validation(
+        `Event description must be at most ${String(DESCRIPTION_MAX)} characters`,
+      );
+    }
+    const nextVenue = patch.venue ?? this._venue;
+    const nextStartsAt = patch.startsAt ?? this._startsAt;
+    const nextEndsAt = patch.endsAt ?? this._endsAt;
+    if (nextEndsAt.getTime() <= nextStartsAt.getTime()) {
+      throw AppError.validation('Event endsAt must be after startsAt');
+    }
+    if (nextStartsAt.getTime() <= now.getTime()) {
+      throw AppError.validation('Event startsAt must be in the future');
+    }
+    const nextCapacity = patch.capacity ?? this._capacity;
+    const nextCategory = patch.category ?? this._category;
+    const nextCostSplit = patch.costSplit ?? this._costSplit;
+    const nextApprovalMode = patch.approvalMode ?? this._approvalMode;
+
+    const unchanged =
+      nextTitle === this._title &&
+      nextDescription === this._description &&
+      nextVenue.equals(this._venue) &&
+      nextStartsAt.getTime() === this._startsAt.getTime() &&
+      nextEndsAt.getTime() === this._endsAt.getTime() &&
+      nextCapacity.equals(this._capacity) &&
+      nextCategory.equals(this._category) &&
+      nextCostSplit === this._costSplit &&
+      nextApprovalMode === this._approvalMode;
+    if (unchanged) return;
+
+    this._title = nextTitle;
+    this._description = nextDescription;
+    this._venue = nextVenue;
+    this._startsAt = nextStartsAt;
+    this._endsAt = nextEndsAt;
+    this._capacity = nextCapacity;
+    this._category = nextCategory;
+    this._costSplit = nextCostSplit;
+    this._approvalMode = nextApprovalMode;
+    this._updatedAt = now;
+
+    this.record(
+      eventUpdated({
+        eventId: this.id,
+        hostUserId: this.hostUserId,
+        title: this._title,
+        description: this._description,
+        venue: {
+          address: this._venue.address,
+          city: this._venue.city,
+          latitude: this._venue.latitude,
+          longitude: this._venue.longitude,
+        },
+        startsAt: this._startsAt.toISOString(),
+        endsAt: this._endsAt.toISOString(),
+        capacity: this._capacity.value,
+        category: this._category.value,
+        costSplit: this._costSplit,
+        approvalMode: this._approvalMode,
+        updatedAt: now.toISOString(),
+      }),
+    );
   }
 
   publish(now: Date): void {

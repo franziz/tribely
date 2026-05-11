@@ -16,7 +16,7 @@ export interface EventCreatedPayload {
   hostUserId: string;
   title: string;
   description: string | null;
-  venue: { address: string; latitude: number; longitude: number };
+  venue: { address: string; city: string; latitude: number; longitude: number };
   startsAt: string;
   endsAt: string;
   capacity: number;

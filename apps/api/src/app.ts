@@ -6,6 +6,7 @@ import { errorHandler } from './core/middleware/error-handler.js';
 import { requestContext } from './core/middleware/request-context.js';
 import { auditHttp } from './features/audit/presentation/middleware/audit-http.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
+import { buildEventRoutes } from './features/events/presentation/http/routes/event.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
@@ -43,6 +44,18 @@ export const buildApp = (): { app: Hono; container: Container } => {
     }),
   );
   app.route('/users', buildUserRoutes({ getUser: container.getUserUseCase }));
+  app.route(
+    '/events',
+    buildEventRoutes({
+      createEvent: container.createEventUseCase,
+      listEvents: container.listEventsUseCase,
+      getEvent: container.getEventUseCase,
+      updateEvent: container.updateEventUseCase,
+      cancelEvent: container.cancelEventUseCase,
+      accessTokens: container.accessTokens,
+      rateLimiter: container.rateLimiter,
+    }),
+  );
 
   app.onError(errorHandler);
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404));

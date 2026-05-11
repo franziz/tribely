@@ -46,8 +46,13 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
   let hostUserId: string;
   const trackedEventIds = new Set<string>();
 
-  const venue = (): Venue =>
-    Venue.create({ address: '18 Raffles Quay, Singapore', latitude: 1.2806, longitude: 103.8504 });
+  const venue = (city = 'Singapore'): Venue =>
+    Venue.create({
+      address: '18 Raffles Quay, Singapore',
+      city,
+      latitude: 1.2806,
+      longitude: 103.8504,
+    });
 
   const buildEvent = (overrides: { now?: Date; status?: 'draft' } = {}): Event => {
     const id = createId();
@@ -120,6 +125,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
     expect(loaded.title).toBe('Hawker tour at Lau Pa Sat');
     expect(loaded.description).toBe('Meet at the satay street entrance');
     expect(loaded.venue.address).toBe('18 Raffles Quay, Singapore');
+    expect(loaded.venue.city).toBe('Singapore');
     expect(loaded.venue.latitude).toBeCloseTo(1.2806, 4);
     expect(loaded.venue.longitude).toBeCloseTo(103.8504, 4);
     expect(loaded.capacity.value).toBe(6);
@@ -196,5 +202,148 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
     // to inspect the value.
     orphan.pullEvents();
     await expect(repo.save(orphan)).rejects.toThrow();
+  });
+
+  describe('findManyForListing', () => {
+    // Build a published event at a deterministic startsAt offset so listing
+    // assertions can rely on ordering.
+    const buildPublished = async (overrides: {
+      startsAt: Date;
+      city?: string;
+      category?: 'food' | 'drinks' | 'hike';
+    }): Promise<Event> => {
+      const id = createId();
+      trackedEventIds.add(id);
+      const now = new Date(overrides.startsAt.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const event = Event.create({
+        id,
+        hostUserId,
+        title: 'Listing test event',
+        description: null,
+        venue: venue(overrides.city ?? 'Singapore'),
+        startsAt: overrides.startsAt,
+        endsAt: new Date(overrides.startsAt.getTime() + 2 * 60 * 60 * 1000),
+        capacity: Capacity.create(6),
+        category: EventCategory.create(overrides.category ?? 'food'),
+        costSplit: 'own',
+        approvalMode: 'manual',
+        now,
+      });
+      event.publish(now);
+      await persist(event);
+      return event;
+    };
+
+    it('returns published events ordered by startsAt asc, filtered to endsAt > now', async () => {
+      const base = Date.now();
+      const past = await buildPublished({ startsAt: new Date(base - 2 * 60 * 60 * 1000) });
+      // `past` has endsAt = startsAt + 2h, which is `base` — still > now if we
+      // advance the filter `now` past base. Use a `now` beyond past.endsAt to
+      // exclude it.
+      const future1 = await buildPublished({ startsAt: new Date(base + 1 * 24 * 60 * 60 * 1000) });
+      const future2 = await buildPublished({ startsAt: new Date(base + 2 * 24 * 60 * 60 * 1000) });
+
+      const page = await repo.findManyForListing(
+        { now: new Date(past.endsAt.getTime() + 1000) },
+        null,
+        50,
+      );
+      const ids = page.events.map((e) => e.id);
+      expect(ids).toContain(future1.id);
+      expect(ids).toContain(future2.id);
+      expect(ids).not.toContain(past.id);
+      // Relative order between the two future events: ascending by startsAt.
+      expect(ids.indexOf(future1.id)).toBeLessThan(ids.indexOf(future2.id));
+    });
+
+    it('filters by city, category, and time window', async () => {
+      const base = Date.now();
+      const sgFood = await buildPublished({
+        startsAt: new Date(base + 3 * 24 * 60 * 60 * 1000),
+        city: 'Singapore',
+        category: 'food',
+      });
+      const sgDrinks = await buildPublished({
+        startsAt: new Date(base + 3 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
+        city: 'Singapore',
+        category: 'drinks',
+      });
+      const jktFood = await buildPublished({
+        startsAt: new Date(base + 3 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
+        city: 'Jakarta',
+        category: 'food',
+      });
+
+      const cityOnly = await repo.findManyForListing(
+        { now: new Date(base), city: 'Singapore' },
+        null,
+        50,
+      );
+      const cityIds = cityOnly.events.map((e) => e.id);
+      expect(cityIds).toContain(sgFood.id);
+      expect(cityIds).toContain(sgDrinks.id);
+      expect(cityIds).not.toContain(jktFood.id);
+
+      const cityAndCategory = await repo.findManyForListing(
+        { now: new Date(base), city: 'Singapore', category: 'food' },
+        null,
+        50,
+      );
+      const ccIds = cityAndCategory.events.map((e) => e.id);
+      expect(ccIds).toContain(sgFood.id);
+      expect(ccIds).not.toContain(sgDrinks.id);
+
+      const windowed = await repo.findManyForListing(
+        {
+          now: new Date(base),
+          from: sgFood.startsAt,
+          to: sgDrinks.startsAt,
+        },
+        null,
+        50,
+      );
+      const windowedIds = windowed.events.map((e) => e.id);
+      expect(windowedIds).toContain(sgFood.id);
+      expect(windowedIds).toContain(sgDrinks.id);
+      expect(windowedIds).not.toContain(jktFood.id);
+    });
+
+    it('paginates with keyset cursor (last row of page 1 = predicate for page 2)', async () => {
+      const base = Date.now();
+      // Use a distinctive city so the assertions ignore noise from siblings.
+      const city = `Cursor-${createId().slice(0, 6)}`;
+      const created = await Promise.all(
+        [0, 1, 2, 3, 4].map((i) =>
+          buildPublished({
+            startsAt: new Date(base + (10 + i) * 24 * 60 * 60 * 1000),
+            city,
+          }),
+        ),
+      );
+
+      const page1 = await repo.findManyForListing({ now: new Date(base), city }, null, 2);
+      expect(page1.events).toHaveLength(2);
+      expect(page1.nextCursor).not.toBeNull();
+      expect(page1.events[0]?.id).toBe(created[0]?.id);
+      expect(page1.events[1]?.id).toBe(created[1]?.id);
+
+      const page2 = await repo.findManyForListing(
+        { now: new Date(base), city },
+        page1.nextCursor,
+        2,
+      );
+      expect(page2.events).toHaveLength(2);
+      expect(page2.events[0]?.id).toBe(created[2]?.id);
+      expect(page2.events[1]?.id).toBe(created[3]?.id);
+
+      const page3 = await repo.findManyForListing(
+        { now: new Date(base), city },
+        page2.nextCursor,
+        2,
+      );
+      expect(page3.events).toHaveLength(1);
+      expect(page3.events[0]?.id).toBe(created[4]?.id);
+      expect(page3.nextCursor).toBeNull();
+    });
   });
 });

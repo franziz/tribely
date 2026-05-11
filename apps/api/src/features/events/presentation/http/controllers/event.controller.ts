@@ -1,0 +1,161 @@
+import type { Context } from 'hono';
+import { AppError } from '@/core/errors/app-error.js';
+import type { Event } from '../../../domain/entities/event.js';
+import type { ListEventsCursor } from '../../../domain/repositories/event.repository.js';
+import type { CancelEventUseCase } from '../../../application/usecases/cancel-event.usecase.js';
+import type { CreateEventUseCase } from '../../../application/usecases/create-event.usecase.js';
+import type { GetEventUseCase } from '../../../application/usecases/get-event.usecase.js';
+import type { ListEventsUseCase } from '../../../application/usecases/list-events.usecase.js';
+import type { UpdateEventUseCase } from '../../../application/usecases/update-event.usecase.js';
+import type {
+  CancelEventBody,
+  CreateEventBody,
+  EventListingResponse,
+  EventResponse,
+  EventWithHostResponse,
+  ListEventsQuery,
+  UpdateEventBody,
+} from '../schemas/event.schemas.js';
+
+const toEventResponse = (event: Event): EventResponse => ({
+  id: event.id,
+  hostUserId: event.hostUserId,
+  title: event.title,
+  description: event.description,
+  venue: {
+    address: event.venue.address,
+    city: event.venue.city,
+    latitude: event.venue.latitude,
+    longitude: event.venue.longitude,
+  },
+  startsAt: event.startsAt.toISOString(),
+  endsAt: event.endsAt.toISOString(),
+  capacity: event.capacity.value,
+  category: event.category.value,
+  costSplit: event.costSplit,
+  approvalMode: event.approvalMode,
+  status: event.status,
+  cancellationReason: event.cancellationReason,
+  createdAt: event.createdAt.toISOString(),
+  updatedAt: event.updatedAt.toISOString(),
+});
+
+/**
+ * Encode a keyset cursor as a base64 JSON string. Opaque to the client —
+ * callers should pass it back verbatim. We don't sign it because exposing
+ * `(startsAt, id)` to the user is harmless (they could compose the same
+ * payload by reading the response), and a signed cursor adds rotation
+ * complexity for no security gain.
+ */
+const encodeCursor = (cursor: ListEventsCursor): string =>
+  Buffer.from(
+    JSON.stringify({
+      lastStartsAt: cursor.lastStartsAt.toISOString(),
+      lastEventId: cursor.lastEventId,
+    }),
+    'utf8',
+  ).toString('base64url');
+
+const decodeCursor = (raw: string): ListEventsCursor => {
+  try {
+    const decoded: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      typeof decoded !== 'object' ||
+      decoded === null ||
+      !('lastStartsAt' in decoded) ||
+      !('lastEventId' in decoded) ||
+      typeof (decoded as { lastStartsAt: unknown }).lastStartsAt !== 'string' ||
+      typeof (decoded as { lastEventId: unknown }).lastEventId !== 'string'
+    ) {
+      throw new Error('shape');
+    }
+    const { lastStartsAt, lastEventId } = decoded as {
+      lastStartsAt: string;
+      lastEventId: string;
+    };
+    const at = new Date(lastStartsAt);
+    if (Number.isNaN(at.getTime())) throw new Error('date');
+    return { lastStartsAt: at, lastEventId };
+  } catch {
+    throw AppError.validation('Invalid cursor');
+  }
+};
+
+export class EventController {
+  constructor(
+    private readonly createEvent: CreateEventUseCase,
+    private readonly listEvents: ListEventsUseCase,
+    private readonly getEvent: GetEventUseCase,
+    private readonly updateEvent: UpdateEventUseCase,
+    private readonly cancelEvent: CancelEventUseCase,
+  ) {}
+
+  createAction = async (c: Context, hostUserId: string, body: CreateEventBody) => {
+    const event = await this.createEvent.execute({
+      hostUserId,
+      title: body.title,
+      description: body.description ?? null,
+      venue: body.venue,
+      startsAt: new Date(body.startsAt),
+      endsAt: new Date(body.endsAt),
+      capacity: body.capacity,
+      category: body.category,
+      costSplit: body.costSplit,
+      approvalMode: body.approvalMode,
+    });
+    return c.json(toEventResponse(event), 201);
+  };
+
+  listAction = async (c: Context, query: ListEventsQuery) => {
+    const result = await this.listEvents.execute({
+      ...(query.city !== undefined && { city: query.city }),
+      ...(query.category !== undefined && { category: query.category }),
+      ...(query.from !== undefined && { from: new Date(query.from) }),
+      ...(query.to !== undefined && { to: new Date(query.to) }),
+      ...(query.cursor !== undefined && { cursor: decodeCursor(query.cursor) }),
+      limit: query.limit,
+    });
+    const response: EventListingResponse = {
+      events: result.events.map(toEventResponse),
+      nextCursor: result.nextCursor ? encodeCursor(result.nextCursor) : null,
+    };
+    return c.json(response, 200);
+  };
+
+  getAction = async (c: Context, id: string) => {
+    const result = await this.getEvent.execute({ id });
+    const response: EventWithHostResponse = {
+      event: toEventResponse(result.event),
+      host: result.host,
+    };
+    return c.json(response, 200);
+  };
+
+  updateAction = async (c: Context, id: string, actorUserId: string, body: UpdateEventBody) => {
+    const event = await this.updateEvent.execute({
+      eventId: id,
+      actorUserId,
+      patch: {
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.venue !== undefined && { venue: body.venue }),
+        ...(body.startsAt !== undefined && { startsAt: new Date(body.startsAt) }),
+        ...(body.endsAt !== undefined && { endsAt: new Date(body.endsAt) }),
+        ...(body.capacity !== undefined && { capacity: body.capacity }),
+        ...(body.category !== undefined && { category: body.category }),
+        ...(body.costSplit !== undefined && { costSplit: body.costSplit }),
+        ...(body.approvalMode !== undefined && { approvalMode: body.approvalMode }),
+      },
+    });
+    return c.json(toEventResponse(event), 200);
+  };
+
+  cancelAction = async (c: Context, id: string, actorUserId: string, body: CancelEventBody) => {
+    await this.cancelEvent.execute({
+      eventId: id,
+      actorUserId,
+      reason: body.reason ?? null,
+    });
+    return c.body(null, 204);
+  };
+}
