@@ -36,6 +36,19 @@ export interface ListEventsPage {
  */
 export interface EventRepository {
   findById(id: string, ctx?: TxContext): Promise<Event | null>;
+
+  /**
+   * Loads an Event with a `SELECT … FOR UPDATE` row lock. Required when the
+   * caller needs to enforce an invariant that depends on counting child rows
+   * (e.g., JoinRequest approval enforcing `approvedCount < capacity - 1`):
+   * concurrent transactions targeting the same Event serialize at this lock,
+   * preventing capacity violations.
+   *
+   * Unlike `findById`, this method REQUIRES a TxContext — `FOR UPDATE` outside
+   * a transaction is meaningless (the lock would be released immediately).
+   */
+  findByIdForUpdate(id: string, ctx: TxContext): Promise<Event | null>;
+
   save(event: Event, ctx?: TxContext): Promise<void>;
 
   /**

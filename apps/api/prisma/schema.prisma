@@ -24,6 +24,7 @@ model User {
   emailVerificationTokens  EmailVerificationToken[]
   passwordResetTokens      PasswordResetToken[]
   hostedEvents             Event[]
+  joinRequests             JoinRequest[]
 
   @@map("users")
 }
@@ -159,13 +160,45 @@ model Event {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  host User @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
+  host         User          @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
+  joinRequests JoinRequest[]
 
   @@index([hostUserId])
   @@index([status, startsAt])
   @@index([category, startsAt])
   @@index([venueCity, startsAt])
   @@map("events")
+}
+
+/// Aggregate root in the `join-requests` bounded context. Tracks a single
+/// user's request to join an event. Lifecycle: pending → (approved|rejected|cancelled).
+/// Strict idempotency: same-state transitions throw 409 with a structured subcode
+/// in details, NOT silent no-ops — protects the audit chain (see TRI-20).
+///
+/// Capacity correctness: approval reads parent Event row FOR UPDATE inside the
+/// transaction, counts approved siblings, compares against (capacity - 1) since
+/// capacity includes the host.
+///
+/// One ACTIVE request per (event, requester) is enforced by a partial unique
+/// index added in the migration directly (Prisma DSL doesn't model partial
+/// unique constraints as of v7). After reject/cancel the row stays for audit
+/// but no longer matches the partial predicate — user can request again.
+model JoinRequest {
+  id              String    @id @default(cuid())
+  eventId         String
+  requesterUserId String
+  status          String // pending | approved | rejected | cancelled
+  requestedAt     DateTime  @default(now())
+  decidedAt       DateTime?
+  decidedByUserId String?
+  decisionReason  String?
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requester User  @relation(fields: [requesterUserId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, status])
+  @@index([requesterUserId, status])
+  @@map("join_requests")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction

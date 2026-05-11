@@ -68,6 +68,15 @@ import { EventPrismaRepository } from '@/features/events/infrastructure/persiste
 import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 
+import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
+import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
+import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
+import { RejectJoinRequestUseCase } from '@/features/join-requests/application/usecases/reject-join-request.usecase.js';
+import { RequestToJoinEventUseCase } from '@/features/join-requests/application/usecases/request-to-join-event.usecase.js';
+import { JoinRequestPrismaRepository } from '@/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
+import { registerJoinRequestsConsumers } from '@/features/join-requests/presentation/events/index.js';
+import type { JoinRequestRepository } from '@/features/join-requests/domain/repositories/join-request.repository.js';
+
 const buildEmailSender = (): EmailSender => {
   if (env.EMAIL_TRANSPORT === 'resend') {
     // Zod's superRefine on env guarantees RESEND_API_KEY is set here, but
@@ -149,6 +158,14 @@ export interface Container {
   getEventUseCase: GetEventUseCase;
   updateEventUseCase: UpdateEventUseCase;
   cancelEventUseCase: CancelEventUseCase;
+
+  // Join Requests
+  joinRequestRepository: JoinRequestRepository;
+  requestToJoinEventUseCase: RequestToJoinEventUseCase;
+  approveJoinRequestUseCase: ApproveJoinRequestUseCase;
+  rejectJoinRequestUseCase: RejectJoinRequestUseCase;
+  cancelJoinRequestByRequesterUseCase: CancelJoinRequestByRequesterUseCase;
+  listJoinRequestsByEventUseCase: ListJoinRequestsByEventUseCase;
 }
 
 export const buildContainer = (): Container => {
@@ -297,6 +314,40 @@ export const buildContainer = (): Container => {
   const updateEventUseCase = new UpdateEventUseCase(unitOfWork, eventRepository, publisher, clock);
   const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
 
+  // --- Join Requests ---
+  const joinRequestRepository = new JoinRequestPrismaRepository(db);
+  const requestToJoinEventUseCase = new RequestToJoinEventUseCase(
+    unitOfWork,
+    joinRequestRepository,
+    eventRepository,
+    publisher,
+    clock,
+  );
+  const approveJoinRequestUseCase = new ApproveJoinRequestUseCase(
+    unitOfWork,
+    joinRequestRepository,
+    eventRepository,
+    publisher,
+    clock,
+  );
+  const rejectJoinRequestUseCase = new RejectJoinRequestUseCase(
+    unitOfWork,
+    joinRequestRepository,
+    eventRepository,
+    publisher,
+    clock,
+  );
+  const cancelJoinRequestByRequesterUseCase = new CancelJoinRequestByRequesterUseCase(
+    unitOfWork,
+    joinRequestRepository,
+    publisher,
+    clock,
+  );
+  const listJoinRequestsByEventUseCase = new ListJoinRequestsByEventUseCase(
+    joinRequestRepository,
+    eventRepository,
+  );
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
@@ -304,6 +355,7 @@ export const buildContainer = (): Container => {
     signOutAll: signOutAllUseCase,
   });
   registerEventsConsumers(consumerRegistry);
+  registerJoinRequestsConsumers(consumerRegistry);
 
   return {
     db,
@@ -346,5 +398,11 @@ export const buildContainer = (): Container => {
     getEventUseCase,
     updateEventUseCase,
     cancelEventUseCase,
+    joinRequestRepository,
+    requestToJoinEventUseCase,
+    approveJoinRequestUseCase,
+    rejectJoinRequestUseCase,
+    cancelJoinRequestByRequesterUseCase,
+    listJoinRequestsByEventUseCase,
   };
 };

@@ -14,7 +14,7 @@ import type {
 } from '../../../domain/repositories/event.repository.js';
 
 /** Marker used by the fake UoW; domain code treats TxContext as opaque. */
-const TEST_TX: TxContext = { __brand: 'TxContext' };
+export const TEST_TX: TxContext = { __brand: 'TxContext' };
 
 export class FakeUnitOfWork implements UnitOfWork {
   async run<T>(work: (ctx: TxContext) => Promise<T>): Promise<T> {
@@ -84,7 +84,20 @@ export class FakeEventRepository implements EventRepository {
     return Array.from(this.byId.values());
   }
 
-  findById(id: string): Promise<Event | null> {
+  lastFindByIdCtx: TxContext | undefined = undefined;
+
+  findById(id: string, ctx?: TxContext): Promise<Event | null> {
+    this.lastFindByIdCtx = ctx;
+    return Promise.resolve(this.byId.get(id) ?? null);
+  }
+
+  /**
+   * In-memory equivalent of the production `SELECT … FOR UPDATE`. There is no
+   * real row lock here — the in-process fake UoW serializes work anyway — so
+   * this collapses to the same lookup as `findById`. Kept as a separate method
+   * so use case tests can verify the lock path is invoked.
+   */
+  findByIdForUpdate(id: string): Promise<Event | null> {
     return Promise.resolve(this.byId.get(id) ?? null);
   }
 

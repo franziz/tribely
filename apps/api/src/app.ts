@@ -7,6 +7,9 @@ import { requestContext } from './core/middleware/request-context.js';
 import { auditHttp } from './features/audit/presentation/middleware/audit-http.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
 import { buildEventRoutes } from './features/events/presentation/http/routes/event.routes.js';
+import { JoinRequestController } from './features/join-requests/presentation/http/controllers/join-request.controller.js';
+import { buildEventScopedJoinRequestRoutes } from './features/join-requests/presentation/http/routes/event-scoped-join-request.routes.js';
+import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
@@ -54,6 +57,38 @@ export const buildApp = (): { app: Hono; container: Container } => {
       cancelEvent: container.cancelEventUseCase,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
+    }),
+  );
+
+  // Join requests: one controller, two routers, two mount points.
+  //   /events/:id/join-requests       — discovering/listing under the parent
+  //   /join-requests/:id/{approve,reject} + DELETE — operating on a single row
+  // Hono's app.route() is additive — multiple mounts at `/events` merge into
+  // the parent router's tree (verified against /websites/hono_dev). The event
+  // router owns `/events`, `/events/:id`; this router owns `/events/:id/join-requests`
+  // — non-overlapping paths.
+  const joinRequestController = new JoinRequestController(
+    container.requestToJoinEventUseCase,
+    container.approveJoinRequestUseCase,
+    container.rejectJoinRequestUseCase,
+    container.cancelJoinRequestByRequesterUseCase,
+    container.listJoinRequestsByEventUseCase,
+  );
+  app.route(
+    '/events',
+    buildEventScopedJoinRequestRoutes({
+      controller: joinRequestController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+      rateLimiter: container.rateLimiter,
+    }),
+  );
+  app.route(
+    '/join-requests',
+    buildJoinRequestRoutes({
+      controller: joinRequestController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
     }),
   );
 

@@ -40,8 +40,8 @@ export class AppError extends Error {
     return new AppError('NOT_FOUND', message, 404);
   }
 
-  static conflict(message: string): AppError {
-    return new AppError('CONFLICT', message, 409);
+  static conflict(message: string, details?: unknown): AppError {
+    return new AppError('CONFLICT', message, 409, details);
   }
 
   static internal(message = 'Internal server error'): AppError {
