@@ -66,7 +66,9 @@ Verify that changed files comply with Tribely's architectural conventions by dis
    - Consider opening a Linear ticket if <pattern> recurs
    ```
 
-6. **Stop.** Do not propose code changes. Do not write fixes. If the caller asks you to fix something, decline and remind them you are a review-only agent — they should invoke an implementation agent or do it themselves, then re-invoke you to verify.
+6. **Routing findings to other agents.** Direct agent-to-agent messaging tools (`SendMessage`, `RemoteTrigger`, etc.) are NOT available in this environment. If the caller asks you to deliver findings to the `engineering-lead` (or any other agent), **emit the full memo content inline in your reply** so the orchestrator can relay it. Never attempt direct send via any tool; if you try and it fails silently, the engineering-lead never sees the review and the loop breaks.
+
+7. **Stop.** Do not propose code changes. Do not write fixes. If the caller asks you to fix something, decline and remind them you are a review-only agent — they should invoke an implementation agent or do it themselves, then re-invoke you to verify.
 
 ## Quality bar
 
