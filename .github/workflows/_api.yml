@@ -15,12 +15,43 @@ jobs:
     permissions:
       contents: read
 
+    # Postgres service container — integration tests under
+    # `*.integration.test.ts` connect to this DB. The service spins up
+    # alongside the job and is identical wire-protocol to Neon, so the
+    # `@prisma/adapter-pg` runtime client doesn't care which backend it
+    # hits. Neon ephemeral branches (TRI-2) are for a different question
+    # — migration verification on production-shaped data — and are not
+    # provisioned here.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tribely_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tribely_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Real wire-up to the Postgres service container above. format / type /
+    # lint steps don't consume DB but the var is harmless when set. Step-
+    # level env still overrides for setup-api's prisma-generate placeholder.
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tribely_test?schema=public
+
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup API
         uses: ./.github/actions/setup-api
+
+      - name: Apply migrations
+        run: npm run --workspace=@tribely/api db:migrate:deploy
 
       - name: Format check
         run: npm run --workspace=@tribely/api format:check
@@ -33,13 +64,12 @@ jobs:
 
       - name: Test (with coverage)
         # env.ts parses process.env at module load and throws on missing
-        # required vars. Tests don't hit the DB, but importing anything
-        # that transitively loads env (e.g., the logger) needs these set.
-        # Real secrets are not needed — placeholders that satisfy the Zod
-        # schema are enough.
+        # required vars — DATABASE_URL is set at the job level, JWT_SECRET
+        # is set here (test-step-scoped is fine; not needed elsewhere).
+        # Real secrets are not required, only values that pass the Zod
+        # schema.
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://test:test@localhost:5432/tribely_test?schema=public
           JWT_SECRET: ci-placeholder-secret-must-be-at-least-32-chars
         run: npm run --workspace=@tribely/api test:coverage
 

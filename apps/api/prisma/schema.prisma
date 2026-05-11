@@ -23,6 +23,7 @@ model User {
   refreshTokens            RefreshToken[]
   emailVerificationTokens  EmailVerificationToken[]
   passwordResetTokens      PasswordResetToken[]
+  hostedEvents             Event[]
 
   @@map("users")
 }
@@ -116,6 +117,53 @@ model PasswordResetToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+/// Aggregate root in the `events` bounded context. The core "thing happening"
+/// a host creates and others request to join. Lifecycle: draft → published →
+/// (cancelled | completed); transitions are enforced by the domain layer.
+///
+/// Venue is denormalized onto the row (no separate venues table) — Singapore-
+/// only MVP doesn't justify a venue registry yet. `venueLatitude` /
+/// `venueLongitude` are NUMERIC(9,6) (≈ 11 cm precision globally). PostGIS is
+/// a deliberate non-goal for MVP; distance queries (TRI-19) can use
+/// `earth_distance` or app-side calculation, with a PostGIS migration in a
+/// later issue once geospatial query volume justifies it.
+///
+/// `category` / `costSplit` / `approvalMode` / `status` are plain String
+/// columns rather than Prisma enums — matches the codebase convention
+/// (cf. `revokedReason` on RefreshToken) and avoids Prisma enum migration
+/// friction when values evolve. Type guards in the mapper narrow strings
+/// back to unions when rehydrating.
+///
+/// `onDelete: Cascade` on the host FK reflects the PDPA policy: user records
+/// are NOT casually deleted (hard delete only on a verified deletion request),
+/// at which point cascading their hosted events is the correct behaviour.
+model Event {
+  id                 String   @id @default(cuid())
+  hostUserId         String
+  title              String
+  description        String?
+  venueAddress       String
+  venueLatitude      Decimal  @db.Decimal(9, 6)
+  venueLongitude     Decimal  @db.Decimal(9, 6)
+  startsAt           DateTime
+  endsAt             DateTime
+  capacity           Int
+  category           String // drinks | food | hike | museum | sports | nightlife | other
+  costSplit          String // own | host_paid | split
+  approvalMode       String // auto | manual
+  status             String // draft | published | cancelled | completed
+  cancellationReason String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  host User @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
+
+  @@index([hostUserId])
+  @@index([status, startsAt])
+  @@index([category, startsAt])
+  @@map("events")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction
