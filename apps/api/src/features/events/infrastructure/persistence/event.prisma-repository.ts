@@ -20,6 +20,19 @@ export class EventPrismaRepository implements EventRepository {
     return row ? toEvent(row) : null;
   }
 
+  async findByIdForUpdate(id: string, ctx: TxContext): Promise<Event | null> {
+    const client = unwrapTx(ctx);
+    // Acquire the row lock first. Prisma doesn't expose `FOR UPDATE` on
+    // `findUnique`, so we use $queryRaw (tagged template → bound params, no
+    // injection risk). If the row doesn't exist, this returns 0 rows — safe.
+    // If another tx holds the lock, this blocks until that tx commits or
+    // rolls back. The lock is released when the surrounding UnitOfWork.run
+    // transaction ends.
+    await client.$queryRaw`SELECT id FROM events WHERE id = ${id} FOR UPDATE`;
+    const row = await client.event.findUnique({ where: { id } });
+    return row ? toEvent(row) : null;
+  }
+
   async save(event: Event, ctx?: TxContext): Promise<void> {
     const client = ctx ? unwrapTx(ctx) : this.db;
     // `create` uses the full row projection (id, createdAt, ...). `update`

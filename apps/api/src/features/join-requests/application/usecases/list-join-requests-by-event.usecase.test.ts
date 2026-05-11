@@ -1,0 +1,105 @@
+import { describe, expect, it } from 'vitest';
+import { AppError } from '@/core/errors/app-error.js';
+import { Event } from '@/features/events/domain/entities/event.js';
+import { Capacity } from '@/features/events/domain/value-objects/capacity.js';
+import { EventCategory } from '@/features/events/domain/value-objects/event-category.js';
+import { Venue } from '@/features/events/domain/value-objects/venue.js';
+import { JoinRequest } from '../../domain/entities/join-request.js';
+import { ListJoinRequestsByEventUseCase } from './list-join-requests-by-event.usecase.js';
+import { FakeEventRepository, FakeJoinRequestRepository } from './__test__/fakes.js';
+
+const NOW = new Date('2026-05-11T00:00:00Z');
+const STARTS = new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000);
+const ENDS = new Date(STARTS.getTime() + 3 * 60 * 60 * 1000);
+const SNAPSHOT = {
+  startsAt: STARTS,
+  endsAt: ENDS,
+  venue: { address: '18 Raffles Quay', city: 'Singapore', latitude: 1.2806, longitude: 103.8504 },
+  hostUserId: 'host_1',
+};
+
+const seedEvent = (repo: FakeEventRepository) => {
+  const event = Event.create({
+    id: 'evt_1',
+    hostUserId: 'host_1',
+    title: 'Hawker tour',
+    description: null,
+    venue: Venue.create(SNAPSHOT.venue),
+    startsAt: STARTS,
+    endsAt: ENDS,
+    capacity: Capacity.create(6),
+    category: EventCategory.create('food'),
+    costSplit: 'own',
+    approvalMode: 'manual',
+    now: NOW,
+  });
+  event.publish(NOW);
+  event.pullEvents();
+  repo.put(event);
+};
+
+const seedJoinRequest = (
+  repo: FakeJoinRequestRepository,
+  id: string,
+  requesterUserId: string,
+  offsetMs = 0,
+): JoinRequest => {
+  const jr = JoinRequest.request({
+    id,
+    eventId: 'evt_1',
+    requesterUserId,
+    now: new Date(NOW.getTime() + offsetMs),
+    autoApprove: false,
+    hostUserId: 'host_1',
+    eventSnapshot: SNAPSHOT,
+  });
+  jr.pullEvents();
+  repo.put(jr);
+  return jr;
+};
+
+const buildSut = () => {
+  const events = new FakeEventRepository();
+  const joinRequests = new FakeJoinRequestRepository();
+  const useCase = new ListJoinRequestsByEventUseCase(joinRequests, events);
+  return { events, joinRequests, useCase };
+};
+
+describe('ListJoinRequestsByEventUseCase', () => {
+  it('returns every request on the event for the host', async () => {
+    const { events, joinRequests, useCase } = buildSut();
+    seedEvent(events);
+    seedJoinRequest(joinRequests, 'jr_a', 'user_a', 0);
+    seedJoinRequest(joinRequests, 'jr_b', 'user_b', 1000);
+    seedJoinRequest(joinRequests, 'jr_c', 'user_c', 2000);
+
+    const result = await useCase.execute({ eventId: 'evt_1', actorUserId: 'host_1' });
+    expect(result.joinRequests.map((jr) => jr.id)).toEqual(['jr_a', 'jr_b', 'jr_c']);
+  });
+
+  it('scopes a requester to only their own row(s)', async () => {
+    const { events, joinRequests, useCase } = buildSut();
+    seedEvent(events);
+    seedJoinRequest(joinRequests, 'jr_a', 'user_a', 0);
+    seedJoinRequest(joinRequests, 'jr_b', 'user_b', 1000);
+
+    const result = await useCase.execute({ eventId: 'evt_1', actorUserId: 'user_a' });
+    expect(result.joinRequests.map((jr) => jr.id)).toEqual(['jr_a']);
+  });
+
+  it('returns an empty list for a non-host non-requester (NOT 403)', async () => {
+    const { events, joinRequests, useCase } = buildSut();
+    seedEvent(events);
+    seedJoinRequest(joinRequests, 'jr_a', 'user_a', 0);
+
+    const result = await useCase.execute({ eventId: 'evt_1', actorUserId: 'stranger' });
+    expect(result.joinRequests).toEqual([]);
+  });
+
+  it('returns 404 when the event does not exist', async () => {
+    const { useCase } = buildSut();
+    await expect(
+      useCase.execute({ eventId: 'missing', actorUserId: 'host_1' }),
+    ).rejects.toThrowError(AppError);
+  });
+});

@@ -88,6 +88,16 @@ export class FakeEventRepository implements EventRepository {
     return Promise.resolve(this.byId.get(id) ?? null);
   }
 
+  /**
+   * In-memory equivalent of the production `SELECT … FOR UPDATE`. There is no
+   * real row lock here — the in-process fake UoW serializes work anyway — so
+   * this collapses to the same lookup as `findById`. Kept as a separate method
+   * so use case tests can verify the lock path is invoked.
+   */
+  findByIdForUpdate(id: string): Promise<Event | null> {
+    return Promise.resolve(this.byId.get(id) ?? null);
+  }
+
   save(event: Event): Promise<void> {
     this.byId.set(event.id, event);
     return Promise.resolve();
