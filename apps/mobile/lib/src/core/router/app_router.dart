@@ -11,6 +11,9 @@ import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/users/presentation/pages/edit_profile_page.dart';
+import '../../features/users/presentation/pages/own_profile_page.dart';
+import '../../features/users/presentation/pages/user_profile_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Bridges Riverpod's session state into a Listenable that go_router can
@@ -27,11 +30,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       final isSplash = loc == '/splash';
-      final isAuthFlow =
-          loc == '/welcome' ||
-          loc == '/sign-in' ||
-          loc == '/sign-up' ||
-          loc == '/reset-password';
+      // Routes that unauthenticated users are allowed to visit.
+      // Everything not in this set requires authentication.
+      const publicRoutes = {
+        '/welcome',
+        '/sign-in',
+        '/sign-up',
+        '/reset-password',
+      };
+      final isPublic = publicRoutes.contains(loc);
+      final isAuthFlow = isPublic; // alias for the authenticated-branch check
       final isVerify = loc == '/verify-email';
 
       switch (session) {
@@ -39,8 +47,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // Stay on splash until restore completes.
           return isSplash ? null : '/splash';
         case SessionUnauthenticated():
-          if (isSplash || isVerify) return '/welcome';
-          return null; // allow welcome / sign-in / sign-up / reset-password
+          // Splash and verify-email both redirect to welcome (the former
+          // because restore is done, the latter because the user is no longer
+          // authenticated). Public routes are allowed through. Everything else
+          // (e.g. /profile, /profile/edit, /users/:id, /home) is auth-required
+          // and bounced back to /welcome.
+          if (isSplash || isVerify || !isPublic) return '/welcome';
+          return null;
         case SessionAuthenticated(:final session):
           // Authenticated but unverified: route everything except /verify-email
           // back to /verify-email so sensitive actions can't be reached. The
@@ -94,6 +107,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomePage(),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'ownProfile',
+        builder: (context, state) => const OwnProfilePage(),
+        routes: [
+          GoRoute(
+            path: 'edit',
+            name: 'editProfile',
+            builder: (context, state) => const EditProfilePage(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/users/:id',
+        name: 'userProfile',
+        builder: (context, state) {
+          final userId = state.pathParameters['id']!;
+          return UserProfilePage(userId: userId);
+        },
       ),
     ],
   );
