@@ -30,24 +30,23 @@ export class RejectJoinRequestUseCase {
   ) {}
 
   async execute(input: RejectJoinRequestInput): Promise<JoinRequest> {
-    const jr = await this.joinRequests.findById(input.joinRequestId);
-    if (!jr) throw AppError.notFound(`Join request ${input.joinRequestId} not found`);
-
-    const event = await this.events.findById(jr.eventId);
-    if (!event) throw AppError.notFound(`Event ${jr.eventId} not found`);
-
-    if (event.hostUserId !== input.actorUserId) {
-      throw AppError.forbidden('Only the host may reject this join request');
-    }
-
     const now = this.clock.now();
 
-    await this.unitOfWork.run(async (ctx) => {
+    return this.unitOfWork.run(async (ctx) => {
+      const jr = await this.joinRequests.findById(input.joinRequestId, ctx);
+      if (!jr) throw AppError.notFound(`Join request ${input.joinRequestId} not found`);
+
+      const event = await this.events.findById(jr.eventId, ctx);
+      if (!event) throw AppError.notFound(`Event ${jr.eventId} not found`);
+
+      if (event.hostUserId !== input.actorUserId) {
+        throw AppError.forbidden('Only the host may reject this join request');
+      }
+
       jr.reject({ by: input.actorUserId, reason: input.reason, now });
       await this.joinRequests.save(jr, ctx);
       await this.publisher.publish(ctx, ...jr.pullEvents());
+      return jr;
     });
-
-    return jr;
   }
 }

@@ -14,7 +14,7 @@ import type {
 } from '../../../domain/repositories/event.repository.js';
 
 /** Marker used by the fake UoW; domain code treats TxContext as opaque. */
-const TEST_TX: TxContext = { __brand: 'TxContext' };
+export const TEST_TX: TxContext = { __brand: 'TxContext' };
 
 export class FakeUnitOfWork implements UnitOfWork {
   async run<T>(work: (ctx: TxContext) => Promise<T>): Promise<T> {
@@ -84,7 +84,10 @@ export class FakeEventRepository implements EventRepository {
     return Array.from(this.byId.values());
   }
 
-  findById(id: string): Promise<Event | null> {
+  lastFindByIdCtx: TxContext | undefined = undefined;
+
+  findById(id: string, ctx?: TxContext): Promise<Event | null> {
+    this.lastFindByIdCtx = ctx;
     return Promise.resolve(this.byId.get(id) ?? null);
   }
 

@@ -13,6 +13,7 @@ import {
   FakeJoinRequestRepository,
   FakeUnitOfWork,
   FixedClock,
+  TEST_TX,
 } from './__test__/fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
@@ -92,6 +93,8 @@ describe('RejectJoinRequestUseCase', () => {
       rejectedByUserId: 'host_1',
       reason: 'not a fit',
     });
+    expect(joinRequests.lastFindByIdCtx).toBe(TEST_TX);
+    expect(events.lastFindByIdCtx).toBe(TEST_TX);
   });
 
   it('returns 404 when the join request does not exist', async () => {

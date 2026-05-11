@@ -8,6 +8,7 @@ import {
   FakeJoinRequestRepository,
   FakeUnitOfWork,
   FixedClock,
+  TEST_TX,
 } from './__test__/fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
@@ -66,6 +67,7 @@ describe('CancelJoinRequestByRequesterUseCase', () => {
 
     await useCase.execute({ joinRequestId: 'jr_1', actorUserId: 'requester_1' });
 
+    expect(joinRequests.lastFindByIdCtx).toBe(TEST_TX);
     const stored = await joinRequests.findById('jr_1');
     expect(stored?.status).toBe('cancelled');
     expect(publisher.published).toHaveLength(1);
@@ -84,6 +86,7 @@ describe('CancelJoinRequestByRequesterUseCase', () => {
 
     await useCase.execute({ joinRequestId: 'jr_1', actorUserId: 'requester_1' });
 
+    expect(joinRequests.lastFindByIdCtx).toBe(TEST_TX);
     const stored = await joinRequests.findById('jr_1');
     expect(stored?.status).toBe('cancelled');
     expect(publisher.published[0]?.payload).toMatchObject({ previousStatus: 'approved' });

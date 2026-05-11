@@ -14,6 +14,7 @@ export {
   FakeEventRepository,
   FakeUnitOfWork,
   FixedClock,
+  TEST_TX,
 } from '../../../../events/application/usecases/__test__/fakes.js';
 
 /**
@@ -33,6 +34,7 @@ export {
  */
 export class FakeJoinRequestRepository implements JoinRequestRepository {
   private readonly byId = new Map<string, JoinRequest>();
+  lastFindByIdCtx: TxContext | undefined = undefined;
 
   put(joinRequest: JoinRequest): void {
     this.byId.set(joinRequest.id, joinRequest);
@@ -42,7 +44,8 @@ export class FakeJoinRequestRepository implements JoinRequestRepository {
     return Array.from(this.byId.values());
   }
 
-  findById(id: string, _ctx?: TxContext): Promise<JoinRequest | null> {
+  findById(id: string, ctx?: TxContext): Promise<JoinRequest | null> {
+    this.lastFindByIdCtx = ctx;
     return Promise.resolve(this.byId.get(id) ?? null);
   }
 

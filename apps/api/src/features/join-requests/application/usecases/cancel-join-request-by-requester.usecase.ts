@@ -30,16 +30,16 @@ export class CancelJoinRequestByRequesterUseCase {
   ) {}
 
   async execute(input: CancelJoinRequestByRequesterInput): Promise<void> {
-    const jr = await this.joinRequests.findById(input.joinRequestId);
-    if (!jr) throw AppError.notFound(`Join request ${input.joinRequestId} not found`);
-
-    if (jr.requesterUserId !== input.actorUserId) {
-      throw AppError.forbidden('Only the requester may cancel this join request');
-    }
-
     const now = this.clock.now();
 
     await this.unitOfWork.run(async (ctx) => {
+      const jr = await this.joinRequests.findById(input.joinRequestId, ctx);
+      if (!jr) throw AppError.notFound(`Join request ${input.joinRequestId} not found`);
+
+      if (jr.requesterUserId !== input.actorUserId) {
+        throw AppError.forbidden('Only the requester may cancel this join request');
+      }
+
       jr.cancelByRequester(now);
       await this.joinRequests.save(jr, ctx);
       await this.publisher.publish(ctx, ...jr.pullEvents());
