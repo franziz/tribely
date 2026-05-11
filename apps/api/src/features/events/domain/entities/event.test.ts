@@ -4,6 +4,7 @@ import { EVENT_CANCELLED } from '../events/event-cancelled.event.js';
 import { EVENT_COMPLETED } from '../events/event-completed.event.js';
 import { EVENT_CREATED } from '../events/event-created.event.js';
 import { EVENT_PUBLISHED } from '../events/event-published.event.js';
+import { EVENT_UPDATED } from '../events/event-updated.event.js';
 import { Capacity } from '../value-objects/capacity.js';
 import { EventCategory } from '../value-objects/event-category.js';
 import { Venue } from '../value-objects/venue.js';
@@ -21,6 +22,7 @@ const draftEvent = (overrides: Partial<Parameters<typeof Event.create>[0]> = {})
     description: 'Meet at the satay street entrance',
     venue: Venue.create({
       address: '18 Raffles Quay, Singapore',
+      city: 'Singapore',
       latitude: 1.2806,
       longitude: 103.8504,
     }),
@@ -234,6 +236,115 @@ describe('Event', () => {
     });
   });
 
+  describe('edit', () => {
+    const editNow = new Date(NOW.getTime() + 1000);
+
+    it('updates a draft event and records eventUpdated with full snapshot', () => {
+      const e = draftEvent();
+      e.pullEvents();
+      e.edit({ title: 'Updated title', capacity: Capacity.create(10) }, editNow);
+      expect(e.title).toBe('Updated title');
+      expect(e.capacity.value).toBe(10);
+      expect(e.updatedAt).toEqual(editNow);
+      const events = e.pullEvents();
+      expect(events).toHaveLength(1);
+      const ev = events[0];
+      expect(ev?.type).toBe(EVENT_UPDATED);
+      expect(ev?.payload).toMatchObject({
+        eventId: 'evt_1',
+        title: 'Updated title',
+        capacity: 10,
+        category: 'food',
+      });
+    });
+
+    it('updates a published event', () => {
+      const e = draftEvent();
+      e.publish(new Date(NOW.getTime() + 500));
+      e.pullEvents();
+      e.edit({ title: 'New title' }, editNow);
+      expect(e.title).toBe('New title');
+      expect(e.status).toBe('published');
+      expect(e.pullEvents()[0]?.type).toBe(EVENT_UPDATED);
+    });
+
+    it('is a no-op when patch matches current state', () => {
+      const e = draftEvent();
+      e.pullEvents();
+      e.edit({ title: e.title }, editNow);
+      expect(e.pullEvents()).toHaveLength(0);
+      expect(e.updatedAt).toEqual(NOW);
+    });
+
+    it('is a no-op when patch is empty', () => {
+      const e = draftEvent();
+      e.pullEvents();
+      e.edit({}, editNow);
+      expect(e.pullEvents()).toHaveLength(0);
+      expect(e.updatedAt).toEqual(NOW);
+    });
+
+    it('trims the title', () => {
+      const e = draftEvent();
+      e.pullEvents();
+      e.edit({ title: '   Trimmed   ' }, editNow);
+      expect(e.title).toBe('Trimmed');
+    });
+
+    it('normalizes empty / whitespace description to null', () => {
+      const e = draftEvent();
+      e.pullEvents();
+      e.edit({ description: '   ' }, editNow);
+      expect(e.description).toBeNull();
+    });
+
+    it('rejects edit when cancelled', () => {
+      const e = draftEvent();
+      e.cancel('weather', new Date(NOW.getTime() + 500));
+      expect(() => {
+        e.edit({ title: 'Won’t work' }, editNow);
+      }).toThrowError(/Cannot edit/);
+    });
+
+    it('rejects edit when completed', () => {
+      const e = draftEvent();
+      e.publish(new Date(NOW.getTime() + 500));
+      e.markCompleted(new Date(NOW.getTime() + 700));
+      expect(() => {
+        e.edit({ title: 'Won’t work' }, editNow);
+      }).toThrowError(/Cannot edit/);
+    });
+
+    it('re-validates endsAt > startsAt against the new pair', () => {
+      const e = draftEvent();
+      expect(() => {
+        e.edit({ endsAt: e.startsAt }, editNow);
+      }).toThrowError(/endsAt/);
+    });
+
+    it('re-validates startsAt > now after edit', () => {
+      const e = draftEvent();
+      const newStart = new Date(editNow.getTime() - 1);
+      expect(() => {
+        e.edit({ startsAt: newStart, endsAt: new Date(newStart.getTime() + 1000) }, editNow);
+      }).toThrowError(/startsAt/);
+    });
+
+    it('rejects a too-short title', () => {
+      const e = draftEvent();
+      expect(() => {
+        e.edit({ title: 'hi' }, editNow);
+      }).toThrowError(/title/);
+    });
+
+    it('rejects a too-long description', () => {
+      const e = draftEvent();
+      expect(() => {
+        e.edit({ description: 'd'.repeat(2001) }, editNow);
+      }).toThrowError(/description/);
+    });
+  });
+
   describe('rehydrate', () => {
     it('does not record any events', () => {
       const e = Event.rehydrate({
@@ -241,7 +352,12 @@ describe('Event', () => {
         hostUserId: 'user_1',
         title: 'Hawker tour',
         description: null,
-        venue: Venue.create({ address: 'Lau Pa Sat', latitude: 1.28, longitude: 103.85 }),
+        venue: Venue.create({
+          address: 'Lau Pa Sat',
+          city: 'Singapore',
+          latitude: 1.28,
+          longitude: 103.85,
+        }),
         startsAt: STARTS,
         endsAt: ENDS,
         capacity: Capacity.create(6),

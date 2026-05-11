@@ -59,6 +59,11 @@ import { HttpAuditLogPrismaRepository } from '@/features/audit/infrastructure/pe
 import type { EventAuditLogRepository } from '@/features/audit/domain/repositories/event-audit-log.repository.js';
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
 
+import { CancelEventUseCase } from '@/features/events/application/usecases/cancel-event.usecase.js';
+import { CreateEventUseCase } from '@/features/events/application/usecases/create-event.usecase.js';
+import { GetEventUseCase } from '@/features/events/application/usecases/get-event.usecase.js';
+import { ListEventsUseCase } from '@/features/events/application/usecases/list-events.usecase.js';
+import { UpdateEventUseCase } from '@/features/events/application/usecases/update-event.usecase.js';
 import { EventPrismaRepository } from '@/features/events/infrastructure/persistence/event.prisma-repository.js';
 import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
@@ -139,6 +144,11 @@ export interface Container {
 
   // Events
   eventRepository: EventRepository;
+  createEventUseCase: CreateEventUseCase;
+  listEventsUseCase: ListEventsUseCase;
+  getEventUseCase: GetEventUseCase;
+  updateEventUseCase: UpdateEventUseCase;
+  cancelEventUseCase: CancelEventUseCase;
 }
 
 export const buildContainer = (): Container => {
@@ -281,6 +291,11 @@ export const buildContainer = (): Container => {
 
   // --- Events ---
   const eventRepository = new EventPrismaRepository(db);
+  const createEventUseCase = new CreateEventUseCase(unitOfWork, eventRepository, publisher, clock);
+  const listEventsUseCase = new ListEventsUseCase(eventRepository, clock);
+  const getEventUseCase = new GetEventUseCase(eventRepository, userRepository);
+  const updateEventUseCase = new UpdateEventUseCase(unitOfWork, eventRepository, publisher, clock);
+  const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
 
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
@@ -326,5 +341,10 @@ export const buildContainer = (): Container => {
     recordEventPublishedUseCase,
     recordEventDispatchUseCase,
     eventRepository,
+    createEventUseCase,
+    listEventsUseCase,
+    getEventUseCase,
+    updateEventUseCase,
+    cancelEventUseCase,
   };
 };

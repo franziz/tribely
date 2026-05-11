@@ -145,6 +145,7 @@ model Event {
   title              String
   description        String?
   venueAddress       String
+  venueCity          String
   venueLatitude      Decimal  @db.Decimal(9, 6)
   venueLongitude     Decimal  @db.Decimal(9, 6)
   startsAt           DateTime
@@ -163,6 +164,7 @@ model Event {
   @@index([hostUserId])
   @@index([status, startsAt])
   @@index([category, startsAt])
+  @@index([venueCity, startsAt])
   @@map("events")
 }
 
