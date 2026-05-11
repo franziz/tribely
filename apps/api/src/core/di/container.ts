@@ -59,6 +59,10 @@ import { HttpAuditLogPrismaRepository } from '@/features/audit/infrastructure/pe
 import type { EventAuditLogRepository } from '@/features/audit/domain/repositories/event-audit-log.repository.js';
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
 
+import { EventPrismaRepository } from '@/features/events/infrastructure/persistence/event.prisma-repository.js';
+import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
+import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
+
 const buildEmailSender = (): EmailSender => {
   if (env.EMAIL_TRANSPORT === 'resend') {
     // Zod's superRefine on env guarantees RESEND_API_KEY is set here, but
@@ -132,6 +136,9 @@ export interface Container {
   recordHttpCallUseCase: RecordHttpCallUseCase;
   recordEventPublishedUseCase: RecordEventPublishedUseCase;
   recordEventDispatchUseCase: RecordEventDispatchUseCase;
+
+  // Events
+  eventRepository: EventRepository;
 }
 
 export const buildContainer = (): Container => {
@@ -272,12 +279,16 @@ export const buildContainer = (): Container => {
     onOutcome: (input) => recordEventDispatchUseCase.execute(input),
   });
 
+  // --- Events ---
+  const eventRepository = new EventPrismaRepository(db);
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
     issueEmailVerification: issueEmailVerificationUseCase,
     signOutAll: signOutAllUseCase,
   });
+  registerEventsConsumers(consumerRegistry);
 
   return {
     db,
@@ -314,5 +325,6 @@ export const buildContainer = (): Container => {
     recordHttpCallUseCase,
     recordEventPublishedUseCase,
     recordEventDispatchUseCase,
+    eventRepository,
   };
 };
