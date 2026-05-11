@@ -301,6 +301,25 @@ After scaffolding, you must:
 - **CI test steps need `DATABASE_URL` + `JWT_SECRET` set as placeholders.** `env.ts` parses `process.env` at module load and throws on missing required vars; any test that transitively imports the logger (or anything from `core/`) fails to collect. `_api.yml`'s test step sets dummy values — copy that pattern when adding new test surfaces.
 - **Vitest does not auto-load `.env`.** Integration tests that need real env vars (e.g., `RESEND_API_KEY`) must `import 'dotenv/config'` at the top of the test file. Without it, `process.env.X` is `undefined` and `it.skipIf(!process.env.X)` silently skips the suite even when `apps/api/.env` is present.
 
+## Agent orchestration & role boundaries
+
+This repo uses a multi-agent workflow (definitions in `.claude/agents/`). The orchestrator (main loop) coordinates; specialized agents execute. Role boundaries are binding, not advisory.
+
+### Role map
+
+- **`ceo`** — strategic direction, scope alignment with the Singapore launch. Non-technical. No code, no Linear.
+- **`product-manager`** — sole authority on Linear writes (Tribely team only). Decomposes business goals into product requirements with acceptance criteria. No code.
+- **`engineering-lead`** — translates PRODUCT requirements into TECHNICAL requirements. Triages reviews, signs off on architecture. Surfaces follow-up items to PM; does NOT create Linear tickets directly.
+- **`software-engineer`** — code, CLI, migrations, tests, debugging only. No Linear, no PR creation, no stakeholder comms.
+- **`architecture-reviewer`** — runs `/api-review-architecture` / `/mobile-review-architecture`, reports findings only. No code edits, no Linear.
+- **`qa`** — runs test scripts, surfaces failures to SWE. No code, no Linear.
+
+### Orchestrator rules
+
+- **Delegate execution; don't run directly.** Bash commands (migrations, tests, git operations on project code), `Edit`/`Write` on source files, npm/flutter invocations — all go through the `software-engineer` agent, not the orchestrator's tool calls. The orchestrator's job is routing, summarizing agent reports, and asking the user for decisions. Trivial read-only context-gathering for routing decisions is fine; execution is not.
+- **Linear / PR work is orchestrator- or PM-routed via skills**, not delegated to SWE. Use `/linear-techdebt`, `/linear-create-issue`, `/linear-bug`, `/github-pr`, `/github-commit` — invoke as skills, or route to `product-manager`. Never to `software-engineer`.
+- **Agent-to-agent communication.** Without Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`), there is no direct messaging — orchestrator relays. With Agent Teams enabled, `SendMessage` is available but async (queued, not live). Reviewer-to-Eng-Lead handoffs flow through the orchestrator or the inbox; agents must emit memo content inline so it can be relayed regardless.
+
 ## Collaboration style
 
 The repo owner explicitly invites pushback on architectural choices. When something is asked for that conflicts with the conventions above, name the trade-off and propose the alternative rather than silently complying or silently refusing. Conventions exist for documented reasons — but they're not laws. Argue back when a rule isn't earning its weight.
