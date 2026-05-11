@@ -71,3 +71,7 @@ coverage/
 
 # One-time GitHub ruleset import artifact (uploaded via Settings → Rules)
 /ruleset-main.json
+
+# Claude Code — agent runtime state (memory is sub-agent local; agent
+# definitions in .claude/agents/ ARE tracked, like .claude/skills/)
+.claude/agent-memory/
