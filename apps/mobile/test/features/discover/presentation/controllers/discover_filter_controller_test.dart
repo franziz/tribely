@@ -13,17 +13,12 @@ import 'package:tribely/src/features/events/domain/entities/event_category.dart'
 
 /// Build a [ProviderContainer] with [DiscoverFilterController] wired.
 /// Returns both so callers can read state and call methods.
-({
-  ProviderContainer container,
-  DiscoverFilterController controller,
-})
+({ProviderContainer container, DiscoverFilterController controller})
 _makeContainer() {
   final container = ProviderContainer();
   // Eagerly read to trigger build().
   container.read(discoverFilterControllerProvider);
-  final controller = container.read(
-    discoverFilterControllerProvider.notifier,
-  );
+  final controller = container.read(discoverFilterControllerProvider.notifier);
   return (container: container, controller: controller);
 }
 
@@ -41,7 +36,8 @@ void main() {
       addTearDown(container.dispose);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
 
       expect(state.timeWindow, TimeWindow.anytime);
       expect(state.categories, isEmpty);
@@ -59,31 +55,36 @@ void main() {
 
       controller.setTimeWindow(TimeWindow.tonight);
       var state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.timeWindow, TimeWindow.tonight);
 
       controller.setTimeWindow(TimeWindow.thisWeek);
       state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.timeWindow, TimeWindow.thisWeek);
 
       // Must be thisWeek only — never accumulates both values.
       expect(state.timeWindow, isNot(TimeWindow.tonight));
     });
 
-    test('setting the same value again is a no-op (state object identical)', () {
-      final (:container, :controller) = _makeContainer();
-      addTearDown(container.dispose);
+    test(
+      'setting the same value again is a no-op (state object identical)',
+      () {
+        final (:container, :controller) = _makeContainer();
+        addTearDown(container.dispose);
 
-      controller.setTimeWindow(TimeWindow.tonight);
-      final before = container.read(discoverFilterControllerProvider);
+        controller.setTimeWindow(TimeWindow.tonight);
+        final before = container.read(discoverFilterControllerProvider);
 
-      controller.setTimeWindow(TimeWindow.tonight);
-      final after = container.read(discoverFilterControllerProvider);
+        controller.setTimeWindow(TimeWindow.tonight);
+        final after = container.read(discoverFilterControllerProvider);
 
-      // Same object reference — no state emission occurred.
-      expect(identical(before, after), isTrue);
-    });
+        // Same object reference — no state emission occurred.
+        expect(identical(before, after), isTrue);
+      },
+    );
 
     test('anytime replaces a previously set window', () {
       final (:container, :controller) = _makeContainer();
@@ -93,7 +94,8 @@ void main() {
       controller.setTimeWindow(TimeWindow.anytime);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.timeWindow, TimeWindow.anytime);
     });
   });
@@ -109,7 +111,8 @@ void main() {
       controller.toggleCategory(EventCategory.drinks);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.categories, contains(EventCategory.drinks));
     });
 
@@ -121,7 +124,8 @@ void main() {
       controller.toggleCategory(EventCategory.drinks);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.categories, isNot(contains(EventCategory.drinks)));
       expect(state.categories, isEmpty);
     });
@@ -134,8 +138,12 @@ void main() {
       controller.toggleCategory(EventCategory.hike);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
-      expect(state.categories, containsAll([EventCategory.drinks, EventCategory.hike]));
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
+      expect(
+        state.categories,
+        containsAll([EventCategory.drinks, EventCategory.hike]),
+      );
     });
 
     test('removing one category leaves others intact', () {
@@ -147,7 +155,8 @@ void main() {
       controller.toggleCategory(EventCategory.drinks); // remove drinks
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.categories, isNot(contains(EventCategory.drinks)));
       expect(state.categories, contains(EventCategory.hike));
     });
@@ -164,7 +173,8 @@ void main() {
       controller.setMaxDistanceKm(5.0);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.maxDistanceKm, 5.0);
     });
 
@@ -176,7 +186,8 @@ void main() {
       controller.setMaxDistanceKm(null);
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.maxDistanceKm, isNull);
     });
 
@@ -221,7 +232,8 @@ void main() {
       controller.reset();
 
       final state =
-          container.read(discoverFilterControllerProvider) as DiscoverFiltersActive;
+          container.read(discoverFilterControllerProvider)
+              as DiscoverFiltersActive;
       expect(state.timeWindow, TimeWindow.anytime);
       expect(state.categories, isEmpty);
       expect(state.maxDistanceKm, isNull);
@@ -329,64 +341,58 @@ void main() {
       },
     );
 
-    test(
-      'reset() emits exactly one debounced snapshot after 250ms',
-      () {
-        fakeAsync((async) {
-          final container = ProviderContainer();
-          addTearDown(container.dispose);
+    test('reset() emits exactly one debounced snapshot after 250ms', () {
+      fakeAsync((async) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-          container.read(discoverFilterControllerProvider);
-          final controller = container.read(
-            discoverFilterControllerProvider.notifier,
-          );
+        container.read(discoverFilterControllerProvider);
+        final controller = container.read(
+          discoverFilterControllerProvider.notifier,
+        );
 
-          // Set some state first.
-          controller.setTimeWindow(TimeWindow.tonight);
-          async.elapse(const Duration(milliseconds: 300));
+        // Set some state first.
+        controller.setTimeWindow(TimeWindow.tonight);
+        async.elapse(const Duration(milliseconds: 300));
 
-          final emissions = <DiscoverFiltersActive>[];
-          final sub = controller.debouncedStream.listen(emissions.add);
+        final emissions = <DiscoverFiltersActive>[];
+        final sub = controller.debouncedStream.listen(emissions.add);
 
-          controller.reset();
-          async.elapse(const Duration(milliseconds: 250));
+        controller.reset();
+        async.elapse(const Duration(milliseconds: 250));
 
-          expect(emissions, hasLength(1));
-          expect(emissions.first.timeWindow, TimeWindow.anytime);
-          expect(emissions.first.categories, isEmpty);
-          expect(emissions.first.maxDistanceKm, isNull);
+        expect(emissions, hasLength(1));
+        expect(emissions.first.timeWindow, TimeWindow.anytime);
+        expect(emissions.first.categories, isEmpty);
+        expect(emissions.first.maxDistanceKm, isNull);
 
-          sub.cancel();
-        });
-      },
-    );
+        sub.cancel();
+      });
+    });
 
-    test(
-      'no emission fires before 250ms has elapsed after the last tap',
-      () {
-        fakeAsync((async) {
-          final container = ProviderContainer();
-          addTearDown(container.dispose);
+    test('no emission fires before 250ms has elapsed after the last tap', () {
+      fakeAsync((async) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-          container.read(discoverFilterControllerProvider);
-          final controller = container.read(
-            discoverFilterControllerProvider.notifier,
-          );
+        container.read(discoverFilterControllerProvider);
+        final controller = container.read(
+          discoverFilterControllerProvider.notifier,
+        );
 
-          final emissions = <DiscoverFiltersActive>[];
-          final sub = controller.debouncedStream.listen(emissions.add);
+        final emissions = <DiscoverFiltersActive>[];
+        final sub = controller.debouncedStream.listen(emissions.add);
 
-          controller.toggleCategory(EventCategory.drinks);
-          async.elapse(const Duration(milliseconds: 249));
+        controller.toggleCategory(EventCategory.drinks);
+        async.elapse(const Duration(milliseconds: 249));
 
-          expect(emissions, isEmpty, reason: 'timer has not fired yet at 249ms');
+        expect(emissions, isEmpty, reason: 'timer has not fired yet at 249ms');
 
-          async.elapse(const Duration(milliseconds: 1)); // total 250ms — fires
-          expect(emissions, hasLength(1));
+        async.elapse(const Duration(milliseconds: 1)); // total 250ms — fires
+        expect(emissions, hasLength(1));
 
-          sub.cancel();
-        });
-      },
-    );
+        sub.cancel();
+      });
+    });
   });
 }

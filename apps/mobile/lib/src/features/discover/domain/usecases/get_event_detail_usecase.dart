@@ -17,8 +17,7 @@ class GetEventDetailParams extends Equatable {
 
 /// Fetch the full detail of a single event by its ID.
 /// Returns [NotFoundFailure] when the server responds with 404.
-class GetEventDetailUseCase
-    implements UseCase<Event, GetEventDetailParams> {
+class GetEventDetailUseCase implements UseCase<Event, GetEventDetailParams> {
   const GetEventDetailUseCase(this._repository);
   final DiscoverRepository _repository;
 

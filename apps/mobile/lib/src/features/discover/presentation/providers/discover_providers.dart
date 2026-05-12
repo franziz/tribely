@@ -23,6 +23,4 @@ export 'browse_events_usecase_provider.dart';
 /// D3's Retry button and loadMore scroll trigger call [DiscoverController]
 /// methods directly via [discoverControllerProvider.notifier].
 final discoverControllerProvider =
-    NotifierProvider<DiscoverController, DiscoverState>(
-      DiscoverController.new,
-    );
+    NotifierProvider<DiscoverController, DiscoverState>(DiscoverController.new);

@@ -42,7 +42,9 @@ class SecondaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
 
     final bool isDisabled = onPressed == null;
     final bool isSuppressed = isDisabled || isLoading;

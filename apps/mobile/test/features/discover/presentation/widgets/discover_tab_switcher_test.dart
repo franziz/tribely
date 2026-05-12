@@ -40,8 +40,9 @@ void main() {
       expect(find.text('Map'), findsOneWidget);
     });
 
-    testWidgets('2. tapping Map segment calls onTabChanged with map',
-        (tester) async {
+    testWidgets('2. tapping Map segment calls onTabChanged with map', (
+      tester,
+    ) async {
       DiscoverTab? received;
       await _pumpSwitcher(
         tester,
@@ -53,8 +54,9 @@ void main() {
       expect(received, equals(DiscoverTab.map));
     });
 
-    testWidgets('3. tapping List segment calls onTabChanged with list',
-        (tester) async {
+    testWidgets('3. tapping List segment calls onTabChanged with list', (
+      tester,
+    ) async {
       DiscoverTab? received;
       await _pumpSwitcher(
         tester,
@@ -79,11 +81,7 @@ void main() {
     testWidgets('4b. map selected renders widget without error', (
       tester,
     ) async {
-      await _pumpSwitcher(
-        tester,
-        selected: DiscoverTab.map,
-        onChanged: (_) {},
-      );
+      await _pumpSwitcher(tester, selected: DiscoverTab.map, onChanged: (_) {});
       expect(find.byType(DiscoverTabSwitcher), findsOneWidget);
     });
   });

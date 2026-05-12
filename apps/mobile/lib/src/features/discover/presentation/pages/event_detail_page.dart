@@ -52,9 +52,8 @@ class EventDetailPage extends ConsumerWidget {
         ),
         EventDetailError(:final failure) => _ErrorBody(
           message: failure.message,
-          onRetry: () => ref
-              .read(eventDetailControllerProvider(eventId).notifier)
-              .retry(),
+          onRetry: () =>
+              ref.read(eventDetailControllerProvider(eventId).notifier).retry(),
         ),
         EventDetailNotFound() => _NotFoundBody(),
       },
@@ -64,7 +63,7 @@ class EventDetailPage extends ConsumerWidget {
   void _showJoinSnackBar(BuildContext context) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text(_ctaSnackBarMessage),
         duration: _ctaSnackBarDuration,
       ),
@@ -332,16 +331,12 @@ class _MetaRows extends StatelessWidget {
     final date = DateFormat('d MMM y').format(startsAtSgt);
     final startTime = DateFormat('h:mm a').format(startsAtSgt);
     final endTime = DateFormat('h:mm a').format(endsAtSgt);
-    final datetimeLabel =
-        '$dayOfWeek, $date · $startTime–$endTime SGT';
+    final datetimeLabel = '$dayOfWeek, $date · $startTime–$endTime SGT';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _MetaRow(
-          icon: Icons.schedule_outlined,
-          label: datetimeLabel,
-        ),
+        _MetaRow(icon: Icons.schedule_outlined, label: datetimeLabel),
         const SizedBox(height: 10),
         _MetaRow(
           icon: Icons.location_on_outlined,
@@ -390,7 +385,9 @@ class _AboutSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (description == null || description!.isEmpty) return const SizedBox.shrink();
+    if (description == null || description!.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -449,13 +446,10 @@ class _StickyJoinBar extends StatelessWidget {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: TribelyColors.paperSurface,
         border: Border(
-          top: BorderSide(
-            color: TribelyColors.paperBorderSubtle,
-            width: 1,
-          ),
+          top: BorderSide(color: TribelyColors.paperBorderSubtle, width: 1),
         ),
       ),
       child: PrimaryButton(
@@ -486,7 +480,7 @@ class _ErrorBody extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.cloud_off_outlined,
                 size: 56,
                 color: TribelyColors.paperInkSecondary,
@@ -527,7 +521,7 @@ class _NotFoundBody extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.search_off_outlined,
                 size: 56,
                 color: TribelyColors.paperInkSecondary,

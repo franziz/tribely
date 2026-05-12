@@ -120,8 +120,9 @@ void main() {
   // ---------------------------------------------------------------------------
   group('browseEvents — error mapping', () {
     test('ServerException(401) → Left(AuthFailure)', () async {
-      when(() => remote.browseEvents(any()))
-          .thenThrow(_dioWith(const ServerException('Unauthorized', statusCode: 401)));
+      when(() => remote.browseEvents(any())).thenThrow(
+        _dioWith(const ServerException('Unauthorized', statusCode: 401)),
+      );
 
       final result = await repo.browseEvents(_stubFilters);
 
@@ -129,23 +130,26 @@ void main() {
       expect((result as Left).value, isA<AuthFailure>());
     });
 
-    test('ServerException(500) → Left(ServerFailure) with statusCode 500',
-        () async {
-      when(() => remote.browseEvents(any())).thenThrow(
-        _dioWith(const ServerException('Internal error', statusCode: 500)),
-      );
+    test(
+      'ServerException(500) → Left(ServerFailure) with statusCode 500',
+      () async {
+        when(() => remote.browseEvents(any())).thenThrow(
+          _dioWith(const ServerException('Internal error', statusCode: 500)),
+        );
 
-      final result = await repo.browseEvents(_stubFilters);
+        final result = await repo.browseEvents(_stubFilters);
 
-      expect(result.isLeft(), isTrue);
-      final failure = (result as Left).value;
-      expect(failure, isA<ServerFailure>());
-      expect((failure as ServerFailure).statusCode, 500);
-    });
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<ServerFailure>());
+        expect((failure as ServerFailure).statusCode, 500);
+      },
+    );
 
     test('NetworkException → Left(NetworkFailure)', () async {
-      when(() => remote.browseEvents(any()))
-          .thenThrow(_dioWith(const NetworkException('No connection')));
+      when(
+        () => remote.browseEvents(any()),
+      ).thenThrow(_dioWith(const NetworkException('No connection')));
 
       final result = await repo.browseEvents(_stubFilters);
 
@@ -154,9 +158,7 @@ void main() {
     });
 
     test('arbitrary Exception → Left(UnknownFailure)', () async {
-      when(
-        () => remote.browseEvents(any()),
-      ).thenThrow(Exception('Unexpected'));
+      when(() => remote.browseEvents(any())).thenThrow(Exception('Unexpected'));
 
       final result = await repo.browseEvents(_stubFilters);
 
@@ -169,22 +171,19 @@ void main() {
   // getEventDetail — happy path
   // ---------------------------------------------------------------------------
   group('getEventDetail — success', () {
-    test(
-      'remote returns model → Right(Event) with mapped fields',
-      () async {
-        when(
-          () => remote.getEventDetail(any()),
-        ).thenAnswer((_) async => _stubModel);
+    test('remote returns model → Right(Event) with mapped fields', () async {
+      when(
+        () => remote.getEventDetail(any()),
+      ).thenAnswer((_) async => _stubModel);
 
-        final result = await repo.getEventDetail('evt-1');
+      final result = await repo.getEventDetail('evt-1');
 
-        expect(result.isRight(), isTrue);
-        final event = (result as Right<Failure, Event>).value;
-        expect(event.id, 'evt-1');
-        expect(event.hostId, 'usr-1');
-        expect(event.title, 'Sunset Drinks');
-      },
-    );
+      expect(result.isRight(), isTrue);
+      final event = (result as Right<Failure, Event>).value;
+      expect(event.id, 'evt-1');
+      expect(event.hostId, 'usr-1');
+      expect(event.title, 'Sunset Drinks');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -227,8 +226,9 @@ void main() {
     });
 
     test('NetworkException → Left(NetworkFailure)', () async {
-      when(() => remote.getEventDetail(any()))
-          .thenThrow(_dioWith(const NetworkException('Offline')));
+      when(
+        () => remote.getEventDetail(any()),
+      ).thenThrow(_dioWith(const NetworkException('Offline')));
 
       final result = await repo.getEventDetail('evt-1');
 

@@ -47,11 +47,15 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final surface = dark ? TribelyColors.nightSurface : TribelyColors.paperSurface;
-    final inkPrimary =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final borderSubtle =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
+    final surface = dark
+        ? TribelyColors.nightSurface
+        : TribelyColors.paperSurface;
+    final inkPrimary = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final borderSubtle = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
 
     return Scaffold(
       backgroundColor: surface,
@@ -63,10 +67,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             // ── Zone 1: Screen title ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                'Discover',
-                style: TribelyType.headline(inkPrimary),
-              ),
+              child: Text('Discover', style: TribelyType.headline(inkPrimary)),
             ),
 
             // ── Zone 2: Filter chip row (persists across both tabs) ──
@@ -77,10 +78,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             Expanded(
               child: IndexedStack(
                 index: _selectedTab == DiscoverTab.list ? 0 : 1,
-                children: const [
-                  DiscoverListTab(),
-                  DiscoverMapTab(),
-                ],
+                children: const [DiscoverListTab(), DiscoverMapTab()],
               ),
             ),
 
@@ -147,10 +145,7 @@ class _StickyBottomContainer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // 1dp top divider
-          Container(
-            height: 1,
-            color: borderSubtle,
-          ),
+          Container(height: 1, color: borderSubtle),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: PrimaryButton(
@@ -166,10 +161,7 @@ class _StickyBottomContainer extends StatelessWidget {
             ),
           ),
           // Safe-area bottom padding
-          SafeArea(
-            top: false,
-            child: const SizedBox(height: 8),
-          ),
+          const SafeArea(top: false, child: SizedBox(height: 8)),
         ],
       ),
     );

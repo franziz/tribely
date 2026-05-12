@@ -11,7 +11,7 @@ import '../datasources/discover_remote_datasource.dart';
 
 class DiscoverRepositoryImpl implements DiscoverRepository {
   const DiscoverRepositoryImpl({required DiscoverRemoteDatasource remote})
-      : _remote = remote;
+    : _remote = remote;
 
   final DiscoverRemoteDatasource _remote;
 

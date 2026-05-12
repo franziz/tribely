@@ -6,38 +6,46 @@ import 'package:tribely/src/core/widgets/skeleton_loader.dart';
 
 /// Wraps the widget in a MaterialApp + Scaffold so Theme / MediaQuery are
 /// available — mirrors the pattern used in [secondary_button_test.dart].
-Widget _wrap(Widget child) =>
-    MaterialApp(home: Scaffold(body: Center(child: child)));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: Center(child: child)),
+);
 
 /// Wraps inside a constrained box to simulate a realistic viewport column
 /// width (e.g., 375dp or 414dp) when testing full-width children.
-Widget _wrapConstrained(Widget child, {required double width}) =>
-    MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(width: width, child: child),
-        ),
-      ),
-    );
+Widget _wrapConstrained(Widget child, {required double width}) => MaterialApp(
+  home: Scaffold(
+    body: Center(
+      child: SizedBox(width: width, child: child),
+    ),
+  ),
+);
 
 void main() {
   group('SkeletonLoader', () {
     testWidgets('renders with explicit width and height', (tester) async {
-      await tester.pumpWidget(_wrap(const SkeletonLoader(width: 200, height: 60)));
+      await tester.pumpWidget(
+        _wrap(const SkeletonLoader(width: 200, height: 60)),
+      );
 
       final box = tester.renderObject<RenderBox>(find.byType(SkeletonLoader));
       expect(box.size.width, equals(200));
       expect(box.size.height, equals(60));
     });
 
-    testWidgets('uses Shimmer.fromColors as its shimmer driver', (tester) async {
-      await tester.pumpWidget(_wrap(const SkeletonLoader(width: 100, height: 40)));
+    testWidgets('uses Shimmer.fromColors as its shimmer driver', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const SkeletonLoader(width: 100, height: 40)),
+      );
 
       expect(find.byType(Shimmer), findsOneWidget);
     });
 
     testWidgets('default borderRadius is 8', (tester) async {
-      await tester.pumpWidget(_wrap(const SkeletonLoader(width: 100, height: 40)));
+      await tester.pumpWidget(
+        _wrap(const SkeletonLoader(width: 100, height: 40)),
+      );
 
       // The inner Container's BoxDecoration carries the BorderRadius.
       final containers = tester.widgetList<Container>(find.byType(Container));
@@ -111,7 +119,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('uses Shimmer.fromColors as its shimmer driver', (tester) async {
+    testWidgets('uses Shimmer.fromColors as its shimmer driver', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrapConstrained(const SkeletonEventCard(), width: 375),
       );
@@ -119,8 +129,9 @@ void main() {
       expect(find.byType(Shimmer), findsOneWidget);
     });
 
-    testWidgets('card height is at least 160dp (image + text + padding)',
-        (tester) async {
+    testWidgets('card height is at least 160dp (image + text + padding)', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(375, 812);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -131,8 +142,9 @@ void main() {
 
       await tester.pump();
 
-      final box =
-          tester.renderObject<RenderBox>(find.byType(SkeletonEventCard));
+      final box = tester.renderObject<RenderBox>(
+        find.byType(SkeletonEventCard),
+      );
       // image (120) + top-pad (12) + title (16) + gap (8) + subtitle (12) +
       // gap (12) + meta (12) + bottom-pad (12) = 204dp minimum.
       expect(box.size.height, greaterThanOrEqualTo(160));

@@ -71,6 +71,7 @@ class _FixedDiscoverController extends DiscoverController {
   _FixedDiscoverController(this._fixed);
   final DiscoverState _fixed;
 
+  // ignore: avoid_public_notifier_properties
   bool refreshCalled = false;
 
   @override
@@ -117,13 +118,9 @@ Future<_FixedDiscoverController> _pumpTab(
     ProviderScope(
       overrides: [
         discoverControllerProvider.overrideWith(() => controller),
-        discoverFilterControllerProvider.overrideWith(
-          () => filterController,
-        ),
+        discoverFilterControllerProvider.overrideWith(() => filterController),
       ],
-      child: const MaterialApp(
-        home: Scaffold(body: DiscoverListTab()),
-      ),
+      child: const MaterialApp(home: Scaffold(body: DiscoverListTab())),
     ),
   );
   await tester.pump();
@@ -221,24 +218,23 @@ void main() {
     // 7. Loaded + isLoadingMore = true
     // -----------------------------------------------------------------------
     testWidgets(
-        '7. isLoadingMore renders EventCards + pagination skeleton below', (
-      tester,
-    ) async {
-      await _pumpTab(
-        tester,
-        DiscoverLoaded(
-          events: _twoEvents,
-          nextCursor: 'cursor-next',
-          isLoadingMore: true,
-        ),
-      );
+      '7. isLoadingMore renders EventCards + pagination skeleton below',
+      (tester) async {
+        await _pumpTab(
+          tester,
+          DiscoverLoaded(
+            events: _twoEvents,
+            nextCursor: 'cursor-next',
+            isLoadingMore: true,
+          ),
+        );
 
-      // Real cards present.
-      expect(find.byType(EventCard), findsNWidgets(2));
+        // Real cards present.
+        expect(find.byType(EventCard), findsNWidgets(2));
 
-      // Pagination skeleton visible — SkeletonLoader (used by _PaginationSkeleton).
-      expect(find.byType(SkeletonLoader), findsWidgets);
-    });
-
+        // Pagination skeleton visible — SkeletonLoader (used by _PaginationSkeleton).
+        expect(find.byType(SkeletonLoader), findsWidgets);
+      },
+    );
   });
 }

@@ -78,10 +78,7 @@ GoRouter _buildRouter() {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const DiscoverPage(),
-      ),
+      GoRoute(path: '/', builder: (context, state) => const DiscoverPage()),
       GoRoute(
         path: '/events/new',
         builder: (context, state) {
@@ -104,13 +101,13 @@ Future<void> _pumpPage(
 
   final mockLocation = locationService ?? MockLocationService();
   // Default: permission denied, no position — avoids real OS dialog.
-  when(() => mockLocation.currentPermissionStatus()).thenAnswer(
-    (_) async => LocationPermissionStatus.denied,
-  );
+  when(
+    () => mockLocation.currentPermissionStatus(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
   when(() => mockLocation.currentPosition()).thenAnswer((_) async => null);
-  when(() => mockLocation.requestPermission()).thenAnswer(
-    (_) async => LocationPermissionStatus.denied,
-  );
+  when(
+    () => mockLocation.requestPermission(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
 
   await tester.pumpWidget(
     ProviderScope(
@@ -121,9 +118,7 @@ Future<void> _pumpPage(
         ),
         locationServiceProvider.overrideWithValue(mockLocation),
       ],
-      child: MaterialApp.router(
-        routerConfig: _buildRouter(),
-      ),
+      child: MaterialApp.router(routerConfig: _buildRouter()),
     ),
   );
   // Settle initial frame + any post-frame callbacks.
@@ -159,24 +154,24 @@ void main() {
     // -----------------------------------------------------------------------
     // 2. Switching tab updates IndexedStack index.
     // -----------------------------------------------------------------------
-    testWidgets(
-      '2. Tapping Map segment changes IndexedStack index to 1',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('2. Tapping Map segment changes IndexedStack index to 1', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
 
-        // Initial state: List tab active → index 0.
-        IndexedStack stack =
-            tester.widget<IndexedStack>(find.byType(IndexedStack));
-        expect(stack.index, 0);
+      // Initial state: List tab active → index 0.
+      IndexedStack stack = tester.widget<IndexedStack>(
+        find.byType(IndexedStack),
+      );
+      expect(stack.index, 0);
 
-        // Tap the "Map" segment in the DiscoverTabSwitcher.
-        await tester.tap(find.text('Map'));
-        await tester.pump();
+      // Tap the "Map" segment in the DiscoverTabSwitcher.
+      await tester.tap(find.text('Map'));
+      await tester.pump();
 
-        stack = tester.widget<IndexedStack>(find.byType(IndexedStack));
-        expect(stack.index, 1);
-      },
-    );
+      stack = tester.widget<IndexedStack>(find.byType(IndexedStack));
+      expect(stack.index, 1);
+    });
 
     testWidgets(
       '2b. Tapping List segment after Map changes IndexedStack index back to 0',
@@ -191,8 +186,7 @@ void main() {
         await tester.tap(find.text('List'));
         await tester.pump();
 
-        final stack =
-            tester.widget<IndexedStack>(find.byType(IndexedStack));
+        final stack = tester.widget<IndexedStack>(find.byType(IndexedStack));
         expect(stack.index, 0);
       },
     );
@@ -200,87 +194,68 @@ void main() {
     // -----------------------------------------------------------------------
     // 3. Sticky CTA visible on both tabs.
     // -----------------------------------------------------------------------
-    testWidgets(
-      '3a. "Create event" CTA visible on List tab',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('3a. "Create event" CTA visible on List tab', (tester) async {
+      await _pumpPage(tester);
 
-        // Default is List tab.
-        expect(find.text('Create event'), findsOneWidget);
-      },
-    );
+      // Default is List tab.
+      expect(find.text('Create event'), findsOneWidget);
+    });
 
-    testWidgets(
-      '3b. "Create event" CTA visible on Map tab',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('3b. "Create event" CTA visible on Map tab', (tester) async {
+      await _pumpPage(tester);
 
-        await tester.tap(find.text('Map'));
-        await tester.pump();
+      await tester.tap(find.text('Map'));
+      await tester.pump();
 
-        expect(find.text('Create event'), findsOneWidget);
-      },
-    );
+      expect(find.text('Create event'), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // 4. Tapping the CTA routes to /events/new.
     // -----------------------------------------------------------------------
-    testWidgets(
-      '4. Tapping "Create event" navigates to /events/new',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('4. Tapping "Create event" navigates to /events/new', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
 
-        await tester.tap(find.text('Create event'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Create event'));
+      await tester.pumpAndSettle();
 
-        expect(_lastPushedRoute, '/events/new');
-        expect(find.text('Create event page'), findsOneWidget);
-      },
-    );
+      expect(_lastPushedRoute, '/events/new');
+      expect(find.text('Create event page'), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // 5. FilterChipRow visible on both tabs.
     // -----------------------------------------------------------------------
-    testWidgets(
-      '5a. FilterChipRow rendered on List tab',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('5a. FilterChipRow rendered on List tab', (tester) async {
+      await _pumpPage(tester);
 
-        expect(find.byType(FilterChipRow), findsOneWidget);
-      },
-    );
+      expect(find.byType(FilterChipRow), findsOneWidget);
+    });
 
-    testWidgets(
-      '5b. FilterChipRow rendered on Map tab',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('5b. FilterChipRow rendered on Map tab', (tester) async {
+      await _pumpPage(tester);
 
-        await tester.tap(find.text('Map'));
-        await tester.pump();
+      await tester.tap(find.text('Map'));
+      await tester.pump();
 
-        expect(find.byType(FilterChipRow), findsOneWidget);
-      },
-    );
+      expect(find.byType(FilterChipRow), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // Bonus: Screen title and tab switcher are present.
     // -----------------------------------------------------------------------
-    testWidgets(
-      'Screen title "Discover" is rendered',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('Screen title "Discover" is rendered', (tester) async {
+      await _pumpPage(tester);
 
-        expect(find.text('Discover'), findsOneWidget);
-      },
-    );
+      expect(find.text('Discover'), findsOneWidget);
+    });
 
-    testWidgets(
-      'DiscoverTabSwitcher is rendered',
-      (tester) async {
-        await _pumpPage(tester);
+    testWidgets('DiscoverTabSwitcher is rendered', (tester) async {
+      await _pumpPage(tester);
 
-        expect(find.byType(DiscoverTabSwitcher), findsOneWidget);
-      },
-    );
+      expect(find.byType(DiscoverTabSwitcher), findsOneWidget);
+    });
   });
 }

@@ -20,11 +20,7 @@ import '../state/discover_state.dart';
 /// [filterNotifier] is required only for the reset-filters flavor; pass null
 /// for [DiscoverEmptyReason.noEventsInArea].
 class EmptyState extends StatelessWidget {
-  const EmptyState({
-    required this.reason,
-    this.filterNotifier,
-    super.key,
-  });
+  const EmptyState({required this.reason, this.filterNotifier, super.key});
 
   final DiscoverEmptyReason reason;
 

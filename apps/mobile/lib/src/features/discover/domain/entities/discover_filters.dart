@@ -76,8 +76,7 @@ class DiscoverFilters extends Equatable {
     if (tw != null) params['timeWindow'] = tw;
 
     if (categories.isNotEmpty) {
-      params['categories'] =
-          categories.map((c) => c.wireValue).join(',');
+      params['categories'] = categories.map((c) => c.wireValue).join(',');
     }
 
     if (maxDistanceKm != null) {

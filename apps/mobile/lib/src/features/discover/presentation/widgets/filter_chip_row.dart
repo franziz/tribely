@@ -20,7 +20,6 @@ const double _kChipTapTargetPadding = 4.0;
 /// Chip corner radius: pill shape → 18dp.
 const double _kChipRadius = 18.0;
 
-
 /// Distance chip options in kilometres.
 const List<double> _kDistanceOptions = [1, 3, 5, 10, 20];
 
@@ -128,9 +127,8 @@ class FilterChipRow extends ConsumerWidget {
                     child: _SingleSelectChip(
                       label: label,
                       isSelected: isSelected,
-                      onTap: () => notifier.setMaxDistanceKm(
-                        isSelected ? null : km,
-                      ),
+                      onTap: () =>
+                          notifier.setMaxDistanceKm(isSelected ? null : km),
                     ),
                   );
                 }),
@@ -161,9 +159,7 @@ class _SingleSelectChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isSelected
-        ? TribelyColors.paperPrimary
-        : Colors.transparent;
+    final bg = isSelected ? TribelyColors.paperPrimary : Colors.transparent;
     final labelColor = isSelected
         ? TribelyColors.paperSurfaceHigh
         : TribelyColors.paperInkSecondary;
@@ -200,9 +196,7 @@ class _MultiSelectChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isSelected
-        ? TribelyColors.paperAccentSoft
-        : Colors.transparent;
+    final bg = isSelected ? TribelyColors.paperAccentSoft : Colors.transparent;
     final labelColor = isSelected
         ? TribelyColors.paperAccent
         : TribelyColors.paperInkSecondary;
@@ -259,10 +253,7 @@ class _ChipBase extends StatelessWidget {
             border: Border.all(color: borderColor, width: borderWidth),
           ),
           alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TribelyType.caption(labelColor),
-          ),
+          child: Text(label, style: TribelyType.caption(labelColor)),
         ),
       ),
     );

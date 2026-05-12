@@ -22,7 +22,8 @@ sealed class DiscoverFilterState {
 /// This class is intentionally thin — it mirrors the fields that
 /// [DiscoverFilterController] exposes as mutation surface. Full query
 /// construction (lat/lng, cursor, limit) happens in D2's DiscoverController.
-final class DiscoverFiltersActive extends DiscoverFilterState with EquatableMixin {
+final class DiscoverFiltersActive extends DiscoverFilterState
+    with EquatableMixin {
   const DiscoverFiltersActive({
     this.timeWindow = TimeWindow.anytime,
     this.categories = const {},
@@ -48,10 +49,9 @@ final class DiscoverFiltersActive extends DiscoverFilterState with EquatableMixi
     return DiscoverFiltersActive(
       timeWindow: timeWindow ?? this.timeWindow,
       categories: categories ?? this.categories,
-      maxDistanceKm:
-          maxDistanceKm == _sentinel
-              ? this.maxDistanceKm
-              : maxDistanceKm as double?,
+      maxDistanceKm: maxDistanceKm == _sentinel
+          ? this.maxDistanceKm
+          : maxDistanceKm as double?,
     );
   }
 }

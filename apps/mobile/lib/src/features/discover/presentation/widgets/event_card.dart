@@ -178,9 +178,9 @@ class _ContentSection extends StatelessWidget {
           // Title — bodyL semibold, max 2 lines.
           Text(
             event.title,
-            style: TribelyType.bodyL(TribelyColors.paperInkPrimary).copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: TribelyType.bodyL(
+              TribelyColors.paperInkPrimary,
+            ).copyWith(fontWeight: FontWeight.w600),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),

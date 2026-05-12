@@ -17,9 +17,7 @@ Future<void> _pumpErrorState(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      home: Scaffold(
-        body: ErrorState(onRetry: onRetry),
-      ),
+      home: Scaffold(body: ErrorState(onRetry: onRetry)),
     ),
   );
   await tester.pump();

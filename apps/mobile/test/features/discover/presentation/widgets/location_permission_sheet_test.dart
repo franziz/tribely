@@ -14,7 +14,7 @@ import 'package:tribely/src/features/discover/presentation/widgets/location_perm
 
 void main() {
   group('LocationPermissionSheet', () {
-    Future<void> _pump(
+    Future<void> pump(
       WidgetTester tester, {
       required VoidCallback onAllow,
       required VoidCallback onDecline,
@@ -35,30 +35,27 @@ void main() {
     // 1. Both CTAs are rendered
     // -----------------------------------------------------------------------
     testWidgets('renders "Allow location" primary button', (tester) async {
-      await _pump(tester, onAllow: () {}, onDecline: () {});
+      await pump(tester, onAllow: () {}, onDecline: () {});
 
       expect(find.byType(PrimaryButton), findsOneWidget);
       expect(find.text('Allow location'), findsOneWidget);
     });
 
     testWidgets('renders "Not now" secondary button', (tester) async {
-      await _pump(tester, onAllow: () {}, onDecline: () {});
+      await pump(tester, onAllow: () {}, onDecline: () {});
 
       expect(find.byType(SecondaryButton), findsOneWidget);
-      expect(
-        find.text('Not now — browse all SG events'),
-        findsOneWidget,
-      );
+      expect(find.text('Not now — browse all SG events'), findsOneWidget);
     });
 
     testWidgets('renders headline text', (tester) async {
-      await _pump(tester, onAllow: () {}, onDecline: () {});
+      await pump(tester, onAllow: () {}, onDecline: () {});
 
       expect(find.text('Events near you'), findsOneWidget);
     });
 
     testWidgets('renders body copy', (tester) async {
-      await _pump(tester, onAllow: () {}, onDecline: () {});
+      await pump(tester, onAllow: () {}, onDecline: () {});
 
       expect(
         find.text('So we can show events near you in Singapore.'),
@@ -73,11 +70,7 @@ void main() {
       tester,
     ) async {
       var allowCalled = false;
-      await _pump(
-        tester,
-        onAllow: () => allowCalled = true,
-        onDecline: () {},
-      );
+      await pump(tester, onAllow: () => allowCalled = true, onDecline: () {});
 
       await tester.tap(find.text('Allow location'));
       await tester.pump();
@@ -90,11 +83,7 @@ void main() {
     // -----------------------------------------------------------------------
     testWidgets('tapping "Not now" fires onDecline callback', (tester) async {
       var declineCalled = false;
-      await _pump(
-        tester,
-        onAllow: () {},
-        onDecline: () => declineCalled = true,
-      );
+      await pump(tester, onAllow: () {}, onDecline: () => declineCalled = true);
 
       await tester.tap(find.text('Not now — browse all SG events'));
       await tester.pump();

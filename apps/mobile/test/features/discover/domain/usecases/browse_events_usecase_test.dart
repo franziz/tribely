@@ -22,25 +22,25 @@ class _FakeDiscoverFilters extends Fake implements DiscoverFilters {}
 // ---------------------------------------------------------------------------
 
 Event _makeEvent(String id) => Event(
-      id: id,
-      hostId: 'usr-1',
-      title: 'Test Event',
-      description: null,
-      venue: const EventVenue(
-        address: '1 Marina Blvd',
-        city: 'Singapore',
-        latitude: 1.28,
-        longitude: 103.85,
-      ),
-      startsAt: DateTime(2030, 6, 15, 18),
-      endsAt: DateTime(2030, 6, 15, 21),
-      capacity: 8,
-      category: EventCategory.drinks,
-      costSplit: 'own',
-      approvalMode: 'auto',
-      status: 'published',
-      createdAt: DateTime(2030, 6, 1),
-    );
+  id: id,
+  hostId: 'usr-1',
+  title: 'Test Event',
+  description: null,
+  venue: const EventVenue(
+    address: '1 Marina Blvd',
+    city: 'Singapore',
+    latitude: 1.28,
+    longitude: 103.85,
+  ),
+  startsAt: DateTime(2030, 6, 15, 18),
+  endsAt: DateTime(2030, 6, 15, 21),
+  capacity: 8,
+  category: EventCategory.drinks,
+  costSplit: 'own',
+  approvalMode: 'auto',
+  status: 'published',
+  createdAt: DateTime(2030, 6, 1),
+);
 
 void main() {
   setUpAll(() {
@@ -59,21 +59,28 @@ void main() {
   // Delegation
   // ---------------------------------------------------------------------------
   group('BrowseEventsUseCase — delegation', () {
-    test('delegates filters to repository.browseEvents and returns page',
-        () async {
-      const filters = DiscoverFilters(timeWindow: TimeWindow.tonight, limit: 10);
-      final page = EventPage(events: [_makeEvent('evt-1')], nextCursor: 'c1');
+    test(
+      'delegates filters to repository.browseEvents and returns page',
+      () async {
+        const filters = DiscoverFilters(
+          timeWindow: TimeWindow.tonight,
+          limit: 10,
+        );
+        final page = EventPage(events: [_makeEvent('evt-1')], nextCursor: 'c1');
 
-      when(
-        () => repo.browseEvents(filters),
-      ).thenAnswer((_) async => Right(page));
+        when(
+          () => repo.browseEvents(filters),
+        ).thenAnswer((_) async => Right(page));
 
-      final result = await useCase(const BrowseEventsParams(filters: filters));
+        final result = await useCase(
+          const BrowseEventsParams(filters: filters),
+        );
 
-      expect(result.isRight(), isTrue);
-      expect((result as Right<Failure, EventPage>).value, page);
-      verify(() => repo.browseEvents(filters)).called(1);
-    });
+        expect(result.isRight(), isTrue);
+        expect((result as Right<Failure, EventPage>).value, page);
+        verify(() => repo.browseEvents(filters)).called(1);
+      },
+    );
 
     test('propagates Failure from repository unchanged', () async {
       const failure = NetworkFailure('Offline');
@@ -131,11 +138,7 @@ void main() {
     });
 
     test('maxDistanceKm set → maxDistanceKm + lat + lng present', () {
-      const f = DiscoverFilters(
-        maxDistanceKm: 5.0,
-        lat: 1.3,
-        lng: 103.8,
-      );
+      const f = DiscoverFilters(maxDistanceKm: 5.0, lat: 1.3, lng: 103.8);
       final p = f.toQueryParams();
       expect(p['maxDistanceKm'], '5.0');
       expect(p['lat'], '1.3');

@@ -5,7 +5,9 @@ import 'package:tribely/src/core/widgets/secondary_button.dart';
 
 // Wraps the widget in a minimal MaterialApp so Theme and MediaQuery are
 // available, matching the pattern used across the test suite.
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: Center(child: child)));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: Center(child: child)),
+);
 
 void main() {
   group('SecondaryButton', () {
@@ -22,10 +24,7 @@ void main() {
 
       await tester.pumpWidget(
         _wrap(
-          SecondaryButton(
-            label: 'Maybe later',
-            onPressed: () => tapped = true,
-          ),
+          SecondaryButton(label: 'Maybe later', onPressed: () => tapped = true),
         ),
       );
 
@@ -33,7 +32,9 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('shows CircularProgressIndicator when isLoading=true', (tester) async {
+    testWidgets('shows CircularProgressIndicator when isLoading=true', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(
           SecondaryButton(
@@ -69,7 +70,9 @@ void main() {
       expect(tapped, isFalse);
     });
 
-    testWidgets('fullWidth=true wraps in SizedBox with infinite width', (tester) async {
+    testWidgets('fullWidth=true wraps in SizedBox with infinite width', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(
           SecondaryButton(
@@ -81,15 +84,19 @@ void main() {
       );
 
       final sizedBox = tester.widget<SizedBox>(
-        find.ancestor(
-          of: find.byType(OutlinedButton),
-          matching: find.byType(SizedBox),
-        ).first,
+        find
+            .ancestor(
+              of: find.byType(OutlinedButton),
+              matching: find.byType(SizedBox),
+            )
+            .first,
       );
       expect(sizedBox.width, equals(double.infinity));
     });
 
-    testWidgets('fullWidth=false does not wrap in an infinite-width SizedBox', (tester) async {
+    testWidgets('fullWidth=false does not wrap in an infinite-width SizedBox', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _wrap(
           SecondaryButton(
@@ -114,29 +121,24 @@ void main() {
       expect(hasInfiniteWidthParent, isFalse);
     });
 
-    testWidgets('tap target meets 48dp minimum when fullWidth=false', (tester) async {
+    testWidgets('tap target meets 48dp minimum when fullWidth=false', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        _wrap(
-          SecondaryButton(
-            label: 'X',
-            onPressed: () {},
-            fullWidth: false,
-          ),
-        ),
+        _wrap(SecondaryButton(label: 'X', onPressed: () {}, fullWidth: false)),
       );
 
-      final renderBox = tester.renderObject<RenderBox>(find.byType(SecondaryButton));
+      final renderBox = tester.renderObject<RenderBox>(
+        find.byType(SecondaryButton),
+      );
       expect(renderBox.size.height, greaterThanOrEqualTo(48));
     });
 
-    testWidgets('disabled when onPressed is null — tap does not throw', (tester) async {
+    testWidgets('disabled when onPressed is null — tap does not throw', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        _wrap(
-          const SecondaryButton(
-            label: 'Maybe later',
-            onPressed: null,
-          ),
-        ),
+        _wrap(const SecondaryButton(label: 'Maybe later', onPressed: null)),
       );
 
       // Tap on a disabled button must not throw or invoke any callback.

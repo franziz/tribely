@@ -31,10 +31,14 @@ class DiscoverFilterController extends Notifier<DiscoverFilterState> {
   final _debouncedController =
       StreamController<DiscoverFiltersActive>.broadcast();
 
+  // ignore: avoid_public_notifier_properties
   /// Broadcast stream of debounced filter snapshots.
   ///
   /// Emits at most once per [_kDebounceMillis] window after the last mutation.
   /// D2's provider uses this as its upstream; tests assert on it directly.
+  ///
+  /// Intentionally a getter rather than `state`: the stream carries debounce
+  /// semantics that cannot be modelled as a plain Riverpod state snapshot.
   Stream<DiscoverFiltersActive> get debouncedStream =>
       _debouncedController.stream;
 

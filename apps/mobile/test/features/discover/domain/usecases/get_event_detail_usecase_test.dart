@@ -48,19 +48,23 @@ void main() {
   });
 
   group('GetEventDetailUseCase', () {
-    test('delegates eventId to repository.getEventDetail → Right(Event)',
-        () async {
-      when(
-        () => repo.getEventDetail('evt-42'),
-      ).thenAnswer((_) async => Right(_stubEvent));
+    test(
+      'delegates eventId to repository.getEventDetail → Right(Event)',
+      () async {
+        when(
+          () => repo.getEventDetail('evt-42'),
+        ).thenAnswer((_) async => Right(_stubEvent));
 
-      final result = await useCase(const GetEventDetailParams(eventId: 'evt-42'));
+        final result = await useCase(
+          const GetEventDetailParams(eventId: 'evt-42'),
+        );
 
-      expect(result.isRight(), isTrue);
-      final event = (result as Right<Failure, Event>).value;
-      expect(event.id, 'evt-42');
-      verify(() => repo.getEventDetail('evt-42')).called(1);
-    });
+        expect(result.isRight(), isTrue);
+        final event = (result as Right<Failure, Event>).value;
+        expect(event.id, 'evt-42');
+        verify(() => repo.getEventDetail('evt-42')).called(1);
+      },
+    );
 
     test('404 → Left(NotFoundFailure)', () async {
       const failure = NotFoundFailure('Event not found');

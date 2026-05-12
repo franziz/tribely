@@ -47,9 +47,7 @@ final _testEvent = Event(
 Future<void> _pumpSheet(WidgetTester tester, Event event) async {
   await tester.pumpWidget(
     MaterialApp(
-      home: Scaffold(
-        body: MapEventBottomSheet(event: event),
-      ),
+      home: Scaffold(body: MapEventBottomSheet(event: event)),
     ),
   );
 }
@@ -100,36 +98,28 @@ void main() {
     // with the correct path. GoRouter's InheritedGoRouter approach lets us
     // intercept push calls without a real navigation stack.
     // -----------------------------------------------------------------------
-    testWidgets(
-      '"View details" tap routes to /events/:id',
-      (tester) async {
-        // Record observed route pushes.
-        final pushedRoutes = <String>[];
+    testWidgets('"View details" tap routes to /events/:id', (tester) async {
+      // Record observed route pushes.
+      final pushedRoutes = <String>[];
 
-        await tester.pumpWidget(
-          _RouterTestHarness(
-            eventId: _testEvent.id,
-            onPushed: pushedRoutes.add,
-            child: Scaffold(
-              body: MapEventBottomSheet(event: _testEvent),
-            ),
-          ),
-        );
+      await tester.pumpWidget(
+        _RouterTestHarness(
+          eventId: _testEvent.id,
+          onPushed: pushedRoutes.add,
+          child: Scaffold(body: MapEventBottomSheet(event: _testEvent)),
+        ),
+      );
 
-        await tester.pump();
+      await tester.pump();
 
-        // The sheet is rendered directly (not via showModalBottomSheet here) so
-        // Navigator.pop() inside _ViewDetailsRow is a no-op (nothing to pop).
-        // context.push('/events/evt-test-001') is still called and captured.
-        await tester.tap(find.text('View details'));
-        await tester.pumpAndSettle();
+      // The sheet is rendered directly (not via showModalBottomSheet here) so
+      // Navigator.pop() inside _ViewDetailsRow is a no-op (nothing to pop).
+      // context.push('/events/evt-test-001') is still called and captured.
+      await tester.tap(find.text('View details'));
+      await tester.pumpAndSettle();
 
-        expect(
-          pushedRoutes,
-          contains('/events/${_testEvent.id}'),
-        );
-      },
-    );
+      expect(pushedRoutes, contains('/events/${_testEvent.id}'));
+    });
   });
 }
 
@@ -165,10 +155,7 @@ class _RouterTestHarnessState extends State<_RouterTestHarness> {
     _router = GoRouter(
       initialLocation: '/sheet-test',
       routes: [
-        GoRoute(
-          path: '/sheet-test',
-          builder: (context, state) => widget.child,
-        ),
+        GoRoute(path: '/sheet-test', builder: (context, state) => widget.child),
         GoRoute(
           path: '/events/:id',
           builder: (context, state) {

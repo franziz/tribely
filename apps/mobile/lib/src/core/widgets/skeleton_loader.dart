@@ -107,7 +107,7 @@ class SkeletonEventCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Image block — full-width, 120dp tall.
-            _ShimmerRect(
+            const _ShimmerRect(
               width: double.infinity,
               height: 120,
               borderRadius: 0, // clipped by parent Card

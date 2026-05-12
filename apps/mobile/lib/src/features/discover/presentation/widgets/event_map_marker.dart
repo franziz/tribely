@@ -25,11 +25,7 @@ class EventMapMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PinCircle(
       diameter: kSingleDiameter,
-      child: Icon(
-        _iconForCategory(category),
-        color: Colors.white,
-        size: 20,
-      ),
+      child: Icon(_iconForCategory(category), color: Colors.white, size: 20),
     );
   }
 
@@ -82,10 +78,7 @@ class EventClusterMarker extends StatelessWidget {
     return _PinCircle(
       diameter: diameter,
       borderWidth: 2.0,
-      child: Text(
-        '$count',
-        style: TribelyType.caption(Colors.white),
-      ),
+      child: Text('$count', style: TribelyType.caption(Colors.white)),
     );
   }
 }

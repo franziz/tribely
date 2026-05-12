@@ -43,9 +43,7 @@ Future<void> _pumpRow(
   final ctrl = controller ?? _FixedFilterController(state);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
-        discoverFilterControllerProvider.overrideWith(() => ctrl),
-      ],
+      overrides: [discoverFilterControllerProvider.overrideWith(() => ctrl)],
       child: MaterialApp(
         home: Scaffold(
           body: FilterChipRow(showDistanceChips: showDistanceChips),
@@ -80,8 +78,9 @@ void main() {
       }
     });
 
-    testWidgets('3. selected time chip differs from unselected visually',
-        (tester) async {
+    testWidgets('3. selected time chip differs from unselected visually', (
+      tester,
+    ) async {
       // Anytime is selected by default. We verify the chip renders with text
       // at all (visual state is driven by Container color, which is tested
       // by checking no exception thrown + chip present).
@@ -89,8 +88,9 @@ void main() {
       expect(find.text('Anytime'), findsOneWidget);
     });
 
-    testWidgets('4. category chips start unselected (multi-select empty)',
-        (tester) async {
+    testWidgets('4. category chips start unselected (multi-select empty)', (
+      tester,
+    ) async {
       await _pumpRow(tester);
       // All category chips rendered — none should throw or be missing.
       expect(find.text('Drinks'), findsOneWidget);
@@ -113,8 +113,9 @@ void main() {
       expect(find.text('5 km'), findsNothing);
     });
 
-    testWidgets('7. distance chips visible when showDistanceChips=true',
-        (tester) async {
+    testWidgets('7. distance chips visible when showDistanceChips=true', (
+      tester,
+    ) async {
       await _pumpRow(tester, showDistanceChips: true);
       expect(find.text('1 km'), findsOneWidget);
       expect(find.text('5 km'), findsOneWidget);

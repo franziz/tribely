@@ -41,9 +41,10 @@ class _DiscoverTabSwitcherState extends State<DiscoverTabSwitcher>
       vsync: this,
       duration: const Duration(milliseconds: 150),
     );
-    _pillPosition = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _ctrl, curve: TribelyMotion.easeOut),
-    );
+    _pillPosition = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: TribelyMotion.easeOut));
 
     // Sync initial position to the selected tab without animation.
     if (widget.selectedTab == DiscoverTab.map) {

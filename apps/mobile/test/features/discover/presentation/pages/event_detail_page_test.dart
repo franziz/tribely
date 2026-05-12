@@ -16,6 +16,8 @@
 //   - GetIt / service locator is never initialised — all DI goes through
 //     provider overrides, keeping tests hermetic.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,15 +86,6 @@ class _FixedEventDetailController extends EventDetailController {
   }
 }
 
-/// Overrides [eventDetailControllerProvider] for [eventId] so the widget
-/// under test uses [controller] without touching the service locator.
-Override _overrideController(
-  String eventId,
-  _FixedEventDetailController controller,
-) {
-  return eventDetailControllerProvider(eventId).overrideWith(() => controller);
-}
-
 // ---------------------------------------------------------------------------
 // Pump helpers
 // ---------------------------------------------------------------------------
@@ -107,14 +100,11 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        _overrideController(
+        eventDetailControllerProvider(
           eventId,
-          _FixedEventDetailController(initialState),
-        ),
+        ).overrideWith(() => _FixedEventDetailController(initialState)),
       ],
-      child: MaterialApp(
-        home: EventDetailPage(eventId: eventId),
-      ),
+      child: MaterialApp(home: EventDetailPage(eventId: eventId)),
     ),
   );
   await tester.pump(); // allow microtask (Future(() => _load())) to schedule
@@ -156,10 +146,7 @@ class _FixedSessionController extends SessionController {
 /// Builds a test-scoped GoRouter that includes the /events/:id route outside
 /// the shell (matching production app_router.dart), using stub builders for
 /// pages that require get_it DI.
-GoRouter _buildTestRouter({
-  String initialLocation = '/events',
-  EventDetailState detailState = const EventDetailLoading(),
-}) {
+GoRouter _buildTestRouter({String initialLocation = '/events'}) {
   final rootKey = GlobalKey<NavigatorState>(debugLabel: 'test-root');
   final discoverKey = GlobalKey<NavigatorState>(debugLabel: 'test-discover');
   final myEventsKey = GlobalKey<NavigatorState>(debugLabel: 'test-myEvents');
@@ -202,8 +189,7 @@ GoRouter _buildTestRouter({
               GoRoute(
                 path: '/my-events',
                 name: 'myEvents',
-                builder: (_, _) =>
-                    const Scaffold(body: Text('my-events-stub')),
+                builder: (_, _) => const Scaffold(body: Text('my-events-stub')),
               ),
             ],
           ),
@@ -213,8 +199,7 @@ GoRouter _buildTestRouter({
               GoRoute(
                 path: '/profile',
                 name: 'ownProfile',
-                builder: (_, _) =>
-                    const Scaffold(body: Text('profile-stub')),
+                builder: (_, _) => const Scaffold(body: Text('profile-stub')),
               ),
             ],
           ),
@@ -228,7 +213,6 @@ Future<void> _pumpRouter(
   WidgetTester tester,
   GoRouter router, {
   required SessionState sessionState,
-  List<Override> extraOverrides = const [],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -236,7 +220,6 @@ Future<void> _pumpRouter(
         sessionControllerProvider.overrideWith(
           () => _FixedSessionController(sessionState),
         ),
-        ...extraOverrides,
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -310,16 +293,15 @@ void main() {
         initialState: EventDetailLoaded(_testEvent),
       );
 
-      expect(
-        find.text('Casual drinks with great views.'),
-        findsOneWidget,
-      );
+      expect(find.text('Casual drinks with great views.'), findsOneWidget);
     });
 
     // -----------------------------------------------------------------------
     // 3. CTA SnackBar — exact copy per §F + Step 8.5
     // -----------------------------------------------------------------------
-    testWidgets('tapping CTA fires SnackBar with exact message', (tester) async {
+    testWidgets('tapping CTA fires SnackBar with exact message', (
+      tester,
+    ) async {
       await _pumpPage(
         tester,
         eventId: _testEventId,
@@ -330,9 +312,7 @@ void main() {
       await tester.pump(); // trigger SnackBar animation
 
       expect(
-        find.text(
-          "Join requests are coming soon — you'll be first to know.",
-        ),
+        find.text("Join requests are coming soon — you'll be first to know."),
         findsOneWidget,
       );
     });
@@ -397,11 +377,7 @@ void main() {
       (tester) async {
         final router = _buildTestRouter(initialLocation: '/events/abc123');
 
-        await _pumpRouter(
-          tester,
-          router,
-          sessionState: _authenticatedState,
-        );
+        await _pumpRouter(tester, router, sessionState: _authenticatedState);
 
         // The stub event-detail page must be visible.
         expect(find.byKey(_kEventDetailStubKey), findsOneWidget);
@@ -417,17 +393,13 @@ void main() {
       (tester) async {
         final router = _buildTestRouter(initialLocation: '/events');
 
-        await _pumpRouter(
-          tester,
-          router,
-          sessionState: _authenticatedState,
-        );
+        await _pumpRouter(tester, router, sessionState: _authenticatedState);
 
         // Shell with NavigationBar is visible on /events.
         expect(find.byType(NavigationBar), findsOneWidget);
 
         // Navigate to detail.
-        router.push('/events/abc123');
+        unawaited(router.push('/events/abc123'));
         await tester.pumpAndSettle();
 
         expect(find.byKey(_kEventDetailStubKey), findsOneWidget);
@@ -435,28 +407,23 @@ void main() {
       },
     );
 
-    testWidgets(
-      'popping /events/:id from the stack restores NavigationBar',
-      (tester) async {
-        final router = _buildTestRouter(initialLocation: '/events');
+    testWidgets('popping /events/:id from the stack restores NavigationBar', (
+      tester,
+    ) async {
+      final router = _buildTestRouter(initialLocation: '/events');
 
-        await _pumpRouter(
-          tester,
-          router,
-          sessionState: _authenticatedState,
-        );
+      await _pumpRouter(tester, router, sessionState: _authenticatedState);
 
-        router.push('/events/abc123');
-        await tester.pumpAndSettle();
+      unawaited(router.push('/events/abc123'));
+      await tester.pumpAndSettle();
 
-        expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(NavigationBar), findsNothing);
 
-        router.pop();
-        await tester.pumpAndSettle();
+      router.pop();
+      await tester.pumpAndSettle();
 
-        expect(find.byType(NavigationBar), findsOneWidget);
-        expect(find.byType(DiscoverPage), findsOneWidget);
-      },
-    );
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(DiscoverPage), findsOneWidget);
+    });
   });
 }

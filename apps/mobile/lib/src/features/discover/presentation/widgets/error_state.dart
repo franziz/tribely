@@ -43,9 +43,9 @@ class ErrorState extends StatelessWidget {
               onTap: onRetry,
               child: Text(
                 'Retry',
-                style: TribelyType.bodyM(TribelyColors.paperPrimary).copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TribelyType.bodyM(
+                  TribelyColors.paperPrimary,
+                ).copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ],

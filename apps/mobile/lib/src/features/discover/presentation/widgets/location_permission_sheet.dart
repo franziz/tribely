@@ -84,10 +84,7 @@ class LocationPermissionSheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Primary CTA
-          PrimaryButton(
-            label: 'Allow location',
-            onPressed: onAllow,
-          ),
+          PrimaryButton(label: 'Allow location', onPressed: onAllow),
           const SizedBox(height: 12),
           // Secondary CTA (A2 SecondaryButton)
           SecondaryButton(
@@ -121,9 +118,7 @@ Future<void> showLocationPermissionSheet(
     // accidental outside-tap from leaving the allow/decline state ambiguous.
     isDismissible: false,
     enableDrag: false,
-    builder: (_) => LocationPermissionSheet(
-      onAllow: onAllow,
-      onDecline: onDecline,
-    ),
+    builder: (_) =>
+        LocationPermissionSheet(onAllow: onAllow, onDecline: onDecline),
   );
 }

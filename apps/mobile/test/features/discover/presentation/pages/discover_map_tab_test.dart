@@ -30,6 +30,7 @@ import 'package:tribely/src/features/discover/presentation/controllers/discover_
 import 'package:tribely/src/features/discover/presentation/pages/discover_map_tab.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
+import 'package:tribely/src/features/discover/presentation/widgets/event_map_marker.dart';
 import 'package:tribely/src/features/discover/presentation/widgets/map_event_bottom_sheet.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
@@ -111,11 +112,7 @@ Future<void> _pumpMapTab(
         ),
         locationServiceProvider.overrideWithValue(mockLocationService),
       ],
-      child: const MaterialApp(
-        home: Scaffold(
-          body: DiscoverMapTab(),
-        ),
-      ),
+      child: const MaterialApp(home: Scaffold(body: DiscoverMapTab())),
     ),
   );
 
@@ -137,43 +134,37 @@ void main() {
     // -----------------------------------------------------------------------
     // 1. FlutterMap renders regardless of state
     // -----------------------------------------------------------------------
-    testWidgets(
-      'renders FlutterMap in loading state without crashing',
-      (tester) async {
-        await _pumpMapTab(tester, discoverState: const DiscoverLoading());
+    testWidgets('renders FlutterMap in loading state without crashing', (
+      tester,
+    ) async {
+      await _pumpMapTab(tester, discoverState: const DiscoverLoading());
 
-        // FlutterMap must be in the widget tree.
-        expect(find.byType(FlutterMap), findsOneWidget);
-      },
-    );
+      // FlutterMap must be in the widget tree.
+      expect(find.byType(FlutterMap), findsOneWidget);
+    });
 
-    testWidgets(
-      'renders FlutterMap in loaded state with events',
-      (tester) async {
-        final events = [_makeEvent('e1'), _makeEvent('e2')];
-        await _pumpMapTab(
-          tester,
-          discoverState: DiscoverLoaded(
-            events: events,
-            nextCursor: null,
-          ),
-        );
+    testWidgets('renders FlutterMap in loaded state with events', (
+      tester,
+    ) async {
+      final events = [_makeEvent('e1'), _makeEvent('e2')];
+      await _pumpMapTab(
+        tester,
+        discoverState: DiscoverLoaded(events: events, nextCursor: null),
+      );
 
-        expect(find.byType(FlutterMap), findsOneWidget);
-      },
-    );
+      expect(find.byType(FlutterMap), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // 2. Loading state → no bottom sheet, no crash
     // -----------------------------------------------------------------------
-    testWidgets(
-      'loading state: MapEventBottomSheet is not visible',
-      (tester) async {
-        await _pumpMapTab(tester, discoverState: const DiscoverLoading());
+    testWidgets('loading state: MapEventBottomSheet is not visible', (
+      tester,
+    ) async {
+      await _pumpMapTab(tester, discoverState: const DiscoverLoading());
 
-        expect(find.byType(MapEventBottomSheet), findsNothing);
-      },
-    );
+      expect(find.byType(MapEventBottomSheet), findsNothing);
+    });
 
     // -----------------------------------------------------------------------
     // 3. Tapping a marker opens MapEventBottomSheet
@@ -183,57 +174,48 @@ void main() {
     // onTap is wired (the marker child). Since flutter_map renders markers as
     // regular Flutter widgets we can find and tap them.
     // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping a marker opens MapEventBottomSheet',
-      (tester) async {
-        final event = _makeEvent('e1');
-        await _pumpMapTab(
-          tester,
-          discoverState: DiscoverLoaded(
-            events: [event],
-            nextCursor: null,
-          ),
+    testWidgets('tapping a marker opens MapEventBottomSheet', (tester) async {
+      final event = _makeEvent('e1');
+      await _pumpMapTab(
+        tester,
+        discoverState: DiscoverLoaded(events: [event], nextCursor: null),
+      );
+
+      // Allow the cluster layer to build markers.
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // The EventMapMarker is the child of the GestureDetector in _buildMarker.
+      // Find it by type — if the cluster layer renders at this zoom there
+      // should be exactly one.
+      final markerFinders = find.byType(EventMapMarker);
+      if (markerFinders.evaluate().isEmpty) {
+        // Cluster layer may have merged or marker may not be within viewport;
+        // skip the tap assertion — visual correctness is smoke-test territory.
+        markTestSkipped(
+          'Marker not rendered in widget-test viewport — covered by smoke test.',
         );
+        return;
+      }
 
-        // Allow the cluster layer to build markers.
-        await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(markerFinders.first);
+      await tester.pumpAndSettle();
 
-        // The EventMapMarker is the child of the GestureDetector in _buildMarker.
-        // Find it by type — if the cluster layer renders at this zoom there
-        // should be exactly one.
-        final markerFinders = find.byType(EventMapMarker);
-        if (markerFinders.evaluate().isEmpty) {
-          // Cluster layer may have merged or marker may not be within viewport;
-          // skip the tap assertion — visual correctness is smoke-test territory.
-          markTestSkipped(
-            'Marker not rendered in widget-test viewport — covered by smoke test.',
-          );
-          return;
-        }
-
-        await tester.tap(markerFinders.first);
-        await tester.pumpAndSettle();
-
-        expect(find.byType(MapEventBottomSheet), findsOneWidget);
-      },
-    );
+      expect(find.byType(MapEventBottomSheet), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // 4. Empty state → no markers rendered
     // -----------------------------------------------------------------------
-    testWidgets(
-      'empty state: no EventMapMarker widgets rendered',
-      (tester) async {
-        await _pumpMapTab(
-          tester,
-          discoverState: const DiscoverEmpty(
-            DiscoverEmptyReason.noEventsInArea,
-          ),
-        );
+    testWidgets('empty state: no EventMapMarker widgets rendered', (
+      tester,
+    ) async {
+      await _pumpMapTab(
+        tester,
+        discoverState: const DiscoverEmpty(DiscoverEmptyReason.noEventsInArea),
+      );
 
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(find.byType(EventMapMarker), findsNothing);
-      },
-    );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(EventMapMarker), findsNothing);
+    });
   });
 }

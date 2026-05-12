@@ -124,9 +124,7 @@ Future<void> configureDependencies() async {
   );
 
   // Discover — use cases
-  sl.registerLazySingleton(
-    () => BrowseEventsUseCase(sl<DiscoverRepository>()),
-  );
+  sl.registerLazySingleton(() => BrowseEventsUseCase(sl<DiscoverRepository>()));
   sl.registerLazySingleton(
     () => GetEventDetailUseCase(sl<DiscoverRepository>()),
   );

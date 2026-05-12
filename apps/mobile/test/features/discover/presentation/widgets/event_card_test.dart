@@ -41,7 +41,8 @@ Event _makeEvent({
   title: title,
   description: 'A great evening out.',
   venue: _testVenue,
-  startsAt: startsAt ?? DateTime.utc(2026, 6, 14, 19, 0), // Sun 14 Jun · 7:00 PM
+  startsAt:
+      startsAt ?? DateTime.utc(2026, 6, 14, 19, 0), // Sun 14 Jun · 7:00 PM
   endsAt: DateTime.utc(2026, 6, 14, 22, 0),
   capacity: capacity,
   category: category,
@@ -65,9 +66,7 @@ GoRouter _buildRouter({required Event event}) {
     routes: [
       GoRoute(
         path: '/test',
-        builder: (_, _) => Scaffold(
-          body: EventCard(event: event),
-        ),
+        builder: (_, _) => Scaffold(body: EventCard(event: event)),
       ),
       GoRoute(
         path: '/events/:id',
@@ -106,8 +105,9 @@ void main() {
       expect(find.text('Sunset Drinks at Rooftop'), findsOneWidget);
     });
 
-    testWidgets('2. renders datetime in expected format with SGT suffix',
-        (tester) async {
+    testWidgets('2. renders datetime in expected format with SGT suffix', (
+      tester,
+    ) async {
       // startsAt = 2026-06-14T19:00Z UTC → rendered via DateFormat
       // The exact day label depends on locale; we check the suffix "SGT".
       await _pumpCard(tester, _makeEvent());

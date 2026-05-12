@@ -30,9 +30,7 @@ Future<void> _pumpEmptyState(
           routes: [
             GoRoute(
               path: '/test',
-              builder: (_, _) => Scaffold(
-                body: EmptyState(reason: reason),
-              ),
+              builder: (_, _) => Scaffold(body: EmptyState(reason: reason)),
             ),
             GoRoute(
               path: '/events/new',
@@ -51,33 +49,19 @@ void main() {
   group('EmptyState', () {
     group('noEventsMatchFilters', () {
       testWidgets('1. renders headline "Nothing here yet"', (tester) async {
-        await _pumpEmptyState(
-          tester,
-          DiscoverEmptyReason.noEventsMatchFilters,
-        );
+        await _pumpEmptyState(tester, DiscoverEmptyReason.noEventsMatchFilters);
         expect(find.text('Nothing here yet'), findsOneWidget);
       });
 
-      testWidgets('2. renders SecondaryButton "Reset filters"', (
-        tester,
-      ) async {
-        await _pumpEmptyState(
-          tester,
-          DiscoverEmptyReason.noEventsMatchFilters,
-        );
+      testWidgets('2. renders SecondaryButton "Reset filters"', (tester) async {
+        await _pumpEmptyState(tester, DiscoverEmptyReason.noEventsMatchFilters);
         expect(find.byType(SecondaryButton), findsOneWidget);
         expect(find.text('Reset filters'), findsOneWidget);
       });
 
       testWidgets('3. renders body copy', (tester) async {
-        await _pumpEmptyState(
-          tester,
-          DiscoverEmptyReason.noEventsMatchFilters,
-        );
-        expect(
-          find.text('Try a different time or category.'),
-          findsOneWidget,
-        );
+        await _pumpEmptyState(tester, DiscoverEmptyReason.noEventsMatchFilters);
+        expect(find.text('Try a different time or category.'), findsOneWidget);
       });
     });
 
@@ -89,9 +73,7 @@ void main() {
         expect(find.text('No events in Singapore yet'), findsOneWidget);
       });
 
-      testWidgets('5. renders PrimaryButton "Create an event"', (
-        tester,
-      ) async {
+      testWidgets('5. renders PrimaryButton "Create an event"', (tester) async {
         await _pumpEmptyState(tester, DiscoverEmptyReason.noEventsInArea);
         expect(find.byType(PrimaryButton), findsOneWidget);
         expect(find.text('Create an event'), findsOneWidget);

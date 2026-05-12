@@ -181,9 +181,9 @@ class _TitleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: TribelyType.bodyL(TribelyColors.paperInkPrimary).copyWith(
-        fontWeight: FontWeight.w600,
-      ),
+      style: TribelyType.bodyL(
+        TribelyColors.paperInkPrimary,
+      ).copyWith(fontWeight: FontWeight.w600),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
@@ -211,7 +211,7 @@ class _DatetimeRow extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(
+        const Icon(
           Icons.schedule_outlined,
           size: 14,
           color: TribelyColors.paperInkSecondary,
@@ -249,7 +249,7 @@ class _ViewDetailsRow extends StatelessWidget {
             style: TribelyType.bodyM(TribelyColors.paperPrimary),
           ),
           const SizedBox(width: 4),
-          Icon(
+          const Icon(
             Icons.chevron_right,
             size: 18,
             color: TribelyColors.paperPrimary,
