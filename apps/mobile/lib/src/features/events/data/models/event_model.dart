@@ -37,14 +37,17 @@ class EventModel extends Equatable {
       // description is nullable on the wire (server allows null)
       description: json['description'] as String?,
       venue: EventVenueModel.fromJson(venueJson),
-      startsAt: DateTime.parse(json['startsAt'] as String),
-      endsAt: DateTime.parse(json['endsAt'] as String),
+      // .toLocal() converts the server's UTC timestamp to the device's local
+      // timezone so display widgets render the correct local time. The domain
+      // Entity stores local DateTimes; the wire always carries UTC (trailing Z).
+      startsAt: DateTime.parse(json['startsAt'] as String).toLocal(),
+      endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
       capacity: (json['capacity'] as num).toInt(),
       category: EventCategory.fromWire(json['category'] as String),
       costSplit: json['costSplit'] as String,
       approvalMode: json['approvalMode'] as String,
       status: json['status'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
     );
   }
 
