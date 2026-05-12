@@ -1,0 +1,76 @@
+import '../../domain/entities/event_category.dart';
+import '../../domain/repositories/event_repository.dart';
+
+/// Converts a domain [CreateEventParams] into the JSON body for POST /events.
+///
+/// Wire shape matches apps/api/src/features/events/presentation/http/schemas/
+/// event.schemas.ts (createEventBodySchema).
+class CreateEventParamsModel {
+  const CreateEventParamsModel({
+    required this.title,
+    required this.description,
+    required this.venueAddress,
+    required this.latitude,
+    required this.longitude,
+    required this.startsAt,
+    required this.endsAt,
+    required this.capacity,
+    required this.category,
+    required this.approvalMode,
+  });
+
+  factory CreateEventParamsModel.fromDomain(CreateEventParams params) {
+    return CreateEventParamsModel(
+      title: params.title.trim(),
+      description: params.description.trim(),
+      venueAddress: params.venueName.trim(),
+      latitude: params.latitude,
+      longitude: params.longitude,
+      startsAt: params.startsAt,
+      endsAt: params.endsAt,
+      capacity: params.capacity,
+      category: params.category,
+      approvalMode: params.approvalMode,
+    );
+  }
+
+  final String title;
+  final String description;
+  final String venueAddress;
+  final double latitude;
+  final double longitude;
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final int capacity;
+  final EventCategory category;
+  final String approvalMode;
+
+  Map<String, dynamic> toJson() {
+    // Hardcoded for Singapore-first launch (per CLAUDE.md). When TRI-23 ships
+    // the map picker, derive city via reverse geocode from lat/lng.
+    const venueCity = 'Singapore';
+
+    // Hardcoded — server requires costSplit enum but CEO ruled v1 has no
+    // structured cost field. PM follow-up filed to add costNotes string? on the
+    // wire and relax/drop costSplit (see TRI-26 EL spec §7.1). Until then, all
+    // v1 events ship as costSplit='own'.
+    const costSplit = 'own';
+
+    return {
+      'title': title,
+      'description': description,
+      'venue': {
+        'address': venueAddress,
+        'city': venueCity,
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+      'startsAt': startsAt.toIso8601String(),
+      'endsAt': endsAt.toIso8601String(),
+      'capacity': capacity,
+      'category': category.wireValue,
+      'costSplit': costSplit,
+      'approvalMode': approvalMode,
+    };
+  }
+}
