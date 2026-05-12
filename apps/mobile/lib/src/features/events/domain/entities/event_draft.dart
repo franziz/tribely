@@ -20,7 +20,9 @@ class EventDraft extends Equatable {
     // not surface it in v1. Storing it in the draft avoids a schema migration
     // when the cost-split UI is added in a future ticket.
     this.costNotes,
-    this.approvalMode,
+    // Tribely's trust posture is vet-before-meet; manual is the safer default
+    // so the user is always in control of who joins their event.
+    this.approvalMode = 'manual',
     this.description,
     this.currentStep = 0,
     this.lastUpdatedAt,
