@@ -65,7 +65,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       if (next is EditProfileSaved) {
         // Invalidate own profile so /profile refetches on return.
         ref.invalidate(myProfileControllerProvider);
-        context.pop();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/profile');
+        }
       }
       // Error is already rendered via bannerMessage in the form body;
       // no additional navigation needed here.
@@ -100,6 +104,16 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/profile');
+            }
+          },
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
