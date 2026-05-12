@@ -350,19 +350,18 @@ void main() {
       },
     );
 
-    testWidgets(
-      'tapping "Not now" does not throw a navigator underflow',
-      (tester) async {
-        await _pumpMapTabWithSheet(tester);
+    testWidgets('tapping "Not now" does not throw a navigator underflow', (
+      tester,
+    ) async {
+      await _pumpMapTabWithSheet(tester);
 
-        expect(find.byType(LocationPermissionSheet), findsOneWidget);
+      expect(find.byType(LocationPermissionSheet), findsOneWidget);
 
-        await tester.tap(find.text('Not now — browse all SG events'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Not now — browse all SG events'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-        expect(tester.takeException(), isNull);
-      },
-    );
+      expect(tester.takeException(), isNull);
+    });
   });
 }
