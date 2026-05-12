@@ -29,10 +29,18 @@ class StepNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
-    final inkSecondary = dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final border = dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
-    final surface = dark ? TribelyColors.nightSurfaceHigh : TribelyColors.paperSurfaceHigh;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+    final surface = dark
+        ? TribelyColors.nightSurfaceHigh
+        : TribelyColors.paperSurfaceHigh;
 
     final isFirstStep = current == 0;
     final isLastStep = current == total - 1;
@@ -54,9 +62,12 @@ class StepNavigationBar extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: isFirstStep ? null : onBack,
                 icon: const Icon(Icons.arrow_back, size: 18),
-                label: Text('Back', style: TribelyType.button(
-                  isFirstStep ? inkSecondary : primary,
-                )),
+                label: Text(
+                  'Back',
+                  style: TribelyType.button(
+                    isFirstStep ? inkSecondary : primary,
+                  ),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: primary,
                   disabledForegroundColor: inkSecondary,
@@ -89,8 +100,8 @@ class StepNavigationBar extends StatelessWidget {
                       style: TribelyType.button(
                         canAdvance
                             ? (dark
-                                ? TribelyColors.nightSurface
-                                : TribelyColors.paperSurfaceHigh)
+                                  ? TribelyColors.nightSurface
+                                  : TribelyColors.paperSurfaceHigh)
                             : inkSecondary,
                       ),
                     ),
@@ -101,8 +112,8 @@ class StepNavigationBar extends StatelessWidget {
                         size: 18,
                         color: canAdvance
                             ? (dark
-                                ? TribelyColors.nightSurface
-                                : TribelyColors.paperSurfaceHigh)
+                                  ? TribelyColors.nightSurface
+                                  : TribelyColors.paperSurfaceHigh)
                             : inkSecondary,
                       ),
                     ],

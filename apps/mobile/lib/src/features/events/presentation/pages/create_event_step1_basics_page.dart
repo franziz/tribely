@@ -47,8 +47,8 @@ class CreateEventStep1BasicsPage extends ConsumerWidget {
             child: Text(
               '$titleMinLen–$titleMaxLen characters',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -67,10 +67,7 @@ class CreateEventStep1BasicsPage extends ConsumerWidget {
             ),
             items: EventCategory.values
                 .map(
-                  (c) => DropdownMenuItem(
-                    value: c,
-                    child: Text(c.displayName),
-                  ),
+                  (c) => DropdownMenuItem(value: c, child: Text(c.displayName)),
                 )
                 .toList(),
             onChanged: (v) =>

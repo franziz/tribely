@@ -28,12 +28,13 @@ class CreateEventStep4LogisticsPage extends ConsumerWidget {
     final errors = state.fieldErrors;
 
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -55,8 +56,7 @@ class CreateEventStep4LogisticsPage extends ConsumerWidget {
               // UI clamp: silently cap at capacityUiClamp so the user can't
               // accidentally enter a value the UI is not designed for. Server
               // still enforces its own maximum of capacityMax = 1000.
-              final clamped =
-                  parsed?.clamp(capacityMin, capacityUiClamp);
+              final clamped = parsed?.clamp(capacityMin, capacityUiClamp);
               controller.updateField(field: 'capacity', value: clamped);
             },
           ),

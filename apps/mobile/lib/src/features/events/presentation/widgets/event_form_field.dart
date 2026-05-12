@@ -38,12 +38,22 @@ class EventFormField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink = dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary = dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final border = dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
     final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final surface = dark ? TribelyColors.nightSurfaceHigh : TribelyColors.paperSurfaceHigh;
+    final surface = dark
+        ? TribelyColors.nightSurfaceHigh
+        : TribelyColors.paperSurfaceHigh;
 
     // TextFormField.initialValue only sets the value once on first build.
     // Because step pages are rebuilt from controller state, we use a key-reset
@@ -69,7 +79,10 @@ class EventFormField extends StatelessWidget {
         errorStyle: TribelyType.caption(accent),
         filled: true,
         fillColor: surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: border, width: 1.5),

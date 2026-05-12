@@ -45,17 +45,17 @@ class CreateEventParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        title,
-        category,
-        venueName,
-        latitude,
-        longitude,
-        startsAt,
-        endsAt,
-        capacity,
-        approvalMode,
-        description,
-      ];
+    title,
+    category,
+    venueName,
+    latitude,
+    longitude,
+    startsAt,
+    endsAt,
+    capacity,
+    approvalMode,
+    description,
+  ];
 }
 
 // ---------------------------------------------------------------------------

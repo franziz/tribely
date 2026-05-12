@@ -15,8 +15,8 @@ class EventRepositoryImpl implements EventRepository {
   const EventRepositoryImpl({
     required EventRemoteDatasource remote,
     required EventDraftLocalDatasource local,
-  })  : _remote = remote,
-        _local = local;
+  }) : _remote = remote,
+       _local = local;
 
   final EventRemoteDatasource _remote;
   final EventDraftLocalDatasource _local;

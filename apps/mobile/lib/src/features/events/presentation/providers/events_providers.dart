@@ -35,5 +35,5 @@ final clearEventDraftUseCaseProvider = Provider<ClearEventDraftUseCase>(
 
 final createEventControllerProvider =
     NotifierProvider<CreateEventController, CreateEventState>(
-  CreateEventController.new,
-);
+      CreateEventController.new,
+    );

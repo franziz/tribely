@@ -104,13 +104,7 @@ Future<void> configureDependencies() async {
 
   // Events — use cases
   sl.registerLazySingleton(() => CreateEventUseCase(sl<EventRepository>()));
-  sl.registerLazySingleton(
-    () => SaveEventDraftUseCase(sl<EventRepository>()),
-  );
-  sl.registerLazySingleton(
-    () => LoadEventDraftUseCase(sl<EventRepository>()),
-  );
-  sl.registerLazySingleton(
-    () => ClearEventDraftUseCase(sl<EventRepository>()),
-  );
+  sl.registerLazySingleton(() => SaveEventDraftUseCase(sl<EventRepository>()));
+  sl.registerLazySingleton(() => LoadEventDraftUseCase(sl<EventRepository>()));
+  sl.registerLazySingleton(() => ClearEventDraftUseCase(sl<EventRepository>()));
 }

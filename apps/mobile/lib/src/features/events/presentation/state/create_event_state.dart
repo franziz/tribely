@@ -51,13 +51,12 @@ final class CreateEventEditing extends CreateEventState {
     int? currentStep,
     Map<String, String?>? fieldErrors,
     bool? isResuming,
-  }) =>
-      CreateEventEditing(
-        formData: formData ?? this.formData,
-        currentStep: currentStep ?? this.currentStep,
-        fieldErrors: fieldErrors ?? this.fieldErrors,
-        isResuming: isResuming ?? this.isResuming,
-      );
+  }) => CreateEventEditing(
+    formData: formData ?? this.formData,
+    currentStep: currentStep ?? this.currentStep,
+    fieldErrors: fieldErrors ?? this.fieldErrors,
+    isResuming: isResuming ?? this.isResuming,
+  );
 
   @override
   List<Object?> get props => [formData, currentStep, fieldErrors, isResuming];

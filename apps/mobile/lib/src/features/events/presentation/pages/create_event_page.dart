@@ -76,7 +76,9 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
     // ---------------------------------------------------------------------------
     ref.listen<CreateEventState>(createEventControllerProvider, (prev, next) {
       // Resume-draft dialog — shown exactly once after isResuming is set.
-      if (next is CreateEventEditing && next.isResuming && !_resumeDialogShown) {
+      if (next is CreateEventEditing &&
+          next.isResuming &&
+          !_resumeDialogShown) {
         _resumeDialogShown = true;
         showDialog<void>(
           context: context,
@@ -97,9 +99,9 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
       if (next is CreateEventSubmissionSuccess) {
         // TODO(TRI-37): when event detail page lands, replace with /events/${next.eventId}
         context.go('/my-events');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Event created!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Event created!')));
       }
 
       // Submission error — navigate to the offending step and show banner.
@@ -107,9 +109,9 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
         _animateToStep(next.returnToStep);
         final banner = next.fieldErrors['_banner'];
         if (banner != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(banner)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(banner)));
         }
       }
     });
@@ -132,8 +134,9 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
     };
 
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final surface =
-        dark ? TribelyColors.nightSurface : TribelyColors.paperSurface;
+    final surface = dark
+        ? TribelyColors.nightSurface
+        : TribelyColors.paperSurface;
 
     return Scaffold(
       backgroundColor: surface,

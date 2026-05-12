@@ -23,19 +23,24 @@ class ResumeDraftDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink = dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary = dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
     final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final surface = dark ? TribelyColors.nightSurfaceHigh : TribelyColors.paperSurfaceHigh;
+    final surface = dark
+        ? TribelyColors.nightSurfaceHigh
+        : TribelyColors.paperSurfaceHigh;
 
     return AlertDialog(
       backgroundColor: surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(
-        'Resume your draft?',
-        style: TribelyType.headline(ink),
-      ),
+      title: Text('Resume your draft?', style: TribelyType.headline(ink)),
       content: Text(
         'You have an unfinished event draft. Continue where you left off, or start fresh.',
         style: TribelyType.bodyM(inkSecondary),
@@ -63,7 +68,9 @@ class ResumeDraftDialog extends StatelessWidget {
           child: Text(
             'Resume',
             style: TribelyType.button(
-              dark ? TribelyColors.nightSurface : TribelyColors.paperSurfaceHigh,
+              dark
+                  ? TribelyColors.nightSurface
+                  : TribelyColors.paperSurfaceHigh,
             ),
           ),
         ),

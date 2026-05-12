@@ -29,10 +29,12 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
     final errors = state.fieldErrors;
 
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final border =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -99,11 +101,7 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.map_outlined,
-                  size: 18,
-                  color: inkSecondary,
-                ),
+                Icon(Icons.map_outlined, size: 18, color: inkSecondary),
                 const SizedBox(width: 8),
                 Text(
                   'Tap to pick on map (coming soon)',

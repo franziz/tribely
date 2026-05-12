@@ -96,24 +96,25 @@ class _DateTimePicker extends StatelessWidget {
     );
     if (time == null) return;
 
-    onPicked(
-      DateTime(date.year, date.month, date.day, time.hour, time.minute),
-    );
+    onPicked(DateTime(date.year, date.month, date.day, time.hour, time.minute));
   }
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final border =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
-    final primary =
-        dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
-    final accent =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
 
     final hasError = errorText != null && errorText!.isNotEmpty;
 
@@ -162,10 +163,7 @@ class _DateTimePicker extends StatelessWidget {
           const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.only(left: 12),
-            child: Text(
-              errorText!,
-              style: TribelyType.caption(accent),
-            ),
+            child: Text(errorText!, style: TribelyType.caption(accent)),
           ),
         ],
       ],
@@ -177,8 +175,9 @@ class _TimezoneLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
 
     return Row(
       children: [

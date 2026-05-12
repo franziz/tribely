@@ -13,7 +13,10 @@ class StepProgressIndicator extends StatelessWidget {
     required this.current,
     required this.total,
     super.key,
-  }) : assert(current >= 1 && current <= total, 'current must be in range 1..total');
+  }) : assert(
+         current >= 1 && current <= total,
+         'current must be in range 1..total',
+       );
 
   final int current;
   final int total;
@@ -21,8 +24,12 @@ class StepProgressIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
-    final border = dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

@@ -61,39 +61,38 @@ class Event extends Equatable {
     String? approvalMode,
     String? status,
     DateTime? createdAt,
-  }) =>
-      Event(
-        id: id ?? this.id,
-        hostId: hostId ?? this.hostId,
-        title: title ?? this.title,
-        description: description ?? this.description,
-        venue: venue ?? this.venue,
-        startsAt: startsAt ?? this.startsAt,
-        endsAt: endsAt ?? this.endsAt,
-        capacity: capacity ?? this.capacity,
-        category: category ?? this.category,
-        costSplit: costSplit ?? this.costSplit,
-        approvalMode: approvalMode ?? this.approvalMode,
-        status: status ?? this.status,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  }) => Event(
+    id: id ?? this.id,
+    hostId: hostId ?? this.hostId,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    venue: venue ?? this.venue,
+    startsAt: startsAt ?? this.startsAt,
+    endsAt: endsAt ?? this.endsAt,
+    capacity: capacity ?? this.capacity,
+    category: category ?? this.category,
+    costSplit: costSplit ?? this.costSplit,
+    approvalMode: approvalMode ?? this.approvalMode,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+  );
 
   @override
   List<Object?> get props => [
-        id,
-        hostId,
-        title,
-        description,
-        venue,
-        startsAt,
-        endsAt,
-        capacity,
-        category,
-        costSplit,
-        approvalMode,
-        status,
-        createdAt,
-      ];
+    id,
+    hostId,
+    title,
+    description,
+    venue,
+    startsAt,
+    endsAt,
+    capacity,
+    category,
+    costSplit,
+    approvalMode,
+    status,
+    createdAt,
+  ];
 }
 
 /// Venue sub-value embedded in [Event]. Mirrors the server's Venue value

@@ -16,14 +16,14 @@ enum EventCategory {
 
   /// Title-Case display name for UI labels.
   String get displayName => switch (this) {
-        EventCategory.drinks => 'Drinks',
-        EventCategory.food => 'Food',
-        EventCategory.hike => 'Hike',
-        EventCategory.museum => 'Museum',
-        EventCategory.sports => 'Sports',
-        EventCategory.nightlife => 'Nightlife',
-        EventCategory.other => 'Other',
-      };
+    EventCategory.drinks => 'Drinks',
+    EventCategory.food => 'Food',
+    EventCategory.hike => 'Hike',
+    EventCategory.museum => 'Museum',
+    EventCategory.sports => 'Sports',
+    EventCategory.nightlife => 'Nightlife',
+    EventCategory.other => 'Other',
+  };
 
   /// Defensive parser: unknown values fall back to [EventCategory.other]
   /// instead of throwing, so unrecognised future server values don't crash

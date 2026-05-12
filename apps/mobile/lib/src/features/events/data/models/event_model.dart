@@ -65,37 +65,37 @@ class EventModel extends Equatable {
   /// Map to the domain [Event] entity. The domain field is named [hostId];
   /// the server wire field is [hostUserId] — translation lives here.
   Event toEntity() => Event(
-        id: id,
-        hostId: hostUserId,
-        title: title,
-        description: description,
-        venue: venue.toEntity(),
-        startsAt: startsAt,
-        endsAt: endsAt,
-        capacity: capacity,
-        category: category,
-        costSplit: costSplit,
-        approvalMode: approvalMode,
-        status: status,
-        createdAt: createdAt,
-      );
+    id: id,
+    hostId: hostUserId,
+    title: title,
+    description: description,
+    venue: venue.toEntity(),
+    startsAt: startsAt,
+    endsAt: endsAt,
+    capacity: capacity,
+    category: category,
+    costSplit: costSplit,
+    approvalMode: approvalMode,
+    status: status,
+    createdAt: createdAt,
+  );
 
   @override
   List<Object?> get props => [
-        id,
-        hostUserId,
-        title,
-        description,
-        venue,
-        startsAt,
-        endsAt,
-        capacity,
-        category,
-        costSplit,
-        approvalMode,
-        status,
-        createdAt,
-      ];
+    id,
+    hostUserId,
+    title,
+    description,
+    venue,
+    startsAt,
+    endsAt,
+    capacity,
+    category,
+    costSplit,
+    approvalMode,
+    status,
+    createdAt,
+  ];
 }
 
 /// JSON model for the venue sub-object embedded in [EventModel].
@@ -122,11 +122,11 @@ class EventVenueModel extends Equatable {
   final double longitude;
 
   EventVenue toEntity() => EventVenue(
-        address: address,
-        city: city,
-        latitude: latitude,
-        longitude: longitude,
-      );
+    address: address,
+    city: city,
+    latitude: latitude,
+    longitude: longitude,
+  );
 
   @override
   List<Object?> get props => [address, city, latitude, longitude];

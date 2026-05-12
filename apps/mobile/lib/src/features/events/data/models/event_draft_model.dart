@@ -39,8 +39,7 @@ class EventDraftModel {
       approvalMode: entity.approvalMode,
       description: entity.description,
       currentStep: entity.currentStep,
-      lastUpdatedAt:
-          (entity.lastUpdatedAt ?? DateTime.now()).toIso8601String(),
+      lastUpdatedAt: (entity.lastUpdatedAt ?? DateTime.now()).toIso8601String(),
     );
   }
 

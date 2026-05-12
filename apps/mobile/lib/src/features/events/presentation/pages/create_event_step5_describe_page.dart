@@ -33,12 +33,15 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
     final errors = state.fieldErrors;
 
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final border =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -104,7 +107,11 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
                 _ReviewRow(
                   icon: Icons.place_outlined,
                   label: 'Venue',
-                  value: _venueReview(draft.venueName, draft.latitude, draft.longitude),
+                  value: _venueReview(
+                    draft.venueName,
+                    draft.latitude,
+                    draft.longitude,
+                  ),
                   onEdit: () => controller.goToStep(1),
                   showDivider: true,
                 ),
@@ -161,9 +168,7 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
     final parts = <String>[];
     if (capacity != null) parts.add('$capacity people');
     if (approvalMode != null) {
-      parts.add(
-        approvalMode == 'auto' ? 'Auto-approve' : 'Manual approval',
-      );
+      parts.add(approvalMode == 'auto' ? 'Auto-approve' : 'Manual approval');
     }
     return parts.isEmpty ? '—' : parts.join(' · ');
   }
@@ -187,14 +192,18 @@ class _ReviewRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
-    final inkSecondary =
-        dark ? TribelyColors.nightInkSecondary : TribelyColors.paperInkSecondary;
-    final border =
-        dark ? TribelyColors.nightBorderSubtle : TribelyColors.paperBorderSubtle;
-    final primary =
-        dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final inkSecondary = dark
+        ? TribelyColors.nightInkSecondary
+        : TribelyColors.paperInkSecondary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
 
     return Column(
       children: [
@@ -225,7 +234,8 @@ class _ReviewRow extends StatelessWidget {
             ],
           ),
         ),
-        if (showDivider) Divider(color: border, height: 1, indent: 16, endIndent: 16),
+        if (showDivider)
+          Divider(color: border, height: 1, indent: 16, endIndent: 16),
       ],
     );
   }

@@ -73,7 +73,9 @@ class CreateEventController extends Notifier<CreateEventState> {
     result.fold(
       (failure) {
         // Draft load failure — log and start fresh. Don't block the create flow.
-        debugPrint('[CreateEventController] Failed to load draft: ${failure.message}');
+        debugPrint(
+          '[CreateEventController] Failed to load draft: ${failure.message}',
+        );
         // state is already the fresh editing state set by build(); nothing to do.
       },
       (draft) {
@@ -226,14 +228,26 @@ class CreateEventController extends Notifier<CreateEventState> {
     // validator-gating bug and must surface loudly in development.
     assert(draft.title != null, 'title must not be null at submit time');
     assert(draft.category != null, 'category must not be null at submit time');
-    assert(draft.venueName != null, 'venueName must not be null at submit time');
+    assert(
+      draft.venueName != null,
+      'venueName must not be null at submit time',
+    );
     assert(draft.latitude != null, 'latitude must not be null at submit time');
-    assert(draft.longitude != null, 'longitude must not be null at submit time');
+    assert(
+      draft.longitude != null,
+      'longitude must not be null at submit time',
+    );
     assert(draft.startsAt != null, 'startsAt must not be null at submit time');
     assert(draft.endsAt != null, 'endsAt must not be null at submit time');
     assert(draft.capacity != null, 'capacity must not be null at submit time');
-    assert(draft.approvalMode != null, 'approvalMode must not be null at submit time');
-    assert(draft.description != null, 'description must not be null at submit time');
+    assert(
+      draft.approvalMode != null,
+      'approvalMode must not be null at submit time',
+    );
+    assert(
+      draft.description != null,
+      'description must not be null at submit time',
+    );
 
     final params = CreateEventParams(
       title: draft.title!,
@@ -255,7 +269,8 @@ class CreateEventController extends Notifier<CreateEventState> {
     if (!ref.mounted) return;
 
     await result.fold(
-      (failure) async => _handleSubmitFailure(failure, draft, current.currentStep),
+      (failure) async =>
+          _handleSubmitFailure(failure, draft, current.currentStep),
       (event) async {
         final clearUseCase = ref.read(clearEventDraftUseCaseProvider);
         await clearUseCase(const NoParams());
@@ -272,29 +287,24 @@ class CreateEventController extends Notifier<CreateEventState> {
   ) {
     final (returnToStep, fieldErrors) = switch (failure) {
       ValidationFailure(:final fieldErrors) when fieldErrors != null => (
-          _stepForFirstFieldError(fieldErrors, currentStep),
-          _flattenFieldErrors(fieldErrors),
-        ),
+        _stepForFirstFieldError(fieldErrors, currentStep),
+        _flattenFieldErrors(fieldErrors),
+      ),
       ValidationFailure() => (
-          currentStep,
-          <String, String?>{'_banner': failure.message},
-        ),
+        currentStep,
+        <String, String?>{'_banner': failure.message},
+      ),
       EmailNotVerifiedFailure() => (
-          currentStep,
-          <String, String?>{
-            '_banner': 'Please verify your email to create an event.',
-          },
-        ),
+        currentStep,
+        <String, String?>{
+          '_banner': 'Please verify your email to create an event.',
+        },
+      ),
       NetworkFailure() => (
-          currentStep,
-          <String, String?>{
-            '_banner': "You're offline. Please try again.",
-          },
-        ),
-      _ => (
-          currentStep,
-          <String, String?>{'_banner': failure.message},
-        ),
+        currentStep,
+        <String, String?>{'_banner': "You're offline. Please try again."},
+      ),
+      _ => (currentStep, <String, String?>{'_banner': failure.message}),
     };
 
     state = CreateEventSubmissionError(
