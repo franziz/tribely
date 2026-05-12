@@ -22,6 +22,7 @@ These are **non-negotiable**:
 - **Orchestrator never edits files, never runs `npm`/`flutter`/`prisma`/migrations, never writes to Linear, never commits.** All execution is delegated. The orchestrator's job is routing, relaying, and gating.
   - **Even in the qa loop, the orchestrator does not run `format:check` / `analyze` / `test` / `lint` directly after a SWE fix.** Either trust SWE's inline verification (SWE typically runs these locally before reporting) or re-spawn `qa` to confirm clean. Read-only `git status` / `git log` / `git diff` for routing decisions is fine; npm/flutter invocations are not.
 - **Branch-first is mandatory.** Step 1 (branch creation) MUST complete before any agent that produces code is spawned. No exceptions.
+- **Every `Agent` spawn MUST set `run_in_background: true`.** No exceptions — applies to PM, CEO, designer, EL, SWE, architecture-reviewer, qa, and any re-spawns. Rationale: agent runs are long (often minutes to hours of wall time), and foreground spawns block the orchestrator's context on a stalled tool call while the user has no way to interject. Backgrounded spawns let the orchestrator emit status to the user, accept new instructions, and resume on the completion notification. The harness auto-notifies on completion — do NOT poll or sleep. Sequential dependencies still work: spawn the next step when the prior background spawn's completion notification arrives. Parallel spawns in one message remain the right pattern for independent work; they just all run in background.
 - **`software-engineer` is never spawned directly by the orchestrator.** SWE invocations are scoped by `engineering-lead`'s technical brief — EL owns the WHO/WHAT/HOW of each SWE task. The orchestrator may spawn multiple SWE agents in parallel based on EL's plan, but each SWE prompt is EL's brief, not the orchestrator's improvisation.
 - **Linear writes are `product-manager`'s territory only.** EL, SWE, reviewer, qa MUST NOT write to Linear. If EL identifies follow-up work, they surface it to PM (via the orchestrator) for PM to file.
 - **Architecture-reviewer and qa report to EL via the orchestrator.** Without Agent Teams, there is no direct messaging — orchestrator relays. EL decides what's fix-now vs. fix-followup vs. accept-with-rationale.
@@ -121,9 +122,9 @@ If EL surfaces a technical constraint that breaks the designer's spec (e.g., "th
 
 For each sub-task in EL's plan:
 
-- Spawn `software-engineer` with EL's per-task brief as the prompt (verbatim, no editorializing by the orchestrator).
-- **Independent sub-tasks run in parallel** — emit a single message containing multiple Agent tool calls.
-- **Dependent sub-tasks run sequentially** — wait for the dependency to report complete before spawning the dependent.
+- Spawn `software-engineer` with EL's per-task brief as the prompt (verbatim, no editorializing by the orchestrator). **`run_in_background: true`** per the Hard constraints — applies to every spawn here.
+- **Independent sub-tasks run in parallel** — emit a single message containing multiple Agent tool calls (all backgrounded). Wait for the batch's completion notifications before starting the next round.
+- **Dependent sub-tasks run sequentially** — wait for the dependency's background completion notification before spawning the dependent.
 
 SWE's job per sub-task:
 
