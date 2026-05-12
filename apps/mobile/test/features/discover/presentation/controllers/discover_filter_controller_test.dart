@@ -256,13 +256,18 @@ void main() {
           final container = ProviderContainer();
           addTearDown(container.dispose);
 
+          // Eagerly initialise both providers so ref.listen is active.
           container.read(discoverFilterControllerProvider);
+          container.read(debouncedFiltersProvider);
+
           final controller = container.read(
             discoverFilterControllerProvider.notifier,
           );
 
           final emissions = <DiscoverFiltersActive>[];
-          final sub = controller.debouncedStream.listen(emissions.add);
+          final sub = container
+              .read(debouncedFiltersProvider.stream)
+              .listen(emissions.add);
 
           // Fire 5 taps — each resets the 250ms timer.
           // Advance 20ms between taps so total elapsed ≈ 100ms (< 250ms).
@@ -319,12 +324,16 @@ void main() {
           addTearDown(container.dispose);
 
           container.read(discoverFilterControllerProvider);
+          container.read(debouncedFiltersProvider);
+
           final controller = container.read(
             discoverFilterControllerProvider.notifier,
           );
 
           final emissions = <DiscoverFiltersActive>[];
-          final sub = controller.debouncedStream.listen(emissions.add);
+          final sub = container
+              .read(debouncedFiltersProvider.stream)
+              .listen(emissions.add);
 
           controller.setTimeWindow(TimeWindow.tonight);
           async.elapse(const Duration(milliseconds: 300)); // fires 1st timer
@@ -347,16 +356,21 @@ void main() {
         addTearDown(container.dispose);
 
         container.read(discoverFilterControllerProvider);
+        container.read(debouncedFiltersProvider);
+
         final controller = container.read(
           discoverFilterControllerProvider.notifier,
         );
 
-        // Set some state first.
+        // Set some state first and let the debounce timer fire so the stream
+        // has an active listener before calling reset().
         controller.setTimeWindow(TimeWindow.tonight);
         async.elapse(const Duration(milliseconds: 300));
 
         final emissions = <DiscoverFiltersActive>[];
-        final sub = controller.debouncedStream.listen(emissions.add);
+        final sub = container
+            .read(debouncedFiltersProvider.stream)
+            .listen(emissions.add);
 
         controller.reset();
         async.elapse(const Duration(milliseconds: 250));
@@ -376,12 +390,16 @@ void main() {
         addTearDown(container.dispose);
 
         container.read(discoverFilterControllerProvider);
+        container.read(debouncedFiltersProvider);
+
         final controller = container.read(
           discoverFilterControllerProvider.notifier,
         );
 
         final emissions = <DiscoverFiltersActive>[];
-        final sub = controller.debouncedStream.listen(emissions.add);
+        final sub = container
+            .read(debouncedFiltersProvider.stream)
+            .listen(emissions.add);
 
         controller.toggleCategory(EventCategory.drinks);
         async.elapse(const Duration(milliseconds: 249));

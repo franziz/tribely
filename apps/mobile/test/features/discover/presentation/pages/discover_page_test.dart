@@ -31,6 +31,7 @@ import 'package:tribely/src/features/discover/presentation/pages/discover_list_t
 import 'package:tribely/src/features/discover/presentation/pages/discover_map_tab.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_page.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_filter_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_map_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
@@ -61,6 +62,14 @@ class _FixedDiscoverController extends DiscoverController {
 class _FixedFilterController extends DiscoverFilterController {
   @override
   DiscoverFilterState build() => const DiscoverFiltersActive();
+}
+
+/// Fixed-state [LocationPromptShownNotifier] that always reports prompt shown
+/// so widget tests skip the location rationale bottom sheet inside
+/// [DiscoverMapTab].
+class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
+  @override
+  bool build() => true;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +126,13 @@ Future<void> _pumpPage(
           _FixedFilterController.new,
         ),
         locationServiceProvider.overrideWithValue(mockLocation),
+        // Suppress the location-rationale bottom sheet — DiscoverMapTab is
+        // mounted inside the IndexedStack even when the List tab is active.
+        // Without this override, _initCamera() tries to show a non-dismissable
+        // modal sheet (isDismissible=false) that blocks all subsequent pump()s.
+        locationPromptShownProvider.overrideWith(
+          _PromptAlreadyShownNotifier.new,
+        ),
       ],
       child: MaterialApp.router(routerConfig: _buildRouter()),
     ),

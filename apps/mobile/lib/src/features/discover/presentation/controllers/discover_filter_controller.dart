@@ -1,16 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/discover_filters.dart';
 import '../../../events/domain/entities/event_category.dart';
 import '../state/discover_filter_state.dart';
-
-/// Debounce window for rapid chip taps — 5 taps within [_kDebounceMillis] ms
-/// coalesce into a single emission on [debouncedStream].
-///
-/// Named constant referenced by the Step-8.5 manual-smoke checklist.
-const int _kDebounceMillis = 250;
 
 /// Owns the active [DiscoverFiltersActive] state for the Discover feed.
 ///
@@ -22,33 +14,15 @@ const int _kDebounceMillis = 250;
 ///     Null ≠ "location not granted" — permission visibility is D3/D4's job.
 ///   - [reset] — returns to initial state (anytime, no categories, no distance).
 ///
-/// A 250ms debounce coalesces rapid taps before emitting on [debouncedStream].
-/// D2's DiscoverController MUST subscribe to [debouncedFiltersProvider] (backed
-/// by [debouncedStream]) — not to this controller's raw Riverpod state — to
-/// avoid spurious network calls on every chip tap.
+/// Debouncing is NOT done inside this controller — it is the responsibility of
+/// [debouncedFiltersProvider] in `discover_filter_providers.dart`, which wraps
+/// this controller's state stream and applies a 250ms debounce.
+/// D2's DiscoverController MUST subscribe to [debouncedFiltersProvider], not
+/// to this controller's raw Riverpod state, to avoid spurious network calls on
+/// every chip tap.
 class DiscoverFilterController extends Notifier<DiscoverFilterState> {
-  Timer? _debounceTimer;
-  final _debouncedController =
-      StreamController<DiscoverFiltersActive>.broadcast();
-
-  // ignore: avoid_public_notifier_properties
-  /// Broadcast stream of debounced filter snapshots.
-  ///
-  /// Emits at most once per [_kDebounceMillis] window after the last mutation.
-  /// D2's provider uses this as its upstream; tests assert on it directly.
-  ///
-  /// Intentionally a getter rather than `state`: the stream carries debounce
-  /// semantics that cannot be modelled as a plain Riverpod state snapshot.
-  Stream<DiscoverFiltersActive> get debouncedStream =>
-      _debouncedController.stream;
-
   @override
   DiscoverFilterState build() {
-    ref.onDispose(() {
-      _debounceTimer?.cancel();
-      _debouncedController.close();
-    });
-
     return const DiscoverFiltersActive();
   }
 
@@ -64,7 +38,6 @@ class DiscoverFilterController extends Notifier<DiscoverFilterState> {
     if (current.timeWindow == timeWindow) return;
 
     state = current.copyWith(timeWindow: timeWindow);
-    _scheduleDebounce(state as DiscoverFiltersActive);
   }
 
   /// Toggles [category] membership in the active set.
@@ -84,7 +57,6 @@ class DiscoverFilterController extends Notifier<DiscoverFilterState> {
     }
 
     state = current.copyWith(categories: updated);
-    _scheduleDebounce(state as DiscoverFiltersActive);
   }
 
   /// Sets the maximum distance radius in kilometres.
@@ -98,7 +70,6 @@ class DiscoverFilterController extends Notifier<DiscoverFilterState> {
     if (current.maxDistanceKm == maxDistanceKm) return;
 
     state = current.copyWith(maxDistanceKm: maxDistanceKm);
-    _scheduleDebounce(state as DiscoverFiltersActive);
   }
 
   /// Resets all filters to their initial values:
@@ -106,20 +77,6 @@ class DiscoverFilterController extends Notifier<DiscoverFilterState> {
   ///   - No categories (all categories shown)
   ///   - No distance filter
   void reset() {
-    const initial = DiscoverFiltersActive();
-    state = initial;
-    _scheduleDebounce(initial);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Debounce
-  // ---------------------------------------------------------------------------
-
-  void _scheduleDebounce(DiscoverFiltersActive snapshot) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(
-      const Duration(milliseconds: _kDebounceMillis),
-      () => _debouncedController.add(snapshot),
-    );
+    state = const DiscoverFiltersActive();
   }
 }

@@ -56,8 +56,17 @@ const double _kClusterRadius = 80.0;
 ///   - No continuous location tracking.
 ///   - No Google Maps.
 ///   - No API keys.
+///
+/// The optional [tileProvider] parameter is a testability hook — pass a
+/// no-op provider in widget tests to prevent network tile requests.
+/// Production callers always omit it; the default (null) uses the standard
+/// [NetworkTileProvider].
 class DiscoverMapTab extends ConsumerStatefulWidget {
-  const DiscoverMapTab({super.key});
+  const DiscoverMapTab({super.key, this.tileProvider});
+
+  /// Optional tile provider override. Pass a no-op provider in widget tests
+  /// to avoid real network requests. Null = default [NetworkTileProvider].
+  final TileProvider? tileProvider;
 
   @override
   ConsumerState<DiscoverMapTab> createState() => _DiscoverMapTabState();
@@ -223,9 +232,12 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
       children: [
         // OSM tile layer — userAgentPackageName is mandatory per OSM tile
         // usage policy to avoid rate-limiting at scale.
+        // [widget.tileProvider] is null in production (uses NetworkTileProvider
+        // default) and overridden with a no-op provider in widget tests.
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.tribely',
+          tileProvider: widget.tileProvider,
         ),
 
         // Marker clustering — radius 80px, spec §D.

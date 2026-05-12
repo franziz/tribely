@@ -23,7 +23,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:mocktail/mocktail.dart';
 import 'package:tribely/src/core/router/app_shell.dart';
+import 'package:tribely/src/core/services/location_service.dart';
+import 'package:tribely/src/core/services/location_service_providers.dart';
 import 'package:tribely/src/core/widgets/primary_button.dart';
 import 'package:tribely/src/core/widgets/skeleton_loader.dart';
 import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
@@ -31,14 +34,21 @@ import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
+import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
+import 'package:tribely/src/features/discover/presentation/controllers/discover_filter_controller.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/event_detail_controller.dart';
+import 'package:tribely/src/features/discover/presentation/pages/discover_page.dart';
 import 'package:tribely/src/features/discover/presentation/pages/event_detail_page.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_filter_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_map_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/event_detail_providers.dart';
+import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
+import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/event_detail_state.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/core/error/failures.dart';
-import 'package:tribely/src/features/discover/presentation/pages/discover_page.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -66,6 +76,38 @@ final _testEvent = Event(
 );
 
 const _testEventId = 'evt-abc123';
+
+// ---------------------------------------------------------------------------
+// Router test mocks and stubs
+// ---------------------------------------------------------------------------
+
+class MockLocationService extends Mock implements LocationService {}
+
+/// Fixed-state [DiscoverController] that bypasses the use case / GetIt graph.
+class _FixedDiscoverController extends DiscoverController {
+  @override
+  DiscoverState build() => const DiscoverLoading();
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> loadMore() async {}
+}
+
+/// Fixed-state [DiscoverFilterController] that returns the initial filter state
+/// without starting any debounce timer.
+class _FixedFilterController extends DiscoverFilterController {
+  @override
+  DiscoverFilterState build() => const DiscoverFiltersActive();
+}
+
+/// Fixed-state [LocationPromptShownNotifier] that reports prompt shown so the
+/// map tab skips the location rationale bottom sheet during tests.
+class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
+  @override
+  bool build() => true;
+}
 
 // ---------------------------------------------------------------------------
 // Fixed-state controller helpers
@@ -214,11 +256,29 @@ Future<void> _pumpRouter(
   GoRouter router, {
   required SessionState sessionState,
 }) async {
+  // DiscoverPage is rendered inside the shell at '/events'. It mounts
+  // DiscoverController (→ browseEventsUseCaseProvider → sl<>) and
+  // DiscoverMapTab (→ locationService + permission sheet). All three need
+  // stubs so the router tests remain hermetic without initialising GetIt.
+  final mockLocation = MockLocationService();
+  when(
+    () => mockLocation.currentPermissionStatus(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
+  when(() => mockLocation.currentPosition()).thenAnswer((_) async => null);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         sessionControllerProvider.overrideWith(
           () => _FixedSessionController(sessionState),
+        ),
+        discoverControllerProvider.overrideWith(_FixedDiscoverController.new),
+        discoverFilterControllerProvider.overrideWith(
+          _FixedFilterController.new,
+        ),
+        locationServiceProvider.overrideWithValue(mockLocation),
+        locationPromptShownProvider.overrideWith(
+          _PromptAlreadyShownNotifier.new,
         ),
       ],
       child: MaterialApp.router(routerConfig: router),

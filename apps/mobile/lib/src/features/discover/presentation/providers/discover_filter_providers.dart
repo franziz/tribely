@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../controllers/discover_filter_controller.dart';
@@ -20,17 +22,41 @@ final discoverFilterControllerProvider =
 // Debounced view — 250ms coalesced snapshot for downstream consumers (D2)
 // ---------------------------------------------------------------------------
 
+/// Debounce window: coalesces rapid chip taps into a single emission.
+///
+/// Referenced by the Step-8.5 manual-smoke checklist.
+const int _kDebounceMillis = 250;
+
 /// A [StreamProvider] that emits a [DiscoverFiltersActive] snapshot 250ms
-/// after the last mutation on [discoverFilterControllerProvider].
+/// after the last state change on [discoverFilterControllerProvider].
+///
+/// The debounce is implemented entirely inside this provider — no public
+/// property is exposed on [DiscoverFilterController], keeping the Notifier
+/// compliant with `avoid_public_notifier_properties`.
 ///
 /// D2's DiscoverController watches this provider. It will not emit until at
-/// least one mutation has been made (the initial state is sent synchronously
-/// on the first debounce tick after [DiscoverFilterController.build] returns,
-/// only if a mutation occurs — idle state produces no emission).
+/// least one mutation has been made (idle state produces no emission).
 ///
-/// Consumers that need the current snapshot without waiting for a debounce
-/// tick should read [discoverFilterControllerProvider] directly.
+/// Consumers that need the current snapshot without debouncing should read
+/// [discoverFilterControllerProvider] directly.
 final debouncedFiltersProvider = StreamProvider<DiscoverFiltersActive>((ref) {
-  final notifier = ref.watch(discoverFilterControllerProvider.notifier);
-  return notifier.debouncedStream;
+  final controller = StreamController<DiscoverFiltersActive>.broadcast();
+  Timer? debounceTimer;
+
+  // Watch filter state — Riverpod re-runs this callback on every state change.
+  ref.listen<DiscoverFilterState>(discoverFilterControllerProvider, (_, next) {
+    if (next is! DiscoverFiltersActive) return;
+    final snapshot = next;
+    debounceTimer?.cancel();
+    debounceTimer = Timer(const Duration(milliseconds: _kDebounceMillis), () {
+      if (!controller.isClosed) controller.add(snapshot);
+    });
+  });
+
+  ref.onDispose(() {
+    debounceTimer?.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
 });

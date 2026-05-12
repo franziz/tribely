@@ -5,10 +5,10 @@
 //   - [locationServiceProvider] overridden with a mock that returns null
 //     (no real OS dialog in widget tests — real permission flow is
 //     manual-smoke territory per §Step 8.5).
-//   - Real OSM tile fetch does NOT occur in tests — TileLayer uses a network
-//     provider that simply fails to load in a widget-test environment; this is
-//     acceptable per the spec ("Real geolocator + real OSM tile fetch are
-//     MANUAL-SMOKE territory").
+//   - [locationPromptShownProvider] overridden to return `true` so the map
+//     skips the permission rationale sheet during test runs.
+//   - A [_NoopTileProvider] is injected via [DiscoverMapTab.tileProvider] to
+//     serve transparent 1×1 tiles without hitting the network.
 //
 // Covers:
 //   1. DiscoverMapTab renders FlutterMap + MarkerClusterLayerWidget.
@@ -16,6 +16,8 @@
 //      matches event count).
 //   3. Tapping a marker opens MapEventBottomSheet (modal bottom sheet visible).
 //   4. Loading state → FlutterMap still renders (no crash), no markers.
+
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -28,6 +30,7 @@ import 'package:tribely/src/core/services/location_service.dart';
 import 'package:tribely/src/core/services/location_service_providers.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_map_tab.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_map_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
 import 'package:tribely/src/features/discover/presentation/widgets/event_map_marker.dart';
@@ -42,6 +45,32 @@ import 'package:tribely/src/features/events/domain/entities/event_category.dart'
 class MockLocationService extends Mock implements LocationService {}
 
 // ---------------------------------------------------------------------------
+// No-network tile provider for widget tests
+// ---------------------------------------------------------------------------
+
+/// A transparent 1×1 PNG served as every tile to prevent any network request.
+/// Extends [TileProvider] so it can be passed to [TileLayer.tileProvider].
+class _NoopTileProvider extends TileProvider {
+  // Minimal valid 1×1 transparent PNG (67 bytes).
+  static final Uint8List _kTransparentPng = Uint8List.fromList([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+    0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR length + type
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, // 8-bit RGBA
+    0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, // IDAT length + type
+    0x54, 0x78, 0x9c, 0x62, 0x00, 0x00, 0x00, 0x02, // IDAT data
+    0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, // IDAT data cont.
+    0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, // IEND
+    0x60, 0x82, // IEND CRC
+  ]);
+
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) {
+    return MemoryImage(_kTransparentPng);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Fixed-state DiscoverController
 // ---------------------------------------------------------------------------
 
@@ -53,6 +82,13 @@ class _FixedDiscoverController extends DiscoverController {
 
   @override
   DiscoverState build() => _state;
+}
+
+/// Fixed-state [LocationPromptShownNotifier] that always reports prompt shown
+/// so widget tests skip the location rationale bottom sheet.
+class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
+  @override
+  bool build() => true;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,10 +126,16 @@ Future<void> _pumpMapTab(
   required DiscoverState discoverState,
   LocationService? locationService,
 }) async {
+  // Set a realistic phone viewport so FlutterMap can lay itself out without
+  // zero-size constraints or overflow errors.
+  tester.view.physicalSize = const Size(414 * 3.0, 896 * 3.0);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   final mockLocationService = locationService ?? MockLocationService();
 
-  // Stub: permission not yet determined (denied), position null — avoids
-  // the OS permission dialog in tests.
+  // Stub: permission denied, position null — avoids the OS permission dialog.
   if (locationService == null) {
     when(
       () => (mockLocationService as MockLocationService)
@@ -111,8 +153,15 @@ Future<void> _pumpMapTab(
           () => _FixedDiscoverController(discoverState),
         ),
         locationServiceProvider.overrideWithValue(mockLocationService),
+        // Skip the permission sheet — it is a modal bottom sheet with
+        // isDismissible=false that would block all subsequent pump() calls.
+        locationPromptShownProvider.overrideWith(
+          _PromptAlreadyShownNotifier.new,
+        ),
       ],
-      child: const MaterialApp(home: Scaffold(body: DiscoverMapTab())),
+      child: MaterialApp(
+        home: Scaffold(body: DiscoverMapTab(tileProvider: _NoopTileProvider())),
+      ),
     ),
   );
 
