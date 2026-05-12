@@ -148,9 +148,14 @@ const Duration startsAtMinLeadTime = Duration(minutes: 5);
 /// The buffer prevents submitting a time that is technically "in the future"
 /// on the device but already in the past by the time the request reaches the
 /// server (clock skew + network latency).
-String? validateStartsAt(DateTime? value) {
+///
+/// [now] defaults to [DateTime.now]. Pass an explicit value in tests to avoid
+/// wall-clock dependency. This is a lightweight ad-hoc Clock pattern — the
+/// full Clock port is tracked in TRI-55; until it lands, inject here directly.
+String? validateStartsAt(DateTime? value, {DateTime? now}) {
   if (value == null) return 'Start time is required';
-  if (!value.isAfter(DateTime.now().add(startsAtMinLeadTime))) {
+  final reference = now ?? DateTime.now();
+  if (!value.isAfter(reference.add(startsAtMinLeadTime))) {
     return 'Event must start at least 5 minutes from now';
   }
   return null;

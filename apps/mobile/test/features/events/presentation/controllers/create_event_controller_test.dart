@@ -623,6 +623,153 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // A1: blockingFields derivation (Bug #5 regression lock)
+  // ---------------------------------------------------------------------------
+  group('blockingFields — derivation', () {
+    late ProviderContainer container;
+
+    setUp(() async {
+      final result = _makeContainer();
+      container = result.container;
+      when(() => result.load(any())).thenAnswer((_) async => const Right(null));
+      when(() => result.save(any())).thenAnswer((_) async => const Right(null));
+
+      container.read(createEventControllerProvider);
+      await Future<void>.value();
+    });
+
+    tearDown(() => container.dispose());
+
+    test(
+      'blockingFields contains step 2 with startsAt when startsAt is past the '
+      '5-minute buffer and all other fields are valid',
+      () {
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        final baseDraft = _validDraft();
+
+        // Seed all fields but use a startsAt that is too close to now (under
+        // the 5-minute buffer). This simulates the time-decay race condition
+        // where a previously-valid startsAt has decayed while the user lingers
+        // on later steps.
+        final decayedStartsAt = DateTime.now().add(const Duration(minutes: 3));
+
+        controller.updateField(field: 'title', value: baseDraft.title!);
+        controller.updateField(field: 'category', value: baseDraft.category!);
+        controller.updateField(field: 'venueName', value: baseDraft.venueName!);
+        controller.updateField(field: 'latitude', value: baseDraft.latitude!);
+        controller.updateField(field: 'longitude', value: baseDraft.longitude!);
+        controller.updateField(field: 'startsAt', value: decayedStartsAt);
+        controller.updateField(
+          field: 'endsAt',
+          value: decayedStartsAt.add(const Duration(hours: 2)),
+        );
+        controller.updateField(field: 'capacity', value: baseDraft.capacity!);
+        controller.updateField(
+          field: 'approvalMode',
+          value: baseDraft.approvalMode!,
+        );
+        controller.updateField(
+          field: 'description',
+          value: baseDraft.description!,
+        );
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // Step 2 owns startsAt — must appear in blockingFields.
+        expect(state.blockingFields.containsKey(2), isTrue);
+        expect(state.blockingFields[2], contains('startsAt'));
+        // canSubmit must be false — startsAt is invalid.
+        expect(controller.canSubmit(), isFalse);
+      },
+    );
+
+    test(
+      'blockingFields is empty when all fields are valid with far-future startsAt',
+      () {
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        final draft = _validDraft(); // uses DateTime(2030, ...) — always valid
+
+        controller.updateField(field: 'title', value: draft.title!);
+        controller.updateField(field: 'category', value: draft.category!);
+        controller.updateField(field: 'venueName', value: draft.venueName!);
+        controller.updateField(field: 'latitude', value: draft.latitude!);
+        controller.updateField(field: 'longitude', value: draft.longitude!);
+        controller.updateField(field: 'startsAt', value: draft.startsAt!);
+        controller.updateField(field: 'endsAt', value: draft.endsAt!);
+        controller.updateField(field: 'capacity', value: draft.capacity!);
+        controller.updateField(
+          field: 'approvalMode',
+          value: draft.approvalMode!,
+        );
+        controller.updateField(field: 'description', value: draft.description!);
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        expect(state.blockingFields, isEmpty);
+        expect(controller.canSubmit(), isTrue);
+      },
+    );
+
+    test('goToStep triggers state emission that re-derives blockingFields — '
+        'time-decayed startsAt surfaces after step transition', () async {
+      final controller = container.read(createEventControllerProvider.notifier);
+      final baseDraft = _validDraft();
+
+      // Use a startsAt that is already past the 5-minute buffer so the
+      // validator fails on first evaluation (simulates decay).
+      final decayedStartsAt = DateTime.now().add(const Duration(minutes: 3));
+
+      controller.updateField(field: 'title', value: baseDraft.title!);
+      controller.updateField(field: 'category', value: baseDraft.category!);
+      controller.updateField(field: 'venueName', value: baseDraft.venueName!);
+      controller.updateField(field: 'latitude', value: baseDraft.latitude!);
+      controller.updateField(field: 'longitude', value: baseDraft.longitude!);
+      controller.updateField(field: 'startsAt', value: decayedStartsAt);
+      controller.updateField(
+        field: 'endsAt',
+        value: decayedStartsAt.add(const Duration(hours: 2)),
+      );
+      controller.updateField(field: 'capacity', value: baseDraft.capacity!);
+      controller.updateField(
+        field: 'approvalMode',
+        value: baseDraft.approvalMode!,
+      );
+      controller.updateField(
+        field: 'description',
+        value: baseDraft.description!,
+      );
+
+      // Navigate to step 4 (Step 5) — goToStep must re-derive blockingFields.
+      controller.goToStep(4);
+
+      final state =
+          container.read(createEventControllerProvider) as CreateEventEditing;
+
+      // Step 2 owns startsAt — must appear in blockingFields after transition.
+      expect(state.blockingFields.containsKey(2), isTrue);
+      expect(state.blockingFields[2], contains('startsAt'));
+      // canSubmit must be false.
+      expect(controller.canSubmit(), isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // A4: default approvalMode (Bug #5 regression lock)
+  // ---------------------------------------------------------------------------
+  group('EventDraft default approvalMode', () {
+    test('fresh EventDraft() has approvalMode == manual', () {
+      const draft = EventDraft();
+      expect(draft.approvalMode, 'manual');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // nextStep / previousStep keyboard dismissal (Bug 1 regression lock)
   // ---------------------------------------------------------------------------
   // These use testWidgets (not test) because focus changes in Flutter are

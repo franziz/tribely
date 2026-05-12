@@ -21,6 +21,8 @@ final class CreateEventEditing extends CreateEventState {
     required this.currentStep,
     required this.fieldErrors,
     required this.isResuming,
+    this.blockingFields = const {},
+    this.blockingFieldErrors = const {},
   });
 
   /// The current form values. All fields start null and are filled as the
@@ -46,20 +48,49 @@ final class CreateEventEditing extends CreateEventState {
   /// or [CreateEventController.discardDraft] to clear this flag.
   final bool isResuming;
 
+  /// Step index → list of field names that currently fail validation.
+  ///
+  /// Derived fresh on every state emission — never stale. An empty map means
+  /// every field across every step is valid (the form is publishable).
+  ///
+  /// Time-dependent validators (currently only `validateStartsAt`) re-run on
+  /// every state emission triggered by [CreateEventController.goToStep],
+  /// [nextStep], [previousStep], and [refreshBlockingFields] — so the race
+  /// where the user lingers on later steps while startsAt decays past the
+  /// 5-minute buffer is caught at every step transition.
+  final Map<int, List<String>> blockingFields;
+
+  /// Step index → list of (fieldName, errorMessage) pairs for fields that
+  /// currently fail validation. Parallel to [blockingFields] — carries the
+  /// human-readable error strings so the UI can render them without calling
+  /// back into the controller.
+  final Map<int, List<(String, String)>> blockingFieldErrors;
+
   CreateEventEditing copyWith({
     EventDraft? formData,
     int? currentStep,
     Map<String, String?>? fieldErrors,
     bool? isResuming,
+    Map<int, List<String>>? blockingFields,
+    Map<int, List<(String, String)>>? blockingFieldErrors,
   }) => CreateEventEditing(
     formData: formData ?? this.formData,
     currentStep: currentStep ?? this.currentStep,
     fieldErrors: fieldErrors ?? this.fieldErrors,
     isResuming: isResuming ?? this.isResuming,
+    blockingFields: blockingFields ?? this.blockingFields,
+    blockingFieldErrors: blockingFieldErrors ?? this.blockingFieldErrors,
   );
 
   @override
-  List<Object?> get props => [formData, currentStep, fieldErrors, isResuming];
+  List<Object?> get props => [
+    formData,
+    currentStep,
+    fieldErrors,
+    isResuming,
+    blockingFields,
+    blockingFieldErrors,
+  ];
 }
 
 /// The form is being submitted to the server. The UI should disable all

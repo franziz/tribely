@@ -55,11 +55,15 @@ class CreateEventController extends Notifier<CreateEventState> {
 
     Future.microtask(_loadDraftAndInit);
 
-    return const CreateEventEditing(
-      formData: EventDraft(),
+    const freshDraft = EventDraft();
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(freshDraft);
+    return CreateEventEditing(
+      formData: freshDraft,
       currentStep: 0,
-      fieldErrors: {},
+      fieldErrors: const {},
       isResuming: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
   }
 
@@ -80,11 +84,16 @@ class CreateEventController extends Notifier<CreateEventState> {
       },
       (draft) {
         if (draft != null) {
+          final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+            draft,
+          );
           state = CreateEventEditing(
             formData: draft,
             currentStep: draft.currentStep,
             fieldErrors: const {},
             isResuming: true,
+            blockingFields: blockingFields,
+            blockingFieldErrors: blockingFieldErrors,
           );
         }
         // draft == null: state is already the fresh editing state — no change.
@@ -119,9 +128,14 @@ class CreateEventController extends Notifier<CreateEventState> {
     final updatedErrors = Map<String, String?>.from(current.fieldErrors)
       ..[field] = error;
 
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      updatedDraft,
+    );
     state = current.copyWith(
       formData: updatedDraft,
       fieldErrors: updatedErrors,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
 
     _scheduleAutosave(updatedDraft);
@@ -161,6 +175,47 @@ class CreateEventController extends Notifier<CreateEventState> {
     };
   }
 
+  /// Derives both blocking-field maps for [draft].
+  ///
+  /// Returns:
+  ///   - [blockingFields]: step index → list of field names that fail.
+  ///   - [blockingFieldErrors]: step index → list of (fieldName, errorMessage).
+  ///
+  /// An empty [blockingFields] map means the form is publishable.
+  ///
+  /// Note: time-dependent validators (currently only [validateStartsAt]) call
+  /// [DateTime.now()] on every invocation — so these maps re-evaluate against
+  /// wall-clock time whenever called. Callers that need a fresh time surface
+  /// (step transitions, page resume) should trigger a state emission via
+  /// [goToStep] or [refreshBlockingFields].
+  ///
+  /// TODO(TRI-55): inject a Clock port here so tests can stub wall-clock time
+  /// without the ad-hoc DateTime Function() parameter workaround.
+  ({
+    Map<int, List<String>> blockingFields,
+    Map<int, List<(String, String)>> blockingFieldErrors,
+  })
+  _deriveBlocking(EventDraft draft) {
+    final fields = <int, List<String>>{};
+    final errors = <int, List<(String, String)>>{};
+    for (final entry in _stepFields.entries) {
+      final failingFields = <String>[];
+      final failingErrors = <(String, String)>[];
+      for (final field in entry.value) {
+        final error = _validateField(field, draft);
+        if (error != null) {
+          failingFields.add(field);
+          failingErrors.add((field, error));
+        }
+      }
+      if (failingFields.isNotEmpty) {
+        fields[entry.key] = failingFields;
+        errors[entry.key] = failingErrors;
+      }
+    }
+    return (blockingFields: fields, blockingFieldErrors: errors);
+  }
+
   /// Returns true iff the named field's value on [draft] is null. Used by the
   /// defense-in-depth guard in [submit] to detect bypassed gating.
   bool _draftFieldIsNull(String field, EventDraft draft) {
@@ -197,33 +252,66 @@ class CreateEventController extends Notifier<CreateEventState> {
   /// Validate all fields belonging to [step]. Returns true iff every field
   /// passes its validator. The page binds the Next button's enabled state to
   /// this method for steps 0–3.
+  ///
+  /// Derived from [blockingFields] on the current state — any time-dependent
+  /// validator (e.g. [validateStartsAt]) is re-evaluated fresh on each call.
   bool canAdvance(int step) {
     final current = state;
     if (current is! CreateEventEditing) return false;
-    final draft = current.formData;
-    final fields = _stepFields[step] ?? [];
-    return fields.every((field) => _validateField(field, draft) == null);
+    return !current.blockingFields.containsKey(step);
   }
 
   /// Returns true iff every field across every step is valid. This is the
   /// single source of truth for "is the form ready to publish" and is used
   /// to gate the Publish button on step 4 — distinct from [canAdvance(4)]
   /// which only validates step 4's own fields.
+  ///
+  /// Derived from [blockingFields.isEmpty] — re-evaluates time-dependent
+  /// validators each time the state is read.
   bool canSubmit() {
     final current = state;
     if (current is! CreateEventEditing) return false;
-    final draft = current.formData;
-    final allFields = _stepFields.values.expand((fields) => fields);
-    return allFields.every((field) => _validateField(field, draft) == null);
+    return current.blockingFields.isEmpty;
+  }
+
+  /// Force a state emission so [blockingFields] re-evaluates against current
+  /// wall-clock time. Call this when Step 5 becomes visible (page resume or
+  /// build) so that time-decayed [validateStartsAt] is caught before the user
+  /// taps Publish.
+  ///
+  /// This is the correct lifecycle hook — not a timer. The emission is a no-op
+  /// in terms of data change if nothing has actually decayed.
+  ///
+  /// TODO(TRI-55): once the Clock port lands, inject it here and remove the
+  /// implicit [DateTime.now()] dependency from [_deriveBlocking].
+  void refreshBlockingFields() {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      current.formData,
+    );
+    state = current.copyWith(
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
+    );
   }
 
   void goToStep(int step) {
     final current = state;
     if (current is! CreateEventEditing) return;
     assert(step >= 0 && step <= 4, 'step must be in range 0–4');
+    // Recompute blockingFields on every step transition so time-dependent
+    // validators (currently only validateStartsAt) re-evaluate against current
+    // wall-clock time. This catches the case where the user advances through
+    // early steps and startsAt decays past the 5-minute buffer while they linger.
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      current.formData,
+    );
     state = current.copyWith(
       formData: current.formData.copyWith(currentStep: step),
       currentStep: step,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
   }
 
@@ -392,11 +480,15 @@ class CreateEventController extends Notifier<CreateEventState> {
     await clearUseCase(const NoParams());
 
     if (!ref.mounted) return;
-    state = const CreateEventEditing(
-      formData: EventDraft(),
+    const freshDraft = EventDraft();
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(freshDraft);
+    state = CreateEventEditing(
+      formData: freshDraft,
       currentStep: 0,
-      fieldErrors: {},
+      fieldErrors: const {},
       isResuming: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
   }
 
