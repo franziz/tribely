@@ -103,8 +103,10 @@ void main() {
         _wrapConstrained(const SkeletonEventCard(), width: 375),
       );
 
-      // pumpAndSettle completes shimmer animation frames.
-      await tester.pumpAndSettle();
+      // Shimmer.fromColors runs a repeating AnimationController — pumpAndSettle
+      // deadlocks on it. A single pump is sufficient to trigger layout and
+      // detect any RenderFlex overflow exceptions.
+      await tester.pump();
       expect(tester.takeException(), isNull);
     });
 
@@ -118,7 +120,7 @@ void main() {
         _wrapConstrained(const SkeletonEventCard(), width: 414),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(tester.takeException(), isNull);
     });
 

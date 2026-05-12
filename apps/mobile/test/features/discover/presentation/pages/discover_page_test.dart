@@ -158,11 +158,18 @@ void main() {
 
         // Both children should be in the widget tree (IndexedStack keeps all
         // children mounted regardless of which is visible).
+        // DiscoverMapTab is at index 1 (offstage when list tab is active), so
+        // skipOffstage: false is required to find it.
         expect(find.byType(DiscoverListTab), findsOneWidget);
-        expect(find.byType(DiscoverMapTab), findsOneWidget);
+        expect(
+          find.byType(DiscoverMapTab, skipOffstage: false),
+          findsOneWidget,
+        );
 
         // Verify via IndexedStack that it owns two children.
-        final stack = tester.widget<IndexedStack>(find.byType(IndexedStack));
+        final stack = tester.widget<IndexedStack>(
+          find.byType(IndexedStack, skipOffstage: false),
+        );
         expect(stack.children.length, 2);
       },
     );

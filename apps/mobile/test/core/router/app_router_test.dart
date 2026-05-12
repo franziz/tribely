@@ -233,8 +233,12 @@ Future<void> pumpRouter(
       child: MaterialApp.router(routerConfig: router),
     ),
   );
-  // Allow go_router redirect + initial route to settle.
-  await tester.pumpAndSettle();
+  // pumpAndSettle deadlocks because FlutterMap's AnimatedMapController keeps a
+  // ticker alive indefinitely when DiscoverPage is in the tree.
+  // Bounded pumps: first pump triggers the initial frame; 100ms drains
+  // post-frame callbacks and microtasks without spinning on the live ticker.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +299,8 @@ void main() {
 
       // Find and tap the My Events destination in the NavigationBar.
       await tester.tap(find.text('My Events').last);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byType(MyEventsPage), findsOneWidget);
       expect(find.byType(NavigationBar), findsOneWidget);
@@ -318,7 +323,8 @@ void main() {
         expect(find.byType(MyEventsPage), findsOneWidget);
 
         await tester.tap(find.text('Profile').last);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
 
         // Stub OwnProfilePage is keyed by _kOwnProfileStubKey.
         expect(find.byKey(_kOwnProfileStubKey), findsOneWidget);
@@ -344,7 +350,8 @@ void main() {
 
       // Navigate to the edit page.
       router.goNamed('editProfile');
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byKey(_kEditProfileStubKey), findsOneWidget);
       // parentNavigatorKey: _testRootNavKey pushes above the shell —
@@ -366,7 +373,8 @@ void main() {
       await pumpRouter(tester, router, sessionState: _authenticatedState);
 
       router.go('/home');
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byType(DiscoverPage), findsOneWidget);
       // Verify the resolved URI is /events (redirect fired).
@@ -399,12 +407,14 @@ void main() {
 
         // Switch to Discover tab.
         await tester.tap(find.text('Discover').last);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
         expect(find.byType(DiscoverPage), findsOneWidget);
 
         // Tap Profile tab — should return to profile branch root.
         await tester.tap(find.text('Profile').last);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
 
         expect(find.byKey(_kOwnProfileStubKey), findsOneWidget);
         expect(find.byType(NavigationBar), findsOneWidget);
@@ -432,7 +442,8 @@ void main() {
         // Simulate back navigation (programmatic, since the stub has no back
         // button — this validates go_router stack state, not UI chrome).
         router.pop();
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
 
         // After popping, the shell's Profile branch root should be visible
         // with the NavigationBar restored.

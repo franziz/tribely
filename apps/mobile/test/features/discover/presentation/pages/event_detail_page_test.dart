@@ -284,7 +284,11 @@ Future<void> _pumpRouter(
       child: MaterialApp.router(routerConfig: router),
     ),
   );
-  await tester.pumpAndSettle();
+  // pumpAndSettle deadlocks because FlutterMap's AnimatedMapController keeps a
+  // ticker alive indefinitely. Use bounded pumps: first pump triggers the
+  // initial frame; the 100ms pump drains post-frame callbacks and microtasks.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
 }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +464,10 @@ void main() {
 
         // Navigate to detail.
         unawaited(router.push('/events/abc123'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        // Allow the route push animation to complete (default ~300ms) without
+        // calling pumpAndSettle (which deadlocks on the FlutterMap ticker).
+        await tester.pump(const Duration(milliseconds: 500));
 
         expect(find.byKey(_kEventDetailStubKey), findsOneWidget);
         expect(find.byType(NavigationBar), findsNothing);
@@ -475,12 +482,16 @@ void main() {
       await _pumpRouter(tester, router, sessionState: _authenticatedState);
 
       unawaited(router.push('/events/abc123'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      // Allow the push animation to fully complete before asserting.
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byType(NavigationBar), findsNothing);
 
       router.pop();
-      await tester.pumpAndSettle();
+      await tester.pump();
+      // Allow the pop animation to fully complete before asserting.
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(find.byType(DiscoverPage), findsOneWidget);

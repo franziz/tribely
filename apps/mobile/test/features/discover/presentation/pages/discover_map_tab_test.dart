@@ -247,7 +247,11 @@ void main() {
       }
 
       await tester.tap(markerFinders.first);
-      await tester.pumpAndSettle();
+      // pumpAndSettle deadlocks on FlutterMap's AnimatedMapController ticker.
+      // Bounded pump: first pump processes the tap + showModalBottomSheet call;
+      // 300ms allows the bottom sheet slide-up animation to complete.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(MapEventBottomSheet), findsOneWidget);
     });
