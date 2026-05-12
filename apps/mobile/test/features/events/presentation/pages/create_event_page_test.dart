@@ -12,16 +12,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mocktail/mocktail.dart';
 
+import 'package:tribely/src/core/error/failures.dart';
+import 'package:tribely/src/core/usecase/usecase.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/features/events/domain/entities/event_draft.dart';
+import 'package:tribely/src/features/events/domain/repositories/event_repository.dart';
+import 'package:tribely/src/features/events/domain/usecases/clear_event_draft_usecase.dart';
+import 'package:tribely/src/features/events/domain/usecases/create_event_usecase.dart';
+import 'package:tribely/src/features/events/domain/usecases/load_event_draft_usecase.dart';
+import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/presentation/controllers/create_event_controller.dart';
 import 'package:tribely/src/features/events/presentation/pages/create_event_page.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_navigation_bar.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_progress_indicator.dart';
+
+// ---------------------------------------------------------------------------
+// Mock use cases — used by Fix #3 widget test only
+// ---------------------------------------------------------------------------
+
+class _MockCreateEventUseCase extends Mock implements CreateEventUseCase {}
+
+class _MockLoadEventDraftUseCase extends Mock
+    implements LoadEventDraftUseCase {}
+
+class _MockSaveEventDraftUseCase extends Mock
+    implements SaveEventDraftUseCase {}
+
+class _MockClearEventDraftUseCase extends Mock
+    implements ClearEventDraftUseCase {}
+
+// Mocktail fallback values
+class _FakeCreateEventParams extends Fake implements CreateEventParams {}
+
+class _FakeEventDraft extends Fake implements EventDraft {}
+
+class _FakeNoParams extends Fake implements NoParams {}
 
 // ---------------------------------------------------------------------------
 // Fixed controller — returns a constant CreateEventEditing with no async work.
@@ -141,6 +172,12 @@ Future<void> _pumpPage(
 }
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(_FakeCreateEventParams());
+    registerFallbackValue(_FakeEventDraft());
+    registerFallbackValue(_FakeNoParams());
+  });
+
   group('CreateEventPage smoke', () {
     testWidgets('renders app bar title "Create Event"', (tester) async {
       await _pumpPage(tester, _FixedEditingController.new);
@@ -244,6 +281,77 @@ void main() {
           FocusManager.instance.primaryFocus,
           anyOf(isNull, isA<FocusScopeNode>()),
         );
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Fix #3 — server ValidationFailure.message surfaces in the UI (TRI-26)
+  //
+  // The controller's _handleSubmitFailure maps ValidationFailure (no
+  // fieldErrors) to {'_banner': failure.message}. The page's ref.listen
+  // shows a SnackBar with that banner. This test verifies the full path
+  // end-to-end through the widget tree.
+  // ---------------------------------------------------------------------------
+  group('CreateEventPage — server validation message surfaced in UI', () {
+    testWidgets(
+      'ValidationFailure from createEvent is shown as SnackBar text',
+      (tester) async {
+        const validationMessage = 'Event startsAt must be in the future';
+
+        // --- Mock use cases ---
+        final mockCreate = _MockCreateEventUseCase();
+        final mockLoad = _MockLoadEventDraftUseCase();
+        final mockSave = _MockSaveEventDraftUseCase();
+        final mockClear = _MockClearEventDraftUseCase();
+
+        when(() => mockLoad(any())).thenAnswer((_) async => const Right(null));
+        when(() => mockSave(any())).thenAnswer((_) async => const Right(null));
+        when(() => mockCreate(any())).thenAnswer(
+          (_) async => const Left(
+            ValidationFailure(validationMessage, code: 'VALIDATION_FAILED'),
+          ),
+        );
+        when(() => mockClear(any())).thenAnswer((_) async => const Right(null));
+
+        // --- Build a controller seeded with a fully-valid draft so
+        //     canSubmit() returns true and submit() can proceed.        ---
+        //
+        // Override createEventControllerProvider with a real
+        // CreateEventController that will read the mocked use case
+        // providers. Also override the four use case providers so the
+        // real controller picks up the mocks.
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              createEventUseCaseProvider.overrideWithValue(mockCreate),
+              loadEventDraftUseCaseProvider.overrideWithValue(mockLoad),
+              saveEventDraftUseCaseProvider.overrideWithValue(mockSave),
+              clearEventDraftUseCaseProvider.overrideWithValue(mockClear),
+              // Use _ValidDraftController so the Publish button is enabled
+              // without waiting for real async draft-load.
+              createEventControllerProvider.overrideWith(
+                _ValidDraftController.new,
+              ),
+            ],
+            child: MaterialApp.router(routerConfig: _buildTestRouter()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Navigate to step 4 so the Publish button appears.
+        for (var i = 0; i < 4; i++) {
+          await tester.tap(find.text('Next'));
+          await tester.pumpAndSettle();
+        }
+
+        // Tap Publish — triggers submit() which calls mockCreate.
+        await tester.tap(find.text('Publish'));
+        // Allow the async submit() → mockCreate → _handleSubmitFailure chain.
+        await tester.pumpAndSettle();
+
+        // The SnackBar must contain the server's exact validation message.
+        expect(find.text(validationMessage), findsOneWidget);
       },
     );
   });
