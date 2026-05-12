@@ -19,8 +19,6 @@ import '../../features/auth/domain/usecases/verify_email_usecase.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
-import '../../features/users/domain/usecases/get_user_profile_usecase.dart';
-import '../../features/users/domain/usecases/update_my_profile_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -72,15 +70,7 @@ Future<void> configureDependencies() async {
     () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
   );
 
-  // Users — use cases
-  // Note: GetMyProfileUseCase is NOT registered here. It depends on
-  // SessionReader (a Riverpod-backed port), so it is constructed inline in
-  // getMyProfileUseCaseProvider in users_providers.dart after ProviderScope
-  // is available.
-  sl.registerLazySingleton(
-    () => GetUserProfileUseCase(sl<UserProfileRepository>()),
-  );
-  sl.registerLazySingleton(
-    () => UpdateMyProfileUseCase(sl<UserProfileRepository>()),
-  );
+  // Users — use cases are constructed inline in users_providers.dart via
+  // Riverpod ref.read() so they can resolve Riverpod-backed ports (e.g.
+  // SessionReader). No use-case registrations here.
 }

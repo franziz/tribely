@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/wiring/session_reader_riverpod.dart';
 import '../../../../core/di/service_locator.dart';
-import '../../../../core/session/session_reader_riverpod.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/user_profile_repository.dart';
 import '../../domain/usecases/get_my_profile_usecase.dart';
@@ -13,26 +13,32 @@ import '../controllers/user_profile_controller.dart';
 import '../state/edit_profile_state.dart';
 import '../state/user_profile_state.dart';
 
+// --- Infrastructure bridge ---
+
+/// Lifts [UserProfileRepository] (registered in get_it) into the Riverpod
+/// graph so all use-case providers can resolve it uniformly via [ref].
+final _userProfileRepositoryProvider = Provider<UserProfileRepository>(
+  (_) => sl<UserProfileRepository>(),
+);
+
 // --- Use cases ---
 
-// Presentation-layer providers wire dependencies from Ref, not sl<T>(),
-// when the use case depends on Riverpod-backed ports (e.g. SessionReader).
-/// Constructed inline (not via get_it) because [GetMyProfileUseCase] depends on
-/// [sessionReaderProvider], which requires a [Ref] — unavailable at get_it
-/// registration time (before [ProviderScope] exists).
+/// All three use-case providers share the same shape: construct inline using
+/// [ref.read] so dependencies are resolved through the Riverpod graph. This
+/// avoids mixing [sl] and [ref] within a single provider.
 final getMyProfileUseCaseProvider = Provider<GetMyProfileUseCase>(
   (ref) => GetMyProfileUseCase(
-    sl<UserProfileRepository>(),
+    ref.read(_userProfileRepositoryProvider),
     ref.read(sessionReaderProvider),
   ),
 );
 
 final getUserProfileUseCaseProvider = Provider<GetUserProfileUseCase>(
-  (_) => sl<GetUserProfileUseCase>(),
+  (ref) => GetUserProfileUseCase(ref.read(_userProfileRepositoryProvider)),
 );
 
 final updateMyProfileUseCaseProvider = Provider<UpdateMyProfileUseCase>(
-  (_) => sl<UpdateMyProfileUseCase>(),
+  (ref) => UpdateMyProfileUseCase(ref.read(_userProfileRepositoryProvider)),
 );
 
 /// Provides the currently loaded own-profile entity to seed the edit form.

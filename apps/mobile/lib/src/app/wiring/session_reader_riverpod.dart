@@ -11,11 +11,12 @@ import '../../features/auth/presentation/state/auth_state.dart';
 /// a reactive stream. Callers that need reactivity should watch
 /// [sessionControllerProvider] directly (e.g. go_router redirect, widgets).
 ///
-/// Lives in `core/session/` because it is cross-cutting infrastructure: the
-/// [SessionReader] port itself is auth-domain, but this Riverpod bridge is
-/// consumed by features other than auth (e.g. users). Per EL ruling, a
-/// `core/` provider may read a feature's presentation provider — the provider
-/// IS the feature's public API at the Riverpod boundary.
+/// Lives in `app/wiring/` (the composition root) because it binds a domain
+/// port ([SessionReader]) to a presentation-layer provider
+/// ([sessionControllerProvider]). This is above both `core/` and `features/`
+/// in the dependency direction: Core ← Infrastructure ← Presentation.
+/// A file in `core/` that imports from `features/.../presentation/` would
+/// invert that direction.
 class SessionReaderRiverpod implements SessionReader {
   SessionReaderRiverpod(this._ref);
 
@@ -31,12 +32,11 @@ class SessionReaderRiverpod implements SessionReader {
   }
 }
 
-/// Provider that exposes [SessionReader] to the service locator and use cases.
+/// Provider that exposes [SessionReader] to use cases that depend on it.
 ///
-/// Defined in `core/` (not `auth/presentation/`) because the concrete impl is
-/// consumed cross-feature. Use cases receive [SessionReader] via constructor
-/// injection from get_it — get_it resolves it from [sessionReaderProvider] at
-/// startup.
+/// Lives in `app/wiring/` (not `core/`) because the concrete adapter imports
+/// [auth/presentation] — placing it in `core/` would make `core/` depend on
+/// a feature's presentation layer, inverting the dependency direction.
 final sessionReaderProvider = Provider<SessionReader>(
   (ref) => SessionReaderRiverpod(ref),
 );
