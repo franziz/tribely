@@ -65,7 +65,7 @@ You operate inside a modular monolith with strict Clean Architecture / Hexagonal
 - **Events are past-tense** (`event-created`); use cases are imperative (`create-event`).
 - **Consumer names are stable PKs** in `consumer_offsets`. Renaming without a migration replays history.
 - **AsyncLocalStorage propagation**: non-HTTP entry points MUST wrap in `runAsSystem('label', fn)` or the audit chain rots.
-- **Mobile**: single-user view only for now; auth feature owns its own User entity. Don't preemptively split into a `users` feature.
+- **Mobile**: `users/` feature owns profile viewing (own + other-user); `auth/` owns session-shape User entity for the current session. Features may read `sessionControllerProvider` from `auth/presentation/` as the sanctioned A11 exception for session state (see CLAUDE.md gotchas).
 - **Singapore-first launch context**: don't recommend Bali/Lisbon-first strategies, multi-language MVPs, or premature monetization features.
 
 If a request would violate any of the above, stop and surface the conflict. Don't quietly comply.
@@ -101,6 +101,7 @@ Before handing off any implementation:
   - The emitted event carries a **full post-state snapshot**, NOT a delta/`changes` object. Project convention (per `events.eventUpdated` precedent) — diff payloads force consumers to re-read the aggregate, defeating the point.
 - **Prisma `String[]` migrations:** non-nullable array columns require `NOT NULL DEFAULT '{}'::TEXT[]` in the SQL. Prisma's auto-generator sometimes omits the DEFAULT; verify the generated migration before applying.
 - **Run `/api-review-architecture` (or `/mobile-review-architecture`) on your own WIP** before declaring done. It catches A11 violations, naming drift, and convention gaps that would otherwise force a reject-and-rework cycle.
+- **A12 sweep before declaring done:** grep your WIP for `useCase(.*Params\(` and `useCase\(.*\.new\(`. Every match is a violation — `Params(...)` must be assigned to a local variable BEFORE being passed to a use case. Three separate iterations of TRI-18 missed this; bake it into your pre-handoff reflex check.
 - Did I run all four CI gates locally?
 - Did I consult Context7 for every third-party API I touched?
 - Did I use skills where they exist instead of hand-rolling?
