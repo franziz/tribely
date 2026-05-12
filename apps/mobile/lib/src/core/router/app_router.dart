@@ -11,6 +11,7 @@ import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
 import '../../features/discover/presentation/pages/discover_page.dart';
+import '../../features/discover/presentation/pages/event_detail_page.dart';
 import '../../features/events/presentation/pages/create_event_page.dart';
 import '../../features/my_events/presentation/pages/my_events_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
@@ -139,6 +140,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'createEvent',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const CreateEventPage(),
+      ),
+      // Full-screen read-only event detail. Declared outside the shell so
+      // the bottom nav bar is hidden (§E). Uses context.push from the
+      // Discover feed/map; back navigation returns to the caller's position.
+      GoRoute(
+        path: '/events/:id',
+        name: 'eventDetail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final eventId = state.pathParameters['id']!;
+          return EventDetailPage(eventId: eventId);
+        },
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
       StatefulShellRoute.indexedStack(
