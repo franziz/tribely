@@ -32,6 +32,7 @@ Skills are **namespaced by target** (`api-*` for backend, `mobile-*` for Flutter
 | Skill                      | Purpose                                                                                                                                                                 |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/repo-review-consistency` | Flag drift between SOT and copies (Node/Flutter/Dart/Melos versions), CI ↔ local script parity, action SHA pinning, format coverage gaps. **Flags only — never fixes.** |
+| `/work-on-issue`           | Orchestrator script for delivering a Linear issue end-to-end via the PM → CEO → EL → SWE(s) → reviewer + qa loop → `/github-pr` workflow. **Orchestrator-only.**        |
 
 ## Why backend and mobile have different rules
 
