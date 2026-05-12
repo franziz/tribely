@@ -128,8 +128,13 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
 
     final isSubmitting = state is CreateEventSubmitting;
 
+    // On step 4 the Publish button must require every prior step to also be
+    // valid — not just step 4's own fields. canSubmit() is the full cross-step
+    // check. On steps 0–3 the per-step canAdvance is sufficient.
     final canAdvance = switch (state) {
-      CreateEventEditing() => controller.canAdvance(currentStep),
+      CreateEventEditing() => currentStep < _totalSteps - 1
+          ? controller.canAdvance(currentStep)
+          : controller.canSubmit(),
       _ => false,
     };
 
@@ -163,31 +168,42 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
           ),
         ),
       ),
-      body: Stack(
-        children: [
-          // Step pages — swipe is disabled; only controller-driven navigation.
-          PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            children: const [
-              CreateEventStep1BasicsPage(),
-              CreateEventStep2VenuePage(),
-              CreateEventStep3WhenPage(),
-              CreateEventStep4LogisticsPage(),
-              CreateEventStep5DescribePage(),
-            ],
-          ),
-
-          // Submitting overlay — semi-transparent barrier + centered spinner.
-          if (isSubmitting)
-            IgnorePointer(
-              child: Container(
-                color: Colors.black.withAlpha(77),
-                alignment: Alignment.center,
-                child: const CircularProgressIndicator(),
-              ),
+      body: GestureDetector(
+        // Tap-outside keyboard dismissal. behavior: opaque ensures taps on
+        // non-interactive areas of child widgets also trigger this handler.
+        // The hasPrimaryFocus guard prevents keyboard reshow on iOS when a
+        // text field has a focused descendant that is not the primary focus.
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          final focus = FocusScope.of(context);
+          if (!focus.hasPrimaryFocus) focus.unfocus();
+        },
+        child: Stack(
+          children: [
+            // Step pages — swipe is disabled; only controller-driven navigation.
+            PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: const [
+                CreateEventStep1BasicsPage(),
+                CreateEventStep2VenuePage(),
+                CreateEventStep3WhenPage(),
+                CreateEventStep4LogisticsPage(),
+                CreateEventStep5DescribePage(),
+              ],
             ),
-        ],
+
+            // Submitting overlay — semi-transparent barrier + centered spinner.
+            if (isSubmitting)
+              IgnorePointer(
+                child: Container(
+                  color: Colors.black.withAlpha(77),
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(),
+                ),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: StepNavigationBar(
         current: currentStep,

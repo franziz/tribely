@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
@@ -161,6 +161,24 @@ class CreateEventController extends Notifier<CreateEventState> {
     };
   }
 
+  /// Returns true iff the named field's value on [draft] is null. Used by the
+  /// defense-in-depth guard in [submit] to detect bypassed gating.
+  bool _draftFieldIsNull(String field, EventDraft draft) {
+    return switch (field) {
+      'title' => draft.title == null,
+      'category' => draft.category == null,
+      'venueName' => draft.venueName == null,
+      'latitude' => draft.latitude == null,
+      'longitude' => draft.longitude == null,
+      'startsAt' => draft.startsAt == null,
+      'endsAt' => draft.endsAt == null,
+      'capacity' => draft.capacity == null,
+      'approvalMode' => draft.approvalMode == null,
+      'description' => draft.description == null,
+      _ => false,
+    };
+  }
+
   void _scheduleAutosave(EventDraft draft) {
     _autosaveTimer?.cancel();
     _autosaveTimer = Timer(const Duration(milliseconds: 500), () async {
@@ -178,13 +196,25 @@ class CreateEventController extends Notifier<CreateEventState> {
 
   /// Validate all fields belonging to [step]. Returns true iff every field
   /// passes its validator. The page binds the Next button's enabled state to
-  /// this method.
+  /// this method for steps 0–3.
   bool canAdvance(int step) {
     final current = state;
     if (current is! CreateEventEditing) return false;
     final draft = current.formData;
     final fields = _stepFields[step] ?? [];
     return fields.every((field) => _validateField(field, draft) == null);
+  }
+
+  /// Returns true iff every field across every step is valid. This is the
+  /// single source of truth for "is the form ready to publish" and is used
+  /// to gate the Publish button on step 4 — distinct from [canAdvance(4)]
+  /// which only validates step 4's own fields.
+  bool canSubmit() {
+    final current = state;
+    if (current is! CreateEventEditing) return false;
+    final draft = current.formData;
+    final allFields = _stepFields.values.expand((fields) => fields);
+    return allFields.every((field) => _validateField(field, draft) == null);
   }
 
   void goToStep(int step) {
@@ -198,6 +228,9 @@ class CreateEventController extends Notifier<CreateEventState> {
   }
 
   void nextStep() {
+    // Dismiss keyboard before any state mutation so focus is always released
+    // regardless of the call site (nav bar, test code, etc.).
+    FocusManager.instance.primaryFocus?.unfocus();
     final current = state;
     if (current is! CreateEventEditing) return;
     if (current.currentStep < 4) {
@@ -206,6 +239,9 @@ class CreateEventController extends Notifier<CreateEventState> {
   }
 
   void previousStep() {
+    // Dismiss keyboard before any state mutation so focus is always released
+    // regardless of the call site (nav bar, test code, etc.).
+    FocusManager.instance.primaryFocus?.unfocus();
     final current = state;
     if (current is! CreateEventEditing) return;
     if (current.currentStep > 0) {
@@ -224,30 +260,33 @@ class CreateEventController extends Notifier<CreateEventState> {
 
     state = CreateEventSubmitting(draft);
 
-    // Build CreateEventParams — assert non-null fields; a null here is a
-    // validator-gating bug and must surface loudly in development.
-    assert(draft.title != null, 'title must not be null at submit time');
-    assert(draft.category != null, 'category must not be null at submit time');
-    assert(
-      draft.venueName != null,
-      'venueName must not be null at submit time',
-    );
-    assert(draft.latitude != null, 'latitude must not be null at submit time');
-    assert(
-      draft.longitude != null,
-      'longitude must not be null at submit time',
-    );
-    assert(draft.startsAt != null, 'startsAt must not be null at submit time');
-    assert(draft.endsAt != null, 'endsAt must not be null at submit time');
-    assert(draft.capacity != null, 'capacity must not be null at submit time');
-    assert(
-      draft.approvalMode != null,
-      'approvalMode must not be null at submit time',
-    );
-    assert(
-      draft.description != null,
-      'description must not be null at submit time',
-    );
+    // Defense-in-depth: if any required field is null (a UI gating bug bypassed
+    // canSubmit), surface a recoverable error instead of throwing in release
+    // mode where asserts are stripped. Return to the first step with a null
+    // field so the user can see the problem.
+    (int, String)? nullField;
+    outer:
+    for (final entry in _stepFields.entries) {
+      for (final field in entry.value) {
+        if (_draftFieldIsNull(field, draft)) {
+          nullField = (entry.key, field);
+          break outer;
+        }
+      }
+    }
+    if (nullField != null) {
+      state = CreateEventSubmissionError(
+        formData: draft,
+        failure: const ValidationFailure(
+          'Please complete all steps before publishing.',
+        ),
+        returnToStep: nullField.$1,
+        fieldErrors: const {
+          '_banner': 'Please complete all steps before publishing.',
+        },
+      );
+      return;
+    }
 
     final params = CreateEventParams(
       title: draft.title!,
