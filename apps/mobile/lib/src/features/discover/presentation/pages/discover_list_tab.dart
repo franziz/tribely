@@ -9,7 +9,6 @@ import '../state/discover_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import '../widgets/event_card.dart';
-import '../widgets/filter_chip_row.dart';
 
 /// Infinite-scroll threshold: trigger loadMore() when scroll is within 600dp
 /// of the bottom edge.
@@ -28,7 +27,6 @@ const int _kPaginationSkeletonCount = 3;
 /// states. D5's scaffold composes this inside an [IndexedStack].
 ///
 /// Responsibilities:
-/// - Renders [FilterChipRow] above the content area.
 /// - Infinite scroll via [NotificationListener<ScrollNotification>]:
 ///   calls [DiscoverController.loadMore()] when extentAfter < 600dp and state
 ///   is [DiscoverLoaded] with a non-null nextCursor.
@@ -48,12 +46,9 @@ class DiscoverListTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Filter chip row ──
-        const SizedBox(height: 8),
-        const FilterChipRow(),
-        const SizedBox(height: 12),
-
         // ── Content area ──
+        // NOTE: FilterChipRow is hoisted to the DiscoverPage scaffold (D5) so
+        // it persists across List/Map tab switches. Do NOT re-add it here.
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {

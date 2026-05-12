@@ -9,7 +9,10 @@
 //   6. Error Retry button calls discoverController.refresh().
 //   7. Loaded state with isLoadingMore=true shows pagination skeletons below
 //      the last real card.
-//   8. FilterChipRow is always rendered (regardless of DiscoverState).
+//
+// NOTE: FilterChipRow is NOT rendered inside DiscoverListTab — it was hoisted
+// to the DiscoverPage scaffold (D5) so it persists across List/Map tab
+// switches. FilterChipRow is tested at the scaffold level in discover_page_test.dart.
 //
 // Mocking strategy:
 //   Both discoverControllerProvider and discoverFilterControllerProvider are
@@ -29,7 +32,6 @@ import 'package:tribely/src/features/discover/presentation/providers/discover_pr
 import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
 import 'package:tribely/src/features/discover/presentation/widgets/event_card.dart';
-import 'package:tribely/src/features/discover/presentation/widgets/filter_chip_row.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 
@@ -238,28 +240,5 @@ void main() {
       expect(find.byType(SkeletonLoader), findsWidgets);
     });
 
-    // -----------------------------------------------------------------------
-    // 8. FilterChipRow always present
-    // -----------------------------------------------------------------------
-    testWidgets('8a. FilterChipRow rendered in loading state', (tester) async {
-      await _pumpTab(tester, const DiscoverLoading());
-      expect(find.byType(FilterChipRow), findsOneWidget);
-    });
-
-    testWidgets('8b. FilterChipRow rendered in loaded state', (tester) async {
-      await _pumpTab(
-        tester,
-        DiscoverLoaded(events: _twoEvents, nextCursor: null),
-      );
-      expect(find.byType(FilterChipRow), findsOneWidget);
-    });
-
-    testWidgets('8c. FilterChipRow rendered in error state', (tester) async {
-      await _pumpTab(
-        tester,
-        const DiscoverError(ServerFailure('err', statusCode: 500)),
-      );
-      expect(find.byType(FilterChipRow), findsOneWidget);
-    });
   });
 }
