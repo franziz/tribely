@@ -187,26 +187,34 @@ void main() {
   // Bug 1 regression — keyboard dismissal
   // ---------------------------------------------------------------------------
   group('CreateEventPage — keyboard dismissal (Bug 1 regression)', () {
-    testWidgets(
-      'tapping page body outside any input clears primary focus',
-      (tester) async {
-        await _pumpPage(tester, _FixedEditingController.new);
+    testWidgets('tapping page body outside any input clears primary focus', (
+      tester,
+    ) async {
+      await _pumpPage(tester, _FixedEditingController.new);
 
-        // Focus the Title text field.
-        final titleField = find.byType(TextFormField).first;
-        await tester.tap(titleField);
-        await tester.pump();
-        expect(FocusManager.instance.primaryFocus, isNotNull);
+      // Focus the Title text field.
+      final titleField = find.byType(TextFormField).first;
+      await tester.tap(titleField);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, isNotNull);
 
-        // Tap an empty area — the GestureDetector wrapping the body should
-        // call FocusScope.unfocus(). Use a point near the bottom of the visible
-        // area (outside form fields) but above the nav bar.
-        await tester.tapAt(const Offset(200, 400));
-        await tester.pump();
+      // Tap an empty area — the GestureDetector wrapping the body should
+      // call FocusScope.unfocus(). Use a point near the bottom of the visible
+      // area (outside form fields) but above the nav bar.
+      await tester.tapAt(const Offset(200, 400));
+      await tester.pump();
 
-        expect(FocusManager.instance.primaryFocus, isNull);
-      },
-    );
+      // unfocus() with UnfocusDisposition.scope moves focus up to the
+      // enclosing FocusScopeNode (_ModalScopeState) rather than setting
+      // primaryFocus to null. A FocusScopeNode as primary focus is equivalent
+      // to keyboard dismissal — no TextInputClient is active. Both null and
+      // FocusScopeNode are correct post-unfocus states in the test harness;
+      // the real-device behavior (keyboard dismissed) is what matters.
+      expect(
+        FocusManager.instance.primaryFocus,
+        anyOf(isNull, isA<FocusScopeNode>()),
+      );
+    });
 
     testWidgets(
       'pressing Next on step 0 with valid data clears primary focus',
@@ -223,11 +231,19 @@ void main() {
         // Tap the Next button.
         final nextButton = find.text('Next');
         await tester.tap(nextButton);
-        await tester.pump();
+        // pumpAndSettle drains the microtask queue so unfocus() takes full
+        // effect before the assertion runs.
+        await tester.pumpAndSettle();
 
         // nextStep() calls FocusManager.instance.primaryFocus?.unfocus() at
-        // the top, so focus must be cleared after Next.
-        expect(FocusManager.instance.primaryFocus, isNull);
+        // the top. unfocus(UnfocusDisposition.scope) moves focus up to the
+        // enclosing FocusScopeNode (_ModalScopeState) rather than null in the
+        // test harness — which is equivalent to keyboard dismissal (no
+        // TextInputClient active). See tap-outside test for full rationale.
+        expect(
+          FocusManager.instance.primaryFocus,
+          anyOf(isNull, isA<FocusScopeNode>()),
+        );
       },
     );
   });

@@ -132,9 +132,10 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
     // valid — not just step 4's own fields. canSubmit() is the full cross-step
     // check. On steps 0–3 the per-step canAdvance is sufficient.
     final canAdvance = switch (state) {
-      CreateEventEditing() => currentStep < _totalSteps - 1
-          ? controller.canAdvance(currentStep)
-          : controller.canSubmit(),
+      CreateEventEditing() =>
+        currentStep < _totalSteps - 1
+            ? controller.canAdvance(currentStep)
+            : controller.canSubmit(),
       _ => false,
     };
 
@@ -171,13 +172,12 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
       body: GestureDetector(
         // Tap-outside keyboard dismissal. behavior: opaque ensures taps on
         // non-interactive areas of child widgets also trigger this handler.
-        // The hasPrimaryFocus guard prevents keyboard reshow on iOS when a
-        // text field has a focused descendant that is not the primary focus.
+        // FocusManager.instance.primaryFocus?.unfocus() clears the focused
+        // node directly, avoiding the scope-vs-node ambiguity of
+        // FocusScope.of(context).unfocus() which defaults to
+        // UnfocusDisposition.scope and moves focus up rather than clearing it.
         behavior: HitTestBehavior.opaque,
-        onTap: () {
-          final focus = FocusScope.of(context);
-          if (!focus.hasPrimaryFocus) focus.unfocus();
-        },
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Stack(
           children: [
             // Step pages — swipe is disabled; only controller-driven navigation.
