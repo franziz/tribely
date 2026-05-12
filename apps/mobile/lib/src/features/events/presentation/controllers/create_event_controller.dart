@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
@@ -72,8 +73,7 @@ class CreateEventController extends Notifier<CreateEventState> {
     result.fold(
       (failure) {
         // Draft load failure — log and start fresh. Don't block the create flow.
-        // ignore: avoid_print
-        print('[CreateEventController] Failed to load draft: ${failure.message}');
+        debugPrint('[CreateEventController] Failed to load draft: ${failure.message}');
         // state is already the fresh editing state set by build(); nothing to do.
       },
       (draft) {
