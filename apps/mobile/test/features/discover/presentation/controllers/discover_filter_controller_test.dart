@@ -265,9 +265,12 @@ void main() {
           );
 
           final emissions = <DiscoverFiltersActive>[];
-          final sub = container
-              .read(debouncedFiltersProvider.stream)
-              .listen(emissions.add);
+          final sub = container.listen<AsyncValue<DiscoverFiltersActive>>(
+            debouncedFiltersProvider,
+            (_, next) {
+              if (next case AsyncData(:final value)) emissions.add(value);
+            },
+          );
 
           // Fire 5 taps — each resets the 250ms timer.
           // Advance 20ms between taps so total elapsed ≈ 100ms (< 250ms).
@@ -311,7 +314,7 @@ void main() {
             ]),
           );
 
-          sub.cancel();
+          sub.close();
         });
       },
     );
@@ -331,9 +334,12 @@ void main() {
           );
 
           final emissions = <DiscoverFiltersActive>[];
-          final sub = container
-              .read(debouncedFiltersProvider.stream)
-              .listen(emissions.add);
+          final sub = container.listen<AsyncValue<DiscoverFiltersActive>>(
+            debouncedFiltersProvider,
+            (_, next) {
+              if (next case AsyncData(:final value)) emissions.add(value);
+            },
+          );
 
           controller.setTimeWindow(TimeWindow.tonight);
           async.elapse(const Duration(milliseconds: 300)); // fires 1st timer
@@ -345,7 +351,7 @@ void main() {
           expect(emissions[0].timeWindow, TimeWindow.tonight);
           expect(emissions[1].timeWindow, TimeWindow.thisWeek);
 
-          sub.cancel();
+          sub.close();
         });
       },
     );
@@ -362,25 +368,37 @@ void main() {
           discoverFilterControllerProvider.notifier,
         );
 
-        // Set some state first and let the debounce timer fire so the stream
-        // has an active listener before calling reset().
+        // Set up the listener before any mutations so the subscription is
+        // established before the provider has emitted any data. This avoids
+        // Riverpod's onResume delivery of pre-existing state to late listeners.
+        final emissions = <DiscoverFiltersActive>[];
+        final sub = container.listen<AsyncValue<DiscoverFiltersActive>>(
+          debouncedFiltersProvider,
+          (_, next) {
+            if (next case AsyncData(:final value)) emissions.add(value);
+          },
+        );
+
+        // Set some state and let the debounce timer fire (1st emission).
         controller.setTimeWindow(TimeWindow.tonight);
         async.elapse(const Duration(milliseconds: 300));
+        final emissionsBeforeReset = emissions.length;
 
-        final emissions = <DiscoverFiltersActive>[];
-        final sub = container
-            .read(debouncedFiltersProvider.stream)
-            .listen(emissions.add);
-
+        // Now call reset — should produce exactly 1 new debounced emission.
         controller.reset();
         async.elapse(const Duration(milliseconds: 250));
 
-        expect(emissions, hasLength(1));
-        expect(emissions.first.timeWindow, TimeWindow.anytime);
-        expect(emissions.first.categories, isEmpty);
-        expect(emissions.first.maxDistanceKm, isNull);
+        final emissionsFromReset = emissions.sublist(emissionsBeforeReset);
+        expect(
+          emissionsFromReset,
+          hasLength(1),
+          reason: 'reset() must produce exactly 1 debounced emission',
+        );
+        expect(emissionsFromReset.first.timeWindow, TimeWindow.anytime);
+        expect(emissionsFromReset.first.categories, isEmpty);
+        expect(emissionsFromReset.first.maxDistanceKm, isNull);
 
-        sub.cancel();
+        sub.close();
       });
     });
 
@@ -397,9 +415,12 @@ void main() {
         );
 
         final emissions = <DiscoverFiltersActive>[];
-        final sub = container
-            .read(debouncedFiltersProvider.stream)
-            .listen(emissions.add);
+        final sub = container.listen<AsyncValue<DiscoverFiltersActive>>(
+          debouncedFiltersProvider,
+          (_, next) {
+            if (next case AsyncData(:final value)) emissions.add(value);
+          },
+        );
 
         controller.toggleCategory(EventCategory.drinks);
         async.elapse(const Duration(milliseconds: 249));
@@ -409,7 +430,7 @@ void main() {
         async.elapse(const Duration(milliseconds: 1)); // total 250ms — fires
         expect(emissions, hasLength(1));
 
-        sub.cancel();
+        sub.close();
       });
     });
   });
