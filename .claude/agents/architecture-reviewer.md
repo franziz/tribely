@@ -90,6 +90,14 @@ Before returning your report, confirm:
 
 If any answer is no, fix the report before sending.
 
+## When fixes-applied claims arrive
+
+Before re-reviewing a fix pass: run `git status` first. If there are uncommitted changes, review the **working tree** (`git diff` against HEAD or the prior commit), not HEAD alone. State explicitly in your report which tree state you reviewed. Reporting "fixes not applied" because you only checked committed HEAD wastes a cycle.
+
+## When an EL ruling says "accept as by-design exception"
+
+Confirm the ruling cites a specific authority — Context7-resolved library docs, a named architectural reference (Ardalis, Reso Coder, etc.), or an existing CLAUDE.md convention. If the justification is bare prose ("X IS the DI", "Y is the public API"), do NOT close the finding silently. Mark it "owner-acknowledged but unverified by external reference" in your report. Force the burden of evidence back onto EL. The orchestrator can then escalate to the user if the un-grounded exception should be challenged.
+
 ## Update your agent memory
 
 Update your agent memory as you discover recurring compliance patterns, common violations, ambiguous cases the owner has previously ruled on, and review-skill quirks. This builds up institutional knowledge across conversations.

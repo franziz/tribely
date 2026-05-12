@@ -16,6 +16,9 @@ import '../../features/auth/domain/usecases/sign_in_usecase.dart';
 import '../../features/auth/domain/usecases/sign_out_usecase.dart';
 import '../../features/auth/domain/usecases/sign_up_usecase.dart';
 import '../../features/auth/domain/usecases/verify_email_usecase.dart';
+import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
+import '../../features/users/data/repositories/user_profile_repository_impl.dart';
+import '../../features/users/domain/repositories/user_profile_repository.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -56,4 +59,18 @@ Future<void> configureDependencies() async {
     () => RequestPasswordResetUseCase(sl<AuthRepository>()),
   );
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl<AuthRepository>()));
+
+  // Users — datasources
+  sl.registerLazySingleton<UserProfileRemoteDatasource>(
+    () => UserProfileRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Users — repositories
+  sl.registerLazySingleton<UserProfileRepository>(
+    () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
+  );
+
+  // Users — use cases are constructed inline in users_providers.dart via
+  // Riverpod ref.read() so they can resolve Riverpod-backed ports (e.g.
+  // SessionReader). No use-case registrations here.
 }
