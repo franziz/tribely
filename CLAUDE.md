@@ -286,7 +286,7 @@ After scaffolding, you must:
 - **Events must be past-tense** (`event-created`, not `create-event` — that's a use case).
 - **No `data/datasources/` on the API.** Backend uses `infrastructure/persistence/<aggregate>.prisma-repository.ts` directly.
 - **No Prisma types in `domain/` or `application/` (backend).** Only `@/core/db/unit-of-work.port` is allowed. The opaque `TxContext` is intentional.
-- **Mobile is single-user-view-only right now.** The mobile `auth` feature owns its own User entity for "the current user." When mobile starts viewing other users' profiles, split into a `users` feature mirroring the backend.
+- **Mobile session-state is the only sanctioned cross-feature `presentation/` import.** Features may import `auth/presentation/providers/auth_providers.dart` to read `sessionControllerProvider` for current-user identity; every other cross-feature `presentation/`-to-`presentation/` import violates the bounded-context rule. Session identity is genuinely app-global state, not feature state — duplicating it per feature would fragment auth and invite drift on logout/refresh.
 - **Mobile `flutter create` is required on first run** — repo ships without `ios/`/`android/` folders.
 - **`outbox_events` is append-only.** Per-consumer progress lives in `consumer_offsets`, not on the event row. Migrations that drop the outbox table lose in-flight events for every consumer.
 - **Consumers must register with a stable, globally-unique `name`.** It's the primary key in `consumer_offsets`. Renaming a Consumer in code without a migration that renames the offset row resets it to `committedSeq=0` and replays all history — usually NOT what you want.
