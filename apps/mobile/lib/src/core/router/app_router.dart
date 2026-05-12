@@ -116,10 +116,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Legacy /home redirect — catches in-flight deep links and push payloads
       // that were issued before the /events rename. Redirect fires before any
       // builder so the builder can be omitted entirely.
-      GoRoute(
-        path: '/home',
-        redirect: (context, state) => '/events',
-      ),
+      GoRoute(path: '/home', redirect: (context, state) => '/events'),
       // Full-screen route for other users' profiles. Declared outside the shell
       // with parentNavigatorKey pointing at root so it renders without the
       // bottom nav bar.

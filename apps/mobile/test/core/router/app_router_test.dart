@@ -151,10 +151,7 @@ GoRouter _buildTestRouter({
         ],
       ),
       // /home → /events redirect (mirrors production, no builder needed).
-      GoRoute(
-        path: '/home',
-        redirect: (context, state) => '/events',
-      ),
+      GoRoute(path: '/home', redirect: (context, state) => '/events'),
     ],
   );
 }
@@ -209,44 +206,42 @@ void main() {
     // -------------------------------------------------------------------------
     // 1. Cold-start to /events lands on Discover with bottom nav.
     // -------------------------------------------------------------------------
-    testWidgets(
-      'cold-start /events shows DiscoverPage with NavigationBar',
-      (tester) async {
-        final router = _buildTestRouter(
-          sessionState: _authenticatedState,
-          initialLocation: '/events',
-        );
+    testWidgets('cold-start /events shows DiscoverPage with NavigationBar', (
+      tester,
+    ) async {
+      final router = _buildTestRouter(
+        sessionState: _authenticatedState,
+        initialLocation: '/events',
+      );
 
-        await pumpRouter(tester, router, sessionState: _authenticatedState);
+      await pumpRouter(tester, router, sessionState: _authenticatedState);
 
-        expect(find.byType(DiscoverPage), findsOneWidget);
-        expect(find.byType(NavigationBar), findsOneWidget);
-        // NavigationBar should show the Discover destination label.
-        expect(find.text('Discover'), findsWidgets);
-      },
-    );
+      expect(find.byType(DiscoverPage), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      // NavigationBar should show the Discover destination label.
+      expect(find.text('Discover'), findsWidgets);
+    });
 
     // -------------------------------------------------------------------------
     // 2. Tab switch: Discover → My Events.
     // -------------------------------------------------------------------------
-    testWidgets(
-      'tapping My Events tab shows MyEventsPage with NavigationBar',
-      (tester) async {
-        final router = _buildTestRouter(
-          sessionState: _authenticatedState,
-          initialLocation: '/events',
-        );
+    testWidgets('tapping My Events tab shows MyEventsPage with NavigationBar', (
+      tester,
+    ) async {
+      final router = _buildTestRouter(
+        sessionState: _authenticatedState,
+        initialLocation: '/events',
+      );
 
-        await pumpRouter(tester, router, sessionState: _authenticatedState);
+      await pumpRouter(tester, router, sessionState: _authenticatedState);
 
-        // Find and tap the My Events destination in the NavigationBar.
-        await tester.tap(find.text('My Events').last);
-        await tester.pumpAndSettle();
+      // Find and tap the My Events destination in the NavigationBar.
+      await tester.tap(find.text('My Events').last);
+      await tester.pumpAndSettle();
 
-        expect(find.byType(MyEventsPage), findsOneWidget);
-        expect(find.byType(NavigationBar), findsOneWidget);
-      },
-    );
+      expect(find.byType(MyEventsPage), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    });
 
     // -------------------------------------------------------------------------
     // 3. Tab switch: My Events → Profile.
@@ -277,51 +272,49 @@ void main() {
     // 4. /profile/edit is full-screen (no bottom nav).
     //    Uses stub builder — see module-level comment.
     // -------------------------------------------------------------------------
-    testWidgets(
-      '/profile/edit renders full-screen (NavigationBar absent)',
-      (tester) async {
-        final router = _buildTestRouter(
-          sessionState: _authenticatedState,
-          initialLocation: '/profile',
-        );
+    testWidgets('/profile/edit renders full-screen (NavigationBar absent)', (
+      tester,
+    ) async {
+      final router = _buildTestRouter(
+        sessionState: _authenticatedState,
+        initialLocation: '/profile',
+      );
 
-        await pumpRouter(tester, router, sessionState: _authenticatedState);
-        expect(find.byKey(_kOwnProfileStubKey), findsOneWidget);
-        expect(find.byType(NavigationBar), findsOneWidget);
+      await pumpRouter(tester, router, sessionState: _authenticatedState);
+      expect(find.byKey(_kOwnProfileStubKey), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
 
-        // Navigate to the edit page.
-        router.goNamed('editProfile');
-        await tester.pumpAndSettle();
+      // Navigate to the edit page.
+      router.goNamed('editProfile');
+      await tester.pumpAndSettle();
 
-        expect(find.byKey(_kEditProfileStubKey), findsOneWidget);
-        // parentNavigatorKey: _testRootNavKey pushes above the shell —
-        // NavigationBar must NOT be visible.
-        expect(find.byType(NavigationBar), findsNothing);
-      },
-    );
+      expect(find.byKey(_kEditProfileStubKey), findsOneWidget);
+      // parentNavigatorKey: _testRootNavKey pushes above the shell —
+      // NavigationBar must NOT be visible.
+      expect(find.byType(NavigationBar), findsNothing);
+    });
 
     // -------------------------------------------------------------------------
     // 5. /home redirects to /events.
     // -------------------------------------------------------------------------
-    testWidgets(
-      '/home redirects to /events and shows DiscoverPage',
-      (tester) async {
-        final router = _buildTestRouter(
-          sessionState: _authenticatedState,
-          initialLocation: '/events',
-        );
+    testWidgets('/home redirects to /events and shows DiscoverPage', (
+      tester,
+    ) async {
+      final router = _buildTestRouter(
+        sessionState: _authenticatedState,
+        initialLocation: '/events',
+      );
 
-        await pumpRouter(tester, router, sessionState: _authenticatedState);
+      await pumpRouter(tester, router, sessionState: _authenticatedState);
 
-        router.go('/home');
-        await tester.pumpAndSettle();
+      router.go('/home');
+      await tester.pumpAndSettle();
 
-        expect(find.byType(DiscoverPage), findsOneWidget);
-        // Verify the resolved URI is /events (redirect fired).
-        final uri = router.routerDelegate.currentConfiguration.uri.toString();
-        expect(uri, equals('/events'));
-      },
-    );
+      expect(find.byType(DiscoverPage), findsOneWidget);
+      // Verify the resolved URI is /events (redirect fired).
+      final uri = router.routerDelegate.currentConfiguration.uri.toString();
+      expect(uri, equals('/events'));
+    });
 
     // -------------------------------------------------------------------------
     // 6. Re-tap-to-root.

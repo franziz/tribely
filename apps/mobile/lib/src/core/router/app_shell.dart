@@ -11,10 +11,7 @@ import 'package:go_router/go_router.dart';
 /// Re-tapping the active destination navigates back to its initial location
 /// (i.e. pops the branch's stack to root).
 class AppShell extends StatelessWidget {
-  const AppShell({
-    required this.navigationShell,
-    super.key,
-  });
+  const AppShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
