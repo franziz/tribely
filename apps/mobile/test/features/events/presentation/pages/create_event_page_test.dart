@@ -14,11 +14,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/features/events/domain/entities/event_draft.dart';
 import 'package:tribely/src/features/events/presentation/controllers/create_event_controller.dart';
 import 'package:tribely/src/features/events/presentation/pages/create_event_page.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
+import 'package:tribely/src/features/events/presentation/widgets/step_navigation_bar.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_progress_indicator.dart';
 
 // ---------------------------------------------------------------------------
@@ -32,6 +34,65 @@ class _FixedEditingController extends CreateEventController {
       formData: EventDraft(),
       currentStep: 0,
       fieldErrors: {},
+      isResuming: false,
+    );
+  }
+}
+
+/// Step-4 controller with all step-4 fields valid but capacity == null.
+/// Proves that canSubmit() is false (and the Publish button is disabled)
+/// even though canAdvance(4) would be true.
+class _Step4MissingCapacityController extends CreateEventController {
+  @override
+  CreateEventState build() {
+    return const CreateEventEditing(
+      formData: EventDraft(
+        // All step-4 fields valid.
+        description: 'A lovely hike for solo travellers exploring Singapore.',
+        // All other steps have at least one null field (capacity is absent).
+        title: 'Sunday Morning Hike',
+        category: EventCategory.hike,
+        venueName: '1 Marina Blvd, Marina Bay',
+        latitude: 1.28,
+        longitude: 103.85,
+        startsAt: null, // startsAt null → canSubmit() returns false
+        // capacity intentionally null
+      ),
+      currentStep: 4,
+      fieldErrors: {},
+      isResuming: false,
+    );
+  }
+}
+
+/// Controller with a fully-valid draft at step 0. Supports real navigation
+/// (nextStep / previousStep) without triggering async use cases by skipping
+/// the draft-load microtask. Used by the round-trip test (test 8).
+class _ValidDraftController extends CreateEventController {
+  static const _draft = EventDraft(
+    title: 'Sunday Morning Hike',
+    category: EventCategory.hike,
+    venueName: '1 Marina Blvd, Marina Bay',
+    latitude: 1.28,
+    longitude: 103.85,
+    startsAt: null, // overridden via _setDateFields
+    endsAt: null,
+    capacity: 10,
+    approvalMode: 'auto',
+    description: 'A lovely hike for solo travellers exploring Singapore.',
+    currentStep: 0,
+  );
+
+  @override
+  CreateEventState build() {
+    // Build with dates so all fields are valid. Use a fixed far-future date
+    // to avoid validator rejection.
+    final startsAt = DateTime(2030, 6, 1, 8);
+    final endsAt = DateTime(2030, 6, 1, 11);
+    return CreateEventEditing(
+      formData: _draft.copyWith(startsAt: startsAt, endsAt: endsAt),
+      currentStep: 0,
+      fieldErrors: const {},
       isResuming: false,
     );
   }
@@ -62,57 +123,154 @@ GoRouter _buildTestRouter() {
   );
 }
 
+/// Pumps the full test widget tree with [controllerFactory] overriding the
+/// createEventController provider.
+Future<void> _pumpPage(
+  WidgetTester tester,
+  CreateEventController Function() controllerFactory,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        createEventControllerProvider.overrideWith(controllerFactory),
+      ],
+      child: MaterialApp.router(routerConfig: _buildTestRouter()),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('CreateEventPage smoke', () {
     testWidgets('renders app bar title "Create Event"', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            createEventControllerProvider.overrideWith(
-              _FixedEditingController.new,
-            ),
-          ],
-          child: MaterialApp.router(routerConfig: _buildTestRouter()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
+      await _pumpPage(tester, _FixedEditingController.new);
       expect(find.text('Create Event'), findsOneWidget);
     });
 
     testWidgets('renders exactly one StepProgressIndicator', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            createEventControllerProvider.overrideWith(
-              _FixedEditingController.new,
-            ),
-          ],
-          child: MaterialApp.router(routerConfig: _buildTestRouter()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
+      await _pumpPage(tester, _FixedEditingController.new);
       expect(find.byType(StepProgressIndicator), findsOneWidget);
     });
 
     testWidgets('step 1 renders a text field labelled "Title"', (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            createEventControllerProvider.overrideWith(
-              _FixedEditingController.new,
-            ),
-          ],
-          child: MaterialApp.router(routerConfig: _buildTestRouter()),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await _pumpPage(tester, _FixedEditingController.new);
 
       // Step 1 (Basics) is the active page at currentStep=0.
       // EventFormField renders a TextFormField with an InputDecoration whose
       // labelText is 'Title'. Find by the label text.
       expect(find.text('Title'), findsOneWidget);
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bug 2 regression — Publish button disabled when prior-step data is invalid
+  // ---------------------------------------------------------------------------
+  group('CreateEventPage — Publish gate (Bug 2 regression)', () {
+    testWidgets(
+      'Publish button is disabled when on step 4 with invalid prior-step data',
+      (tester) async {
+        await _pumpPage(tester, _Step4MissingCapacityController.new);
+
+        // The StepNavigationBar renders the Publish FilledButton as disabled
+        // (onPressed == null) when canAdvance is false.
+        final navBar = tester.widget<StepNavigationBar>(
+          find.byType(StepNavigationBar),
+        );
+        // canAdvance passed to StepNavigationBar must be false (canSubmit is
+        // false because startsAt and capacity are null).
+        expect(navBar.canAdvance, isFalse);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bug 1 regression — keyboard dismissal
+  // ---------------------------------------------------------------------------
+  group('CreateEventPage — keyboard dismissal (Bug 1 regression)', () {
+    testWidgets(
+      'tapping page body outside any input clears primary focus',
+      (tester) async {
+        await _pumpPage(tester, _FixedEditingController.new);
+
+        // Focus the Title text field.
+        final titleField = find.byType(TextFormField).first;
+        await tester.tap(titleField);
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus, isNotNull);
+
+        // Tap an empty area — the GestureDetector wrapping the body should
+        // call FocusScope.unfocus(). Use a point near the bottom of the visible
+        // area (outside form fields) but above the nav bar.
+        await tester.tapAt(const Offset(200, 400));
+        await tester.pump();
+
+        expect(FocusManager.instance.primaryFocus, isNull);
+      },
+    );
+
+    testWidgets(
+      'pressing Next on step 0 with valid data clears primary focus',
+      (tester) async {
+        // Use a valid-draft controller so the Next button is enabled.
+        await _pumpPage(tester, _ValidDraftController.new);
+
+        // Focus the Title field.
+        final titleField = find.byType(TextFormField).first;
+        await tester.tap(titleField);
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus, isNotNull);
+
+        // Tap the Next button.
+        final nextButton = find.text('Next');
+        await tester.tap(nextButton);
+        await tester.pump();
+
+        // nextStep() calls FocusManager.instance.primaryFocus?.unfocus() at
+        // the top, so focus must be cleared after Next.
+        expect(FocusManager.instance.primaryFocus, isNull);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Bug 2 regression — round-trip navigation preserves Publish enabled state
+  // ---------------------------------------------------------------------------
+  group('CreateEventPage — round-trip navigation (Bug 2 regression)', () {
+    testWidgets(
+      'step 0 → 4 → 3 → 4 keeps Publish enabled when all fields valid',
+      (tester) async {
+        // _ValidDraftController seeds a fully-valid draft at step 0.
+        await _pumpPage(tester, _ValidDraftController.new);
+
+        Future<void> tapNext() async {
+          await tester.tap(find.text('Next'));
+          await tester.pumpAndSettle();
+        }
+
+        Future<void> tapBack() async {
+          await tester.tap(find.text('Back'));
+          await tester.pumpAndSettle();
+        }
+
+        // Advance step 0 → 1 → 2 → 3 → 4.
+        await tapNext(); // → step 1
+        await tapNext(); // → step 2
+        await tapNext(); // → step 3
+        await tapNext(); // → step 4
+
+        // Navigate back step 4 → 3, then forward step 3 → 4.
+        await tapBack(); // → step 3
+        await tapNext(); // → step 4
+
+        // On step 4 with all fields valid, canAdvance passed to StepNavigationBar
+        // must be true (canSubmit() returns true).
+        final navBar = tester.widget<StepNavigationBar>(
+          find.byType(StepNavigationBar),
+        );
+        expect(navBar.canAdvance, isTrue);
+        // The Publish button must be labelled 'Publish' (not 'Next').
+        expect(find.text('Publish'), findsOneWidget);
+      },
+    );
   });
 }

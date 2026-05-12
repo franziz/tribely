@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -508,6 +509,188 @@ void main() {
       // Draft should still be intact.
       expect(after.formData.title, 'My Draft');
       expect(after.currentStep, 2);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // canSubmit — cross-step full-form validation (Bug 2 regression lock)
+  // ---------------------------------------------------------------------------
+  group('canSubmit', () {
+    late ProviderContainer container;
+
+    setUp(() async {
+      final result = _makeContainer();
+      container = result.container;
+      final load = result.load;
+      final save = result.save;
+
+      when(() => load(any())).thenAnswer((_) async => const Right(null));
+      when(() => save(any())).thenAnswer((_) async => const Right(null));
+
+      container.read(createEventControllerProvider);
+      await Future<void>.value();
+    });
+
+    tearDown(() => container.dispose());
+
+    test(
+      'canSubmit returns false when only step-4 fields are valid but steps 1–3 have nulls',
+      () {
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        // Only seed description (step 4's field) — all prior steps remain null.
+        controller.updateField(
+          field: 'description',
+          value: 'A lovely hike for solo travellers exploring Singapore.',
+        );
+
+        // canAdvance(4) is true — step 4's own field passes.
+        expect(controller.canAdvance(4), isTrue);
+        // canSubmit must be false — prior steps have null required fields.
+        expect(controller.canSubmit(), isFalse);
+      },
+    );
+
+    test('canSubmit returns true when all 10 fields are valid', () {
+      final controller = container.read(
+        createEventControllerProvider.notifier,
+      );
+      final draft = _validDraft();
+      controller.updateField(field: 'title', value: draft.title!);
+      controller.updateField(field: 'category', value: draft.category!);
+      controller.updateField(field: 'venueName', value: draft.venueName!);
+      controller.updateField(field: 'latitude', value: draft.latitude!);
+      controller.updateField(field: 'longitude', value: draft.longitude!);
+      controller.updateField(field: 'startsAt', value: draft.startsAt!);
+      controller.updateField(field: 'endsAt', value: draft.endsAt!);
+      controller.updateField(field: 'capacity', value: draft.capacity!);
+      controller.updateField(
+        field: 'approvalMode',
+        value: draft.approvalMode!,
+      );
+      controller.updateField(field: 'description', value: draft.description!);
+
+      expect(controller.canSubmit(), isTrue);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // submit — defense-in-depth null guard (Bug 2 regression lock)
+  // ---------------------------------------------------------------------------
+  group('submit — null guard', () {
+    test(
+      'submit() with missing required field maps to SubmissionError with _banner '
+      'and returnToStep at the offending step, without calling the use case',
+      () async {
+        final (:container, :create, :load, :save, :clear) = _makeContainer();
+        addTearDown(container.dispose);
+
+        when(() => load(any())).thenAnswer((_) async => const Right(null));
+        when(() => save(any())).thenAnswer((_) async => const Right(null));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+
+        // Seed all required fields EXCEPT capacity (step 3).
+        final draft = _validDraft();
+        controller.updateField(field: 'title', value: draft.title!);
+        controller.updateField(field: 'category', value: draft.category!);
+        controller.updateField(field: 'venueName', value: draft.venueName!);
+        controller.updateField(field: 'latitude', value: draft.latitude!);
+        controller.updateField(field: 'longitude', value: draft.longitude!);
+        controller.updateField(field: 'startsAt', value: draft.startsAt!);
+        controller.updateField(field: 'endsAt', value: draft.endsAt!);
+        // capacity intentionally omitted
+        controller.updateField(
+          field: 'approvalMode',
+          value: draft.approvalMode!,
+        );
+        controller.updateField(field: 'description', value: draft.description!);
+
+        await controller.submit();
+
+        // The use case must never have been called.
+        verifyNever(() => create(any()));
+
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventSubmissionError>());
+        final error = state as CreateEventSubmissionError;
+        // capacity lives on step 3.
+        expect(error.returnToStep, 3);
+        expect(error.fieldErrors['_banner'], isNotNull);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // nextStep / previousStep keyboard dismissal (Bug 1 regression lock)
+  // ---------------------------------------------------------------------------
+  group('nextStep / previousStep keyboard dismissal', () {
+    late ProviderContainer container;
+
+    setUp(() async {
+      final result = _makeContainer();
+      container = result.container;
+      final load = result.load;
+      final save = result.save;
+
+      when(() => load(any())).thenAnswer((_) async => const Right(null));
+      when(() => save(any())).thenAnswer((_) async => const Right(null));
+
+      container.read(createEventControllerProvider);
+      await Future<void>.value();
+    });
+
+    tearDown(() => container.dispose());
+
+    test('previousStep() unfocuses primary focus before mutating state', () {
+      final controller = container.read(
+        createEventControllerProvider.notifier,
+      );
+      // Navigate to step 1 first so previousStep() has somewhere to go.
+      controller.goToStep(1);
+
+      // Simulate a focused node.
+      final focusNode = FocusNode();
+      final scopeNode = FocusScopeNode();
+      scopeNode.attach(null);
+      focusNode.attach(null);
+      scopeNode.requestFocus(focusNode);
+      // primaryFocus is now non-null.
+      expect(FocusManager.instance.primaryFocus, isNotNull);
+
+      controller.previousStep();
+
+      // After previousStep the primary focus must be cleared.
+      expect(FocusManager.instance.primaryFocus, isNull);
+
+      focusNode.dispose();
+      scopeNode.dispose();
+    });
+
+    test('nextStep() unfocuses primary focus before mutating state', () {
+      final controller = container.read(
+        createEventControllerProvider.notifier,
+      );
+
+      final focusNode = FocusNode();
+      final scopeNode = FocusScopeNode();
+      scopeNode.attach(null);
+      focusNode.attach(null);
+      scopeNode.requestFocus(focusNode);
+      expect(FocusManager.instance.primaryFocus, isNotNull);
+
+      controller.nextStep();
+
+      expect(FocusManager.instance.primaryFocus, isNull);
+
+      focusNode.dispose();
+      scopeNode.dispose();
     });
   });
 }
