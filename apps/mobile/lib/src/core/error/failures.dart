@@ -41,6 +41,10 @@ class EmailNotVerifiedFailure extends Failure {
   const EmailNotVerifiedFailure(super.message, {super.code});
 }
 
+class NotFoundFailure extends Failure {
+  const NotFoundFailure(super.message, {super.code});
+}
+
 class UnknownFailure extends Failure {
   const UnknownFailure(super.message, {super.code});
 }

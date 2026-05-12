@@ -46,6 +46,7 @@ String _bannerFor(Failure failure) {
     EmailNotVerifiedFailure() => failure.message,
     AuthFailure() => failure.message,
     ValidationFailure() => failure.message,
+    NotFoundFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

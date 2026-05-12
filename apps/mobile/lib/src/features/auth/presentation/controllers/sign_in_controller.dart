@@ -38,6 +38,7 @@ String _bannerFor(Failure failure) {
     ServerFailure() => "Something's off on our end. Give it a moment.",
     EmailNotVerifiedFailure() => failure.message,
     ValidationFailure() => failure.message,
+    NotFoundFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

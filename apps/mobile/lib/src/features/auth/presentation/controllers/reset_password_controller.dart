@@ -50,6 +50,7 @@ String _bannerFor(Failure failure) {
     // expired token) into a single 400 with this message — keeps the
     // enumeration surface clean.
     ValidationFailure() => failure.message,
+    NotFoundFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }
