@@ -57,14 +57,20 @@ void main() {
       expect(validateCapacity(capacityMin), isNull);
     });
 
-    test('$capacityUiClamp (UI clamp boundary) → valid (server still accepts)', () {
-      expect(validateCapacity(capacityUiClamp), isNull);
-    });
+    test(
+      '$capacityUiClamp (UI clamp boundary) → valid (server still accepts)',
+      () {
+        expect(validateCapacity(capacityUiClamp), isNull);
+      },
+    );
 
-    test('${capacityUiClamp + 1} (above UI clamp) → valid (server-max not exceeded)', () {
-      // UI clamp only applies to the slider display; the validator uses server bounds.
-      expect(validateCapacity(capacityUiClamp + 1), isNull);
-    });
+    test(
+      '${capacityUiClamp + 1} (above UI clamp) → valid (server-max not exceeded)',
+      () {
+        // UI clamp only applies to the slider display; the validator uses server bounds.
+        expect(validateCapacity(capacityUiClamp + 1), isNull);
+      },
+    );
 
     test('exactly $capacityMax (server max) → valid', () {
       expect(validateCapacity(capacityMax), isNull);
@@ -231,10 +237,13 @@ void main() {
       expect(validateEndsAt(after, start), isNull);
     });
 
-    test('null startsAt with valid endsAt → valid (no cross-check possible)', () {
-      final any = DateTime(2030, 6, 1, 12);
-      expect(validateEndsAt(any, null), isNull);
-    });
+    test(
+      'null startsAt with valid endsAt → valid (no cross-check possible)',
+      () {
+        final any = DateTime(2030, 6, 1, 12);
+        expect(validateEndsAt(any, null), isNull);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -294,7 +303,10 @@ void main() {
     }
 
     test('unknown wire value → EventCategory.other (defensive default)', () {
-      expect(EventCategory.fromWire('unknown_future_value'), EventCategory.other);
+      expect(
+        EventCategory.fromWire('unknown_future_value'),
+        EventCategory.other,
+      );
     });
 
     test('all 7 EventCategory values are covered', () {

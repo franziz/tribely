@@ -6,6 +6,7 @@ import 'package:tribely/src/core/error/exceptions.dart';
 import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/features/events/data/datasources/event_draft_local_datasource.dart';
 import 'package:tribely/src/features/events/data/datasources/event_remote_datasource.dart';
+import 'package:tribely/src/features/events/data/models/create_event_params_model.dart';
 import 'package:tribely/src/features/events/data/models/event_draft_model.dart';
 import 'package:tribely/src/features/events/data/models/event_model.dart';
 import 'package:tribely/src/features/events/data/repositories/event_repository_impl.dart';
@@ -18,10 +19,20 @@ import 'package:tribely/src/features/events/domain/repositories/event_repository
 // Mocks
 // ---------------------------------------------------------------------------
 
-class _MockEventRemoteDatasource extends Mock implements EventRemoteDatasource {}
+class _MockEventRemoteDatasource extends Mock
+    implements EventRemoteDatasource {}
 
 class _MockEventDraftLocalDatasource extends Mock
     implements EventDraftLocalDatasource {}
+
+// ---------------------------------------------------------------------------
+// Fakes — required by mocktail for any() / captureAny() on these types
+// ---------------------------------------------------------------------------
+
+class _FakeCreateEventParamsModel extends Fake
+    implements CreateEventParamsModel {}
+
+class _FakeEventDraftModel extends Fake implements EventDraftModel {}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,10 +42,7 @@ class _MockEventDraftLocalDatasource extends Mock
 /// repository's _mapDioError dispatch key is `e.error`, not the DioException
 /// itself — so the error payload must be set correctly.
 DioException _dioWith(Object inner) {
-  return DioException(
-    requestOptions: RequestOptions(),
-    error: inner,
-  );
+  return DioException(requestOptions: RequestOptions(), error: inner);
 }
 
 /// Minimal [EventModel] for happy-path assertions.
@@ -74,6 +82,11 @@ final _stubParams = CreateEventParams(
 );
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(_FakeCreateEventParamsModel());
+    registerFallbackValue(_FakeEventDraftModel());
+  });
+
   late _MockEventRemoteDatasource remote;
   late _MockEventDraftLocalDatasource local;
   late EventRepositoryImpl repo;
@@ -106,22 +119,23 @@ void main() {
   // ---------------------------------------------------------------------------
   group('createEvent — Dio error mapping', () {
     test(
-        'ServerException(400, VALIDATION) → Left(ValidationFailure) with message',
-        () async {
-      final ex = const ServerException(
-        'Title required',
-        statusCode: 400,
-        code: 'VALIDATION',
-      );
-      when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
+      'ServerException(400, VALIDATION) → Left(ValidationFailure) with message',
+      () async {
+        final ex = const ServerException(
+          'Title required',
+          statusCode: 400,
+          code: 'VALIDATION',
+        );
+        when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
 
-      final result = await repo.createEvent(_stubParams);
+        final result = await repo.createEvent(_stubParams);
 
-      expect(result.isLeft(), isTrue);
-      final failure = (result as Left<Failure, Event>).value;
-      expect(failure, isA<ValidationFailure>());
-      expect(failure.message, 'Title required');
-    });
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left<Failure, Event>).value;
+        expect(failure, isA<ValidationFailure>());
+        expect(failure.message, 'Title required');
+      },
+    );
 
     test('ServerException(401) → Left(AuthFailure)', () async {
       final ex = const ServerException('Unauthorized', statusCode: 401);
@@ -134,65 +148,71 @@ void main() {
     });
 
     test(
-        'ServerException(403, EMAIL_NOT_VERIFIED) → Left(EmailNotVerifiedFailure)',
-        () async {
-      final ex = const ServerException(
-        'Email not verified',
-        statusCode: 403,
-        code: 'EMAIL_NOT_VERIFIED',
-      );
-      when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
+      'ServerException(403, EMAIL_NOT_VERIFIED) → Left(EmailNotVerifiedFailure)',
+      () async {
+        final ex = const ServerException(
+          'Email not verified',
+          statusCode: 403,
+          code: 'EMAIL_NOT_VERIFIED',
+        );
+        when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
 
-      final result = await repo.createEvent(_stubParams);
+        final result = await repo.createEvent(_stubParams);
 
-      expect(result.isLeft(), isTrue);
-      expect((result as Left).value, isA<EmailNotVerifiedFailure>());
-    });
-
-    test(
-        'ServerException(403, OTHER code) → Left(ServerFailure) with status 403',
-        () async {
-      final ex = const ServerException(
-        'Forbidden',
-        statusCode: 403,
-        code: 'SOME_OTHER_CODE',
-      );
-      when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
-
-      final result = await repo.createEvent(_stubParams);
-
-      expect(result.isLeft(), isTrue);
-      final failure = (result as Left).value;
-      expect(failure, isA<ServerFailure>());
-      expect((failure as ServerFailure).statusCode, 403);
-    });
+        expect(result.isLeft(), isTrue);
+        expect((result as Left).value, isA<EmailNotVerifiedFailure>());
+      },
+    );
 
     test(
-        'ServerException(429) → Left(ServerFailure) with status 429 + message',
-        () async {
-      final ex = const ServerException('Too many requests', statusCode: 429);
-      when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
+      'ServerException(403, OTHER code) → Left(ServerFailure) with status 403',
+      () async {
+        final ex = const ServerException(
+          'Forbidden',
+          statusCode: 403,
+          code: 'SOME_OTHER_CODE',
+        );
+        when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
 
-      final result = await repo.createEvent(_stubParams);
+        final result = await repo.createEvent(_stubParams);
 
-      expect(result.isLeft(), isTrue);
-      final failure = (result as Left).value;
-      expect(failure, isA<ServerFailure>());
-      expect((failure as ServerFailure).statusCode, 429);
-      expect(failure.message, 'Too many requests');
-    });
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<ServerFailure>());
+        expect((failure as ServerFailure).statusCode, 403);
+      },
+    );
 
-    test('ServerException(500) → Left(ServerFailure) with status 500', () async {
-      final ex = const ServerException('Internal error', statusCode: 500);
-      when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
+    test(
+      'ServerException(429) → Left(ServerFailure) with status 429 + message',
+      () async {
+        final ex = const ServerException('Too many requests', statusCode: 429);
+        when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
 
-      final result = await repo.createEvent(_stubParams);
+        final result = await repo.createEvent(_stubParams);
 
-      expect(result.isLeft(), isTrue);
-      final failure = (result as Left).value;
-      expect(failure, isA<ServerFailure>());
-      expect((failure as ServerFailure).statusCode, 500);
-    });
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<ServerFailure>());
+        expect((failure as ServerFailure).statusCode, 429);
+        expect(failure.message, 'Too many requests');
+      },
+    );
+
+    test(
+      'ServerException(500) → Left(ServerFailure) with status 500',
+      () async {
+        final ex = const ServerException('Internal error', statusCode: 500);
+        when(() => remote.createEvent(any())).thenThrow(_dioWith(ex));
+
+        final result = await repo.createEvent(_stubParams);
+
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<ServerFailure>());
+        expect((failure as ServerFailure).statusCode, 500);
+      },
+    );
 
     test('NetworkException → Left(NetworkFailure)', () async {
       final ex = const NetworkException('No connection');
@@ -205,8 +225,9 @@ void main() {
     });
 
     test('arbitrary Exception → Left(UnknownFailure)', () async {
-      when(() => remote.createEvent(any()))
-          .thenThrow(Exception('Something unexpected'));
+      when(
+        () => remote.createEvent(any()),
+      ).thenThrow(Exception('Something unexpected'));
 
       final result = await repo.createEvent(_stubParams);
 
@@ -227,24 +248,26 @@ void main() {
       expect(result, const Right<Failure, EventDraft?>(null));
     });
 
-    test('local returns a model → Right(EventDraft) with matching fields',
-        () async {
-      const model = EventDraftModel(
-        schemaVersion: 1,
-        title: 'Draft Title',
-        currentStep: 2,
-        lastUpdatedAt: '2030-01-01T10:00:00.000',
-      );
-      when(() => local.load()).thenAnswer((_) async => model);
+    test(
+      'local returns a model → Right(EventDraft) with matching fields',
+      () async {
+        const model = EventDraftModel(
+          schemaVersion: 1,
+          title: 'Draft Title',
+          currentStep: 2,
+          lastUpdatedAt: '2030-01-01T10:00:00.000',
+        );
+        when(() => local.load()).thenAnswer((_) async => model);
 
-      final result = await repo.loadDraft();
+        final result = await repo.loadDraft();
 
-      expect(result.isRight(), isTrue);
-      final draft = (result as Right<Failure, EventDraft?>).value;
-      expect(draft, isNotNull);
-      expect(draft!.title, 'Draft Title');
-      expect(draft.currentStep, 2);
-    });
+        expect(result.isRight(), isTrue);
+        final draft = (result as Right<Failure, EventDraft?>).value;
+        expect(draft, isNotNull);
+        expect(draft!.title, 'Draft Title');
+        expect(draft.currentStep, 2);
+      },
+    );
 
     test('local throws Exception → Left(UnknownFailure)', () async {
       when(() => local.load()).thenThrow(Exception('Storage error'));

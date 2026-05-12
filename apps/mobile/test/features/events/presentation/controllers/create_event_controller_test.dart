@@ -21,11 +21,14 @@ import 'package:tribely/src/features/events/presentation/state/create_event_stat
 
 class _MockCreateEventUseCase extends Mock implements CreateEventUseCase {}
 
-class _MockLoadEventDraftUseCase extends Mock implements LoadEventDraftUseCase {}
+class _MockLoadEventDraftUseCase extends Mock
+    implements LoadEventDraftUseCase {}
 
-class _MockSaveEventDraftUseCase extends Mock implements SaveEventDraftUseCase {}
+class _MockSaveEventDraftUseCase extends Mock
+    implements SaveEventDraftUseCase {}
 
-class _MockClearEventDraftUseCase extends Mock implements ClearEventDraftUseCase {}
+class _MockClearEventDraftUseCase extends Mock
+    implements ClearEventDraftUseCase {}
 
 // ---------------------------------------------------------------------------
 // Fallback registrations required by mocktail
@@ -92,7 +95,8 @@ EventDraft _validDraft() {
   _MockLoadEventDraftUseCase load,
   _MockSaveEventDraftUseCase save,
   _MockClearEventDraftUseCase clear,
-}) _makeContainer() {
+})
+_makeContainer() {
   final create = _MockCreateEventUseCase();
   final load = _MockLoadEventDraftUseCase();
   final save = _MockSaveEventDraftUseCase();
@@ -132,66 +136,71 @@ void main() {
   // ---------------------------------------------------------------------------
   group('init — draft load', () {
     test(
-        'loadDraft returns Right(null) → editing state with isResuming=false, step=0',
-        () async {
-      final (:container, :load, :save, :create, :clear) = _makeContainer();
-      addTearDown(container.dispose);
+      'loadDraft returns Right(null) → editing state with isResuming=false, step=0',
+      () async {
+        final (:container, :load, :save, :create, :clear) = _makeContainer();
+        addTearDown(container.dispose);
 
-      when(() => load(any())).thenAnswer((_) async => const Right(null));
+        when(() => load(any())).thenAnswer((_) async => const Right(null));
 
-      // Read the provider to trigger build() + the async side-effect.
-      container.read(createEventControllerProvider);
-      // Allow the async _loadDraftAndInit to complete.
-      await Future<void>.value();
+        // Read the provider to trigger build() + the async side-effect.
+        container.read(createEventControllerProvider);
+        // Allow the async _loadDraftAndInit to complete.
+        await Future<void>.value();
 
-      final state = container.read(createEventControllerProvider);
-      expect(state, isA<CreateEventEditing>());
-      final editing = state as CreateEventEditing;
-      expect(editing.isResuming, isFalse);
-      expect(editing.currentStep, 0);
-    });
-
-    test(
-        'loadDraft returns Right(draft with step=2, title="foo") → isResuming=true, step=2, title=foo',
-        () async {
-      final (:container, :load, :save, :create, :clear) = _makeContainer();
-      addTearDown(container.dispose);
-
-      final draft = const EventDraft(
-        title: 'foo',
-        currentStep: 2,
-      );
-      when(() => load(any())).thenAnswer((_) async => Right(draft));
-
-      container.read(createEventControllerProvider);
-      await Future<void>.value();
-
-      final state = container.read(createEventControllerProvider);
-      expect(state, isA<CreateEventEditing>());
-      final editing = state as CreateEventEditing;
-      expect(editing.isResuming, isTrue);
-      expect(editing.currentStep, 2);
-      expect(editing.formData.title, 'foo');
-    });
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventEditing>());
+        final editing = state as CreateEventEditing;
+        expect(editing.isResuming, isFalse);
+        expect(editing.currentStep, 0);
+      },
+    );
 
     test(
-        'loadDraft returns Left(UnknownFailure) → state is fresh editing (does not block)',
-        () async {
-      final (:container, :load, :save, :create, :clear) = _makeContainer();
-      addTearDown(container.dispose);
+      'loadDraft returns Right(draft with step=2, title="foo") → isResuming=true, step=2, title=foo',
+      () async {
+        final (:container, :load, :save, :create, :clear) = _makeContainer();
+        addTearDown(container.dispose);
 
-      when(() => load(any()))
-          .thenAnswer((_) async => const Left(UnknownFailure('storage error')));
+        final draft = const EventDraft(title: 'foo', currentStep: 2);
+        when(() => load(any())).thenAnswer((_) async => Right(draft));
 
-      container.read(createEventControllerProvider);
-      await Future<void>.value();
+        container.read(createEventControllerProvider);
+        // Two awaits: the first lets _loadDraftAndInit start; the second lets
+        // the inner `await useCase(...)` complete (the mock's async function
+        // schedules one extra microtask even when it returns immediately).
+        await Future<void>.value();
+        await Future<void>.value();
 
-      final state = container.read(createEventControllerProvider);
-      expect(state, isA<CreateEventEditing>());
-      final editing = state as CreateEventEditing;
-      expect(editing.isResuming, isFalse);
-      expect(editing.currentStep, 0);
-    });
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventEditing>());
+        final editing = state as CreateEventEditing;
+        expect(editing.isResuming, isTrue);
+        expect(editing.currentStep, 2);
+        expect(editing.formData.title, 'foo');
+      },
+    );
+
+    test(
+      'loadDraft returns Left(UnknownFailure) → state is fresh editing (does not block)',
+      () async {
+        final (:container, :load, :save, :create, :clear) = _makeContainer();
+        addTearDown(container.dispose);
+
+        when(
+          () => load(any()),
+        ).thenAnswer((_) async => const Left(UnknownFailure('storage error')));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventEditing>());
+        final editing = state as CreateEventEditing;
+        expect(editing.isResuming, isFalse);
+        expect(editing.currentStep, 0);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -217,21 +226,23 @@ void main() {
 
     tearDown(() => container.dispose());
 
-    test('valid title → formData.title updated, fieldErrors[title] is null',
-        () {
-      final controller =
-          container.read(createEventControllerProvider.notifier);
-      controller.updateField(field: 'title', value: 'Hello World Event');
+    test(
+      'valid title → formData.title updated, fieldErrors[title] is null',
+      () {
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.updateField(field: 'title', value: 'Hello World Event');
 
-      final state =
-          container.read(createEventControllerProvider) as CreateEventEditing;
-      expect(state.formData.title, 'Hello World Event');
-      expect(state.fieldErrors['title'], isNull);
-    });
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.formData.title, 'Hello World Event');
+        expect(state.fieldErrors['title'], isNull);
+      },
+    );
 
     test('invalid title (too short) → fieldErrors[title] is non-null', () {
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+      final controller = container.read(createEventControllerProvider.notifier);
       controller.updateField(field: 'title', value: 'hi');
 
       final state =
@@ -264,8 +275,7 @@ void main() {
     tearDown(() => container.dispose());
 
     test('step 0: valid title + category → canAdvance(0) is true', () {
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+      final controller = container.read(createEventControllerProvider.notifier);
       controller.updateField(field: 'title', value: 'Sunday Morning Hike');
       controller.updateField(field: 'category', value: EventCategory.hike);
 
@@ -273,8 +283,7 @@ void main() {
     });
 
     test('step 0: invalid title → canAdvance(0) is false', () {
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+      final controller = container.read(createEventControllerProvider.notifier);
       controller.updateField(field: 'title', value: 'hi'); // too short
       controller.updateField(field: 'category', value: EventCategory.hike);
 
@@ -287,49 +296,53 @@ void main() {
   // ---------------------------------------------------------------------------
   group('submit — success', () {
     test(
-        'CreateEventUseCase returns Right(Event) → SubmissionSuccess; ClearDraft called',
-        () async {
-      final (:container, :create, :load, :save, :clear) = _makeContainer();
-      addTearDown(container.dispose);
+      'CreateEventUseCase returns Right(Event) → SubmissionSuccess; ClearDraft called',
+      () async {
+        final (:container, :create, :load, :save, :clear) = _makeContainer();
+        addTearDown(container.dispose);
 
-      when(() => load(any())).thenAnswer((_) async => const Right(null));
-      when(() => save(any())).thenAnswer((_) async => const Right(null));
-      when(() => create(any()))
-          .thenAnswer((_) async => Right(_stubEvent()));
-      when(() => clear(any())).thenAnswer((_) async => const Right(null));
+        when(() => load(any())).thenAnswer((_) async => const Right(null));
+        when(() => save(any())).thenAnswer((_) async => const Right(null));
+        when(() => create(any())).thenAnswer((_) async => Right(_stubEvent()));
+        when(() => clear(any())).thenAnswer((_) async => const Right(null));
 
-      // Seed the controller with a fully-valid draft so submit() can build
-      // CreateEventParams without triggering null asserts.
-      container.read(createEventControllerProvider);
-      await Future<void>.value();
+        // Seed the controller with a fully-valid draft so submit() can build
+        // CreateEventParams without triggering null asserts.
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
 
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
 
-      // Load a valid draft via the controller's _loadDraftAndInit path is
-      // async-only, so manually seed state by calling updateField for each
-      // required field.
-      final draft = _validDraft();
-      controller.updateField(field: 'title', value: draft.title!);
-      controller.updateField(field: 'category', value: draft.category!);
-      controller.updateField(field: 'venueName', value: draft.venueName!);
-      controller.updateField(field: 'latitude', value: draft.latitude!);
-      controller.updateField(field: 'longitude', value: draft.longitude!);
-      controller.updateField(field: 'startsAt', value: draft.startsAt!);
-      controller.updateField(field: 'endsAt', value: draft.endsAt!);
-      controller.updateField(field: 'capacity', value: draft.capacity!);
-      controller.updateField(field: 'approvalMode', value: draft.approvalMode!);
-      controller.updateField(field: 'description', value: draft.description!);
+        // Load a valid draft via the controller's _loadDraftAndInit path is
+        // async-only, so manually seed state by calling updateField for each
+        // required field.
+        final draft = _validDraft();
+        controller.updateField(field: 'title', value: draft.title!);
+        controller.updateField(field: 'category', value: draft.category!);
+        controller.updateField(field: 'venueName', value: draft.venueName!);
+        controller.updateField(field: 'latitude', value: draft.latitude!);
+        controller.updateField(field: 'longitude', value: draft.longitude!);
+        controller.updateField(field: 'startsAt', value: draft.startsAt!);
+        controller.updateField(field: 'endsAt', value: draft.endsAt!);
+        controller.updateField(field: 'capacity', value: draft.capacity!);
+        controller.updateField(
+          field: 'approvalMode',
+          value: draft.approvalMode!,
+        );
+        controller.updateField(field: 'description', value: draft.description!);
 
-      await controller.submit();
+        await controller.submit();
 
-      final state = container.read(createEventControllerProvider);
-      expect(state, isA<CreateEventSubmissionSuccess>());
-      expect((state as CreateEventSubmissionSuccess).eventId, 'evt-1');
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventSubmissionSuccess>());
+        expect((state as CreateEventSubmissionSuccess).eventId, 'evt-1');
 
-      // ClearDraft must have been called exactly once.
-      verify(() => clear(any())).called(1);
-    });
+        // ClearDraft must have been called exactly once.
+        verify(() => clear(any())).called(1);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -353,8 +366,7 @@ void main() {
       await Future<void>.value();
 
       // Seed all required fields so submit() can proceed.
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+      final controller = container.read(createEventControllerProvider.notifier);
       final draft = _validDraft();
       controller.updateField(field: 'title', value: draft.title!);
       controller.updateField(field: 'category', value: draft.category!);
@@ -371,56 +383,65 @@ void main() {
     tearDown(() => container.dispose());
 
     test(
-        'ValidationFailure → SubmissionError; returnToStep points to first bad field',
-        () async {
-      // ValidationFailure with fieldErrors on 'title' (step 0)
-      const failure = ValidationFailure(
-        'Validation failed',
-        fieldErrors: {
-          'title': ['Title is too short'],
-        },
-      );
-      when(() => create(any())).thenAnswer((_) async => const Left(failure));
+      'ValidationFailure → SubmissionError; returnToStep points to first bad field',
+      () async {
+        // ValidationFailure with fieldErrors on 'title' (step 0)
+        const failure = ValidationFailure(
+          'Validation failed',
+          fieldErrors: {
+            'title': ['Title is too short'],
+          },
+        );
+        when(() => create(any())).thenAnswer((_) async => const Left(failure));
 
-      final controller =
-          container.read(createEventControllerProvider.notifier);
-      await controller.submit();
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
 
-      final state = container.read(createEventControllerProvider);
-      expect(state, isA<CreateEventSubmissionError>());
-      final error = state as CreateEventSubmissionError;
-      // 'title' is in step 0; returnToStep must be 0.
-      expect(error.returnToStep, 0);
-      // The field error is mapped into fieldErrors.
-      expect(error.fieldErrors['title'], isNotNull);
-    });
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventSubmissionError>());
+        final error = state as CreateEventSubmissionError;
+        // 'title' is in step 0; returnToStep must be 0.
+        expect(error.returnToStep, 0);
+        // The field error is mapped into fieldErrors.
+        expect(error.fieldErrors['title'], isNotNull);
+      },
+    );
 
-    test('EmailNotVerifiedFailure → SubmissionError with _banner key', () async {
-      const failure = EmailNotVerifiedFailure('Email not verified');
-      when(() => create(any())).thenAnswer((_) async => const Left(failure));
+    test(
+      'EmailNotVerifiedFailure → SubmissionError with _banner key',
+      () async {
+        const failure = EmailNotVerifiedFailure('Email not verified');
+        when(() => create(any())).thenAnswer((_) async => const Left(failure));
 
-      final controller =
-          container.read(createEventControllerProvider.notifier);
-      await controller.submit();
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
 
-      final state = container.read(createEventControllerProvider);
-      expect(state, isA<CreateEventSubmissionError>());
-      expect((state as CreateEventSubmissionError).fieldErrors['_banner'],
-          isNotNull);
-    });
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventSubmissionError>());
+        expect(
+          (state as CreateEventSubmissionError).fieldErrors['_banner'],
+          isNotNull,
+        );
+      },
+    );
 
     test('NetworkFailure → SubmissionError with _banner key', () async {
       const failure = NetworkFailure('Offline');
       when(() => create(any())).thenAnswer((_) async => const Left(failure));
 
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+      final controller = container.read(createEventControllerProvider.notifier);
       await controller.submit();
 
       final state = container.read(createEventControllerProvider);
       expect(state, isA<CreateEventSubmissionError>());
-      expect((state as CreateEventSubmissionError).fieldErrors['_banner'],
-          isNotNull);
+      expect(
+        (state as CreateEventSubmissionError).fieldErrors['_banner'],
+        isNotNull,
+      );
     });
   });
 
@@ -439,8 +460,7 @@ void main() {
       container.read(createEventControllerProvider);
       await Future<void>.value();
 
-      final controller =
-          container.read(createEventControllerProvider.notifier);
+      final controller = container.read(createEventControllerProvider.notifier);
       await controller.discardDraft();
 
       verify(() => clear(any())).called(1);
@@ -467,6 +487,10 @@ void main() {
       when(() => save(any())).thenAnswer((_) async => const Right(null));
 
       container.read(createEventControllerProvider);
+      // Two awaits: the first lets _loadDraftAndInit start; the second lets
+      // the inner `await useCase(...)` complete (the mock's async function
+      // schedules one extra microtask even when it returns immediately).
+      await Future<void>.value();
       await Future<void>.value();
 
       // Confirm isResuming was set by the draft load.
@@ -474,7 +498,9 @@ void main() {
           container.read(createEventControllerProvider) as CreateEventEditing;
       expect(before.isResuming, isTrue);
 
-      container.read(createEventControllerProvider.notifier).acknowledgeResume();
+      container
+          .read(createEventControllerProvider.notifier)
+          .acknowledgeResume();
 
       final after =
           container.read(createEventControllerProvider) as CreateEventEditing;
