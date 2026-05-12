@@ -16,10 +16,7 @@ import '../../../events/domain/entities/event.dart';
 ///   "There are no events near you yet — be the first to create one!"
 /// - [noEventsMatchFilters]    — non-default filters, API returned zero results.
 ///   "No events match your filters — try widening your search."
-enum DiscoverEmptyReason {
-  noEventsInArea,
-  noEventsMatchFilters,
-}
+enum DiscoverEmptyReason { noEventsInArea, noEventsMatchFilters }
 
 // ---------------------------------------------------------------------------
 // Sealed state hierarchy
@@ -64,18 +61,25 @@ class DiscoverLoading extends DiscoverState {
 ///                            location was unavailable (permission denied /
 ///                            timeout). D3 renders a soft banner. The filter
 ///                            state in D1 is NOT mutated; this is fetch-scoped.
+/// - [paginationError]      — non-null when [loadMore()] failed; carries the
+///                            [Failure] from the last failed pagination request.
+///                            D3 renders this as an inline error footer with a
+///                            retry callback. Cleared on the next successful
+///                            [loadMore()] or on a full [refresh()].
 class DiscoverLoaded extends DiscoverState {
   const DiscoverLoaded({
     required this.events,
     required this.nextCursor,
     this.isLoadingMore = false,
     this.distanceFilterDropped = false,
+    this.paginationError,
   });
 
   final List<Event> events;
   final String? nextCursor;
   final bool isLoadingMore;
   final bool distanceFilterDropped;
+  final Failure? paginationError;
 
   /// Convenience: whether more pages are available.
   bool get hasMore => nextCursor != null;
@@ -85,14 +89,19 @@ class DiscoverLoaded extends DiscoverState {
     Object? nextCursor = _sentinel,
     bool? isLoadingMore,
     bool? distanceFilterDropped,
+    Object? paginationError = _sentinel,
   }) {
     return DiscoverLoaded(
       events: events ?? this.events,
-      nextCursor:
-          nextCursor == _sentinel ? this.nextCursor : nextCursor as String?,
+      nextCursor: nextCursor == _sentinel
+          ? this.nextCursor
+          : nextCursor as String?,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       distanceFilterDropped:
           distanceFilterDropped ?? this.distanceFilterDropped,
+      paginationError: paginationError == _sentinel
+          ? this.paginationError
+          : paginationError as Failure?,
     );
   }
 
@@ -102,6 +111,7 @@ class DiscoverLoaded extends DiscoverState {
     nextCursor,
     isLoadingMore,
     distanceFilterDropped,
+    paginationError,
   ];
 }
 

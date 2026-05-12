@@ -30,12 +30,12 @@ class DiscoverController extends Notifier<DiscoverState> {
   @override
   DiscoverState build() {
     // React to debounced filter changes — triggers a full refetch from cursor=null.
-    ref.listen<AsyncValue<DiscoverFiltersActive>>(
-      debouncedFiltersProvider,
-      (_, next) {
-        next.whenData((_) => _fetchFirstPage());
-      },
-    );
+    ref.listen<AsyncValue<DiscoverFiltersActive>>(debouncedFiltersProvider, (
+      _,
+      next,
+    ) {
+      next.whenData((_) => _fetchFirstPage());
+    });
 
     // Kick off the initial fetch using the current (default) filter state.
     Future(() => _fetchFirstPage());
@@ -83,15 +83,20 @@ class DiscoverController extends Notifier<DiscoverState> {
 
     state = result.fold(
       (failure) {
-        // On loadMore failure preserve existing results but surface the error.
-        // Reset isLoadingMore so D3 can re-enable the scroll trigger.
-        return postAwaitState.copyWith(isLoadingMore: false);
+        // On loadMore failure preserve existing results and surface the error
+        // as an inline footer. Reset isLoadingMore so D3 can show the retry
+        // widget rather than a spinner.
+        return postAwaitState.copyWith(
+          isLoadingMore: false,
+          paginationError: failure,
+        );
       },
       (page) => DiscoverLoaded(
         events: [...postAwaitState.events, ...page.events],
         nextCursor: page.nextCursor,
         isLoadingMore: false,
         distanceFilterDropped: dropped,
+        // paginationError is null by default — clears any prior error.
       ),
     );
   }
@@ -119,19 +124,16 @@ class DiscoverController extends Notifier<DiscoverState> {
 
     if (!ref.mounted) return;
 
-    state = result.fold(
-      DiscoverError.new,
-      (page) {
-        if (page.events.isEmpty) {
-          return DiscoverEmpty(_emptyReason(filters));
-        }
-        return DiscoverLoaded(
-          events: page.events,
-          nextCursor: page.nextCursor,
-          distanceFilterDropped: dropped,
-        );
-      },
-    );
+    state = result.fold(DiscoverError.new, (page) {
+      if (page.events.isEmpty) {
+        return DiscoverEmpty(_emptyReason(filters));
+      }
+      return DiscoverLoaded(
+        events: page.events,
+        nextCursor: page.nextCursor,
+        distanceFilterDropped: dropped,
+      );
+    });
   }
 
   /// Resolves the [DiscoverFiltersActive] from D1 into a [DiscoverFilters] for

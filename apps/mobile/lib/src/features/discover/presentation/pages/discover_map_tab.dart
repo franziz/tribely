@@ -3,9 +3,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/location_service_providers.dart';
 import '../../../events/domain/entities/event.dart';
+import '../providers/discover_map_providers.dart';
 import '../providers/discover_providers.dart';
 import '../state/discover_state.dart';
 import '../widgets/event_map_marker.dart';
@@ -31,19 +33,6 @@ const double _kCbdFallbackZoom = 12.5;
 
 /// Cluster radius in logical pixels — tune during on-device smoke (§ Step 8.5).
 const double _kClusterRadius = 80.0;
-
-// ---------------------------------------------------------------------------
-// SharedPreferences key for one-shot permission prompt tracking
-// ---------------------------------------------------------------------------
-
-/// Riverpod [StateProvider] that tracks whether the location permission sheet
-/// has been shown during this app session.
-///
-/// Design: session-only (in-memory). The spec says "No re-prompt on subsequent
-/// Map tab taps." — within a single session this is sufficient. Across sessions
-/// the OS permission status is authoritative: if permission was already granted
-/// the sheet is skipped entirely (no re-prompt needed).
-final _locationPromptShownProvider = StateProvider<bool>((ref) => false);
 
 // ---------------------------------------------------------------------------
 // DiscoverMapTab
@@ -113,7 +102,7 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
 
   Future<void> _initCamera() async {
     final locationService = ref.read(locationServiceProvider);
-    final promptShown = ref.read(_locationPromptShownProvider);
+    final bool promptShown = ref.read(locationPromptShownProvider);
 
     // 1. Check current OS permission status.
     final status = await locationService.currentPermissionStatus();
@@ -123,7 +112,7 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
     // 2. If permission is not yet determined AND the sheet hasn't been shown
     //    this session → show the rationale sheet once.
     if (status == LocationPermissionStatus.denied && !promptShown) {
-      ref.read(_locationPromptShownProvider.notifier).state = true;
+      ref.read(locationPromptShownProvider.notifier).markShown();
       await _showPermissionSheet(locationService);
       if (!mounted) return;
     }
@@ -133,8 +122,7 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
     if (!mounted) return;
 
     final centre = _resolveCentre(position);
-    final zoom =
-        position != null ? _kInitialZoom : _kCbdFallbackZoom;
+    final zoom = position != null ? _kInitialZoom : _kCbdFallbackZoom;
 
     _mapController.move(centre, zoom);
   }
@@ -221,14 +209,14 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
 
     return FlutterMap(
       mapController: _mapController,
-      options: MapOptions(
+      options: const MapOptions(
         // Initial centre is CBD; _initCamera() moves the camera post-frame.
         initialCenter: kSingaporeCbd,
         initialZoom: _kCbdFallbackZoom,
         minZoom: 10.0,
         maxZoom: 18.0,
         // Disable rotation (v1 non-goal).
-        interactionOptions: const InteractionOptions(
+        interactionOptions: InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
       ),

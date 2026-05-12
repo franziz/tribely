@@ -103,14 +103,19 @@ class DiscoverListTab extends ConsumerWidget {
   // Loaded list + pagination footer
   // ---------------------------------------------------------------------------
 
-  Widget _buildLoadedList(
-    DiscoverLoaded state,
-    DiscoverController controller,
-  ) {
+  Widget _buildLoadedList(DiscoverLoaded state, DiscoverController controller) {
     final events = state.events;
     final showPaginationLoader = state.isLoadingMore;
-    final itemCount = events.length +
-        (showPaginationLoader ? _kPaginationSkeletonCount : 0);
+    final hasPaginationError = state.paginationError != null;
+
+    // Footer slot count: skeletons during loading, +1 for the error widget when
+    // a pagination failure occurred. Only one footer mode is active at a time.
+    final footerCount = showPaginationLoader
+        ? _kPaginationSkeletonCount
+        : hasPaginationError
+        ? 1
+        : 0;
+    final itemCount = events.length + footerCount;
 
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 120), // space for sticky CTA
@@ -120,7 +125,15 @@ class DiscoverListTab extends ConsumerWidget {
         if (index < events.length) {
           return EventCard(event: events[index]);
         }
-        // Pagination footer — half-height shimmer placeholders.
+
+        // Pagination footer region.
+        if (hasPaginationError) {
+          // Render inline error widget so the user can retry without losing
+          // the already-loaded cards above.
+          return ErrorState(onRetry: controller.loadMore);
+        }
+
+        // Skeleton placeholders during paginated loading (§H).
         final footerIndex = index - events.length;
         if (footerIndex == 0) {
           // Add top padding before pagination skeletons.
@@ -139,12 +152,8 @@ class DiscoverListTab extends ConsumerWidget {
   // ---------------------------------------------------------------------------
 
   Widget _buildEmpty(WidgetRef ref, DiscoverEmpty state) {
-    final filterNotifier =
-        ref.read(discoverFilterControllerProvider.notifier);
-    return EmptyState(
-      reason: state.reason,
-      filterNotifier: filterNotifier,
-    );
+    final filterNotifier = ref.read(discoverFilterControllerProvider.notifier);
+    return EmptyState(reason: state.reason, filterNotifier: filterNotifier);
   }
 
   // ---------------------------------------------------------------------------
@@ -161,6 +170,9 @@ class DiscoverListTab extends ConsumerWidget {
     if (state is! DiscoverLoaded) return;
     if (state.nextCursor == null) return;
     if (state.isLoadingMore) return;
+    // Don't auto-trigger while an inline error footer is shown — the user must
+    // press Retry explicitly to avoid an infinite retry loop on scroll.
+    if (state.paginationError != null) return;
 
     controller.loadMore();
   }
@@ -180,9 +192,9 @@ class _PaginationSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: const SkeletonLoader(
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
+      child: SkeletonLoader(
         width: double.infinity,
         height: 100,
         borderRadius: 16,

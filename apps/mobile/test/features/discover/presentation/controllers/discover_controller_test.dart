@@ -83,6 +83,7 @@ Event _makeEvent(String id) => Event(
 ProviderContainer _makeContainer({
   required MockBrowseEventsUseCase useCase,
   required MockLocationService locationService,
+
   /// Supply a pre-seeded [DiscoverFiltersActive] to simulate active filters.
   DiscoverFiltersActive? initialFilters,
 }) {
@@ -94,9 +95,7 @@ ProviderContainer _makeContainer({
       // tests exercise the initial fetch path via build(); filter-change tests
       // drive the controller directly by calling _fetchFirstPage indirectly
       // through refresh().
-      debouncedFiltersProvider.overrideWith(
-        (ref) => const Stream.empty(),
-      ),
+      debouncedFiltersProvider.overrideWith((ref) => const Stream.empty()),
       if (initialFilters != null)
         discoverFilterControllerProvider.overrideWith(
           () => _FixedFilterController(initialFilters),
@@ -188,28 +187,23 @@ void main() {
       },
     );
 
-    test(
-      'use case failure transitions to DiscoverError',
-      () async {
-        when(
-          () => useCase(any()),
-        ).thenAnswer(
-          (_) async => const Left(NetworkFailure('no network')),
-        );
+    test('use case failure transitions to DiscoverError', () async {
+      when(
+        () => useCase(any()),
+      ).thenAnswer((_) async => const Left(NetworkFailure('no network')));
 
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-        );
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
 
-        await _pump();
+      await _pump();
 
-        final state = container.read(discoverControllerProvider);
-        expect(state, isA<DiscoverError>());
-        final error = state as DiscoverError;
-        expect(error.failure, isA<NetworkFailure>());
-      },
-    );
+      final state = container.read(discoverControllerProvider);
+      expect(state, isA<DiscoverError>());
+      final error = state as DiscoverError;
+      expect(error.failure, isA<NetworkFailure>());
+    });
 
     test(
       'empty result + default filters → DiscoverEmpty(noEventsInArea)',
@@ -265,46 +259,41 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('refresh()', () {
-    test(
-      'refresh() resets cursor and re-fetches from first page',
-      () async {
-        final firstPage = EventPage(
-          events: [_makeEvent('e1')],
-          nextCursor: 'cursor-1',
-        );
-        final refreshPage = EventPage(
-          events: [_makeEvent('e2')],
-          nextCursor: null,
-        );
-        // First call returns firstPage, subsequent calls return refreshPage.
-        var callCount = 0;
-        when(() => useCase(any())).thenAnswer((_) async {
-          callCount++;
-          return callCount == 1 ? Right(firstPage) : Right(refreshPage);
-        });
+    test('refresh() resets cursor and re-fetches from first page', () async {
+      final firstPage = EventPage(
+        events: [_makeEvent('e1')],
+        nextCursor: 'cursor-1',
+      );
+      final refreshPage = EventPage(
+        events: [_makeEvent('e2')],
+        nextCursor: null,
+      );
+      // First call returns firstPage, subsequent calls return refreshPage.
+      var callCount = 0;
+      when(() => useCase(any())).thenAnswer((_) async {
+        callCount++;
+        return callCount == 1 ? Right(firstPage) : Right(refreshPage);
+      });
 
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-        );
-        await _pump();
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
+      await _pump();
 
-        // Verify loaded state before refresh.
-        expect(container.read(discoverControllerProvider), isA<DiscoverLoaded>());
+      // Verify loaded state before refresh.
+      expect(container.read(discoverControllerProvider), isA<DiscoverLoaded>());
 
-        await container
-            .read(discoverControllerProvider.notifier)
-            .refresh();
+      await container.read(discoverControllerProvider.notifier).refresh();
 
-        final state = container.read(discoverControllerProvider);
-        expect(state, isA<DiscoverLoaded>());
-        final loaded = state as DiscoverLoaded;
-        // Must contain only the refresh result, not the accumulated first page.
-        expect(loaded.events, hasLength(1));
-        expect(loaded.events.first.id, 'e2');
-        expect(loaded.nextCursor, isNull);
-      },
-    );
+      final state = container.read(discoverControllerProvider);
+      expect(state, isA<DiscoverLoaded>());
+      final loaded = state as DiscoverLoaded;
+      // Must contain only the refresh result, not the accumulated first page.
+      expect(loaded.events, hasLength(1));
+      expect(loaded.events.first.id, 'e2');
+      expect(loaded.nextCursor, isNull);
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -312,156 +301,186 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('loadMore()', () {
+    test('loadMore() appends events and updates nextCursor', () async {
+      final firstPage = EventPage(
+        events: [_makeEvent('e1'), _makeEvent('e2')],
+        nextCursor: 'cursor-1',
+      );
+      final secondPage = EventPage(
+        events: [_makeEvent('e3')],
+        nextCursor: 'cursor-2',
+      );
+      var callCount = 0;
+      when(() => useCase(any())).thenAnswer((_) async {
+        callCount++;
+        return callCount == 1 ? Right(firstPage) : Right(secondPage);
+      });
+
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
+      await _pump();
+
+      // First page loaded.
+      expect(
+        (container.read(discoverControllerProvider) as DiscoverLoaded).events,
+        hasLength(2),
+      );
+
+      await container.read(discoverControllerProvider.notifier).loadMore();
+
+      final state =
+          container.read(discoverControllerProvider) as DiscoverLoaded;
+      expect(state.events, hasLength(3));
+      expect(
+        state.events.map((e) => e.id),
+        containsAllInOrder(['e1', 'e2', 'e3']),
+      );
+      expect(state.nextCursor, 'cursor-2');
+      expect(state.isLoadingMore, isFalse);
+    });
+
+    test('loadMore() is a no-op when nextCursor is null', () async {
+      final page = EventPage(
+        events: [_makeEvent('e1')],
+        nextCursor: null, // end of stream
+      );
+      when(() => useCase(any())).thenAnswer((_) async => Right(page));
+
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
+      await _pump();
+
+      // loadMore should not call the use case again.
+      await container.read(discoverControllerProvider.notifier).loadMore();
+
+      // Use case called exactly once (the initial fetch).
+      verify(() => useCase(any())).called(1);
+    });
+
+    test('loadMore() is a no-op when state is not DiscoverLoaded', () async {
+      // Use case never returns — keeps the controller in DiscoverLoading.
+      when(
+        () => useCase(any()),
+      ).thenAnswer((_) => Completer<Either<Failure, EventPage>>().future);
+
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
+
+      // Trigger the controller to initialise and call the use case.
+      // The use case will hang (Completer never resolves), leaving the
+      // state as DiscoverLoading.
+      container.read(discoverControllerProvider);
+      // Pump enough to let the Future(() => _fetchFirstPage) callback run
+      // and call the use case (but NOT complete it).
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(discoverControllerProvider),
+        isA<DiscoverLoading>(),
+      );
+
+      // loadMore() must be a no-op — state is DiscoverLoading.
+      await container.read(discoverControllerProvider.notifier).loadMore();
+
+      // Use case called exactly once (the initial build fetch only).
+      verify(() => useCase(any())).called(1);
+    });
+
     test(
-      'loadMore() appends events and updates nextCursor',
+      'loadMore() failure preserves existing events and sets paginationError',
       () async {
         final firstPage = EventPage(
           events: [_makeEvent('e1'), _makeEvent('e2')],
           nextCursor: 'cursor-1',
         );
-        final secondPage = EventPage(
-          events: [_makeEvent('e3')],
-          nextCursor: 'cursor-2',
-        );
-        var callCount = 0;
-        when(() => useCase(any())).thenAnswer((_) async {
-          callCount++;
-          return callCount == 1 ? Right(firstPage) : Right(secondPage);
-        });
-
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-        );
-        await _pump();
-
-        // First page loaded.
-        expect(
-          (container.read(discoverControllerProvider) as DiscoverLoaded).events,
-          hasLength(2),
-        );
-
-        await container.read(discoverControllerProvider.notifier).loadMore();
-
-        final state =
-            container.read(discoverControllerProvider) as DiscoverLoaded;
-        expect(state.events, hasLength(3));
-        expect(state.events.map((e) => e.id), containsAllInOrder(['e1', 'e2', 'e3']));
-        expect(state.nextCursor, 'cursor-2');
-        expect(state.isLoadingMore, isFalse);
-      },
-    );
-
-    test(
-      'loadMore() is a no-op when nextCursor is null',
-      () async {
-        final page = EventPage(
-          events: [_makeEvent('e1')],
-          nextCursor: null, // end of stream
-        );
-        when(() => useCase(any())).thenAnswer((_) async => Right(page));
-
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-        );
-        await _pump();
-
-        // loadMore should not call the use case again.
-        await container.read(discoverControllerProvider.notifier).loadMore();
-
-        // Use case called exactly once (the initial fetch).
-        verify(() => useCase(any())).called(1);
-      },
-    );
-
-    test(
-      'loadMore() is a no-op when state is not DiscoverLoaded',
-      () async {
-        // Use case never returns — keeps the controller in DiscoverLoading.
-        when(() => useCase(any())).thenAnswer(
-          (_) => Completer<Either<Failure, EventPage>>().future,
-        );
-
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-        );
-
-        // Trigger the controller to initialise and call the use case.
-        // The use case will hang (Completer never resolves), leaving the
-        // state as DiscoverLoading.
-        container.read(discoverControllerProvider);
-        // Pump enough to let the Future(() => _fetchFirstPage) callback run
-        // and call the use case (but NOT complete it).
-        await Future<void>.delayed(Duration.zero);
-        await Future<void>.delayed(Duration.zero);
-
-        expect(
-          container.read(discoverControllerProvider),
-          isA<DiscoverLoading>(),
-        );
-
-        // loadMore() must be a no-op — state is DiscoverLoading.
-        await container.read(discoverControllerProvider.notifier).loadMore();
-
-        // Use case called exactly once (the initial build fetch only).
-        verify(() => useCase(any())).called(1);
-      },
-    );
-
-    test(
-      'loadMore() is a no-op when isLoadingMore is already true',
-      () async {
-        final firstPage = EventPage(
-          events: [_makeEvent('e1')],
-          nextCursor: 'cursor-1',
-        );
-
-        // The second use-case call (for loadMore) hangs indefinitely, simulating
-        // an in-flight request.
         var callCount = 0;
         when(() => useCase(any())).thenAnswer((_) async {
           callCount++;
           if (callCount == 1) return Right(firstPage);
-          // Never completes — simulates in-flight loadMore.
-          return Completer<Either<Failure, EventPage>>().future;
+          // Second call (loadMore) returns a failure.
+          return const Left(NetworkFailure('no network'));
         });
 
         final container = _makeContainer(
           useCase: useCase,
           locationService: locationService,
         );
-        // Wait for the initial fetch to complete (callCount == 1).
         await _pump();
 
-        expect(callCount, 1);
-        expect(
-          container.read(discoverControllerProvider),
-          isA<DiscoverLoaded>(),
-        );
-
-        // Fire the first loadMore without awaiting — it will call the use case
-        // (callCount becomes 2) and set isLoadingMore=true, then hang.
-        unawaited(
-          container.read(discoverControllerProvider.notifier).loadMore(),
-        );
-
-        // Pump to let the first loadMore reach the use case call + set
-        // isLoadingMore=true on the state.
-        await _pump();
-
-        final loadingMoreState =
+        // Verify first page loaded successfully.
+        final loaded =
             container.read(discoverControllerProvider) as DiscoverLoaded;
-        expect(loadingMoreState.isLoadingMore, isTrue);
+        expect(loaded.events, hasLength(2));
 
-        // Second loadMore call — must be a no-op because isLoadingMore is true.
         await container.read(discoverControllerProvider.notifier).loadMore();
 
-        // Use case called exactly twice: initial + first loadMore only.
-        expect(callCount, 2);
+        final state = container.read(discoverControllerProvider);
+        // State must remain DiscoverLoaded — not DiscoverError.
+        expect(state, isA<DiscoverLoaded>());
+        final postFailure = state as DiscoverLoaded;
+        // Original events must be intact.
+        expect(
+          postFailure.events.map((e) => e.id),
+          containsAllInOrder(['e1', 'e2']),
+        );
+        // isLoadingMore must be reset.
+        expect(postFailure.isLoadingMore, isFalse);
+        // paginationError must carry the failure.
+        expect(postFailure.paginationError, isA<NetworkFailure>());
       },
     );
+
+    test('loadMore() is a no-op when isLoadingMore is already true', () async {
+      final firstPage = EventPage(
+        events: [_makeEvent('e1')],
+        nextCursor: 'cursor-1',
+      );
+
+      // The second use-case call (for loadMore) hangs indefinitely, simulating
+      // an in-flight request.
+      var callCount = 0;
+      when(() => useCase(any())).thenAnswer((_) async {
+        callCount++;
+        if (callCount == 1) return Right(firstPage);
+        // Never completes — simulates in-flight loadMore.
+        return Completer<Either<Failure, EventPage>>().future;
+      });
+
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
+      // Wait for the initial fetch to complete (callCount == 1).
+      await _pump();
+
+      expect(callCount, 1);
+      expect(container.read(discoverControllerProvider), isA<DiscoverLoaded>());
+
+      // Fire the first loadMore without awaiting — it will call the use case
+      // (callCount becomes 2) and set isLoadingMore=true, then hang.
+      unawaited(container.read(discoverControllerProvider.notifier).loadMore());
+
+      // Pump to let the first loadMore reach the use case call + set
+      // isLoadingMore=true on the state.
+      await _pump();
+
+      final loadingMoreState =
+          container.read(discoverControllerProvider) as DiscoverLoaded;
+      expect(loadingMoreState.isLoadingMore, isTrue);
+
+      // Second loadMore call — must be a no-op because isLoadingMore is true.
+      await container.read(discoverControllerProvider.notifier).loadMore();
+
+      // Use case called exactly twice: initial + first loadMore only.
+      expect(callCount, 2);
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -478,10 +497,7 @@ void main() {
           () => locationService.currentPosition(),
         ).thenAnswer((_) async => null);
 
-        final page = EventPage(
-          events: [_makeEvent('e1')],
-          nextCursor: null,
-        );
+        final page = EventPage(events: [_makeEvent('e1')], nextCursor: null);
 
         DiscoverFilters? capturedFilters;
         when(() => useCase(any())).thenAnswer((invocation) async {
@@ -513,43 +529,38 @@ void main() {
       },
     );
 
-    test(
-      'distance filter active + location returns position → '
-      'use case called with lat/lng set',
-      () async {
-        when(
-          () => locationService.currentPosition(),
-        ).thenAnswer((_) async => const LatLng(1.3, 103.8));
+    test('distance filter active + location returns position → '
+        'use case called with lat/lng set', () async {
+      when(
+        () => locationService.currentPosition(),
+      ).thenAnswer((_) async => const LatLng(1.3, 103.8));
 
-        final page = EventPage(
-          events: [_makeEvent('e1')],
-          nextCursor: null,
-        );
+      final page = EventPage(events: [_makeEvent('e1')], nextCursor: null);
 
-        DiscoverFilters? capturedFilters;
-        when(() => useCase(any())).thenAnswer((invocation) async {
-          capturedFilters =
-              (invocation.positionalArguments.first as BrowseEventsParams)
-                  .filters;
-          return Right(page);
-        });
+      DiscoverFilters? capturedFilters;
+      when(() => useCase(any())).thenAnswer((invocation) async {
+        capturedFilters =
+            (invocation.positionalArguments.first as BrowseEventsParams)
+                .filters;
+        return Right(page);
+      });
 
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-          initialFilters: const DiscoverFiltersActive(maxDistanceKm: 5.0),
-        );
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+        initialFilters: const DiscoverFiltersActive(maxDistanceKm: 5.0),
+      );
 
-        await _pump();
+      await _pump();
 
-        final state = container.read(discoverControllerProvider) as DiscoverLoaded;
-        expect(state.distanceFilterDropped, isFalse);
+      final state =
+          container.read(discoverControllerProvider) as DiscoverLoaded;
+      expect(state.distanceFilterDropped, isFalse);
 
-        expect(capturedFilters!.maxDistanceKm, 5.0);
-        expect(capturedFilters!.lat, closeTo(1.3, 0.0001));
-        expect(capturedFilters!.lng, closeTo(103.8, 0.0001));
-      },
-    );
+      expect(capturedFilters!.maxDistanceKm, 5.0);
+      expect(capturedFilters!.lat, closeTo(1.3, 0.0001));
+      expect(capturedFilters!.lng, closeTo(103.8, 0.0001));
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -557,56 +568,52 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('filter change resets cursor', () {
-    test(
-      'refresh() after loadMore re-fetches from cursor=null '
-      'and replaces accumulated events',
-      () async {
-        final firstPage = EventPage(
-          events: [_makeEvent('e1'), _makeEvent('e2')],
-          nextCursor: 'cursor-1',
-        );
-        final secondPage = EventPage(
-          events: [_makeEvent('e3')],
-          nextCursor: 'cursor-2',
-        );
-        final refreshPage = EventPage(
-          events: [_makeEvent('e4')],
-          nextCursor: null,
-        );
+    test('refresh() after loadMore re-fetches from cursor=null '
+        'and replaces accumulated events', () async {
+      final firstPage = EventPage(
+        events: [_makeEvent('e1'), _makeEvent('e2')],
+        nextCursor: 'cursor-1',
+      );
+      final secondPage = EventPage(
+        events: [_makeEvent('e3')],
+        nextCursor: 'cursor-2',
+      );
+      final refreshPage = EventPage(
+        events: [_makeEvent('e4')],
+        nextCursor: null,
+      );
 
-        var callCount = 0;
-        when(() => useCase(any())).thenAnswer((_) async {
-          callCount++;
-          if (callCount == 1) return Right(firstPage);
-          if (callCount == 2) return Right(secondPage);
-          return Right(refreshPage);
-        });
+      var callCount = 0;
+      when(() => useCase(any())).thenAnswer((_) async {
+        callCount++;
+        if (callCount == 1) return Right(firstPage);
+        if (callCount == 2) return Right(secondPage);
+        return Right(refreshPage);
+      });
 
-        final container = _makeContainer(
-          useCase: useCase,
-          locationService: locationService,
-        );
-        await _pump();
+      final container = _makeContainer(
+        useCase: useCase,
+        locationService: locationService,
+      );
+      await _pump();
 
-        await container.read(discoverControllerProvider.notifier).loadMore();
+      await container.read(discoverControllerProvider.notifier).loadMore();
 
-        // Should have 3 events accumulated.
-        expect(
-          (container.read(discoverControllerProvider) as DiscoverLoaded).events,
-          hasLength(3),
-        );
+      // Should have 3 events accumulated.
+      expect(
+        (container.read(discoverControllerProvider) as DiscoverLoaded).events,
+        hasLength(3),
+      );
 
-        // Simulate a filter change triggering a full refresh.
-        await container.read(discoverControllerProvider.notifier).refresh();
+      // Simulate a filter change triggering a full refresh.
+      await container.read(discoverControllerProvider.notifier).refresh();
 
-        final state =
-            container.read(discoverControllerProvider) as DiscoverLoaded;
-        // refresh() MUST reset to only the new first page (not accumulated).
-        expect(state.events, hasLength(1));
-        expect(state.events.first.id, 'e4');
-        expect(state.nextCursor, isNull);
-      },
-    );
+      final state =
+          container.read(discoverControllerProvider) as DiscoverLoaded;
+      // refresh() MUST reset to only the new first page (not accumulated).
+      expect(state.events, hasLength(1));
+      expect(state.events.first.id, 'e4');
+      expect(state.nextCursor, isNull);
+    });
   });
 }
-
