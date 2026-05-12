@@ -1,17 +1,28 @@
-// Providers for the `discover` feature.
-// Use cases are resolved via the get_it service locator and exposed to the
-// widget tree as Riverpod providers.
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../controllers/discover_controller.dart';
+import '../state/discover_state.dart';
+
+// Re-export so downstream callers can import from one place without introducing
+// circular dependencies.
+export 'browse_events_usecase_provider.dart';
+
+// ---------------------------------------------------------------------------
+// D2 — DiscoverController
 //
-// Uncomment imports and add providers as use cases are created:
-//
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import '../../../../core/di/service_locator.dart';
-//
-// final <UsecaseName>Provider = Provider<<UsecaseName>>(
-//   (_) => sl<<UsecaseName>>(),
-// );
-//
-// final discoverControllerProvider =
-//     StateNotifierProvider<DiscoverController, DiscoverState>((ref) {
-//   return DiscoverController(useCase: ref.watch(<UsecaseName>Provider));
-// });
+// Not autoDispose: the Discover tab is persistent and we don't want to lose
+// accumulated pagination state on every navigation pop. The controller lives
+// as long as the ProviderScope.
+// ---------------------------------------------------------------------------
+
+/// Primary state controller for the Discover screen.
+///
+/// D3 / D4 subscribe to this to render the event feed, map pins, loading
+/// skeletons, empty states, and error views.
+///
+/// D3's Retry button and loadMore scroll trigger call [DiscoverController]
+/// methods directly via [discoverControllerProvider.notifier].
+final discoverControllerProvider =
+    NotifierProvider<DiscoverController, DiscoverState>(
+      DiscoverController.new,
+    );
