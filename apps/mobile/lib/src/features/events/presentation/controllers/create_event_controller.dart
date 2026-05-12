@@ -53,7 +53,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       _autosaveTimer?.cancel();
     });
 
-    Future(_loadDraftAndInit);
+    Future.microtask(_loadDraftAndInit);
 
     return const CreateEventEditing(
       formData: EventDraft(),
