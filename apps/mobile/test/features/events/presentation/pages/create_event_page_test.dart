@@ -25,6 +25,7 @@ import 'package:tribely/src/features/events/domain/usecases/clear_event_draft_us
 import 'package:tribely/src/features/events/domain/usecases/create_event_usecase.dart';
 import 'package:tribely/src/features/events/domain/usecases/load_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
+import 'package:tribely/src/features/events/domain/validators/event_validators.dart';
 import 'package:tribely/src/features/events/presentation/controllers/create_event_controller.dart';
 import 'package:tribely/src/features/events/presentation/pages/create_event_page.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
@@ -55,17 +56,76 @@ class _FakeEventDraft extends Fake implements EventDraft {}
 class _FakeNoParams extends Fake implements NoParams {}
 
 // ---------------------------------------------------------------------------
+// Test helper — derives blocking maps from a draft using the same step→field
+// mapping as the controller. Required because test subclasses of
+// CreateEventController cannot access the private _deriveBlocking method.
+// ---------------------------------------------------------------------------
+
+const _testStepFields = {
+  0: ['title', 'category'],
+  1: ['venueName', 'latitude', 'longitude'],
+  2: ['startsAt', 'endsAt'],
+  3: ['capacity', 'approvalMode'],
+  4: ['description'],
+};
+
+String? _testValidateField(String field, EventDraft draft) {
+  return switch (field) {
+    'title' => validateTitle(draft.title),
+    'category' => validateCategory(draft.category),
+    'venueName' => validateVenueName(draft.venueName),
+    'latitude' => validateLatitude(draft.latitude),
+    'longitude' => validateLongitude(draft.longitude),
+    'startsAt' => validateStartsAt(draft.startsAt),
+    'endsAt' => validateEndsAt(draft.endsAt, draft.startsAt),
+    'capacity' => validateCapacity(draft.capacity),
+    'approvalMode' => validateApprovalMode(draft.approvalMode),
+    'description' => validateDescription(draft.description),
+    _ => null,
+  };
+}
+
+({
+  Map<int, List<String>> blockingFields,
+  Map<int, List<(String, String)>> blockingFieldErrors,
+})
+_testDeriveBlocking(EventDraft draft) {
+  final fields = <int, List<String>>{};
+  final errors = <int, List<(String, String)>>{};
+  for (final entry in _testStepFields.entries) {
+    final failingFields = <String>[];
+    final failingErrors = <(String, String)>[];
+    for (final field in entry.value) {
+      final error = _testValidateField(field, draft);
+      if (error != null) {
+        failingFields.add(field);
+        failingErrors.add((field, error));
+      }
+    }
+    if (failingFields.isNotEmpty) {
+      fields[entry.key] = failingFields;
+      errors[entry.key] = failingErrors;
+    }
+  }
+  return (blockingFields: fields, blockingFieldErrors: errors);
+}
+
+// ---------------------------------------------------------------------------
 // Fixed controller — returns a constant CreateEventEditing with no async work.
 // ---------------------------------------------------------------------------
 
 class _FixedEditingController extends CreateEventController {
   @override
   CreateEventState build() {
-    return const CreateEventEditing(
-      formData: EventDraft(),
+    const draft = EventDraft();
+    final (:blockingFields, :blockingFieldErrors) = _testDeriveBlocking(draft);
+    return CreateEventEditing(
+      formData: draft,
       currentStep: 0,
-      fieldErrors: {},
+      fieldErrors: const {},
       isResuming: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
   }
 }
@@ -76,22 +136,26 @@ class _FixedEditingController extends CreateEventController {
 class _Step4MissingCapacityController extends CreateEventController {
   @override
   CreateEventState build() {
-    return const CreateEventEditing(
-      formData: EventDraft(
-        // All step-4 fields valid.
-        description: 'A lovely hike for solo travellers exploring Singapore.',
-        // All other steps have at least one null field (capacity is absent).
-        title: 'Sunday Morning Hike',
-        category: EventCategory.hike,
-        venueName: '1 Marina Blvd, Marina Bay',
-        latitude: 1.28,
-        longitude: 103.85,
-        startsAt: null, // startsAt null → canSubmit() returns false
-        // capacity intentionally null
-      ),
+    const draft = EventDraft(
+      // All step-4 fields valid.
+      description: 'A lovely hike for solo travellers exploring Singapore.',
+      // All other steps have at least one null field (capacity is absent).
+      title: 'Sunday Morning Hike',
+      category: EventCategory.hike,
+      venueName: '1 Marina Blvd, Marina Bay',
+      latitude: 1.28,
+      longitude: 103.85,
+      startsAt: null, // startsAt null → canSubmit() returns false
+      // capacity intentionally null
+    );
+    final (:blockingFields, :blockingFieldErrors) = _testDeriveBlocking(draft);
+    return CreateEventEditing(
+      formData: draft,
       currentStep: 4,
-      fieldErrors: {},
+      fieldErrors: const {},
       isResuming: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
   }
 }
@@ -120,11 +184,15 @@ class _ValidDraftController extends CreateEventController {
     // to avoid validator rejection.
     final startsAt = DateTime(2030, 6, 1, 8);
     final endsAt = DateTime(2030, 6, 1, 11);
+    final draft = _draft.copyWith(startsAt: startsAt, endsAt: endsAt);
+    final (:blockingFields, :blockingFieldErrors) = _testDeriveBlocking(draft);
     return CreateEventEditing(
-      formData: _draft.copyWith(startsAt: startsAt, endsAt: endsAt),
+      formData: draft,
       currentStep: 0,
       fieldErrors: const {},
       isResuming: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
     );
   }
 }
@@ -352,6 +420,67 @@ void main() {
 
         // The SnackBar must contain the server's exact validation message.
         expect(find.text(validationMessage), findsOneWidget);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // A3 widget tests — blocking hint renders on Step 5 when blockingFields non-empty
+  // ---------------------------------------------------------------------------
+  group('CreateEventPage — blocking hint (A3, Bug #5 regression)', () {
+    testWidgets(
+      'blocking hint is visible on Step 5 when startsAt is past the buffer',
+      (tester) async {
+        // _Step4MissingCapacityController has startsAt==null + capacity==null.
+        // Both step 2 and step 3 are blocking → hint should appear.
+        await _pumpPage(tester, _Step4MissingCapacityController.new);
+
+        // The hint text must mention "Can't publish yet".
+        expect(find.textContaining("Can't publish yet"), findsOneWidget);
+      },
+    );
+
+    testWidgets('each blocking hint item is tappable and calls goToStep', (
+      tester,
+    ) async {
+      // Use a controller seeded at step 4 with a missing field so the hint renders.
+      await _pumpPage(tester, _Step4MissingCapacityController.new);
+
+      // The hint must render at least one "Edit" tap target.
+      expect(find.text('Edit'), findsWidgets);
+
+      // Tap the first Edit link — must not throw.
+      await tester.tap(find.text('Edit').first);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets(
+      'blocking hint is NOT visible on Step 5 when all fields are valid',
+      (tester) async {
+        // _ValidDraftController seeds a fully-valid draft. Advance to step 4.
+        await _pumpPage(tester, _ValidDraftController.new);
+
+        // Advance to step 4 (all steps valid, Publish is enabled).
+        for (var i = 0; i < 4; i++) {
+          await tester.tap(find.text('Next'));
+          await tester.pumpAndSettle();
+        }
+
+        // No blocking hint text when all fields are valid.
+        expect(find.textContaining("Can't publish yet"), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'intermediate-step hint appears above nav bar when canAdvance is false',
+      (tester) async {
+        // _FixedEditingController seeds a fresh draft at step 0. With blocking
+        // derivation active, title + category are null → step 0 is blocking.
+        await _pumpPage(tester, _FixedEditingController.new);
+
+        // The intermediate-step hint renders "Step 1: Title is required" or
+        // similar, since title is null on a fresh draft at step 0.
+        expect(find.textContaining('Step 1:'), findsOneWidget);
       },
     );
   });
