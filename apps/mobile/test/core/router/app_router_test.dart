@@ -64,29 +64,29 @@ final _authenticatedState = SessionAuthenticated(_verifiedSession);
 //
 // Mirrors the production route tree (same paths, names, parentNavigatorKeys)
 // but swaps DI-heavy page builders with stub Scaffolds.
+//
+// Each call to `_buildTestRouter` allocates fresh navigator keys to avoid
+// `GlobalKey` duplication when multiple tests run in the same process.
 // ---------------------------------------------------------------------------
-
-final _testRootNavKey = GlobalKey<NavigatorState>(debugLabel: 'test-root');
-final _testDiscoverNavKey =
-    GlobalKey<NavigatorState>(debugLabel: 'test-discover');
-final _testMyEventsNavKey =
-    GlobalKey<NavigatorState>(debugLabel: 'test-myEvents');
-final _testProfileNavKey =
-    GlobalKey<NavigatorState>(debugLabel: 'test-profile');
 
 GoRouter _buildTestRouter({
   required SessionState sessionState,
   String initialLocation = '/events',
 }) {
+  final rootKey = GlobalKey<NavigatorState>(debugLabel: 'test-root');
+  final discoverKey = GlobalKey<NavigatorState>(debugLabel: 'test-discover');
+  final myEventsKey = GlobalKey<NavigatorState>(debugLabel: 'test-myEvents');
+  final profileKey = GlobalKey<NavigatorState>(debugLabel: 'test-profile');
+
   return GoRouter(
-    navigatorKey: _testRootNavKey,
+    navigatorKey: rootKey,
     initialLocation: initialLocation,
     routes: [
       // Full-screen user profile — outside the shell.
       GoRoute(
         path: '/users/:id',
         name: 'userProfile',
-        parentNavigatorKey: _testRootNavKey,
+        parentNavigatorKey: rootKey,
         builder: (context, state) => Scaffold(
           key: _kUserProfileStubKey,
           body: Text('user-profile-${state.pathParameters['id']}'),
@@ -99,7 +99,7 @@ GoRouter _buildTestRouter({
         branches: [
           // Branch 0 — Discover
           StatefulShellBranch(
-            navigatorKey: _testDiscoverNavKey,
+            navigatorKey: discoverKey,
             routes: [
               GoRoute(
                 path: '/events',
@@ -110,7 +110,7 @@ GoRouter _buildTestRouter({
           ),
           // Branch 1 — My Events
           StatefulShellBranch(
-            navigatorKey: _testMyEventsNavKey,
+            navigatorKey: myEventsKey,
             routes: [
               GoRoute(
                 path: '/my-events',
@@ -122,7 +122,7 @@ GoRouter _buildTestRouter({
           // Branch 2 — Profile
           // Stub OwnProfilePage and EditProfilePage to avoid get_it dependency.
           StatefulShellBranch(
-            navigatorKey: _testProfileNavKey,
+            navigatorKey: profileKey,
             routes: [
               GoRoute(
                 path: '/profile',
@@ -137,7 +137,7 @@ GoRouter _buildTestRouter({
                     name: 'editProfile',
                     // parentNavigatorKey mirrors production: renders above shell
                     // so NavigationBar is absent.
-                    parentNavigatorKey: _testRootNavKey,
+                    parentNavigatorKey: rootKey,
                     builder: (context, state) => const Scaffold(
                       key: _kEditProfileStubKey,
                       appBar: null,
@@ -203,7 +203,8 @@ class _FixedSessionController extends SessionController {
 
 void main() {
   group('app_router', () {
-    // Each test gets its own router instance to avoid shared GlobalKey state.
+    // Each call to _buildTestRouter allocates fresh navigator keys so GlobalKey
+    // duplication errors cannot occur when tests share the same process.
 
     // -------------------------------------------------------------------------
     // 1. Cold-start to /events lands on Discover with bottom nav.
