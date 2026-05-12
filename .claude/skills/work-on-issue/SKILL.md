@@ -20,6 +20,7 @@ description: CROSS-STACK orchestrator script. Deliver a Linear issue end-to-end 
 These are **non-negotiable**:
 
 - **Orchestrator never edits files, never runs `npm`/`flutter`/`prisma`/migrations, never writes to Linear, never commits.** All execution is delegated. The orchestrator's job is routing, relaying, and gating.
+  - **Even in the qa loop, the orchestrator does not run `format:check` / `analyze` / `test` / `lint` directly after a SWE fix.** Either trust SWE's inline verification (SWE typically runs these locally before reporting) or re-spawn `qa` to confirm clean. Read-only `git status` / `git log` / `git diff` for routing decisions is fine; npm/flutter invocations are not.
 - **Branch-first is mandatory.** Step 1 (branch creation) MUST complete before any agent that produces code is spawned. No exceptions.
 - **`software-engineer` is never spawned directly by the orchestrator.** SWE invocations are scoped by `engineering-lead`'s technical brief — EL owns the WHO/WHAT/HOW of each SWE task. The orchestrator may spawn multiple SWE agents in parallel based on EL's plan, but each SWE prompt is EL's brief, not the orchestrator's improvisation.
 - **Linear writes are `product-manager`'s territory only.** EL, SWE, reviewer, qa MUST NOT write to Linear. If EL identifies follow-up work, they surface it to PM (via the orchestrator) for PM to file.
@@ -140,6 +141,8 @@ QA returns pass/fail per script with failure excerpts. QA NEVER edits code.
 
 Orchestrator relays failures to EL. EL re-briefs SWE on each failure. Loop steps 5–7 until QA passes clean.
 
+The orchestrator does NOT run test scripts between SWE fix cycles to "double-check" before re-spawning qa — see the Hard constraints above.
+
 **Escalation:** if the same QA failure persists across 3 SWE fix cycles, qa flags `escalate=true`. Orchestrator surfaces to the user with EL's options (refactor, accept-with-rationale, split to follow-up). Do NOT silently keep retrying.
 
 ### 8. PR creation (orchestrator invokes `/github-pr`)
@@ -155,7 +158,7 @@ Once reviewer and qa are both clean:
 
 Final PM spawn:
 
-- Move the Linear issue to "In Review".
+- **Target status:** Call `mcp__plugin_linear_linear__get_issue` before issuing any state change. If the PR is still open, move the issue to "In Review". If the PR has already been merged (e.g., Linear's GitHub integration auto-completed the issue, or the user merged before step 9 ran), confirm the status is "Done" and skip the transition — do NOT regress from "Done" to "In Review".
 - Comment the PR URL on the issue.
 - File any follow-up issues EL queued in step 6 (`fix-followup-issue` items).
 
