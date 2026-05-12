@@ -191,6 +191,10 @@ void main() {
 
   // ---------------------------------------------------------------------------
   // validateStartsAt
+  //
+  // Requires at least startsAtMinLeadTime (5 minutes) from now so that clock
+  // skew between device and server does not cause a "valid on device, rejected
+  // on server" race. Tests cover the exact boundary around the 5-minute mark.
   // ---------------------------------------------------------------------------
   group('validateStartsAt', () {
     test('null → error (required)', () {
@@ -202,14 +206,33 @@ void main() {
       expect(validateStartsAt(past), isNotNull);
     });
 
+    test('exactly now → error (must be > 5 min ahead)', () {
+      expect(validateStartsAt(DateTime.now()), isNotNull);
+    });
+
+    test('now + 1 min → error (within 5-minute buffer)', () {
+      final tooSoon = DateTime.now().add(const Duration(minutes: 1));
+      expect(validateStartsAt(tooSoon), isNotNull);
+    });
+
+    test('now + 4 min → error (still within 5-minute buffer)', () {
+      final tooSoon = DateTime.now().add(const Duration(minutes: 4));
+      expect(validateStartsAt(tooSoon), isNotNull);
+    });
+
+    test('now + 6 min → valid (safely past the 5-minute buffer)', () {
+      final safe = DateTime.now().add(const Duration(minutes: 6));
+      expect(validateStartsAt(safe), isNull);
+    });
+
     test('1 hour in the future → valid', () {
       final future = DateTime.now().add(const Duration(hours: 1));
       expect(validateStartsAt(future), isNull);
     });
 
-    test('error message mentions "future"', () {
+    test('error message mentions "5 minutes"', () {
       final past = DateTime.now().subtract(const Duration(seconds: 1));
-      expect(validateStartsAt(past), contains('future'));
+      expect(validateStartsAt(past), contains('5 minutes'));
     });
   });
 

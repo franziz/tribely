@@ -135,11 +135,23 @@ String? validateLongitude(double? value) {
   return null;
 }
 
-/// [startsAt] must be in the future (relative to now at validation time).
+/// Minimum lead time enforced by the client before submitting to the server.
+///
+/// The server enforces `startsAt > now` (strict). This buffer absorbs clock
+/// skew between the device and the server clock and gives the user immediate
+/// feedback before a round-trip. 5 minutes is deliberately conservative —
+/// the server would reject anything at or before its own "now".
+const Duration startsAtMinLeadTime = Duration(minutes: 5);
+
+/// [startsAt] must be at least [startsAtMinLeadTime] from now.
+///
+/// The buffer prevents submitting a time that is technically "in the future"
+/// on the device but already in the past by the time the request reaches the
+/// server (clock skew + network latency).
 String? validateStartsAt(DateTime? value) {
   if (value == null) return 'Start time is required';
-  if (!value.isAfter(DateTime.now())) {
-    return 'Start time must be in the future';
+  if (!value.isAfter(DateTime.now().add(startsAtMinLeadTime))) {
+    return 'Event must start at least 5 minutes from now';
   }
   return null;
 }
