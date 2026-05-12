@@ -310,6 +310,7 @@ This repo uses a multi-agent workflow (definitions in `.claude/agents/`). The or
 
 - **`ceo`** — strategic direction, scope alignment with the Singapore launch. Non-technical. No code, no Linear.
 - **`product-manager`** — sole authority on Linear writes (Tribely team only). Decomposes business goals into product requirements with acceptance criteria. No code.
+- **`ui-ux-designer`** — UI/UX design specifications, competitor pattern research, layout/hierarchy/flow decisions. Consulted ONLY when an issue has user-facing design surface (new screens, flows, design-system additions). Produces specs and rationale, NOT code. Skipped for backend, tooling, or UI work that follows an already-specified design.
 - **`engineering-lead`** — translates PRODUCT requirements into TECHNICAL requirements. Triages reviews, signs off on architecture. Surfaces follow-up items to PM; does NOT create Linear tickets directly.
 - **`software-engineer`** — code, CLI, migrations, tests, debugging only. No Linear, no PR creation, no stakeholder comms.
 - **`architecture-reviewer`** — runs `/api-review-architecture` / `/mobile-review-architecture`, reports findings only. No code edits, no Linear.

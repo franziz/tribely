@@ -11,6 +11,7 @@ import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
 import '../../features/discover/presentation/pages/discover_page.dart';
+import '../../features/events/presentation/pages/create_event_page.dart';
 import '../../features/my_events/presentation/pages/my_events_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
@@ -128,6 +129,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final userId = state.pathParameters['id']!;
           return UserProfilePage(userId: userId);
         },
+      ),
+      // Full-screen create-event flow. Declared outside the shell with
+      // parentNavigatorKey pointing at root so it renders without the bottom
+      // nav bar. Uses context.push (not go) to preserve back-stack from
+      // the My Events tab.
+      GoRoute(
+        path: '/events/new',
+        name: 'createEvent',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const CreateEventPage(),
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
       StatefulShellRoute.indexedStack(

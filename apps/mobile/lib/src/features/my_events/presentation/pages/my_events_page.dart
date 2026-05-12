@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class MyEventsPage extends ConsumerWidget {
   const MyEventsPage({super.key});
@@ -8,6 +9,11 @@ class MyEventsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('My Events')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/events/new'),
+        icon: const Icon(Icons.add),
+        label: const Text('Create Event'),
+      ),
       body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
