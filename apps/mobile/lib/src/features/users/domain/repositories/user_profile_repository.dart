@@ -34,8 +34,6 @@ class UpdateProfileParams extends Equatable {
 
 abstract class UserProfileRepository {
   /// Fetches any user's profile by their ID.
-  /// To fetch the authenticated user's own profile, use [GetMyProfileUseCase]
-  /// which resolves the ID via [SessionReader].
   Future<Either<Failure, UserProfile>> getUserProfile(String id);
   Future<Either<Failure, UserProfile>> updateMyProfile(
     UpdateProfileParams params,

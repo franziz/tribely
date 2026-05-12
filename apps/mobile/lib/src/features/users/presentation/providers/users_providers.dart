@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/wiring/session_reader_riverpod.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/user_profile_repository.dart';
-import '../../domain/usecases/get_my_profile_usecase.dart';
 import '../../domain/usecases/get_user_profile_usecase.dart';
 import '../../domain/usecases/update_my_profile_usecase.dart';
 import '../controllers/edit_profile_controller.dart';
@@ -22,16 +20,6 @@ final _userProfileRepositoryProvider = Provider<UserProfileRepository>(
 );
 
 // --- Use cases ---
-
-/// All three use-case providers share the same shape: construct inline using
-/// [ref.read] so dependencies are resolved through the Riverpod graph. This
-/// avoids mixing [sl] and [ref] within a single provider.
-final getMyProfileUseCaseProvider = Provider<GetMyProfileUseCase>(
-  (ref) => GetMyProfileUseCase(
-    ref.read(_userProfileRepositoryProvider),
-    ref.read(sessionReaderProvider),
-  ),
-);
 
 final getUserProfileUseCaseProvider = Provider<GetUserProfileUseCase>(
   (ref) => GetUserProfileUseCase(ref.read(_userProfileRepositoryProvider)),

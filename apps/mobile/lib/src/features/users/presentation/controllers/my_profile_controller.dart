@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
-import '../../../../core/usecase/usecase.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
 import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
+import '../../domain/usecases/get_user_profile_usecase.dart';
 
 class MyProfileController extends Notifier<UserProfileState> {
   @override
@@ -13,8 +15,23 @@ class MyProfileController extends Notifier<UserProfileState> {
   }
 
   Future<void> _load() async {
-    final useCase = ref.read(getMyProfileUseCaseProvider);
-    final params = const NoParams();
+    final session = ref.read(sessionControllerProvider);
+    final userId = switch (session) {
+      SessionAuthenticated(:final session) => session.user.id,
+      _ => null,
+    };
+
+    if (userId == null) {
+      if (!ref.mounted) return;
+      state = const UserProfileError(
+        failure: AuthFailure('Not authenticated'),
+        message: 'Please sign in to view this profile.',
+      );
+      return;
+    }
+
+    final useCase = ref.read(getUserProfileUseCaseProvider);
+    final params = GetUserProfileParams(userId: userId);
     final result = await useCase(params);
     if (!ref.mounted) return;
     state = result.match(
