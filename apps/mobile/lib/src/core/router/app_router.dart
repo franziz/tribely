@@ -10,10 +10,20 @@ import '../../features/auth/presentation/pages/verify_email_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
-import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/discover/presentation/pages/discover_page.dart';
+import '../../features/my_events/presentation/pages/my_events_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
+import 'app_shell.dart';
+
+// Navigator keys for the root navigator and each bottom-nav branch.
+// The root key must be passed to GoRouter so that full-screen routes
+// (editProfile, userProfile) push above the shell rather than inside a branch.
+final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+final _discoverNavKey = GlobalKey<NavigatorState>(debugLabel: 'discover');
+final _myEventsNavKey = GlobalKey<NavigatorState>(debugLabel: 'myEvents');
+final _profileNavKey = GlobalKey<NavigatorState>(debugLabel: 'profile');
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Bridges Riverpod's session state into a Listenable that go_router can
@@ -23,6 +33,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: notifier,
     redirect: (context, state) {
@@ -50,19 +61,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // Splash and verify-email both redirect to welcome (the former
           // because restore is done, the latter because the user is no longer
           // authenticated). Public routes are allowed through. Everything else
-          // (e.g. /profile, /profile/edit, /users/:id, /home) is auth-required
+          // (e.g. /events, /my-events, /profile, /users/:id) is auth-required
           // and bounced back to /welcome.
           if (isSplash || isVerify || !isPublic) return '/welcome';
           return null;
         case SessionAuthenticated(:final session):
           // Authenticated but unverified: route everything except /verify-email
-          // back to /verify-email so sensitive actions can't be reached. The
-          // banner on /home is still useful as a backup signal once we let
-          // the user choose to dismiss the verify gate (TBD).
+          // back to /verify-email so sensitive actions can't be reached.
           if (!session.user.isEmailVerified) {
             return isVerify ? null : '/verify-email';
           }
-          if (isSplash || isAuthFlow || isVerify) return '/home';
+          // Splash, auth-flow pages, and verify all bounce to the shell landing.
+          if (isSplash || isAuthFlow || isVerify) return '/events';
           return null;
       }
     },
@@ -103,30 +113,71 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ResetPasswordPage(email: email);
         },
       ),
-      GoRoute(
-        path: '/home',
-        name: 'home',
-        builder: (context, state) => const HomePage(),
-      ),
-      GoRoute(
-        path: '/profile',
-        name: 'ownProfile',
-        builder: (context, state) => const OwnProfilePage(),
-        routes: [
-          GoRoute(
-            path: 'edit',
-            name: 'editProfile',
-            builder: (context, state) => const EditProfilePage(),
-          ),
-        ],
-      ),
+      // Legacy /home redirect — catches in-flight deep links and push payloads
+      // that were issued before the /events rename. Redirect fires before any
+      // builder so the builder can be omitted entirely.
+      GoRoute(path: '/home', redirect: (context, state) => '/events'),
+      // Full-screen route for other users' profiles. Declared outside the shell
+      // with parentNavigatorKey pointing at root so it renders without the
+      // bottom nav bar.
       GoRoute(
         path: '/users/:id',
         name: 'userProfile',
+        parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           final userId = state.pathParameters['id']!;
           return UserProfilePage(userId: userId);
         },
+      ),
+      // Shell with three branches sharing the persistent bottom NavigationBar.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          // Branch 0 — Discover (/events)
+          StatefulShellBranch(
+            navigatorKey: _discoverNavKey,
+            routes: [
+              GoRoute(
+                path: '/events',
+                name: 'discover',
+                builder: (context, state) => const DiscoverPage(),
+              ),
+            ],
+          ),
+          // Branch 1 — My Events
+          StatefulShellBranch(
+            navigatorKey: _myEventsNavKey,
+            routes: [
+              GoRoute(
+                path: '/my-events',
+                name: 'myEvents',
+                builder: (context, state) => const MyEventsPage(),
+              ),
+            ],
+          ),
+          // Branch 2 — Profile
+          // /profile/edit uses parentNavigatorKey: _rootNavigatorKey so it
+          // renders as a full-screen push above the shell (no bottom nav).
+          StatefulShellBranch(
+            navigatorKey: _profileNavKey,
+            routes: [
+              GoRoute(
+                path: '/profile',
+                name: 'ownProfile',
+                builder: (context, state) => const OwnProfilePage(),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    name: 'editProfile',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const EditProfilePage(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
