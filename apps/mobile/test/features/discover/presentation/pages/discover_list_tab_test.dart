@@ -1,4 +1,3 @@
-// ignore_for_file: avoid_public_notifier_properties
 // Widget tests for DiscoverListTab.
 //
 // Covers:
@@ -63,6 +62,11 @@ Event _makeEvent(String id) => Event(
 
 final _twoEvents = [_makeEvent('e1'), _makeEvent('e2')];
 
+// Top-level refresh counter — hoisted out of _FixedDiscoverController to avoid
+// the avoid_public_notifier_properties lint (Riverpod notifier fields must be
+// private). Reset in setUp before each test that asserts refresh behaviour.
+int _refreshCallCount = 0;
+
 // ---------------------------------------------------------------------------
 // Fixed-state controllers
 // ---------------------------------------------------------------------------
@@ -72,14 +76,12 @@ class _FixedDiscoverController extends DiscoverController {
   _FixedDiscoverController(this._fixed);
   final DiscoverState _fixed;
 
-  bool refreshCalled = false;
-
   @override
   DiscoverState build() => _fixed;
 
   @override
   Future<void> refresh() async {
-    refreshCalled = true;
+    _refreshCallCount += 1;
   }
 
   @override
@@ -100,7 +102,7 @@ class _FixedFilterController extends DiscoverFilterController {
 // Pump helper
 // ---------------------------------------------------------------------------
 
-Future<_FixedDiscoverController> _pumpTab(
+Future<void> _pumpTab(
   WidgetTester tester,
   DiscoverState discoverState, {
   DiscoverFiltersActive filterState = const DiscoverFiltersActive(),
@@ -124,8 +126,6 @@ Future<_FixedDiscoverController> _pumpTab(
     ),
   );
   await tester.pump();
-
-  return controller;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,13 +205,15 @@ void main() {
     });
 
     testWidgets('6. Retry button calls controller.refresh()', (tester) async {
-      final ctrl = await _pumpTab(
+      _refreshCallCount = 0;
+
+      await _pumpTab(
         tester,
         const DiscoverError(ServerFailure('Oops', statusCode: 503)),
       );
 
       await tester.tap(find.text('Retry'));
-      expect(ctrl.refreshCalled, isTrue);
+      expect(_refreshCallCount, 1);
     });
 
     // -----------------------------------------------------------------------
