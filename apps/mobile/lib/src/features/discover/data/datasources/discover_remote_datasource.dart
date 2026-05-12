@@ -51,6 +51,12 @@ class DiscoverRemoteDatasourceImpl implements DiscoverRemoteDatasource {
   @override
   Future<EventModel> getEventDetail(String eventId) async {
     final response = await _dio.get<Map<String, dynamic>>('/events/$eventId');
-    return EventModel.fromJson(response.data!);
+    // GET /events/:id returns a WRAPPER: { event: {...inner shape...}, host: { id, displayName } }
+    // (see apps/api/src/features/events/presentation/http/schemas/event.schemas.ts:91-94,
+    // eventWithHostResponseSchema). EventModel.fromJson expects the INNER shape, so we
+    // unwrap here. The `host` sibling is intentionally unused — v1 detail page falls back
+    // to "Hosted by ${event.hostId}"; a Host projection belongs with the TRI-19 follow-up.
+    final inner = response.data!['event'] as Map<String, dynamic>;
+    return EventModel.fromJson(inner);
   }
 }
