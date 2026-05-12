@@ -148,11 +148,11 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
       context,
       onAllow: () {
         completer['allow'] = true;
-        Navigator.of(context, rootNavigator: true).pop();
+        Navigator.of(context).maybePop();
       },
       onDecline: () {
         completer['allow'] = false;
-        Navigator.of(context, rootNavigator: true).pop();
+        Navigator.of(context).maybePop();
       },
     );
 

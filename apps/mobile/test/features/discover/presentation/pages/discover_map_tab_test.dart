@@ -34,6 +34,7 @@ import 'package:tribely/src/features/discover/presentation/providers/discover_ma
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
 import 'package:tribely/src/features/discover/presentation/widgets/event_map_marker.dart';
+import 'package:tribely/src/features/discover/presentation/widgets/location_permission_sheet.dart';
 import 'package:tribely/src/features/discover/presentation/widgets/map_event_bottom_sheet.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
@@ -171,6 +172,53 @@ Future<void> _pumpMapTab(
 }
 
 // ---------------------------------------------------------------------------
+// Pump helper — permission sheet visible (does NOT skip the rationale sheet)
+// ---------------------------------------------------------------------------
+
+/// Like [_pumpMapTab] but keeps [locationPromptShownProvider] at its default
+/// (`false`) so [_initCamera] will show the [LocationPermissionSheet].
+/// [requestPermission] is stubbed to avoid the real OS dialog.
+Future<void> _pumpMapTabWithSheet(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(414 * 3.0, 896 * 3.0);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  final mockLocationService = MockLocationService();
+  when(
+    () => mockLocationService.currentPermissionStatus(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
+  when(
+    () => mockLocationService.requestPermission(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
+  when(
+    () => mockLocationService.currentPosition(),
+  ).thenAnswer((_) async => null);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        discoverControllerProvider.overrideWith(
+          () => _FixedDiscoverController(const DiscoverLoading()),
+        ),
+        locationServiceProvider.overrideWithValue(mockLocationService),
+        // Do NOT override locationPromptShownProvider — starts as false so
+        // the sheet appears.
+      ],
+      child: MaterialApp(
+        home: Scaffold(body: DiscoverMapTab(tileProvider: _NoopTileProvider())),
+      ),
+    ),
+  );
+
+  // Let the post-frame callback fire and showModalBottomSheet execute.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+  // Allow the bottom sheet slide-in animation to complete.
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -270,5 +318,51 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byType(EventMapMarker), findsNothing);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Permission-sheet navigator regression (TRI-27)
+  //
+  // Before the fix, the callbacks called `Navigator.of(context,
+  // rootNavigator: true).pop()` which walked above the modal route and popped
+  // the page route, crashing go_router with "no pages left to show".
+  // After the fix they call `Navigator.of(context).maybePop()` which is
+  // idempotent and scoped to the modal's own navigator.
+  // -------------------------------------------------------------------------
+  group('permission sheet — navigator underflow regression (TRI-27)', () {
+    testWidgets(
+      'tapping "Allow location" does not throw a navigator underflow',
+      (tester) async {
+        await _pumpMapTabWithSheet(tester);
+
+        // Sheet must be visible.
+        expect(find.byType(LocationPermissionSheet), findsOneWidget);
+
+        // Tap the primary CTA.
+        await tester.tap(find.text('Allow location'));
+        // First pump processes the tap + maybePop; second finishes dismissal.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        // No exception must have been thrown — pre-fix this would throw
+        // "You have popped the last page off of the stack".
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'tapping "Not now" does not throw a navigator underflow',
+      (tester) async {
+        await _pumpMapTabWithSheet(tester);
+
+        expect(find.byType(LocationPermissionSheet), findsOneWidget);
+
+        await tester.tap(find.text('Not now — browse all SG events'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

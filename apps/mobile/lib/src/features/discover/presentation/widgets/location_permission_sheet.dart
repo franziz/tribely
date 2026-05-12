@@ -19,6 +19,11 @@ import '../../../../core/widgets/secondary_button.dart';
 ///   - Dismissing this sheet before the OS dialog appears.
 ///   - Storing the "prompt shown" flag so the sheet is not shown again.
 ///
+/// Callbacks SHOULD use `Navigator.of(context).maybePop()` defensively when
+/// dismissing — not unconditional `pop()` or `pop(rootNavigator: true)`. The
+/// sheet's own route dismissal is handled by `showModalBottomSheet`; an
+/// explicit pop in the callback is for any additional cleanup the caller needs.
+///
 /// The sheet does NOT reappear on subsequent Map tab taps after either action.
 class LocationPermissionSheet extends StatelessWidget {
   const LocationPermissionSheet({
