@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 import '../network/api_client.dart';
@@ -16,6 +17,14 @@ import '../../features/auth/domain/usecases/sign_in_usecase.dart';
 import '../../features/auth/domain/usecases/sign_out_usecase.dart';
 import '../../features/auth/domain/usecases/sign_up_usecase.dart';
 import '../../features/auth/domain/usecases/verify_email_usecase.dart';
+import '../../features/events/data/datasources/event_draft_local_datasource.dart';
+import '../../features/events/data/datasources/event_remote_datasource.dart';
+import '../../features/events/data/repositories/event_repository_impl.dart';
+import '../../features/events/domain/repositories/event_repository.dart';
+import '../../features/events/domain/usecases/clear_event_draft_usecase.dart';
+import '../../features/events/domain/usecases/create_event_usecase.dart';
+import '../../features/events/domain/usecases/load_event_draft_usecase.dart';
+import '../../features/events/domain/usecases/save_event_draft_usecase.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
@@ -73,4 +82,35 @@ Future<void> configureDependencies() async {
   // Users — use cases are constructed inline in users_providers.dart via
   // Riverpod ref.read() so they can resolve Riverpod-backed ports (e.g.
   // SessionReader). No use-case registrations here.
+
+  // Events — SharedPreferences (async init, resolved once at boot)
+  final prefs = await SharedPreferences.getInstance();
+
+  // Events — datasources
+  sl.registerLazySingleton<EventRemoteDatasource>(
+    () => EventRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+  sl.registerLazySingleton<EventDraftLocalDatasource>(
+    () => EventDraftLocalDatasourceImpl(prefs),
+  );
+
+  // Events — repositories
+  sl.registerLazySingleton<EventRepository>(
+    () => EventRepositoryImpl(
+      remote: sl<EventRemoteDatasource>(),
+      local: sl<EventDraftLocalDatasource>(),
+    ),
+  );
+
+  // Events — use cases
+  sl.registerLazySingleton(() => CreateEventUseCase(sl<EventRepository>()));
+  sl.registerLazySingleton(
+    () => SaveEventDraftUseCase(sl<EventRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => LoadEventDraftUseCase(sl<EventRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ClearEventDraftUseCase(sl<EventRepository>()),
+  );
 }
