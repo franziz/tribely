@@ -170,6 +170,40 @@ The orchestrator does NOT run test scripts between SWE fix cycles to "double-che
 
 **Escalation:** if the same QA failure persists across 3 SWE fix cycles, qa flags `escalate=true`. Orchestrator surfaces to the user with EL's options (refactor, accept-with-rationale, split to follow-up). Do NOT silently keep retrying.
 
+### 8.5. Manual on-device smoke (conditional)
+
+**Gate.** Run this step ONLY if EITHER condition is met. Otherwise emit `Step 8.5/10 — Manual on-device smoke  Agent: skipped  Verdict: no hero-flow / time-validator surface  Next: PR creation` and proceed to step 9.
+
+1. **Hero-flow path signals.** Run `git diff --name-only main...HEAD` and match changed files against:
+   - **(a) create-and-publish event:** `apps/mobile/lib/src/features/events/presentation/**/create_event*` OR `apps/mobile/lib/src/features/events/**/usecases/publish_event*` OR `apps/mobile/lib/src/features/events/**/usecases/create_event*`
+   - **(b) sign-up / sign-in / email verification:** `apps/mobile/lib/src/features/auth/**` OR `apps/api/src/features/auth/presentation/**`
+   - **(c) browse + request to join:** `apps/mobile/lib/src/features/events/presentation/**/browse*` OR `apps/mobile/lib/src/features/events/presentation/**/event_detail*` OR `apps/mobile/lib/src/features/join_requests/**/presentation/**`
+
+   *Extend this list when a new hero flow lands; do not infer.* Payments are deferred for the Singapore launch — do NOT add a pay flow.
+
+2. **Time-dependent validator grep signals.** Run `git diff main...HEAD -- 'apps/mobile/**/*.dart'` and scan for any of: `DateTime.now()`, `Duration(minutes:`, `Duration(seconds:`, `Duration(hours:`, `.isAfter(`, `.isBefore(`, `DateTime.now().add(`, `DateTime.now().subtract(`. Also flag identifier substrings: `expires`, `expiry`, `buffer`, `window`, `cooldown`, `startsAt`, `endsAt`. Pragmatic — false positives cost one extra checklist item; false negatives are the real cost.
+
+3. **Skip conditions (no smoke needed).** Changed-files set is a subset of any of:
+   - `apps/api/**` only (backend-only — no mobile surface to smoke)
+   - `.claude/**` only (orchestration meta-tooling)
+   - Docs-only (`*.md` / no `.dart` / `.ts` / `.tsx` files touched)
+   - `.github/**` only (CI-only)
+
+**Checklist generation.** When the gate matches, the orchestrator produces a manual smoke checklist with the following properties:
+
+- For each matched hero flow: a named click-by-click sequence that exercises the *specific* added/changed surface in the diff — not generic "tap around." Each step names the screen, the widget interacted with, and the expected post-condition.
+- For each matched time-dependent validator: one item naming (i) the validator (e.g., `startsAt >= now + 5min`), (ii) the wait duration that crosses its threshold (e.g., "wait 6 minutes for a 5-minute buffer"), (iii) the expected behavior flip (verdict, hint visibility, submit enabled-state).
+- **Reproducibility contract:** the checklist must read top-to-bottom on a clean install by someone who didn't write the PR and yield the same pass/fail verdict. Generic "tap around" fails this bar; named steps pass it.
+
+**Delivery — two destinations.**
+
+1. **Primary:** orchestrator posts the checklist inline to the user in chat and waits for explicit "passed" / "failed" sign-off. **No auto-Done — the user signs off after the smoke pass.**
+2. **Secondary:** the same checklist is pasted into the PR description (step 9) under a `## Manual smoke checklist` heading for audit.
+
+**Failure path.** User reports a fail → orchestrator re-routes the symptom to EL (same loop shape as steps 7–8). Re-smoke after fix.
+
+**Status emission.** `Step 8.5/10 — Manual on-device smoke  Agent: orchestrator + user  Verdict: <passed|failed|skipped>  Next: PR creation`.
+
 ### 9. PR creation (orchestrator invokes `/github-pr`)
 
 Once reviewer and qa are both clean:
@@ -200,7 +234,7 @@ Step <N>/10 — <step name>
   Next: <one-line next-step preview, or "blocked: <reason>">
 ```
 
-Step 4 (UI/UX design) is conditional — when skipped, emit `Step 4/10 — UI/UX design  Agent: skipped  Verdict: no UI/UX design surface  Next: EL technical spec`.
+Step 4 (UI/UX design) is conditional — when skipped, emit `Step 4/10 — UI/UX design  Agent: skipped  Verdict: no UI/UX design surface  Next: EL technical spec`. Step 8.5 (Manual on-device smoke) is conditional — when skipped, emit `Step 8.5/10 — Manual on-device smoke  Agent: skipped  Verdict: no hero-flow / time-validator surface  Next: PR creation`.
 
 Keep updates terse. The user reads these to track a long workflow without reading every agent transcript.
 
@@ -218,6 +252,7 @@ Keep updates terse. The user reads these to track a long workflow without readin
 | PM↔EL feasibility/scope conflict | Stop. Relay both views. Do not pick a side. |
 | SWE clarifying question | Pause SWE. Route to PM (product-side) or EL (technical-side). Resume with the answer. |
 | Reviewer/QA loops 3× without progress | Escalate to EL. Surface EL's options to user. |
+| Smoke checklist fails on the user's device | Re-route the symptom to EL (steps 7–8 loop shape). Do NOT proceed to step 9 until the user signs off "passed" on a re-smoke. |
 | Rebase conflict before PR | Delegate to `software-engineer` to resolve. If non-trivial, surface to user. |
 | PATH-missing CLI (`gh`, `flutter`, `npm`) | Report to user. Do not hunt absolute paths in `/opt/homebrew/bin/`, `/usr/local/bin/`, etc. |
 | `/github-pr` fails (auth, network) | Surface to user with the gh error. Do not retry blindly. |
