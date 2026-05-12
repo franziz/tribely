@@ -217,9 +217,13 @@ class _DatetimeRow extends StatelessWidget {
           color: TribelyColors.paperInkSecondary,
         ),
         const SizedBox(width: 4),
-        Text(
-          '$date · $startTime–$endTime',
-          style: TribelyType.caption(TribelyColors.paperInkSecondary),
+        Flexible(
+          child: Text(
+            '$date · $startTime–$endTime',
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ),
       ],
     );
@@ -238,8 +242,8 @@ class _ViewDetailsRow extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        Navigator.of(context).pop(); // dismiss sheet first
         context.push('/events/$eventId');
+        Navigator.of(context).maybePop(); // dismiss sheet after push
       },
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,

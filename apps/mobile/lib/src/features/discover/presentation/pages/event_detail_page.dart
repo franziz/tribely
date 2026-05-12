@@ -105,63 +105,67 @@ class _LoadingSkeleton extends StatelessWidget {
     // Hero: full-width 3:2 aspect ratio.
     final heroHeight = screenWidth * (2 / 3);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Hero skeleton — bleeds to top including safe area.
-        SkeletonLoader(
-          width: double.infinity,
-          height: heroHeight + MediaQuery.paddingOf(context).top,
-          borderRadius: 0,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title line (~80% width)
-              SkeletonLoader(
-                width: screenWidth * 0.80,
-                height: 28,
-                borderRadius: 6,
-              ),
-              const SizedBox(height: 12),
-              // Meta line 1 (~60%)
-              SkeletonLoader(
-                width: screenWidth * 0.60,
-                height: 16,
-                borderRadius: 4,
-              ),
-              const SizedBox(height: 8),
-              // Meta line 2 (~50%)
-              SkeletonLoader(
-                width: screenWidth * 0.50,
-                height: 16,
-                borderRadius: 4,
-              ),
-              const SizedBox(height: 24),
-              // Description — wider line (~90%)
-              SkeletonLoader(
-                width: screenWidth * 0.90,
-                height: 14,
-                borderRadius: 4,
-              ),
-              const SizedBox(height: 6),
-              SkeletonLoader(
-                width: screenWidth * 0.80,
-                height: 14,
-                borderRadius: 4,
-              ),
-              const SizedBox(height: 6),
-              SkeletonLoader(
-                width: screenWidth * 0.70,
-                height: 14,
-                borderRadius: 4,
-              ),
-            ],
+    // SingleChildScrollView prevents RenderFlex overflow when the skeleton
+    // content (hero + metadata) exceeds the available Scaffold body height.
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hero skeleton — bleeds to top including safe area.
+          SkeletonLoader(
+            width: double.infinity,
+            height: heroHeight + MediaQuery.paddingOf(context).top,
+            borderRadius: 0,
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title line (~80% width)
+                SkeletonLoader(
+                  width: screenWidth * 0.80,
+                  height: 28,
+                  borderRadius: 6,
+                ),
+                const SizedBox(height: 12),
+                // Meta line 1 (~60%)
+                SkeletonLoader(
+                  width: screenWidth * 0.60,
+                  height: 16,
+                  borderRadius: 4,
+                ),
+                const SizedBox(height: 8),
+                // Meta line 2 (~50%)
+                SkeletonLoader(
+                  width: screenWidth * 0.50,
+                  height: 16,
+                  borderRadius: 4,
+                ),
+                const SizedBox(height: 24),
+                // Description — wider line (~90%)
+                SkeletonLoader(
+                  width: screenWidth * 0.90,
+                  height: 14,
+                  borderRadius: 4,
+                ),
+                const SizedBox(height: 6),
+                SkeletonLoader(
+                  width: screenWidth * 0.80,
+                  height: 14,
+                  borderRadius: 4,
+                ),
+                const SizedBox(height: 6),
+                SkeletonLoader(
+                  width: screenWidth * 0.70,
+                  height: 14,
+                  borderRadius: 4,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

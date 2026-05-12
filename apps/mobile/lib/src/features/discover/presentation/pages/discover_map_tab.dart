@@ -216,68 +216,70 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
 
     final markers = events.map(_buildMarker).toList();
 
-    return FlutterMap(
-      mapController: _mapController,
-      options: const MapOptions(
-        // Initial centre is CBD; _initCamera() moves the camera post-frame.
-        initialCenter: kSingaporeCbd,
-        initialZoom: _kCbdFallbackZoom,
-        minZoom: 10.0,
-        maxZoom: 18.0,
-        // Disable rotation (v1 non-goal).
-        interactionOptions: InteractionOptions(
-          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-        ),
-      ),
-      children: [
-        // OSM tile layer — userAgentPackageName is mandatory per OSM tile
-        // usage policy to avoid rate-limiting at scale.
-        // [widget.tileProvider] is null in production (uses NetworkTileProvider
-        // default) and overridden with a no-op provider in widget tests.
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.tribely',
-          tileProvider: widget.tileProvider,
-        ),
-
-        // Marker clustering — radius 80px, spec §D.
-        MarkerClusterLayerWidget(
-          options: MarkerClusterLayerOptions(
-            maxClusterRadius: _kClusterRadius.toInt(),
-            size: const Size(
-              EventMapMarker.kSingleDiameter,
-              EventMapMarker.kSingleDiameter,
-            ),
-            markers: markers,
-            // markerChildBehavior=true: the GestureDetector on each marker
-            // child owns tap handling; suppress the cluster layer's wrapping
-            // gesture to avoid double-tap registration.
-            markerChildBehavior: true,
-            builder: (context, clusterMarkers) {
-              return EventClusterMarker(count: clusterMarkers.length);
-            },
+    return SizedBox.expand(
+      child: FlutterMap(
+        mapController: _mapController,
+        options: const MapOptions(
+          // Initial centre is CBD; _initCamera() moves the camera post-frame.
+          initialCenter: kSingaporeCbd,
+          initialZoom: _kCbdFallbackZoom,
+          minZoom: 10.0,
+          maxZoom: 18.0,
+          // Disable rotation (v1 non-goal).
+          interactionOptions: InteractionOptions(
+            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
           ),
         ),
+        children: [
+          // OSM tile layer — userAgentPackageName is mandatory per OSM tile
+          // usage policy to avoid rate-limiting at scale.
+          // [widget.tileProvider] is null in production (uses NetworkTileProvider
+          // default) and overridden with a no-op provider in widget tests.
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.tribely',
+            tileProvider: widget.tileProvider,
+          ),
 
-        // OSM attribution per §5 and OSM tile usage policy.
-        // Position: bottom-left — avoids collision with D5's sticky CTA which
-        // mounts at the bottom edge of the Discover scaffold.
-        // TODO(D4): add `url_launcher` to pubspec and replace the no-op onTap
-        // with `launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'))`
-        // before the first production tile request. Omitting it now avoids an
-        // unauthorized pubspec change; attribution text is still visible.
-        RichAttributionWidget(
-          alignment: AttributionAlignment.bottomLeft,
-          showFlutterMapAttribution: false,
-          attributions: [
-            TextSourceAttribution(
-              'OpenStreetMap contributors',
-              // no-op until url_launcher is added to pubspec — see TODO above.
-              onTap: () {},
+          // Marker clustering — radius 80px, spec §D.
+          MarkerClusterLayerWidget(
+            options: MarkerClusterLayerOptions(
+              maxClusterRadius: _kClusterRadius.toInt(),
+              size: const Size(
+                EventMapMarker.kSingleDiameter,
+                EventMapMarker.kSingleDiameter,
+              ),
+              markers: markers,
+              // markerChildBehavior=true: the GestureDetector on each marker
+              // child owns tap handling; suppress the cluster layer's wrapping
+              // gesture to avoid double-tap registration.
+              markerChildBehavior: true,
+              builder: (context, clusterMarkers) {
+                return EventClusterMarker(count: clusterMarkers.length);
+              },
             ),
-          ],
-        ),
-      ],
+          ),
+
+          // OSM attribution per §5 and OSM tile usage policy.
+          // Position: bottom-left — avoids collision with D5's sticky CTA which
+          // mounts at the bottom edge of the Discover scaffold.
+          // TODO(D4): add `url_launcher` to pubspec and replace the no-op onTap
+          // with `launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'))`
+          // before the first production tile request. Omitting it now avoids an
+          // unauthorized pubspec change; attribution text is still visible.
+          RichAttributionWidget(
+            alignment: AttributionAlignment.bottomLeft,
+            showFlutterMapAttribution: false,
+            attributions: [
+              TextSourceAttribution(
+                'OpenStreetMap contributors',
+                // no-op until url_launcher is added to pubspec — see TODO above.
+                onTap: () {},
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

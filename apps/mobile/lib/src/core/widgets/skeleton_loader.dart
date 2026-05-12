@@ -90,63 +90,66 @@ class SkeletonEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: _kSkeletonBase,
-      highlightColor: _kSkeletonHighlight,
-      period: _kShimmerPeriod,
-      child: Container(
-        // Clip the card to rounded corners so the internal rectangles respect
-        // the card boundary without each needing its own border-radius.
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Image block — full-width, 120dp tall.
-            const _ShimmerRect(
-              width: double.infinity,
-              height: 120,
-              borderRadius: 0, // clipped by parent Card
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final cardWidth = constraints.maxWidth;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title text line — 70% of card width.
-                      _ShimmerRect(
-                        width: cardWidth * 0.70,
-                        height: 16,
-                        borderRadius: 4,
-                      ),
-                      const SizedBox(height: 8),
-                      // Subtitle — 50%.
-                      _ShimmerRect(
-                        width: cardWidth * 0.50,
-                        height: 12,
-                        borderRadius: 4,
-                      ),
-                      const SizedBox(height: 12),
-                      // Meta row — 90%.
-                      _ShimmerRect(
-                        width: cardWidth * 0.90,
-                        height: 12,
-                        borderRadius: 4,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  );
-                },
+    return SizedBox(
+      width: double.infinity,
+      child: Shimmer.fromColors(
+        baseColor: _kSkeletonBase,
+        highlightColor: _kSkeletonHighlight,
+        period: _kShimmerPeriod,
+        child: Container(
+          // Clip the card to rounded corners so the internal rectangles respect
+          // the card boundary without each needing its own border-radius.
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Image block — full-width, 120dp tall.
+              const _ShimmerRect(
+                width: double.infinity,
+                height: 120,
+                borderRadius: 0, // clipped by parent Card
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cardWidth = constraints.maxWidth;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title text line — 70% of card width.
+                        _ShimmerRect(
+                          width: cardWidth * 0.70,
+                          height: 16,
+                          borderRadius: 4,
+                        ),
+                        const SizedBox(height: 8),
+                        // Subtitle — 50%.
+                        _ShimmerRect(
+                          width: cardWidth * 0.50,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                        const SizedBox(height: 12),
+                        // Meta row — 90%.
+                        _ShimmerRect(
+                          width: cardWidth * 0.90,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
