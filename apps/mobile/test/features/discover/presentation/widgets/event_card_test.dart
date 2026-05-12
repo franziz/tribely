@@ -7,7 +7,7 @@
 //   4. Renders venue address.
 //   5. Renders "{n} spots" capacity label.
 //   6. Omits capacity line when capacity == 0 (v1 trim guard).
-//   7. Tap routes to /events/:id via context.go().
+//   7. Tap routes to /events/:id via context.push().
 //   8. Golden at 375dp width (iPhone 12 mini-ish).
 
 import 'package:flutter/material.dart';

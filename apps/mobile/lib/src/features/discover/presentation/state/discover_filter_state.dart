@@ -1,3 +1,5 @@
+import 'package:equatable/equatable.dart';
+
 import '../../domain/entities/discover_filters.dart';
 import '../../../events/domain/entities/event_category.dart';
 
@@ -20,7 +22,7 @@ sealed class DiscoverFilterState {
 /// This class is intentionally thin — it mirrors the fields that
 /// [DiscoverFilterController] exposes as mutation surface. Full query
 /// construction (lat/lng, cursor, limit) happens in D2's DiscoverController.
-final class DiscoverFiltersActive extends DiscoverFilterState {
+final class DiscoverFiltersActive extends DiscoverFilterState with EquatableMixin {
   const DiscoverFiltersActive({
     this.timeWindow = TimeWindow.anytime,
     this.categories = const {},
@@ -35,6 +37,9 @@ final class DiscoverFiltersActive extends DiscoverFilterState {
   /// Selected distance radius in km. Null = no distance filter.
   final double? maxDistanceKm;
 
+  @override
+  List<Object?> get props => [timeWindow, categories, maxDistanceKm];
+
   DiscoverFiltersActive copyWith({
     TimeWindow? timeWindow,
     Set<EventCategory>? categories,
@@ -48,27 +53,6 @@ final class DiscoverFiltersActive extends DiscoverFilterState {
               ? this.maxDistanceKm
               : maxDistanceKm as double?,
     );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DiscoverFiltersActive &&
-          runtimeType == other.runtimeType &&
-          timeWindow == other.timeWindow &&
-          _setsEqual(categories, other.categories) &&
-          maxDistanceKm == other.maxDistanceKm;
-
-  @override
-  int get hashCode => Object.hash(timeWindow, categories, maxDistanceKm);
-
-  // Helpers
-  static bool _setsEqual(
-    Set<EventCategory> a,
-    Set<EventCategory> b,
-  ) {
-    if (a.length != b.length) return false;
-    return a.containsAll(b);
   }
 }
 

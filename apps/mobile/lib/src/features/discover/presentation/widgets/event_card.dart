@@ -65,7 +65,7 @@ class EventCard extends StatelessWidget {
         color: TribelyColors.paperSurfaceHigh,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: () => context.go('/events/${event.id}'),
+          onTap: () => context.push('/events/${event.id}'),
           borderRadius: BorderRadius.circular(16),
           splashColor: TribelyColors.paperInkPrimary.withValues(alpha: 0.06),
           highlightColor: Colors.transparent,
