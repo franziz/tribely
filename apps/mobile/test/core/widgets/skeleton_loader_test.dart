@@ -79,6 +79,7 @@ void main() {
       tester.view.physicalSize = const Size(375, 812);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
         _wrapConstrained(
@@ -96,6 +97,7 @@ void main() {
       tester.view.physicalSize = const Size(375, 812);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
         _wrapConstrained(const SkeletonEventCard(), width: 375),
@@ -110,6 +112,7 @@ void main() {
       tester.view.physicalSize = const Size(414, 896);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
         _wrapConstrained(const SkeletonEventCard(), width: 414),
@@ -135,6 +138,7 @@ void main() {
       tester.view.physicalSize = const Size(375, 812);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
         _wrapConstrained(const SkeletonEventCard(), width: 375),

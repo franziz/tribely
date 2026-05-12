@@ -18,15 +18,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mocktail/mocktail.dart';
 
+import 'package:tribely/src/core/router/app_shell.dart';
+import 'package:tribely/src/core/services/location_service.dart';
+import 'package:tribely/src/core/services/location_service_providers.dart';
 import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
 import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
+import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
+import 'package:tribely/src/features/discover/presentation/controllers/discover_filter_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_page.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_filter_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_map_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
+import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
+import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
-import 'package:tribely/src/core/router/app_shell.dart';
 
 // ---------------------------------------------------------------------------
 // Keys for stub widgets — used as primary finders in assertions.
@@ -35,6 +45,35 @@ import 'package:tribely/src/core/router/app_shell.dart';
 const _kOwnProfileStubKey = Key('__stub_own_profile__');
 const _kEditProfileStubKey = Key('__stub_edit_profile__');
 const _kUserProfileStubKey = Key('__stub_user_profile__');
+
+// ---------------------------------------------------------------------------
+// DiscoverPage stubs — prevent GetIt / location-service access
+// ---------------------------------------------------------------------------
+
+class MockLocationService extends Mock implements LocationService {}
+
+/// Bypasses DiscoverController's use-case fetch (which calls sl<>) so that
+/// the router test can render DiscoverPage without initialising GetIt.
+class _FixedDiscoverController extends DiscoverController {
+  @override
+  DiscoverState build() => const DiscoverLoading();
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> loadMore() async {}
+}
+
+class _FixedFilterController extends DiscoverFilterController {
+  @override
+  DiscoverFilterState build() => const DiscoverFiltersActive();
+}
+
+class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
+  @override
+  bool build() => true;
+}
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -158,11 +197,22 @@ GoRouter _buildTestRouter({
 
 /// Pumps a [MaterialApp.router] inside a [ProviderScope] that overrides
 /// [sessionControllerProvider] with [sessionState].
+///
+/// Also stubs out [DiscoverController], [DiscoverFilterController],
+/// [locationServiceProvider], and [locationPromptShownProvider] so that
+/// [DiscoverPage] — rendered directly in the test router — never touches
+/// the GetIt service locator or the OS location API.
 Future<void> pumpRouter(
   WidgetTester tester,
   GoRouter router, {
   SessionState sessionState = const SessionUnauthenticated(),
 }) async {
+  final mockLocation = MockLocationService();
+  when(
+    () => mockLocation.currentPermissionStatus(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
+  when(() => mockLocation.currentPosition()).thenAnswer((_) async => null);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -171,6 +221,14 @@ Future<void> pumpRouter(
           // We use a minimal anonymous subclass since Notifier.build is abstract.
           return _FixedSessionController(sessionState);
         }),
+        discoverControllerProvider.overrideWith(_FixedDiscoverController.new),
+        discoverFilterControllerProvider.overrideWith(
+          _FixedFilterController.new,
+        ),
+        locationServiceProvider.overrideWithValue(mockLocation),
+        locationPromptShownProvider.overrideWith(
+          _PromptAlreadyShownNotifier.new,
+        ),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),

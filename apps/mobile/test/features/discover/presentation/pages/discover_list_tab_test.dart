@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_public_notifier_properties
 // Widget tests for DiscoverListTab.
 //
 // Covers:
@@ -71,7 +72,6 @@ class _FixedDiscoverController extends DiscoverController {
   _FixedDiscoverController(this._fixed);
   final DiscoverState _fixed;
 
-  // ignore: avoid_public_notifier_properties
   bool refreshCalled = false;
 
   @override
