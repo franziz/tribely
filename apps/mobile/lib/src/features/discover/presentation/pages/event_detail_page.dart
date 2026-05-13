@@ -64,6 +64,33 @@ class EventDetailPage extends ConsumerWidget {
         state is EventDetailLoaded &&
         session.session.user.id == state.event.hostId;
 
+    // Watch join state at the outer Scaffold level so we can supply
+    // bottomNavigationBar — Scaffold auto-reserves the exact inset, eliminating
+    // the manual stickyBarHeight estimation that caused the overlap bug.
+    // Only matters when the event is loaded and the viewer is not the host;
+    // for all other states joinState is ignored.
+    final joinState = state is EventDetailLoaded
+        ? ref.watch(requestToJoinControllerProvider(eventId))
+        : null;
+
+    final effectiveRequest = switch (joinState) {
+      RequestToJoinSubmitted(:final joinRequest) => joinRequest,
+      RequestToJoinIdle(:final existingRequest) => existingRequest,
+      RequestToJoinWithdrawing(:final withdrawingRequest) => withdrawingRequest,
+      _ => null,
+    };
+
+    final emailNotVerifiedFailure = switch (joinState) {
+      RequestToJoinFailed(:final failure)
+          when failure is EmailNotVerifiedFailure =>
+        failure,
+      _ => null,
+    };
+
+    // Determine if we should show the sticky join bar.
+    final showStickyBar =
+        !isHostViewer && state is EventDetailLoaded && joinState != null;
+
     return Scaffold(
       backgroundColor: TribelyColors.paperSurface,
       // extendBodyBehindAppBar = true allows the hero image to bleed behind
@@ -76,6 +103,23 @@ class EventDetailPage extends ConsumerWidget {
         leading: _BackButton(),
         // Share action deferred per §E technical non-goals.
       ),
+      // Scaffold.bottomNavigationBar auto-insets the body by the bar's exact
+      // rendered height — no manual height estimation needed. This fixes the
+      // sticky-bar overlap that occurred with the old Stack + stickyBarHeight()
+      // approach (pending/declined content was ~126px; estimate was 100px).
+      //
+      // showStickyBar == true only when state is EventDetailLoaded and
+      // joinState != null, so the pattern-match and null-check below are safe.
+      bottomNavigationBar: switch (showStickyBar) {
+        true when state is EventDetailLoaded && joinState != null =>
+          _StickyJoinBar(
+            event: state.event,
+            joinState: joinState,
+            effectiveRequest: effectiveRequest,
+            emailNotVerifiedBanner: emailNotVerifiedFailure != null,
+          ),
+        _ => null,
+      },
       body: switch (state) {
         EventDetailInitial() => const _LoadingSkeleton(),
         EventDetailLoading() => const _LoadingSkeleton(),
@@ -198,7 +242,7 @@ class _LoadingSkeleton extends StatelessWidget {
 // Loaded body
 // ---------------------------------------------------------------------------
 
-class _LoadedBody extends ConsumerWidget {
+class _LoadedBody extends StatelessWidget {
   const _LoadedBody({
     required this.event,
     required this.isHostViewer,
@@ -213,98 +257,41 @@ class _LoadedBody extends ConsumerWidget {
   final String eventId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final joinState = ref.watch(requestToJoinControllerProvider(eventId));
-
-    // Determine effective request: prefer submitted result, else existing from idle.
-    final effectiveRequest = switch (joinState) {
-      RequestToJoinSubmitted(:final joinRequest) => joinRequest,
-      RequestToJoinIdle(:final existingRequest) => existingRequest,
-      RequestToJoinWithdrawing(:final withdrawingRequest) => withdrawingRequest,
-      _ => null,
-    };
-
-    // Check if there is a pending email-not-verified failure to show the banner.
-    final emailNotVerifiedFailure = switch (joinState) {
-      RequestToJoinFailed(:final failure)
-          when failure is EmailNotVerifiedFailure =>
-        failure,
-      _ => null,
-    };
-
-    // When the host is viewing their own event, drop the sticky-bar reservation —
-    // no CTA, no empty layout artifact.
-    final bottomPadding = isHostViewer
-        ? MediaQuery.paddingOf(context).bottom
-        : _stickyBarHeight(effectiveRequest, emailNotVerifiedFailure) +
-              MediaQuery.paddingOf(context).bottom;
-
-    return Stack(
-      children: [
-        // Scrollable content.
-        SingleChildScrollView(
-          // Bottom padding reserves space for the sticky CTA when visible.
-          padding: EdgeInsets.only(bottom: bottomPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HeroImage(event: event),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TitleBlock(event: event),
-                    const SizedBox(height: 20),
-                    _MetaRows(event: event),
-                    const SizedBox(height: 24),
-                    _AboutSection(description: event.description),
-                    const SizedBox(height: 16),
-                    _CapacityLine(event: event),
-                    const SizedBox(height: 8),
-                    // Host-only: pending requests section (B2a).
-                    if (isHostViewer) ...[
-                      const SizedBox(height: 16),
-                      _PendingRequestsSection(eventId: eventId),
-                      const SizedBox(height: 8),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Sticky bottom bar. Hidden for host viewers. Non-host branch is the
-        // real CTA.
-        if (!isHostViewer)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _StickyJoinBar(
-              event: event,
-              joinState: joinState,
-              effectiveRequest: effectiveRequest,
-              emailNotVerifiedBanner: emailNotVerifiedFailure != null,
+  Widget build(BuildContext context) {
+    // Scrollable content only — the sticky CTA is now Scaffold.bottomNavigationBar
+    // on the outer Scaffold, which auto-insets the body by its exact rendered
+    // height. No Stack, no Positioned, no manual height estimation.
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HeroImage(event: event),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TitleBlock(event: event),
+                const SizedBox(height: 20),
+                _MetaRows(event: event),
+                const SizedBox(height: 24),
+                _AboutSection(description: event.description),
+                const SizedBox(height: 16),
+                _CapacityLine(event: event),
+                const SizedBox(height: 8),
+                // Host-only: pending requests section (B2a).
+                if (isHostViewer) ...[
+                  const SizedBox(height: 16),
+                  _PendingRequestsSection(eventId: eventId),
+                  const SizedBox(height: 8),
+                ],
+              ],
             ),
           ),
-      ],
+        ],
+      ),
     );
-  }
-
-  /// Estimated sticky bar height for scroll-padding calculation.
-  /// Varies based on whether extra content (banner, withdraw link) is present.
-  double _stickyBarHeight(
-    JoinRequest? request,
-    EmailNotVerifiedFailure? emailFailure,
-  ) {
-    if (emailFailure != null) return 140;
-    if (request == null) return 80;
-    return switch (request.status) {
-      JoinRequestStatus.pending => 100,
-      JoinRequestStatus.declined => 100,
-      _ => 80,
-    };
   }
 }
 

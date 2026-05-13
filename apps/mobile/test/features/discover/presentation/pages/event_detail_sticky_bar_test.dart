@@ -364,4 +364,70 @@ void main() {
       expect(withdrawCalled, isFalse);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Overlap regression (TRI-28 Fix A)
+  //
+  // Verifies the sticky bar is rendered as Scaffold.bottomNavigationBar (not as
+  // a Positioned widget inside a Stack). With the old Stack + manual
+  // stickyBarHeight() approach the bar's Positioned widget could occlude content
+  // above it when the height estimate was too low (~26px short for Pending).
+  // Scaffold.bottomNavigationBar auto-reserves the exact rendered bar height as
+  // a body inset, so scroll content can never be occluded.
+  //
+  // We assert:
+  //   1. No Positioned ancestor of the "Withdraw request" text — proving the
+  //      bar is NOT rendered via the old Stack/Positioned pattern.
+  //   2. The capacity row text exists in the widget tree (it is present, not
+  //      removed or replaced by the bar).
+  //   3. The sticky bar's top edge is at or below the sticky bar itself (sanity
+  //      check that bottomNavigationBar is at the bottom of the screen).
+  // ---------------------------------------------------------------------------
+  group('sticky bar overlap regression (TRI-28 Fix A)', () {
+    testWidgets(
+      'Pending state — sticky bar is bottomNavigationBar, not Positioned',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          event: _testEvent,
+          ctaState: RequestToJoinIdle(existingRequest: _pendingRequest),
+        );
+
+        // Capacity row must exist in the widget tree.
+        expect(find.text('8 spots total'), findsOneWidget);
+
+        // Sticky bar content must be present.
+        expect(find.text('Withdraw request'), findsOneWidget);
+
+        // The sticky bar must NOT be inside a Positioned widget.
+        // With the old Stack approach, find.ancestor would find a Positioned.
+        // With Scaffold.bottomNavigationBar it will not.
+        final withdrawFinder = find.text('Withdraw request');
+        final positionedAncestors = find.ancestor(
+          of: withdrawFinder,
+          matching: find.byType(Positioned),
+        );
+        expect(
+          positionedAncestors,
+          findsNothing,
+          reason:
+              'Sticky bar must be rendered via Scaffold.bottomNavigationBar, '
+              'not as a Positioned widget in a Stack. A Positioned ancestor of '
+              '"Withdraw request" means the old overlap-prone pattern is still '
+              'in use.',
+        );
+
+        // The sticky bar's top edge must be at or near the screen bottom.
+        // Default test screen height is 600. Bar should be in the bottom ~200px.
+        final barRect = tester.getRect(find.text('Withdraw request'));
+        expect(
+          barRect.top,
+          greaterThan(400),
+          reason:
+              'Sticky bar top (${barRect.top}) should be in the lower half of '
+              'the screen, confirming it is rendered at the bottom.',
+        );
+      },
+    );
+  });
 }
