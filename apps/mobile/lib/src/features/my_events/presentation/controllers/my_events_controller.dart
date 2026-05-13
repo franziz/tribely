@@ -5,6 +5,10 @@ import '../../../../core/providers/list_my_hosted_events_usecase_provider.dart';
 import '../../../discover/domain/usecases/list_my_hosted_events_usecase.dart';
 import '../state/my_events_state.dart';
 
+// A12: params instance extracted to file-level const to avoid inline
+// instantiation at the call site.
+const _emptyParams = ListMyHostedEventsParams();
+
 /// Provider — autoDispose so state is discarded when MyEventsPage leaves the
 /// widget tree (e.g. the user navigates away).
 final myEventsControllerProvider =
@@ -34,7 +38,7 @@ class MyEventsController extends Notifier<MyEventsState> {
     state = const MyEventsLoading();
 
     final useCase = ref.read(listMyHostedEventsUseCaseProvider);
-    final result = await useCase(const ListMyHostedEventsParams());
+    final result = await useCase(_emptyParams);
 
     if (!ref.mounted) return;
     state = result.fold(

@@ -5,6 +5,10 @@ import '../../../../core/providers/list_my_hosted_events_usecase_provider.dart';
 import '../../../discover/domain/usecases/list_my_hosted_events_usecase.dart';
 import '../state/hosting_tab_state.dart';
 
+// A12: params instance extracted to file-level const to avoid inline
+// instantiation at the call site.
+const _emptyParams = ListMyHostedEventsParams();
+
 /// Provider — autoDispose so state is discarded when the Hosting tab leaves
 /// the widget tree (e.g. the user navigates away from MyEventsPage).
 final hostingTabControllerProvider =
@@ -32,7 +36,7 @@ class HostingTabController extends Notifier<HostingTabState> {
     state = const HostingTabLoading();
 
     final useCase = ref.read(listMyHostedEventsUseCaseProvider);
-    final result = await useCase(const ListMyHostedEventsParams());
+    final result = await useCase(_emptyParams);
 
     if (!ref.mounted) return;
     state = result.fold(
