@@ -51,8 +51,10 @@ import 'package:tribely/src/features/discover/presentation/state/event_detail_st
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/core/error/failures.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/host_pending_list_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/controllers/request_to_join_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/host_pending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -154,6 +156,34 @@ class _FixedRequestToJoinController extends RequestToJoinController {
   Future<void> withdraw(String joinRequestId) async {}
 }
 
+/// Bypasses HostPendingListController._load() which fires Future(() => _load())
+/// scheduling a timer and reading listPendingForEventUseCaseProvider → sl<>.
+/// Returns zero-items loaded state immediately.
+class _FixedHostPendingListController extends HostPendingListController {
+  _FixedHostPendingListController(super.eventId);
+
+  @override
+  HostPendingListState build() => const HostPendingListLoaded(items: []);
+
+  @override
+  Future<void> retry() async {}
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> approve(String joinRequestId) async {}
+
+  @override
+  Future<void> decline(String joinRequestId, {String? reason}) async {}
+
+  @override
+  void clearSectionError() {}
+
+  @override
+  void clearRaceConflict() {}
+}
+
 // ---------------------------------------------------------------------------
 // Pump helpers
 // ---------------------------------------------------------------------------
@@ -181,6 +211,12 @@ Future<void> _pumpPage(
         requestToJoinControllerProvider(
           eventId,
         ).overrideWith(() => _FixedRequestToJoinController(eventId)),
+        // _PendingRequestsSection (host branch) watches hostPendingListControllerProvider.
+        // Without this override, its build() schedules Future(() => _load()) which
+        // creates a pending timer and crashes with "!timersPending" after widget disposal.
+        hostPendingListControllerProvider(
+          eventId,
+        ).overrideWith(() => _FixedHostPendingListController(eventId)),
       ],
       child: MaterialApp(home: EventDetailPage(eventId: eventId)),
     ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
+import '../../../../core/design/motion.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/banner_message.dart';
@@ -14,10 +15,15 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../join_requests/domain/entities/join_request.dart';
+import '../../../join_requests/domain/entities/join_request_with_requester.dart';
+import '../../../join_requests/presentation/controllers/host_pending_list_controller.dart';
 import '../../../join_requests/presentation/controllers/request_to_join_controller.dart';
 import '../../../join_requests/presentation/providers/join_requests_providers.dart';
+import '../../../join_requests/presentation/state/host_pending_list_state.dart';
 import '../../../join_requests/presentation/state/request_to_join_state.dart';
 import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
+import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
+import '../../../join_requests/presentation/widgets/pending_request_row.dart';
 import '../providers/event_detail_providers.dart';
 import '../state/event_detail_state.dart';
 
@@ -256,14 +262,20 @@ class _LoadedBody extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _CapacityLine(event: event),
                     const SizedBox(height: 8),
+                    // Host-only: pending requests section (B2a).
+                    if (isHostViewer) ...[
+                      const SizedBox(height: 16),
+                      _PendingRequestsSection(eventId: eventId),
+                      const SizedBox(height: 8),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
         ),
-        // Sticky bottom bar. Hidden for host viewers — B2 will wire host-side
-        // management. Non-host branch is the real CTA.
+        // Sticky bottom bar. Hidden for host viewers. Non-host branch is the
+        // real CTA.
         if (!isHostViewer)
           Positioned(
             bottom: 0,
@@ -276,8 +288,6 @@ class _LoadedBody extends ConsumerWidget {
               emailNotVerifiedBanner: emailNotVerifiedFailure != null,
             ),
           ),
-        // B2 attachment point: host-side management slot.
-        // Replace _HostBranchPlaceholder with actual host CTA when B2 lands.
       ],
     );
   }
@@ -508,6 +518,294 @@ class _CapacityLine extends StatelessWidget {
         const SizedBox(width: 10),
         Text(label, style: TribelyType.bodyM(color)),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pending requests section — host branch only (B2a)
+// ---------------------------------------------------------------------------
+
+/// Section that renders the host's list of pending join requests inline within
+/// the event detail scroll body.
+///
+/// Hidden entirely when zero pending (PM AC: no empty section header).
+/// Error handling: full-load failures show a [BannerMessage] with retry;
+/// action-level failures (approve/decline) show an inline section banner while
+/// keeping the row list intact.
+class _PendingRequestsSection extends ConsumerStatefulWidget {
+  const _PendingRequestsSection({required this.eventId});
+
+  final String eventId;
+
+  @override
+  ConsumerState<_PendingRequestsSection> createState() =>
+      _PendingRequestsSectionState();
+}
+
+class _PendingRequestsSectionState
+    extends ConsumerState<_PendingRequestsSection> {
+  // Track which rows have been "dismissed" (approved/declined) so we can
+  // run the slide-out animation before removal.
+  final Set<String> _dismissingIds = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingState = ref.watch(
+      hostPendingListControllerProvider(widget.eventId),
+    );
+    final controller = ref.read(
+      hostPendingListControllerProvider(widget.eventId).notifier,
+    );
+
+    // Listen for race-condition conflicts: show a toast then clear.
+    ref.listen<HostPendingListState>(
+      hostPendingListControllerProvider(widget.eventId),
+      (prev, next) {
+        if (next is HostPendingListLoaded && next.raceConflictId != null) {
+          controller.clearRaceConflict();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This request was already handled.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      },
+    );
+
+    return switch (pendingState) {
+      HostPendingListLoading() => const _PendingLoadingRow(),
+      HostPendingListError(:final failure) => _PendingErrorSection(
+        message: failure.message,
+        onRetry: controller.retry,
+      ),
+      HostPendingListLoaded(items: final items) when items.isEmpty =>
+        const SizedBox.shrink(), // hide entire section at zero pending
+      HostPendingListLoaded(
+        :final items,
+        :final sectionError,
+        :final actionInFlightId,
+      ) =>
+        _PendingLoadedSection(
+          eventId: widget.eventId,
+          items: items,
+          sectionError: sectionError,
+          actionInFlightId: actionInFlightId,
+          dismissingIds: _dismissingIds,
+          onApprove: (id) => _handleApprove(controller, id),
+          onDeclineRequest: (item) =>
+              _handleDeclineRequest(context, controller, item),
+          onClearSectionError: controller.clearSectionError,
+        ),
+      // Satisfy exhaustiveness: HostPendingListInitial is not reachable
+      // (build() always transitions immediately to Loading).
+      _ => const SizedBox.shrink(),
+    };
+  }
+
+  Future<void> _handleApprove(
+    HostPendingListController controller,
+    String joinRequestId,
+  ) async {
+    setState(() => _dismissingIds.add(joinRequestId));
+    await controller.approve(joinRequestId);
+    if (mounted) setState(() => _dismissingIds.remove(joinRequestId));
+  }
+
+  Future<void> _handleDeclineRequest(
+    BuildContext context,
+    HostPendingListController controller,
+    JoinRequestWithRequester item,
+  ) async {
+    await showDeclineReasonSheet(
+      context,
+      requesterDisplayName: item.requester.displayName,
+      onSubmit: (reason) async {
+        setState(() => _dismissingIds.add(item.joinRequest.id));
+        await controller.decline(item.joinRequest.id, reason: reason);
+        if (mounted) setState(() => _dismissingIds.remove(item.joinRequest.id));
+        // If there's a sectionError after decline, return it; otherwise null.
+        final st = ref.read(hostPendingListControllerProvider(widget.eventId));
+        if (st is HostPendingListLoaded && st.sectionError != null) {
+          return st.sectionError;
+        }
+        return null;
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pending section sub-widgets
+// ---------------------------------------------------------------------------
+
+class _PendingLoadingRow extends StatelessWidget {
+  const _PendingLoadingRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _PendingErrorSection extends StatelessWidget {
+  const _PendingErrorSection({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BannerMessage(
+          message: message,
+          action: BannerAction(label: 'Retry', onTap: onRetry),
+        ),
+      ],
+    );
+  }
+}
+
+class _PendingLoadedSection extends StatelessWidget {
+  const _PendingLoadedSection({
+    required this.eventId,
+    required this.items,
+    required this.sectionError,
+    required this.actionInFlightId,
+    required this.dismissingIds,
+    required this.onApprove,
+    required this.onDeclineRequest,
+    required this.onClearSectionError,
+  });
+
+  final String eventId;
+  final List<JoinRequestWithRequester> items;
+  final String? sectionError;
+  final String? actionInFlightId;
+  final Set<String> dismissingIds;
+  final ValueChanged<String> onApprove;
+  final ValueChanged<JoinRequestWithRequester> onDeclineRequest;
+  final VoidCallback onClearSectionError;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header: "REQUESTS (N)" — caption/13, paperInkSecondary,
+        // uppercase. Per PM AC: hidden at zero (caller guards this).
+        Semantics(
+          header: true,
+          child: Text(
+            'REQUESTS (${items.length})',
+            style: TribelyType.caption(
+              TribelyColors.paperInkSecondary,
+            ).copyWith(letterSpacing: 0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Inline section error (action failures: network, capacity-full).
+        if (sectionError != null) ...[
+          BannerMessage(message: sectionError!, onDismiss: onClearSectionError),
+          const SizedBox(height: 12),
+        ],
+        // Pending rows with slide-out animation on removal.
+        ...items.map((item) {
+          final isDismissing = dismissingIds.contains(item.joinRequest.id);
+          return _AnimatedPendingRow(
+            key: ValueKey(item.joinRequest.id),
+            item: item,
+            isDismissing: isDismissing,
+            isInFlight: actionInFlightId == item.joinRequest.id,
+            onApprove: () => onApprove(item.joinRequest.id),
+            onDecline: (_) => onDeclineRequest(item),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+/// Wraps [PendingRequestRow] in a slide-left + fade-out animation when
+/// [isDismissing] transitions to true.
+class _AnimatedPendingRow extends StatefulWidget {
+  const _AnimatedPendingRow({
+    required this.item,
+    required this.isDismissing,
+    required this.isInFlight,
+    required this.onApprove,
+    required this.onDecline,
+    super.key,
+  });
+
+  final JoinRequestWithRequester item;
+  final bool isDismissing;
+  final bool isInFlight;
+  final VoidCallback onApprove;
+  final ValueChanged<String> onDecline;
+
+  @override
+  State<_AnimatedPendingRow> createState() => _AnimatedPendingRowState();
+}
+
+class _AnimatedPendingRowState extends State<_AnimatedPendingRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _opacity = Tween<double>(
+      begin: 1,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: TribelyMotion.easeIn));
+    _slide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-1.0, 0.0),
+    ).animate(CurvedAnimation(parent: _ctrl, curve: TribelyMotion.easeIn));
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedPendingRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isDismissing && !oldWidget.isDismissing) {
+      _ctrl.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _slide,
+        child: PendingRequestRow(
+          item: widget.item,
+          onApprove: widget.onApprove,
+          onDecline: widget.onDecline,
+          isInFlight: widget.isInFlight,
+        ),
+      ),
     );
   }
 }

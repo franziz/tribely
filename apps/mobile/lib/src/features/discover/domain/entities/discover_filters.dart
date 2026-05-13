@@ -40,6 +40,7 @@ class DiscoverFilters extends Equatable {
     this.lng,
     this.cursor,
     this.limit = 20,
+    this.hostUserId,
   }) : assert(
          maxDistanceKm == null || (lat != null && lng != null),
          'lat and lng must be provided when maxDistanceKm is set',
@@ -67,6 +68,10 @@ class DiscoverFilters extends Equatable {
   /// Page size. Defaults to 20. Sent as `limit=<n>` query param.
   final int limit;
 
+  /// Filter events by host user ID. Pass `'me'` for the authenticated user's
+  /// hosted events (used by the Hosting tab). Null = no host filter.
+  final String? hostUserId;
+
   /// Serialise to `GET /events` query parameters. Keys with null values are
   /// omitted so the API treats them as "no filter".
   Map<String, String> toQueryParams() {
@@ -87,6 +92,8 @@ class DiscoverFilters extends Equatable {
 
     if (cursor != null) params['cursor'] = cursor!;
 
+    if (hostUserId != null) params['hostUserId'] = hostUserId!;
+
     params['limit'] = limit.toString();
 
     return params;
@@ -100,6 +107,7 @@ class DiscoverFilters extends Equatable {
     Object? lng = _sentinel,
     Object? cursor = _sentinel,
     int? limit,
+    Object? hostUserId = _sentinel,
   }) {
     return DiscoverFilters(
       timeWindow: timeWindow ?? this.timeWindow,
@@ -111,6 +119,9 @@ class DiscoverFilters extends Equatable {
       lng: lng == _sentinel ? this.lng : lng as double?,
       cursor: cursor == _sentinel ? this.cursor : cursor as String?,
       limit: limit ?? this.limit,
+      hostUserId: hostUserId == _sentinel
+          ? this.hostUserId
+          : hostUserId as String?,
     );
   }
 
@@ -123,6 +134,7 @@ class DiscoverFilters extends Equatable {
     lng,
     cursor,
     limit,
+    hostUserId,
   ];
 }
 
