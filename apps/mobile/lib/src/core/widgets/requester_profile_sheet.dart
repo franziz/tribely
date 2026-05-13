@@ -98,10 +98,12 @@ class RequesterProfileSheet extends ConsumerWidget {
   }
 
   String _messageFor(Object error) {
-    if (error is NetworkFailure)
+    if (error is NetworkFailure) {
       return "Couldn't reach Tribely. Check your connection.";
-    if (error is ServerFailure && error.statusCode == 404)
+    }
+    if (error is ServerFailure && error.statusCode == 404) {
       return 'User not found.';
+    }
     if (error is ServerFailure) return 'Something went wrong. Try again.';
     if (error is Failure) return error.message;
     return 'Something went wrong. Try again.';
