@@ -43,9 +43,6 @@ describe('listJoinRequestsByEventQuerySchema', () => {
   });
 
   it('rejects an invalid status value', () => {
-    expect(() =>
-      listJoinRequestsByEventQuerySchema.parse({ status: 'unknown' }),
-    ).toThrowError();
+    expect(() => listJoinRequestsByEventQuerySchema.parse({ status: 'unknown' })).toThrowError();
   });
 });
-
