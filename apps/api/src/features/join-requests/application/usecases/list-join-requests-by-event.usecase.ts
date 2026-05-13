@@ -1,6 +1,7 @@
 import { AppError } from '@/core/errors/app-error.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
+import type { ListJoinRequestsByEventResult } from '../dto/list-join-requests-by-event.result.js';
 import type { JoinRequest } from '../../domain/entities/join-request.js';
 import type {
   JoinRequestRepository,
@@ -10,10 +11,6 @@ import type {
 export interface ListJoinRequestsByEventInput {
   eventId: string;
   actorUserId: string;
-}
-
-export interface ListJoinRequestsByEventResult {
-  joinRequests: JoinRequestWithRequester[];
 }
 
 /**

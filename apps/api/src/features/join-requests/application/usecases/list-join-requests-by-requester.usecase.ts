@@ -1,4 +1,5 @@
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
+import type { ListJoinRequestsByRequesterResult } from '../dto/list-join-requests-by-requester.result.js';
 import type {
   JoinRequestRepository,
   JoinRequestWithEventSummary,
@@ -11,11 +12,6 @@ export interface ListJoinRequestsByRequesterInput {
   eventId?: string;
   cursor?: ListJoinRequestsByRequesterCursor;
   limit: number;
-}
-
-export interface ListJoinRequestsByRequesterResult {
-  items: JoinRequestWithEventSummary[];
-  nextCursor: ListJoinRequestsByRequesterCursor | null;
 }
 
 const MAX_LIMIT = 50;
