@@ -51,9 +51,11 @@ import 'package:tribely/src/features/discover/presentation/state/event_detail_st
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/core/error/failures.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/host_attending_list_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/controllers/host_pending_list_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/controllers/request_to_join_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/host_attending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/host_pending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
 
@@ -156,6 +158,20 @@ class _FixedRequestToJoinController extends RequestToJoinController {
   Future<void> withdraw(String joinRequestId) async {}
 }
 
+/// Bypasses HostAttendingListController.build() which schedules
+/// Future(() => _load()) → listApprovedForEventUseCaseProvider → sl<>.
+/// Returns zero-items loaded state immediately, preventing the pending timer
+/// from leaking past widget disposal when isHostViewer == true.
+class _FixedHostAttendingListController extends HostAttendingListController {
+  _FixedHostAttendingListController(super.eventId);
+
+  @override
+  HostAttendingListState build() => const HostAttendingListLoaded(items: []);
+
+  @override
+  Future<void> retry() async {}
+}
+
 /// Bypasses HostPendingListController._load() which fires Future(() => _load())
 /// scheduling a timer and reading listPendingForEventUseCaseProvider → sl<>.
 /// Returns zero-items loaded state immediately.
@@ -217,6 +233,11 @@ Future<void> _pumpPage(
         hostPendingListControllerProvider(
           eventId,
         ).overrideWith(() => _FixedHostPendingListController(eventId)),
+        // _AttendingSection (host branch) watches hostAttendingListControllerProvider.
+        // Same leak vector: build() schedules Future(() => _load()) → sl<>.
+        hostAttendingListControllerProvider(
+          eventId,
+        ).overrideWith(() => _FixedHostAttendingListController(eventId)),
       ],
       child: MaterialApp(home: EventDetailPage(eventId: eventId)),
     ),
