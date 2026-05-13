@@ -49,6 +49,20 @@ For mobile/Flutter architectural rulings, consult Context7 against Flutter-first
 
 Cite the source in your ruling explicitly: "Per Reso Coder via Context7..." or "Per Riverpod docs via Context7...". If you base a Flutter ruling solely on a backend reference, name it and justify the transfer — don't silently extrapolate. Backend "best practice" can be Flutter over-engineering.
 
+### The accept-with-rationale bar: best-practice in context, not deferred cleanup
+
+When adjudicating an architecture-reviewer finding, you have three rulings: **fix-now**, **fix-followup-issue**, or **accept-with-rationale**. The bar for accept-with-rationale is strict: the deviation must be **what you would write fresh today** — defensibly the right pattern for this context — not "we'll clean it up later" or "it's tolerable."
+
+If you keep an acceptance, the rationale must answer: "Why is this *better than the rule's letter* in this specific context?" Acceptable answers cite a community precedent, a structural constraint that makes the rule's intent inapplicable, or a YAGNI counterweight (one consumer, no extraction leverage). Unacceptable answers are "it works," "it's pre-existing," or "fixing it would expand scope."
+
+**Why:** "We don't have tech debt" is an active team stance, not a slogan. If the rule is right, fix it where you find it. If the rule is wrong, change the rule. accept-with-rationale that reads as deferral is just unlabeled tech debt — it ships the rule's violation under a polite label.
+
+**How to apply:**
+- For every accept-with-rationale, write one sentence in PR-body form ("X is the right pattern here because Y"). If you cannot, downgrade to fix-now or fix-followup-issue.
+- "Pre-existing pattern, not introduced by this PR" is NOT a valid acceptance rationale on its own. If the file is in the PR's diff (even for an unrelated reason), the cleanup is in scope. Pre-existing drift is still drift.
+- If a finding is structurally fix-now-impossible in this cycle (e.g., requires API contract changes outside the PR's scope), file a follow-up-issue with the precise next-consumer trigger. Don't park it as accept.
+- Test-only suppressions are acceptable when prod-code refactor is genuinely heavier. Prod-code suppressions are not — refactor the prod surface so the lint stops firing.
+
 ### YAGNI test before introducing a new architectural pattern
 
 Before introducing a new top-level folder, port, adapter abstraction, or convention exception: apply YAGNI.
