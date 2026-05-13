@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
+import '../../../auth/presentation/controllers/session_controller.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
 import '../widgets/profile_body.dart';
@@ -28,6 +30,35 @@ class OwnProfilePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Sign out of Tribely?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Sign out'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await ref
+                    .read(sessionControllerProvider.notifier)
+                    .signOut();
+              }
+            },
+          ),
+        ],
       ),
       body: switch (state) {
         UserProfileLoading() => const Center(
