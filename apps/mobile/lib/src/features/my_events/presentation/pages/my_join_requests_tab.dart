@@ -37,7 +37,6 @@ class MyJoinRequestsTab extends ConsumerWidget {
     );
 
     return switch (state) {
-      MyJoinRequestsInitial() ||
       MyJoinRequestsLoading() => const _LoadingBody(),
       MyJoinRequestsError(:final failure) => _ErrorBody(
         message: failure.message,

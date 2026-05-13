@@ -4,16 +4,9 @@ import '../../../../core/error/failures.dart';
 import '../../domain/entities/join_request_with_event.dart';
 
 /// State machine for the joiner's "My Requests" tab.
+/// Progression: Loading → (Loaded | Error).
 sealed class MyJoinRequestsState extends Equatable {
   const MyJoinRequestsState();
-}
-
-/// No fetch has been triggered yet.
-final class MyJoinRequestsInitial extends MyJoinRequestsState {
-  const MyJoinRequestsInitial();
-
-  @override
-  List<Object?> get props => [];
 }
 
 /// Fetch is in progress.
