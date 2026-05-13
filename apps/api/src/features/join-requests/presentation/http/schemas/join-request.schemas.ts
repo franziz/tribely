@@ -2,14 +2,6 @@ import { z } from 'zod';
 
 // ---- Bodies ----
 
-/**
- * `POST /events/:id/join-requests` carries no body: `eventId` is in the path
- * and `requesterUserId` comes from the JWT. The empty `.strict()` schema is
- * exported anyway so the route can run the same validation pipeline as every
- * other endpoint (and to make adding a future opt-in field a one-line edit).
- */
-export const createJoinRequestBodySchema = z.object({}).strict();
-
 export const rejectJoinRequestBodySchema = z.object({
   reason: z.string().min(1).max(500),
 });
@@ -77,7 +69,6 @@ export const enrichedJoinRequestListResponseSchema = z.object({
 
 // ---- Inferred types ----
 
-export type CreateJoinRequestBody = z.infer<typeof createJoinRequestBodySchema>;
 export type RejectJoinRequestBody = z.infer<typeof rejectJoinRequestBodySchema>;
 export type ListMyJoinRequestsQuery = z.infer<typeof listMyJoinRequestsQuerySchema>;
 export type JoinRequestResponse = z.infer<typeof joinRequestResponseSchema>;

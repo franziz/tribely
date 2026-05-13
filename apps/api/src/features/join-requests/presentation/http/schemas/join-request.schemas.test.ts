@@ -1,18 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createJoinRequestBodySchema,
-  rejectJoinRequestBodySchema,
-} from './join-request.schemas.js';
-
-describe('createJoinRequestBodySchema', () => {
-  it('accepts an empty body', () => {
-    expect(createJoinRequestBodySchema.parse({})).toEqual({});
-  });
-
-  it('rejects unknown fields (strict)', () => {
-    expect(() => createJoinRequestBodySchema.parse({ message: 'hi' })).toThrowError();
-  });
-});
+import { rejectJoinRequestBodySchema } from './join-request.schemas.js';
 
 describe('rejectJoinRequestBodySchema', () => {
   it('accepts a normal reason', () => {
