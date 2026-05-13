@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../join_requests/domain/usecases/list_pending_for_event_usecase.dart';
@@ -14,13 +15,16 @@ import '../../../join_requests/presentation/providers/join_requests_providers.da
 /// Strategy: naive `Future.wait` — correct at MVP scale (single-digit hosted
 /// events per user). Revisit when host event lists grow large.
 ///
-/// Failures are swallowed per-event (count stays 0 for failed IDs) so a
-/// transient error on one event doesn't break the whole badge.
-class HostingPendingCountState {
+/// Per-event failures are captured in [HostingPendingCountState.failedEventIds].
+/// A single bounded auto-retry fires 5 s after initial load if any ids failed;
+/// if the retry also fails those ids persist in [failedEventIds] until the next
+/// user-driven refresh (pull-to-refresh / tab re-tap).
+class HostingPendingCountState extends Equatable {
   const HostingPendingCountState({
     required this.total,
     required this.perEvent,
     this.isLoading = false,
+    this.failedEventIds = const <String>{},
   });
 
   /// Total pending requests across all hosted events. Drives notification dot.
@@ -31,6 +35,15 @@ class HostingPendingCountState {
 
   /// True during the initial load or a refresh.
   final bool isLoading;
+
+  /// Event IDs for which the most recent fetch failed.
+  ///
+  /// These IDs are counted as 0 for [total] and [perEvent]; the badge may
+  /// under-report until a retry or user-driven refresh clears the set.
+  final Set<String> failedEventIds;
+
+  @override
+  List<Object?> get props => [total, perEvent, isLoading, failedEventIds];
 }
 
 /// Provider — autoDispose + family keyed by the list of hosted event IDs.
@@ -66,23 +79,89 @@ class HostingPendingCountController extends Notifier<HostingPendingCountState> {
 
     final useCase = ref.read(listPendingForEventUseCaseProvider);
 
-    // Fire all requests in parallel; swallow individual failures gracefully.
+    // Fire all requests in parallel; capture per-event failures.
     final results = await Future.wait(
       eventIds.map((id) async {
         final result = await useCase(ListPendingForEventParams(eventId: id));
-        return MapEntry(id, result.fold((_) => 0, (items) => items.length));
+        // Returns (id, count) on success, (id, null) on failure.
+        return MapEntry(id, result.fold((_) => null, (items) => items.length));
       }),
     );
 
     if (!ref.mounted) return;
 
-    final perEvent = Map<String, int>.fromEntries(results);
+    final perEvent = <String, int>{};
+    final failedIds = <String>{};
+
+    for (final entry in results) {
+      if (entry.value != null) {
+        perEvent[entry.key] = entry.value!;
+      } else {
+        perEvent[entry.key] = 0;
+        failedIds.add(entry.key);
+      }
+    }
+
     final total = perEvent.values.fold(0, (sum, count) => sum + count);
 
     state = HostingPendingCountState(
       total: total,
       perEvent: perEvent,
       isLoading: false,
+      failedEventIds: failedIds,
+    );
+
+    // Schedule one bounded auto-retry for failed IDs. If the retry also fails,
+    // the ids persist in failedEventIds until the next user-driven refresh.
+    if (failedIds.isNotEmpty) {
+      Future.delayed(const Duration(seconds: 5), () => _retryFailed(failedIds));
+    }
+  }
+
+  /// Retry fetching counts for [ids] that failed during the previous load.
+  ///
+  /// Merges successes into the current state; leaves persistent failures in
+  /// [failedEventIds]. Does NOT schedule a further retry — one attempt only.
+  Future<void> _retryFailed(Set<String> ids) async {
+    if (!ref.mounted) return;
+
+    // Concurrency safety: if a user-driven refresh already re-fetched these
+    // ids (i.e. they're no longer in failedEventIds), skip the retry.
+    final stillFailed = ids.intersection(state.failedEventIds);
+    if (stillFailed.isEmpty) return;
+
+    final useCase = ref.read(listPendingForEventUseCaseProvider);
+
+    final results = await Future.wait(
+      stillFailed.map((id) async {
+        final result = await useCase(ListPendingForEventParams(eventId: id));
+        return MapEntry(id, result.fold((_) => null, (items) => items.length));
+      }),
+    );
+
+    if (!ref.mounted) return;
+
+    final updatedPerEvent = Map<String, int>.from(state.perEvent);
+    final updatedFailedIds = Set<String>.from(state.failedEventIds);
+
+    for (final entry in results) {
+      if (entry.value != null) {
+        updatedPerEvent[entry.key] = entry.value!;
+        updatedFailedIds.remove(entry.key);
+      }
+      // Continued failures: keep id in failedEventIds; no further retry.
+    }
+
+    final newTotal = updatedPerEvent.values.fold(
+      0,
+      (sum, count) => sum + count,
+    );
+
+    state = HostingPendingCountState(
+      total: newTotal,
+      perEvent: updatedPerEvent,
+      isLoading: false,
+      failedEventIds: updatedFailedIds,
     );
   }
 
