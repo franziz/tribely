@@ -33,6 +33,9 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
   int _selectedTab = 0;
   List<String> _hostedEventIds = const [];
 
+  /// Value-equal family key: sorted comma-joined event IDs.
+  String get _pendingCountKey => ([..._hostedEventIds]..sort()).join(',');
+
   @override
   void initState() {
     super.initState();
@@ -71,7 +74,7 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
   void _onTabSelected(int index) {
     setState(() => _selectedTab = index);
     if (index == 0 && _hostedEventIds.isNotEmpty) {
-      ref.invalidate(hostingPendingCountControllerProvider(_hostedEventIds));
+      ref.invalidate(hostingPendingCountControllerProvider(_pendingCountKey));
     }
   }
 
@@ -81,7 +84,7 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
     // When _hostedEventIds is empty (initial load or no events) the watch
     // returns the default state with total=0, which is correct.
     final pendingCountState = ref.watch(
-      hostingPendingCountControllerProvider(_hostedEventIds),
+      hostingPendingCountControllerProvider(_pendingCountKey),
     );
     final totalPending = pendingCountState.total;
 

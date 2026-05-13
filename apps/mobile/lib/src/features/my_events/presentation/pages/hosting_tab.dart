@@ -217,15 +217,13 @@ class _LoadedBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final eventIds = events.map((e) => e.id).toList();
-    final pendingState = ref.watch(
-      hostingPendingCountControllerProvider(eventIds),
-    );
+    final key = (events.map((e) => e.id).toList()..sort()).join(',');
+    final pendingState = ref.watch(hostingPendingCountControllerProvider(key));
 
     return RefreshIndicator(
       onRefresh: () async {
         // Invalidate the pending count so it refetches on pull-to-refresh.
-        ref.invalidate(hostingPendingCountControllerProvider(eventIds));
+        ref.invalidate(hostingPendingCountControllerProvider(key));
         await onRefresh();
       },
       child: ListView.separated(

@@ -69,7 +69,7 @@ Event _event({
 // ---------------------------------------------------------------------------
 
 class _FixedPendingCountController extends HostingPendingCountController {
-  _FixedPendingCountController(super.eventIds, this._fixed);
+  _FixedPendingCountController(super.eventIdsKey, this._fixed);
 
   final HostingPendingCountState _fixed;
 
@@ -158,7 +158,8 @@ void main() {
     // 4. Loaded state → event titles visible
     // -----------------------------------------------------------------------
     testWidgets('loaded state renders event title rows', (tester) async {
-      const eventIds = ['evt-1', 'evt-2'];
+      final eventIds = ['evt-1', 'evt-2'];
+      final key = ([...eventIds]..sort()).join(',');
       const pendingState = HostingPendingCountState(
         total: 0,
         perEvent: {'evt-1': 0, 'evt-2': 0},
@@ -167,14 +168,14 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            hostingPendingCountControllerProvider(eventIds).overrideWith(
-              () => _FixedPendingCountController(eventIds, pendingState),
+            hostingPendingCountControllerProvider(key).overrideWith(
+              () => _FixedPendingCountController(key, pendingState),
             ),
           ],
           child: MaterialApp(
             home: Scaffold(
               body: _TestLoadedBody(
-                eventIds: eventIds,
+                eventIdsKey: key,
                 events: [
                   _event(id: 'evt-1', title: 'Evening Drinks'),
                   _event(id: 'evt-2', title: 'Morning Hike'),
@@ -197,7 +198,8 @@ void main() {
     testWidgets('row shows "N pending" caption when pendingCount > 0', (
       tester,
     ) async {
-      const eventIds = ['evt-1'];
+      final eventIds = ['evt-1'];
+      final key = ([...eventIds]..sort()).join(',');
       const pendingState = HostingPendingCountState(
         total: 3,
         perEvent: {'evt-1': 3},
@@ -206,14 +208,14 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            hostingPendingCountControllerProvider(eventIds).overrideWith(
-              () => _FixedPendingCountController(eventIds, pendingState),
+            hostingPendingCountControllerProvider(key).overrideWith(
+              () => _FixedPendingCountController(key, pendingState),
             ),
           ],
           child: MaterialApp(
             home: Scaffold(
               body: _TestLoadedBody(
-                eventIds: eventIds,
+                eventIdsKey: key,
                 events: [_event(id: 'evt-1', title: 'Evening Drinks')],
                 pendingState: pendingState,
               ),
@@ -232,7 +234,8 @@ void main() {
     testWidgets('row shows no pending caption when pendingCount == 0', (
       tester,
     ) async {
-      const eventIds = ['evt-1'];
+      final eventIds = ['evt-1'];
+      final key = ([...eventIds]..sort()).join(',');
       const pendingState = HostingPendingCountState(
         total: 0,
         perEvent: {'evt-1': 0},
@@ -241,14 +244,14 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            hostingPendingCountControllerProvider(eventIds).overrideWith(
-              () => _FixedPendingCountController(eventIds, pendingState),
+            hostingPendingCountControllerProvider(key).overrideWith(
+              () => _FixedPendingCountController(key, pendingState),
             ),
           ],
           child: MaterialApp(
             home: Scaffold(
               body: _TestLoadedBody(
-                eventIds: eventIds,
+                eventIdsKey: key,
                 events: [_event(id: 'evt-1')],
                 pendingState: pendingState,
               ),
@@ -381,6 +384,7 @@ void main() {
       () {
         fakeAsync((async) {
           const eventIds = ['evt-ok', 'evt-fail'];
+          final key = ([...eventIds]..sort()).join(',');
 
           // Tracks how many times 'evt-fail' has been called.
           var failCallCount = 0;
@@ -410,7 +414,7 @@ void main() {
           // Capture every state transition for later assertions.
           final states = <HostingPendingCountState>[];
           container.listen<HostingPendingCountState>(
-            hostingPendingCountControllerProvider(eventIds),
+            hostingPendingCountControllerProvider(key),
             (_, next) => states.add(next),
             fireImmediately: true,
           );
@@ -478,6 +482,7 @@ void main() {
       () {
         fakeAsync((async) {
           const eventIds = ['evt-always-fail'];
+          final key = ([...eventIds]..sort()).join(',');
 
           var callCount = 0;
 
@@ -497,7 +502,7 @@ void main() {
 
           final states = <HostingPendingCountState>[];
           container.listen<HostingPendingCountState>(
-            hostingPendingCountControllerProvider(eventIds),
+            hostingPendingCountControllerProvider(key),
             (_, next) => states.add(next),
             fireImmediately: true,
           );
@@ -537,24 +542,23 @@ void main() {
 /// Pumps the _LoadedBody internals by constructing the list directly.
 /// We can't access private _LoadedBody, so we replicate the essential output.
 ///
-/// [eventIds] MUST be the same list instance that was used for the provider
-/// override — Riverpod family keying uses referential equality on string lists,
-/// so a new list instance created inside build() would miss the override and
-/// trigger the real controller (which schedules async _load() → GetIt crash).
+/// [eventIdsKey] is the sorted comma-joined event IDs — value-equal family key.
+/// It must match the key used for the provider override so Riverpod resolves
+/// to the stub rather than the real controller (which would crash on GetIt).
 class _TestLoadedBody extends ConsumerWidget {
   const _TestLoadedBody({
-    required this.eventIds,
+    required this.eventIdsKey,
     required this.events,
     required this.pendingState,
   });
 
-  final List<String> eventIds;
+  final String eventIdsKey;
   final List<Event> events;
   final HostingPendingCountState pendingState;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ps = ref.watch(hostingPendingCountControllerProvider(eventIds));
+    final ps = ref.watch(hostingPendingCountControllerProvider(eventIdsKey));
 
     return ListView.builder(
       itemCount: events.length,

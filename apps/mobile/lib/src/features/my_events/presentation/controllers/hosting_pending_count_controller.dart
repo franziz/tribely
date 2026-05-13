@@ -6,9 +6,22 @@ import '../../../join_requests/presentation/providers/join_requests_providers.da
 
 /// Aggregate pending-request count across a set of hosted events.
 ///
-/// Keyed by the list of hosted event IDs via
-/// [NotifierProvider.autoDispose.family]. On build, fires parallel
-/// [ListPendingForEventUseCase] calls and aggregates results into:
+/// Keyed by a sorted, comma-joined string of hosted event IDs via
+/// [NotifierProvider.autoDispose.family]. Construct the key with:
+///
+/// ```dart
+/// final key = ([...hostedEventIds]..sort()).join(',');
+/// ```
+///
+/// Using a [String] key instead of [List<String>] avoids Dart's
+/// reference-equality semantics on lists: a freshly constructed list with the
+/// same contents would silently spawn a new family entry, orphan the in-flight
+/// controller, and potentially fire the 5 s retry timer against a disposed
+/// Notifier. [String] uses value equality, so the same key always resolves to
+/// the same entry.
+///
+/// On build, fires parallel [ListPendingForEventUseCase] calls and aggregates
+/// results into:
 ///   - [HostingPendingCountState.total]: total count (drives notification dot)
 ///   - [HostingPendingCountState.perEvent]: per-event counts (drives row captions)
 ///
@@ -46,18 +59,27 @@ class HostingPendingCountState extends Equatable {
   List<Object?> get props => [total, perEvent, isLoading, failedEventIds];
 }
 
-/// Provider — autoDispose + family keyed by the list of hosted event IDs.
+/// Provider — autoDispose + family keyed by a sorted comma-joined string of
+/// hosted event IDs (value-equal, avoids List reference-equality pitfalls).
+///
+/// Construct the key at each call site:
+/// ```dart
+/// final key = ([...hostedEventIds]..sort()).join(',');
+/// ```
 final hostingPendingCountControllerProvider = NotifierProvider.autoDispose
-    .family<
-      HostingPendingCountController,
-      HostingPendingCountState,
-      List<String>
-    >(HostingPendingCountController.new);
+    .family<HostingPendingCountController, HostingPendingCountState, String>(
+      HostingPendingCountController.new,
+    );
 
 class HostingPendingCountController extends Notifier<HostingPendingCountState> {
-  HostingPendingCountController(this.eventIds);
+  HostingPendingCountController(this.eventIdsKey);
 
-  final List<String> eventIds;
+  /// Sorted comma-joined event IDs — value-equal family key.
+  final String eventIdsKey;
+
+  /// Parsed list of event IDs from [eventIdsKey].
+  List<String> get _eventIds =>
+      eventIdsKey.isEmpty ? const <String>[] : eventIdsKey.split(',');
 
   @override
   HostingPendingCountState build() {
@@ -81,7 +103,7 @@ class HostingPendingCountController extends Notifier<HostingPendingCountState> {
 
     // Fire all requests in parallel; capture per-event failures.
     final results = await Future.wait(
-      eventIds.map((id) async {
+      _eventIds.map((id) async {
         final result = await useCase(ListPendingForEventParams(eventId: id));
         // Returns (id, count) on success, (id, null) on failure.
         return MapEntry(id, result.fold((_) => null, (items) => items.length));

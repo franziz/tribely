@@ -92,12 +92,12 @@ class _FixedMyJoinRequestsController extends MyJoinRequestsController {
 /// Bypasses HostingPendingCountController's _load() which reads
 /// listPendingForEventUseCaseProvider → sl<>. Returns zero state immediately.
 ///
-/// MyEventsPage watches hostingPendingCountControllerProvider([]) (empty list)
+/// MyEventsPage watches hostingPendingCountControllerProvider('') (empty key)
 /// on every build. Without this override the controller's scheduled async
 /// _load() crashes on GetIt access even when eventIds is empty.
 class _FixedHostingPendingCountController
     extends HostingPendingCountController {
-  _FixedHostingPendingCountController(super.eventIds);
+  _FixedHostingPendingCountController(super.eventIdsKey);
 
   @override
   HostingPendingCountState build() =>
@@ -266,13 +266,14 @@ Future<void> pumpRouter(
         myJoinRequestsControllerProvider(
           null,
         ).overrideWith(() => _FixedMyJoinRequestsController()),
-        // MyEventsPage watches hostingPendingCountControllerProvider([]) on every
-        // build (initial _hostedEventIds is const []). The controller's async
-        // _load() reads listPendingForEventUseCaseProvider → sl<>, crashing
-        // tests that don't initialise GetIt. Override with a zero-state stub.
+        // MyEventsPage watches hostingPendingCountControllerProvider('') on every
+        // build (initial _hostedEventIds is const [], sorted-join key is '').
+        // The controller's async _load() reads listPendingForEventUseCaseProvider
+        // → sl<>, crashing tests that don't initialise GetIt. Override with a
+        // zero-state stub.
         hostingPendingCountControllerProvider(
-          const [],
-        ).overrideWith(() => _FixedHostingPendingCountController(const [])),
+          '',
+        ).overrideWith(() => _FixedHostingPendingCountController('')),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
