@@ -4,12 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/presentation/state/auth_state.dart';
-import '../../../discover/domain/entities/discover_filters.dart';
-import '../../../discover/domain/usecases/browse_events_usecase.dart';
-import '../../../../core/providers/browse_events_usecase_provider.dart';
 import '../controllers/hosting_pending_count_controller.dart';
+import '../controllers/my_events_controller.dart';
+import '../state/my_events_state.dart';
 import 'hosting_tab.dart';
 import 'my_join_requests_tab.dart';
 
@@ -22,6 +19,9 @@ import 'my_join_requests_tab.dart';
 /// The "Hosting" tab label shows an 8dp [TribelyColors.paperAccent] filled dot
 /// when ≥1 hosted event has ≥1 pending request. The dot is derived from
 /// [HostingPendingCountController] and clears at zero.
+///
+/// Hosted event IDs are fetched via [MyEventsController], which owns the
+/// page → controller → use case flow.
 class MyEventsPage extends ConsumerStatefulWidget {
   const MyEventsPage({super.key});
 
@@ -31,60 +31,42 @@ class MyEventsPage extends ConsumerStatefulWidget {
 
 class _MyEventsPageState extends ConsumerState<MyEventsPage> {
   int _selectedTab = 0;
-  List<String> _hostedEventIds = const [];
 
-  /// Value-equal family key: sorted comma-joined event IDs.
-  String get _pendingCountKey => ([..._hostedEventIds]..sort()).join(',');
+  /// Value-equal family key derived from the controller's loaded state.
+  String _pendingCountKey(List<String> hostedEventIds) =>
+      ([...hostedEventIds]..sort()).join(',');
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadHostedEventIds());
-  }
-
-  /// Fetches the current user's hosted event IDs once so [_TabLabel] can
-  /// derive the notification dot count via [HostingPendingCountController].
-  ///
-  /// Failures are silently ignored — the dot simply won't show rather than
-  /// crashing the page. The tab content itself handles error states with retry.
-  Future<void> _loadHostedEventIds() async {
-    try {
-      final session = ref.read(sessionControllerProvider);
-      if (session is! SessionAuthenticated) return;
-
-      final useCase = ref.read(browseEventsUseCaseProvider);
-      final result = await useCase(
-        const BrowseEventsParams(filters: DiscoverFilters(hostUserId: 'me')),
-      );
-      if (!mounted) return;
-
-      result.fold(
-        (_) => null, // silent failure — dot just stays invisible
-        (page) => setState(() {
-          _hostedEventIds = page.events.map((e) => e.id).toList();
-        }),
-      );
-    } catch (_) {
-      // Swallow all errors — the dot stays invisible, not worth crashing.
-    }
-  }
-
-  /// Called when the Hosting tab is re-selected — invalidates the pending
-  /// count provider so it refetches fresh data.
   void _onTabSelected(int index) {
     setState(() => _selectedTab = index);
-    if (index == 0 && _hostedEventIds.isNotEmpty) {
-      ref.invalidate(hostingPendingCountControllerProvider(_pendingCountKey));
+    // On re-selecting the Hosting tab, invalidate the pending count so it
+    // refetches fresh data. Only meaningful when we have event IDs to count.
+    if (index == 0) {
+      final myEventsState = ref.read(myEventsControllerProvider);
+      if (myEventsState is MyEventsLoaded &&
+          myEventsState.hostedEventIds.isNotEmpty) {
+        ref.invalidate(
+          hostingPendingCountControllerProvider(
+            _pendingCountKey(myEventsState.hostedEventIds),
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Derive notification dot count from the pending count controller.
-    // When _hostedEventIds is empty (initial load or no events) the watch
-    // returns the default state with total=0, which is correct.
+    final myEventsState = ref.watch(myEventsControllerProvider);
+
+    // Extract hosted event IDs from the controller state. When not yet loaded
+    // (initial / loading / error) the key is '' which maps to zero pending —
+    // the dot stays invisible rather than showing stale data.
+    final hostedEventIds = switch (myEventsState) {
+      MyEventsLoaded(:final hostedEventIds) => hostedEventIds,
+      _ => const <String>[],
+    };
+
     final pendingCountState = ref.watch(
-      hostingPendingCountControllerProvider(_pendingCountKey),
+      hostingPendingCountControllerProvider(_pendingCountKey(hostedEventIds)),
     );
     final totalPending = pendingCountState.total;
 

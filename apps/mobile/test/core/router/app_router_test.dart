@@ -42,8 +42,10 @@ import 'package:tribely/src/features/join_requests/presentation/providers/join_r
 import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/my_events_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
 import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
+import 'package:tribely/src/features/my_events/presentation/state/my_events_state.dart';
 
 // ---------------------------------------------------------------------------
 // Keys for stub widgets — used as primary finders in assertions.
@@ -115,6 +117,24 @@ class _FixedHostingPendingCountController
 class _FixedHostingTabController extends HostingTabController {
   @override
   HostingTabState build() => const HostingTabLoaded(events: []);
+}
+
+/// Bypasses MyEventsController's async load() which reads
+/// listMyHostedEventsUseCaseProvider → sl<>. Returns an empty loaded state
+/// immediately so MyEventsPage can render in router tests without GetIt.
+///
+/// MyEventsPage watches myEventsControllerProvider on every build to derive
+/// the pending-count key. Without this override the scheduled async load()
+/// crashes on GetIt access even when the event list is empty.
+class _FixedMyEventsController extends MyEventsController {
+  @override
+  MyEventsState build() => const MyEventsLoaded(hostedEventIds: []);
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> refresh() async {}
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +310,10 @@ Future<void> pumpRouter(
         hostingTabControllerProvider.overrideWith(
           _FixedHostingTabController.new,
         ),
+        // MyEventsController's async load() reads
+        // listMyHostedEventsUseCaseProvider → sl<>, crashing tests that don't
+        // initialise GetIt. Override with an empty loaded-state stub.
+        myEventsControllerProvider.overrideWith(_FixedMyEventsController.new),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
