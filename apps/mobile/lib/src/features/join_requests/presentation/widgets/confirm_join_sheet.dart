@@ -18,6 +18,10 @@ import '../state/request_to_join_state.dart';
 ///     TribelyType.headline/22 semibold, wrapping.
 ///   - Body: "They'll get a notification and can approve or decline."
 ///     bodyM/15, paperInkSecondary.
+///   - "Happening now" hint (conditional — see [startsAt] / [endsAt]):
+///     Shown when the event is currently underway (past startsAt+15min, before
+///     endsAt). Renders as a 1dp divider / sub-copy / 1dp divider block between
+///     the body copy and the primary CTA.
 ///   - PrimaryButton("Send request") — loading state during submit.
 ///   - Text-only "Cancel" below the button.
 ///   - On success: sheet auto-dismisses after 150ms.
@@ -30,6 +34,8 @@ import '../state/request_to_join_state.dart';
 ///     eventId: event.id,
 ///     hostName: event.hostDisplayName ?? 'Host',
 ///     eventTitle: event.title,
+///     startsAt: event.startsAt,
+///     endsAt: event.endsAt,
 ///   );
 ///   ```
 class ConfirmJoinSheet extends ConsumerWidget {
@@ -37,12 +43,25 @@ class ConfirmJoinSheet extends ConsumerWidget {
     required this.eventId,
     required this.hostName,
     required this.eventTitle,
+    required this.startsAt,
+    required this.endsAt,
+    this.now,
     super.key,
   });
 
   final String eventId;
   final String hostName;
   final String eventTitle;
+
+  /// Event start time. Used to compute the "happening now" hint trigger.
+  final DateTime startsAt;
+
+  /// Event end time. Used to compute the "happening now" hint trigger.
+  final DateTime endsAt;
+
+  /// Override for the current time. Defaults to [DateTime.now] when null.
+  /// Exposed for widget testing only — production callers must not set this.
+  final DateTime? now;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,6 +84,11 @@ class ConfirmJoinSheet extends ConsumerWidget {
 
     final isSubmitting = state is RequestToJoinSubmitting;
     final failure = state is RequestToJoinFailed ? state.failure : null;
+
+    final effectiveNow = now ?? DateTime.now();
+    final showHappeningNowHint =
+        effectiveNow.isAfter(startsAt.add(const Duration(minutes: 15))) &&
+        effectiveNow.isBefore(endsAt);
 
     return Container(
       decoration: const BoxDecoration(
@@ -121,6 +145,27 @@ class ConfirmJoinSheet extends ConsumerWidget {
                   "They'll get a notification and can approve or decline.",
                   style: TribelyType.bodyM(TribelyColors.paperInkSecondary),
                 ),
+                // "Happening now" hint — rendered only when the event is
+                // currently underway (past startsAt+15min, before endsAt).
+                if (showHappeningNowHint) ...[
+                  const SizedBox(height: 16),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: TribelyColors.paperBorderSubtle,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "$hostName might be on the go — they'll respond when they can.",
+                    style: TribelyType.bodyM(TribelyColors.paperInkSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: TribelyColors.paperBorderSubtle,
+                  ),
+                ],
                 const SizedBox(height: 24),
                 // Error banner (shown only on failure).
                 if (failure != null) ...[
@@ -180,6 +225,8 @@ Future<void> showConfirmJoinSheet(
   required String eventId,
   required String hostName,
   required String eventTitle,
+  required DateTime startsAt,
+  required DateTime endsAt,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -191,6 +238,8 @@ Future<void> showConfirmJoinSheet(
       eventId: eventId,
       hostName: hostName,
       eventTitle: eventTitle,
+      startsAt: startsAt,
+      endsAt: endsAt,
     ),
   );
 }

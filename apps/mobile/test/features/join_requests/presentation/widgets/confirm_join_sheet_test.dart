@@ -10,10 +10,17 @@
 //   7. Cancel button dismisses the sheet.
 //   8. EmailNotVerifiedFailure renders correct copy.
 //   9. CapacityFullFailure renders correct copy.
+//  10. "Happening now" hint present when event is currently underway.
+//  11. "Happening now" hint absent when event has not yet started.
+//  12. "Happening now" hint absent within the 15-min buffer window.
+//  13. "Happening now" hint absent when event has already ended.
 //
 // Mocking strategy:
 //   - requestToJoinControllerProvider is overridden with _FixedRequestToJoinController
 //     so the sheet renders without GetIt access.
+//   - The [now] parameter on ConfirmJoinSheet is used to pin the clock in
+//     tests — this is the minimal seam for time-dependent rendering without
+//     introducing a Clock injection into domain/presentation code.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,10 +75,22 @@ class _FixedRequestToJoinController extends RequestToJoinController {
 // Pump helper
 // ---------------------------------------------------------------------------
 
+/// A fixed past time used as the default [now] in tests that do not exercise
+/// the "happening now" hint — keeps existing tests deterministic.
+final _defaultNow = DateTime(2025, 6, 1, 12, 0);
+
+/// Default event timing: well in the future relative to [_defaultNow] so the
+/// hint is never shown for tests that don't care about it.
+final _defaultStartsAt = DateTime(2025, 6, 1, 18, 0);
+final _defaultEndsAt = DateTime(2025, 6, 1, 21, 0);
+
 Future<_FixedRequestToJoinController> _pumpSheet(
   WidgetTester tester,
   RequestToJoinState initialState, {
   VoidCallback? onSubmitCalled,
+  DateTime? startsAt,
+  DateTime? endsAt,
+  DateTime? now,
 }) async {
   final controller = _FixedRequestToJoinController(
     initialState,
@@ -85,12 +104,15 @@ Future<_FixedRequestToJoinController> _pumpSheet(
           _testEventId,
         ).overrideWith(() => controller),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         home: Scaffold(
           body: ConfirmJoinSheet(
             eventId: _testEventId,
             hostName: _testHostName,
             eventTitle: _testEventTitle,
+            startsAt: startsAt ?? _defaultStartsAt,
+            endsAt: endsAt ?? _defaultEndsAt,
+            now: now ?? _defaultNow,
           ),
         ),
       ),
@@ -253,6 +275,105 @@ void main() {
       );
 
       expect(find.textContaining('This event is full.'), findsOneWidget);
+    });
+
+    // -----------------------------------------------------------------------
+    // 10. "Happening now" hint present when event is currently underway.
+    //     now is between startsAt+15min and endsAt.
+    // -----------------------------------------------------------------------
+    testWidgets(
+      '"happening now" hint is present when event is currently underway',
+      (tester) async {
+        final now = DateTime(2025, 6, 1, 14, 0);
+        // startsAt = now - 20min → now > startsAt + 15min ✓
+        final startsAt = now.subtract(const Duration(minutes: 20));
+        // endsAt = now + 1h → now < endsAt ✓
+        final endsAt = now.add(const Duration(hours: 1));
+
+        await _pumpSheet(
+          tester,
+          const RequestToJoinIdle(),
+          startsAt: startsAt,
+          endsAt: endsAt,
+          now: now,
+        );
+
+        expect(
+          find.textContaining(
+            "$_testHostName might be on the go — they'll respond when they can.",
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 11. "Happening now" hint absent when event has not yet started.
+    //     startsAt = now + 1h  (well in the future)
+    // -----------------------------------------------------------------------
+    testWidgets(
+      '"happening now" hint is absent when event has not yet started',
+      (tester) async {
+        final now = DateTime(2025, 6, 1, 14, 0);
+        final startsAt = now.add(const Duration(hours: 1));
+        final endsAt = now.add(const Duration(hours: 3));
+
+        await _pumpSheet(
+          tester,
+          const RequestToJoinIdle(),
+          startsAt: startsAt,
+          endsAt: endsAt,
+          now: now,
+        );
+
+        expect(find.textContaining('might be on the go'), findsNothing);
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 12. "Happening now" hint absent within the 15-min buffer window.
+    //     startsAt = now - 5min → now < startsAt + 15min, so hint NOT shown.
+    // -----------------------------------------------------------------------
+    testWidgets(
+      '"happening now" hint is absent within the 15-min grace window',
+      (tester) async {
+        final now = DateTime(2025, 6, 1, 14, 0);
+        // started 5 min ago — only 5 min into the 15-min buffer
+        final startsAt = now.subtract(const Duration(minutes: 5));
+        final endsAt = now.add(const Duration(hours: 1));
+
+        await _pumpSheet(
+          tester,
+          const RequestToJoinIdle(),
+          startsAt: startsAt,
+          endsAt: endsAt,
+          now: now,
+        );
+
+        expect(find.textContaining('might be on the go'), findsNothing);
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 13. "Happening now" hint absent when event has already ended.
+    //     now > endsAt.
+    // -----------------------------------------------------------------------
+    testWidgets('"happening now" hint is absent when event has already ended', (
+      tester,
+    ) async {
+      final now = DateTime(2025, 6, 1, 14, 0);
+      final startsAt = now.subtract(const Duration(hours: 2));
+      final endsAt = now.subtract(const Duration(hours: 1));
+
+      await _pumpSheet(
+        tester,
+        const RequestToJoinIdle(),
+        startsAt: startsAt,
+        endsAt: endsAt,
+        now: now,
+      );
+
+      expect(find.textContaining('might be on the go'), findsNothing);
     });
   });
 }

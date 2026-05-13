@@ -881,6 +881,8 @@ class _StickyJoinBar extends ConsumerWidget {
                 eventId: event.id,
                 hostName: hostName,
                 eventTitle: event.title,
+                startsAt: event.startsAt,
+                endsAt: event.endsAt,
               ),
       );
     }
