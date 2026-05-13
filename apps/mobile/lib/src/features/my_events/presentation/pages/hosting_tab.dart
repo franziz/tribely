@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -104,22 +105,31 @@ class _HostingTabState extends ConsumerState<HostingTab> {
 // Local view-state sealed hierarchy (not exposed outside this file)
 // ---------------------------------------------------------------------------
 
-sealed class _HostingTabViewState {
+sealed class _HostingTabViewState extends Equatable {
   const _HostingTabViewState();
 }
 
 final class _HostingTabLoading extends _HostingTabViewState {
   const _HostingTabLoading();
+
+  @override
+  List<Object?> get props => const [];
 }
 
 final class _HostingTabError extends _HostingTabViewState {
   const _HostingTabError({required this.message});
   final String message;
+
+  @override
+  List<Object?> get props => [message];
 }
 
 final class _HostingTabLoaded extends _HostingTabViewState {
   const _HostingTabLoaded({required this.events});
   final List<Event> events;
+
+  @override
+  List<Object?> get props => [events];
 }
 
 // ---------------------------------------------------------------------------
