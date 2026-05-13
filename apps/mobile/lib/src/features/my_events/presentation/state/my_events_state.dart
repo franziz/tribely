@@ -6,16 +6,11 @@ import 'package:equatable/equatable.dart';
 /// sorted comma-joined list of hosted event IDs to watch the pending-count
 /// badge. The controller owns fetching those IDs via
 /// [ListMyHostedEventsUseCase]; the page only reads the result.
+///
+/// State progression: Loading → (Loaded | Error).
+/// Mirrors [HostingTabState] which also has no Initial variant.
 sealed class MyEventsState extends Equatable {
   const MyEventsState();
-}
-
-/// Initial state — no fetch has started yet.
-final class MyEventsInitial extends MyEventsState {
-  const MyEventsInitial();
-
-  @override
-  List<Object?> get props => const [];
 }
 
 /// Fetch is in progress.
