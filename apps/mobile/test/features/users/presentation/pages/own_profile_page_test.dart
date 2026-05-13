@@ -18,22 +18,58 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
+import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
+import 'package:tribely/src/features/users/domain/entities/user_profile.dart';
 import 'package:tribely/src/features/users/presentation/controllers/my_profile_controller.dart';
 import 'package:tribely/src/features/users/presentation/pages/own_profile_page.dart';
 import 'package:tribely/src/features/users/presentation/providers/users_providers.dart';
 import 'package:tribely/src/features/users/presentation/state/user_profile_state.dart';
 
 // ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+final _epoch = DateTime.utc(2020);
+
+final _fakeUser = User(
+  id: 'user-test-01',
+  email: 'test@example.com',
+  displayName: 'Test User',
+  createdAt: _epoch,
+  updatedAt: _epoch,
+);
+
+final _fakeProfile = UserProfile(
+  id: 'user-test-01',
+  email: 'test@example.com',
+  displayName: 'Test User',
+  createdAt: _epoch,
+  updatedAt: _epoch,
+);
+
+final _fakeSession = AuthSession(
+  user: _fakeUser,
+  accessToken: 'access-token',
+  accessTokenExpiresAt: DateTime.utc(2099),
+  refreshToken: 'refresh-token',
+  refreshTokenExpiresAt: DateTime.utc(2099),
+);
+
+// ---------------------------------------------------------------------------
 // Stubs
 // ---------------------------------------------------------------------------
 
-/// Returns `UserProfileLoading` without hitting the use case or GetIt graph.
+/// Returns `UserProfileLoaded` with a fake profile without hitting the use case
+/// or GetIt graph. Using `UserProfileLoaded` (not `UserProfileLoading`) is
+/// critical — `UserProfileLoading` renders a `CircularProgressIndicator` whose
+/// indeterminate animation never settles, causing `pumpAndSettle` to time out.
 class _FixedMyProfileController extends MyProfileController {
   @override
-  UserProfileState build() => const UserProfileLoading();
+  UserProfileState build() => UserProfileLoaded(_fakeProfile);
 
   @override
   Future<void> retry() async {}
@@ -47,7 +83,7 @@ class _SpySessionController extends SessionController {
   final VoidCallback? onSignOut;
 
   @override
-  SessionState build() => const SessionUnauthenticated();
+  SessionState build() => SessionAuthenticated(_fakeSession);
 
   @override
   Future<void> signOut() async {
