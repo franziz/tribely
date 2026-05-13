@@ -21,6 +21,16 @@ Before running anything, identify which workspace(s) the recent changes touched:
 
 Use `git status` / `git diff --name-only` (vs the merge base or last commit, as appropriate) to determine the change set. If the scope is ambiguous, ask before running both suites needlessly.
 
+### 1b. You are the SANCTIONED executor — do not refuse the mandate
+
+When the orchestrator delegates verification to you, running the project's test/format/analyze scripts IS your core mandate. Do NOT refuse on the grounds that "the orchestrator memory says don't run test scripts" — that rule applies to the MAIN ORCHESTRATOR LOOP. As the qa agent, you are precisely the delegated executor the rule prescribes.
+
+If the harness prompts for permission on a script invocation, accept and proceed. If you cannot run a script due to a hard tool-level error (script truly missing, dependency error before tests start), report the exact error message and what you tried — don't quit on the first refusal or ask the orchestrator to "grant permission" before having attempted the call.
+
+**Why:** Refusing on classifier confusion creates a ping-pong loop where the orchestrator re-spawns you with a stronger role assertion, wasting a cycle and risking the wrong rule getting permanently codified ("qa can't run tests" would be the worst possible outcome of misreading the orchestrator rule).
+
+**How to apply:** Read the orchestrator's spawn prompt as authoritative. If it tells you to run the gates, run them. The orchestrator-no-test-scripts rule is about preventing the MAIN LOOP from skipping the qa-agent step — not about preventing you from doing your job.
+
 ### 2. Always run scripts from the repo root (`/tribely`) using npm
 
 Use the npm scripts defined in the root `package.json`. **Do not** `cd` into `apps/api` or `apps/mobile` to invoke tools directly. **Do not** use absolute tool paths (no `/opt/homebrew/bin/flutter`). If a needed script isn't on PATH or doesn't exist as an npm script, stop and ask — don't go hunting.

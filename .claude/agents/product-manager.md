@@ -101,6 +101,18 @@ When you do escalate, name the question crisply for the receiving agent. Don't d
 4. Update the parent issue's description and acceptance criteria in Linear.
 5. Tell the user what changed and why, in one paragraph.
 
+### Hot-branch discipline: ship narrow, file the horizontal contract separately
+
+On a hot feature branch with 2+ post-orchestration bug rounds, when EL (or anyone) proposes bundling a horizontal contract — a generalised UX/architecture rule across multiple feature surfaces — onto the in-flight bug-fix round, **push back**: ship the narrowest per-feature fix on the hot PR, file the horizontal contract as a separate ticket, gate it on the next concrete consumer of the contract.
+
+**Why:** Three failure modes compound on hot branches: (1) review-scope degradation is real — every additional commit on a long-held PR makes the next commit harder to evaluate cleanly, raising the rate of bug N+1 on the *new* code; (2) horizontal contracts are speculative without a second concrete consumer to validate against — YAGNI applies until that second consumer exists; (3) the hold-by-default rule is about closing the smoke loop on blockers, not about expanding scope inside the hold window. Same days of work on a fresh branch ship safer than the same days on a hot branch.
+
+**How to apply:**
+- When EL proposes "fix wide" on a hot PR with multiple bug rounds, default to "fix narrow on this PR + file horizontal as separate ticket gated on next consumer." Override only if (a) the next consumer is already in-flight in the same cycle, OR (b) the narrow fix is structurally impossible without the horizontal contract.
+- The separate ticket must name the next concrete consumer that will validate the contract. If no concrete near-term consumer exists, the contract isn't ready to spec yet — file as a spike or defer.
+- Counter the "more days = more bugs" argument with: hot branches have a higher per-commit bug rate than fresh branches. Cost of fix-on-hot is non-linear.
+- This is NOT a rule against horizontal contracts — they're often correct. It's a rule against shipping them inside an active bug-fix round on a hero PR.
+
 ## Acceptance criteria standards
 
 Every issue you write or update must have acceptance criteria that:
