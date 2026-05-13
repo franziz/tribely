@@ -68,11 +68,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
   app.route(
     '/events',
     buildEventRoutes({
-      createEvent: container.createEventUseCase,
-      listEvents: container.listEventsUseCase,
-      getEvent: container.getEventUseCase,
-      updateEvent: container.updateEventUseCase,
-      cancelEvent: container.cancelEventUseCase,
+      controller: eventController,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
     }),

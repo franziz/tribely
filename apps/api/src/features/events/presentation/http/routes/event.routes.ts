@@ -4,12 +4,7 @@ import { rateLimit } from '@/core/middleware/rate-limit.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
-import type { CancelEventUseCase } from '../../../application/usecases/cancel-event.usecase.js';
-import type { CreateEventUseCase } from '../../../application/usecases/create-event.usecase.js';
-import type { GetEventUseCase } from '../../../application/usecases/get-event.usecase.js';
-import type { ListEventsUseCase } from '../../../application/usecases/list-events.usecase.js';
-import type { UpdateEventUseCase } from '../../../application/usecases/update-event.usecase.js';
-import { EventController } from '../controllers/event.controller.js';
+import type { EventController } from '../controllers/event.controller.js';
 import {
   cancelEventBodySchema,
   createEventBodySchema,
@@ -18,23 +13,13 @@ import {
 } from '../schemas/event.schemas.js';
 
 export interface EventRouteDeps {
-  createEvent: CreateEventUseCase;
-  listEvents: ListEventsUseCase;
-  getEvent: GetEventUseCase;
-  updateEvent: UpdateEventUseCase;
-  cancelEvent: CancelEventUseCase;
+  controller: EventController;
   accessTokens: AccessTokenIssuer;
   rateLimiter: RateLimiter;
 }
 
 export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVariables }> => {
-  const controller = new EventController(
-    deps.createEvent,
-    deps.listEvents,
-    deps.getEvent,
-    deps.updateEvent,
-    deps.cancelEvent,
-  );
+  const { controller } = deps;
   const auth = requireAuth(deps.accessTokens);
 
   // Per the AC: 5 creates per hour per user. Per-user (not per-IP) because the
