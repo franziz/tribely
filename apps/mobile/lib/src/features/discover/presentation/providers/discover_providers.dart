@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/discover_controller.dart';
 import '../state/discover_state.dart';
 
-// Re-export so downstream callers can import from one place without introducing
-// circular dependencies.
-export 'browse_events_usecase_provider.dart';
+// Re-export so discover-internal callers can import from one place without
+// introducing circular dependencies. The provider itself lives in core/providers/
+// so that cross-feature consumers (my_events) don't incur a presentation import.
+export '../../../../core/providers/browse_events_usecase_provider.dart';
 
 // ---------------------------------------------------------------------------
 // D2 — DiscoverController

@@ -8,7 +8,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
 import '../../../discover/domain/entities/discover_filters.dart';
 import '../../../discover/domain/usecases/browse_events_usecase.dart';
-import '../../../discover/presentation/providers/browse_events_usecase_provider.dart';
+import '../../../../core/providers/browse_events_usecase_provider.dart';
 import '../controllers/hosting_pending_count_controller.dart';
 import 'hosting_tab.dart';
 import 'my_join_requests_tab.dart';

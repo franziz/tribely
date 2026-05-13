@@ -11,7 +11,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
 import '../../../discover/domain/entities/discover_filters.dart';
 import '../../../discover/domain/usecases/browse_events_usecase.dart';
-import '../../../discover/presentation/providers/browse_events_usecase_provider.dart';
+import '../../../../core/providers/browse_events_usecase_provider.dart';
 import '../../../events/domain/entities/event.dart';
 import '../controllers/hosting_pending_count_controller.dart';
 
