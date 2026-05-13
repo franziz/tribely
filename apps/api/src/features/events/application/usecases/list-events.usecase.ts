@@ -11,9 +11,8 @@ export interface ListEventsInput {
   from?: Date;
   to?: Date;
   /**
-   * Filter by host user id. Already resolved from `'me'` to the caller's
-   * actual id by the controller before reaching here — the use case sees
-   * only a concrete id or undefined.
+   * Filter by host user id. Caller-resolved (controller passes the
+   * authenticated user's id for /me/events; public listings pass undefined).
    */
   hostUserId?: string;
   cursor?: ListEventsCursor;
