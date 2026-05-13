@@ -36,34 +36,29 @@ UserProfile _makeProfile() => UserProfile(
 );
 
 void main() {
-  testWidgets(
-    'cold-boot: RequesterProfileSheet renders even before '
-    'initializeDateFormatting() is called',
-    (tester) async {
-      // Simulate what main.dart does at app boot: initialise locale data before
-      // any widget that calls DateFormat.yMMMM('en') is rendered.
-      await initializeDateFormatting('en');
+  testWidgets('cold-boot: RequesterProfileSheet renders even before '
+      'initializeDateFormatting() is called', (tester) async {
+    // Simulate what main.dart does at app boot: initialise locale data before
+    // any widget that calls DateFormat.yMMMM('en') is rendered.
+    await initializeDateFormatting('en');
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            userProfileByIdProvider(_testUserId).overrideWithValue(
-              AsyncData(_makeProfile()),
-            ),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(
-              body: RequesterProfileSheet(userId: _testUserId),
-            ),
-          ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          userProfileByIdProvider(
+            _testUserId,
+          ).overrideWithValue(AsyncData(_makeProfile())),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: RequesterProfileSheet(userId: _testUserId)),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      // Sheet renders the display name — locale data was available, no
-      // LocaleDataException thrown.
-      expect(find.text('Cold Boot User'), findsOneWidget);
-      expect(find.textContaining('Member since March 2026'), findsOneWidget);
-    },
-  );
+    // Sheet renders the display name — locale data was available, no
+    // LocaleDataException thrown.
+    expect(find.text('Cold Boot User'), findsOneWidget);
+    expect(find.textContaining('Member since March 2026'), findsOneWidget);
+  });
 }
