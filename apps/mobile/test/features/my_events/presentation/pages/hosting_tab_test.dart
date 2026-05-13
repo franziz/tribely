@@ -88,9 +88,10 @@ class _FixedPendingCountController extends HostingPendingCountController {
 void main() {
   // =========================================================================
   // HostingTab content tests
-  // We test the internal _LoadedBody via a thin harness that exposes events
-  // by wrapping in a ConsumerWidget. Since HostingTab uses local setState
-  // for its load state, we test the individual sub-widgets directly.
+  // We test the internal sub-widgets (_LoadingBody, _ErrorBody, _EmptyBody,
+  // _LoadedBody) via thin harnesses or inline widget pumps. The page itself
+  // is a thin ConsumerWidget delegating all state to HostingTabController;
+  // controller logic is exercised in hosting_tab_controller_test.dart.
   // =========================================================================
 
   group('HostingTab (sub-widgets)', () {
@@ -98,8 +99,9 @@ void main() {
     // 1. Loading state
     // -----------------------------------------------------------------------
     testWidgets('_LoadingBody shows CircularProgressIndicator', (tester) async {
-      // We pump _LoadingBody directly as it's a simple private widget —
-      // we verify the public HostingTab integration via the "empty state" test.
+      // We pump a CircularProgressIndicator directly — _LoadingBody is a private
+      // widget wrapping exactly this. Controller integration is in
+      // hosting_tab_controller_test.dart.
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -139,8 +141,8 @@ void main() {
     testWidgets('empty state shows copy and "Create an event" button', (
       tester,
     ) async {
-      // Pump an empty HostingTab via the real widget (it will show loading
-      // briefly then settle). We can test the static empty copy text.
+      // Test the static empty copy text by pumping it inline.
+      // The real HostingTab delegates load state to HostingTabController.
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(

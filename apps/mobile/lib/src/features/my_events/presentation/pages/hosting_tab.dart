@@ -1,4 +1,3 @@
-import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,15 +5,12 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/error/failures.dart';
-import '../../../../core/providers/list_my_hosted_events_usecase_provider.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/presentation/state/auth_state.dart';
-import '../../../discover/domain/usecases/list_my_hosted_events_usecase.dart';
 import '../../../events/domain/entities/event.dart';
 import '../controllers/hosting_pending_count_controller.dart';
+import '../controllers/hosting_tab_controller.dart';
+import '../state/hosting_tab_state.dart';
 
 /// Content for the "Hosting" tab in [MyEventsPage].
 ///
@@ -26,119 +22,27 @@ import '../controllers/hosting_pending_count_controller.dart';
 ///   - Error: BannerMessage with retry.
 ///   - Empty: copy + "Create an event" PrimaryButton.
 ///   - Loaded: RefreshIndicator-wrapped ListView with per-row pending captions.
-class HostingTab extends ConsumerStatefulWidget {
+class HostingTab extends ConsumerWidget {
   const HostingTab({super.key});
 
   @override
-  ConsumerState<HostingTab> createState() => _HostingTabState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(hostingTabControllerProvider);
+    final controller = ref.read(hostingTabControllerProvider.notifier);
 
-class _HostingTabState extends ConsumerState<HostingTab> {
-  _HostingTabViewState _viewState = const _HostingTabLoading();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-  }
-
-  Future<void> _load() async {
-    if (!mounted) return;
-    setState(() => _viewState = const _HostingTabLoading());
-
-    try {
-      final session = ref.read(sessionControllerProvider);
-      if (session is! SessionAuthenticated) {
-        setState(
-          () => _viewState = const _HostingTabError(
-            message: 'Sign in to see events you\'re hosting.',
-          ),
-        );
-        return;
-      }
-
-      final useCase = ref.read(listMyHostedEventsUseCaseProvider);
-      final result = await useCase(const ListMyHostedEventsParams());
-
-      if (!mounted) return;
-
-      result.fold(
-        (failure) => setState(
-          () => _viewState = _HostingTabError(
-            message: _mapFailureToUserCopy(failure),
-          ),
-        ),
-        (events) =>
-            setState(() => _viewState = _HostingTabLoaded(events: events)),
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(
-          () => _viewState = const _HostingTabError(
-            message: 'Something went wrong. Please try again.',
-          ),
-        );
-      }
-    }
-  }
-
-  /// Maps a [Failure] to user-facing copy. Raw [failure.message] values from
-  /// the API are NEVER exposed to the UI — they are server-internal strings
-  /// (e.g. "hostUserId=me requires authentication") that mean nothing to users.
-  static String _mapFailureToUserCopy(Failure failure) => switch (failure) {
-    NetworkFailure() => 'No connection. Pull down to retry.',
-    AuthFailure() => 'Sign in to see events you\'re hosting.',
-    _ => 'Something went wrong. Please try again.',
-  };
-
-  Future<void> _refresh() => _load();
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (_viewState) {
-      _HostingTabLoading() => const _LoadingBody(),
-      _HostingTabError(:final message) => _ErrorBody(
+    return switch (state) {
+      HostingTabLoading() => const _LoadingBody(),
+      HostingTabError(:final message) => _ErrorBody(
         message: message,
-        onRetry: _load,
+        onRetry: controller.load,
       ),
-      _HostingTabLoaded(:final events) when events.isEmpty => _EmptyBody(),
-      _HostingTabLoaded(:final events) => _LoadedBody(
+      HostingTabLoaded(:final events) when events.isEmpty => _EmptyBody(),
+      HostingTabLoaded(:final events) => _LoadedBody(
         events: events,
-        onRefresh: _refresh,
+        onRefresh: controller.refresh,
       ),
     };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Local view-state sealed hierarchy (not exposed outside this file)
-// ---------------------------------------------------------------------------
-
-sealed class _HostingTabViewState extends Equatable {
-  const _HostingTabViewState();
-}
-
-final class _HostingTabLoading extends _HostingTabViewState {
-  const _HostingTabLoading();
-
-  @override
-  List<Object?> get props => const [];
-}
-
-final class _HostingTabError extends _HostingTabViewState {
-  const _HostingTabError({required this.message});
-  final String message;
-
-  @override
-  List<Object?> get props => [message];
-}
-
-final class _HostingTabLoaded extends _HostingTabViewState {
-  const _HostingTabLoaded({required this.events});
-  final List<Event> events;
-
-  @override
-  List<Object?> get props => [events];
 }
 
 // ---------------------------------------------------------------------------
