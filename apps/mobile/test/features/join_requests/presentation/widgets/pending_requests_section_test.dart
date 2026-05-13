@@ -125,7 +125,6 @@ class _SectionHarness extends ConsumerWidget {
             ),
           ],
         ),
-      _ => const SizedBox.shrink(),
     };
   }
 }
