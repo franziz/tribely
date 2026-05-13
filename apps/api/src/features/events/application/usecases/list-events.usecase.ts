@@ -10,6 +10,12 @@ export interface ListEventsInput {
   category?: string;
   from?: Date;
   to?: Date;
+  /**
+   * Filter by host user id. Already resolved from `'me'` to the caller's
+   * actual id by the controller before reaching here — the use case sees
+   * only a concrete id or undefined.
+   */
+  hostUserId?: string;
   cursor?: ListEventsCursor;
   limit: number;
 }
@@ -33,6 +39,7 @@ export class ListEventsUseCase {
         ...(input.category !== undefined && { category: input.category }),
         ...(input.from !== undefined && { from: input.from }),
         ...(input.to !== undefined && { to: input.to }),
+        ...(input.hostUserId !== undefined && { hostUserId: input.hostUserId }),
       },
       input.cursor ?? null,
       input.limit,

@@ -106,12 +106,32 @@ export class EventController {
     return c.json(toEventResponse(event), 201);
   };
 
-  listAction = async (c: Context, query: ListEventsQuery) => {
+  /**
+   * `actorUserId` is optional: `GET /events` is public (no auth required).
+   * When `query.hostUserId === 'me'`, the sentinel resolves to `actorUserId`.
+   * If the caller did not authenticate but supplied `hostUserId=me`, we throw
+   * a 422 validation error — the caller must supply a concrete id or a valid
+   * Bearer token.
+   */
+  listAction = async (c: Context, query: ListEventsQuery, actorUserId?: string) => {
+    let resolvedHostUserId: string | undefined;
+    if (query.hostUserId !== undefined) {
+      if (query.hostUserId === 'me') {
+        if (!actorUserId) {
+          throw AppError.validation('hostUserId=me requires authentication');
+        }
+        resolvedHostUserId = actorUserId;
+      } else {
+        resolvedHostUserId = query.hostUserId;
+      }
+    }
+
     const result = await this.listEvents.execute({
       ...(query.city !== undefined && { city: query.city }),
       ...(query.category !== undefined && { category: query.category }),
       ...(query.from !== undefined && { from: new Date(query.from) }),
       ...(query.to !== undefined && { to: new Date(query.to) }),
+      ...(resolvedHostUserId !== undefined && { hostUserId: resolvedHostUserId }),
       ...(query.cursor !== undefined && { cursor: decodeCursor(query.cursor) }),
       limit: query.limit,
     });

@@ -53,9 +53,17 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
     .post('/', auth, limitCreate, zValidator('json', createEventBodySchema), (c) =>
       controller.createAction(c, c.get('userId'), c.req.valid('json')),
     )
-    .get('/', zValidator('query', listEventsQuerySchema), (c) =>
-      controller.listAction(c, c.req.valid('query')),
-    )
+    .get('/', zValidator('query', listEventsQuerySchema), (c) => {
+      // `hostUserId=me` resolution happens inside the controller. Pass the
+      // raw Hono context so the controller can attempt to read userId when
+      // the caller authenticated, but the route stays public (no requireAuth).
+      // We cast to extract the optional userId from c.get — it returns
+      // undefined (not a typed string) on unauthenticated requests.
+      const actorUserId = (c as Context<{ Variables: AuthVariables }>).get('userId') as
+        | string
+        | undefined;
+      return controller.listAction(c, c.req.valid('query'), actorUserId);
+    })
     .get('/:id', (c) => controller.getAction(c, c.req.param('id')))
     .patch('/:id', auth, zValidator('json', updateEventBodySchema), (c) =>
       controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),

@@ -62,6 +62,13 @@ export const listEventsQuerySchema = z.object({
   category: categorySchema.optional(),
   from: isoDatetime.optional(),
   to: isoDatetime.optional(),
+  /**
+   * Filter by host. Accepts a user id OR the sentinel `'me'`, which the
+   * controller resolves to the authenticated caller's id before passing to the
+   * use case. `'me'` without authentication is rejected upstream by the
+   * optional `requireAuth` guard in the route.
+   */
+  hostUserId: z.string().min(1).optional(),
   cursor: z.string().min(1).optional(),
   // `coerce` lets the query string `?limit=20` arrive as a string and parse to
   // a number. The integer + clamp constraint stays.

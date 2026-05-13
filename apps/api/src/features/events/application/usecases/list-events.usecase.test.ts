@@ -13,11 +13,12 @@ const buildPublished = (overrides: {
   startsAt: Date;
   city?: string;
   category?: 'food' | 'drinks';
+  hostUserId?: string;
 }): Event => {
   const creationNow = new Date(overrides.startsAt.getTime() - 24 * 60 * 60 * 1000);
   const event = Event.create({
     id: overrides.id,
-    hostUserId: 'user_1',
+    hostUserId: overrides.hostUserId ?? 'user_1',
     title: 'List me',
     description: null,
     venue: Venue.create({
@@ -77,6 +78,41 @@ describe('ListEventsUseCase', () => {
     const page = await useCase.execute({ city: 'Singapore', category: 'food', limit: 50 });
     expect(page.events.map((e) => e.id)).toEqual(['a']);
     expect(page.nextCursor).toBeNull();
+  });
+
+  it('filters by hostUserId — returns only events for that host', async () => {
+    const { repo, useCase } = buildSut();
+    repo.put(
+      buildPublished({
+        id: 'a',
+        startsAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
+        hostUserId: 'host_a',
+      }),
+    );
+    repo.put(
+      buildPublished({
+        id: 'b',
+        startsAt: new Date(NOW.getTime() + 25 * 60 * 60 * 1000),
+        hostUserId: 'host_b',
+      }),
+    );
+
+    const page = await useCase.execute({ hostUserId: 'host_a', limit: 50 });
+    expect(page.events.map((e) => e.id)).toEqual(['a']);
+  });
+
+  it('hostUserId filter returns empty list when host has no events', async () => {
+    const { repo, useCase } = buildSut();
+    repo.put(
+      buildPublished({
+        id: 'a',
+        startsAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
+        hostUserId: 'host_a',
+      }),
+    );
+
+    const page = await useCase.execute({ hostUserId: 'no_such_host', limit: 50 });
+    expect(page.events).toHaveLength(0);
   });
 
   it('paginates with a cursor', async () => {

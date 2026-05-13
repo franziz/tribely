@@ -14,6 +14,8 @@ export interface ListEventsFilters {
   from?: Date;
   to?: Date;
   now: Date;
+  /** When set, restricts results to events hosted by this specific user. */
+  hostUserId?: string;
 }
 
 /**

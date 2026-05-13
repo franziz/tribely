@@ -118,6 +118,7 @@ export class FakeEventRepository implements EventRepository {
       .filter((e) => filters.category === undefined || e.category.value === filters.category)
       .filter((e) => filters.from === undefined || e.startsAt.getTime() >= filters.from.getTime())
       .filter((e) => filters.to === undefined || e.startsAt.getTime() <= filters.to.getTime())
+      .filter((e) => filters.hostUserId === undefined || e.hostUserId === filters.hostUserId)
       .filter((e) => {
         if (!cursor) return true;
         const sa = e.startsAt.getTime();
