@@ -33,7 +33,8 @@ class FakeListPendingForEventParams extends Fake
 // Helpers
 // ---------------------------------------------------------------------------
 
-JoinRequest _makeJoinRequest(String id, JoinRequestStatus status) => JoinRequest(
+JoinRequest _makeJoinRequest(String id, JoinRequestStatus status) =>
+    JoinRequest(
       id: id,
       eventId: 'evt-1',
       requesterUserId: 'user-$id',
@@ -45,12 +46,12 @@ JoinRequestWithRequester _makeWithRequester(
   String id,
   JoinRequestStatus status,
 ) => JoinRequestWithRequester(
-      joinRequest: _makeJoinRequest(id, status),
-      requester: JoinRequestRequesterSummary(
-        id: 'user-$id',
-        displayName: 'User $id',
-      ),
-    );
+  joinRequest: _makeJoinRequest(id, status),
+  requester: JoinRequestRequesterSummary(
+    id: 'user-$id',
+    displayName: 'User $id',
+  ),
+);
 
 /// Build a container with the mock use case overridden and the controller
 /// eagerly initialised. Caller must call [refresh()] to drive the async load.
@@ -61,7 +62,7 @@ ProviderContainer _makeContainer(
   final container = ProviderContainer(
     overrides: [listPendingForEventUseCaseProvider.overrideWithValue(mock)],
   );
-  addTeardown(container.dispose);
+  addTearDown(container.dispose);
   // Eagerly read to initialise the Notifier (triggers build()).
   container.read(hostingPendingCountControllerProvider(key));
   return container;
@@ -134,9 +135,7 @@ void main() {
     final mock = MockListPendingForEventUseCase();
 
     when(
-      () => mock(
-        const ListPendingForEventParams(eventId: 'evt-1'),
-      ),
+      () => mock(const ListPendingForEventParams(eventId: 'evt-1')),
     ).thenAnswer(
       (_) async => Right([
         _makeWithRequester('p1', JoinRequestStatus.pending),
@@ -144,9 +143,7 @@ void main() {
       ]),
     );
     when(
-      () => mock(
-        const ListPendingForEventParams(eventId: 'evt-2'),
-      ),
+      () => mock(const ListPendingForEventParams(eventId: 'evt-2')),
     ).thenAnswer(
       (_) async => Right([
         _makeWithRequester('p2', JoinRequestStatus.pending),
@@ -173,9 +170,9 @@ void main() {
   // -------------------------------------------------------------------------
   test('use-case failure → total 0 and event id in failedEventIds', () async {
     final mock = MockListPendingForEventUseCase();
-    when(() => mock(any())).thenAnswer(
-      (_) async => const Left(ServerFailure('network error')),
-    );
+    when(
+      () => mock(any()),
+    ).thenAnswer((_) async => const Left(ServerFailure('network error')));
 
     const key = 'evt-1';
     final container = _makeContainer(mock, key);

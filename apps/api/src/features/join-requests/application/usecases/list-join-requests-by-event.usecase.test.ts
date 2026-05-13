@@ -99,7 +99,11 @@ const seedApprovedJoinRequest = (
     hostUserId: 'host_1',
     eventSnapshot: SNAPSHOT,
   });
-  jr.approve({ by: 'host_1', now: new Date(NOW.getTime() + offsetMs + 1000), eventSnapshot: SNAPSHOT });
+  jr.approve({
+    by: 'host_1',
+    now: new Date(NOW.getTime() + offsetMs + 1000),
+    eventSnapshot: SNAPSHOT,
+  });
   jr.pullEvents();
   repo.put(jr);
   return jr;
@@ -120,7 +124,11 @@ const seedRejectedJoinRequest = (
     hostUserId: 'host_1',
     eventSnapshot: SNAPSHOT,
   });
-  jr.reject({ by: 'host_1', reason: 'Not a good fit', now: new Date(NOW.getTime() + offsetMs + 1000) });
+  jr.reject({
+    by: 'host_1',
+    reason: 'Not a good fit',
+    now: new Date(NOW.getTime() + offsetMs + 1000),
+  });
   jr.pullEvents();
   repo.put(jr);
   return jr;
