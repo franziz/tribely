@@ -10,6 +10,7 @@ import { buildEventRoutes } from './features/events/presentation/http/routes/eve
 import { JoinRequestController } from './features/join-requests/presentation/http/controllers/join-request.controller.js';
 import { buildEventScopedJoinRequestRoutes } from './features/join-requests/presentation/http/routes/event-scoped-join-request.routes.js';
 import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
+import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation/http/routes/my-join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
@@ -68,19 +69,20 @@ export const buildApp = (): { app: Hono; container: Container } => {
     }),
   );
 
-  // Join requests: one controller, two routers, two mount points.
+  // Join requests: one controller, three routers, three mount points.
   //   /events/:id/join-requests       — discovering/listing under the parent
   //   /join-requests/:id/{approve,reject} + DELETE — operating on a single row
+  //   /me/join-requests               — requester's own join requests
   // Hono's app.route() is additive — multiple mounts at `/events` merge into
-  // the parent router's tree (verified against /websites/hono_dev). The event
-  // router owns `/events`, `/events/:id`; this router owns `/events/:id/join-requests`
-  // — non-overlapping paths.
+  // the parent router's tree. The event router owns `/events`, `/events/:id`;
+  // this router owns `/events/:id/join-requests` — non-overlapping paths.
   const joinRequestController = new JoinRequestController(
     container.requestToJoinEventUseCase,
     container.approveJoinRequestUseCase,
     container.rejectJoinRequestUseCase,
     container.cancelJoinRequestByRequesterUseCase,
     container.listJoinRequestsByEventUseCase,
+    container.listJoinRequestsByRequesterUseCase,
   );
   app.route(
     '/events',
@@ -94,6 +96,14 @@ export const buildApp = (): { app: Hono; container: Container } => {
   app.route(
     '/join-requests',
     buildJoinRequestRoutes({
+      controller: joinRequestController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+    }),
+  );
+  app.route(
+    '/me',
+    buildMyJoinRequestsRoutes({
       controller: joinRequestController,
       accessTokens: container.accessTokens,
       userRepository: container.userRepository,

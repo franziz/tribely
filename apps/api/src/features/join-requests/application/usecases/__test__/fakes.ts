@@ -2,8 +2,10 @@ import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { JoinRequest } from '../../../domain/entities/join-request.js';
 import type {
   JoinRequestRepository,
+  ListByRequesterPage,
   ListJoinRequestsFilters,
 } from '../../../domain/repositories/join-request.repository.js';
+import type { ListJoinRequestsByRequesterCursor } from '../../../application/dto/list-join-requests-by-requester.result.js';
 
 // Re-export the cross-feature fakes from events so use case tests have a
 // single import surface. These are pure infrastructure-free fakes — sharing
@@ -13,6 +15,7 @@ export {
   FakeEventPublisher,
   FakeEventRepository,
   FakeUnitOfWork,
+  FakeUserRepository,
   FixedClock,
   TEST_TX,
 } from '../../../../events/application/usecases/__test__/fakes.js';
@@ -94,5 +97,38 @@ export class FakeJoinRequestRepository implements JoinRequestRepository {
       // depending on Map insertion semantics across rehydration paths.
       .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime());
     return Promise.resolve(rows);
+  }
+
+  listByRequester(
+    requesterUserId: string,
+    eventId: string | undefined,
+    cursor: ListJoinRequestsByRequesterCursor | null,
+    limit: number,
+    _ctx?: TxContext,
+  ): Promise<ListByRequesterPage> {
+    let rows = Array.from(this.byId.values())
+      .filter((jr) => jr.requesterUserId === requesterUserId)
+      .filter((jr) => eventId === undefined || jr.eventId === eventId)
+      .filter((jr) => {
+        if (!cursor) return true;
+        const ra = jr.requestedAt.getTime();
+        const ca = cursor.lastRequestedAt.getTime();
+        if (ra < ca) return true;
+        if (ra === ca) return jr.id < cursor.lastJoinRequestId;
+        return false;
+      })
+      // Newest-first (DESC requestedAt, DESC id)
+      .sort((a, b) => {
+        const delta = b.requestedAt.getTime() - a.requestedAt.getTime();
+        return delta !== 0 ? delta : b.id.localeCompare(a.id);
+      });
+
+    const hasMore = rows.length > limit;
+    if (hasMore) rows = rows.slice(0, limit);
+    const last = rows.at(-1);
+    const nextCursor: ListJoinRequestsByRequesterCursor | null =
+      hasMore && last ? { lastRequestedAt: last.requestedAt, lastJoinRequestId: last.id } : null;
+
+    return Promise.resolve({ joinRequests: rows, nextCursor });
   }
 }

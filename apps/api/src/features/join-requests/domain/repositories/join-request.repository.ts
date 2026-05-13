@@ -1,5 +1,6 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { JoinRequest } from '../entities/join-request.js';
+import type { ListJoinRequestsByRequesterCursor } from '../../application/dto/list-join-requests-by-requester.result.js';
 
 /**
  * Filters for listing join requests inside an event. Today only
@@ -9,6 +10,14 @@ import type { JoinRequest } from '../entities/join-request.js';
  */
 export interface ListJoinRequestsFilters {
   requesterUserId?: string;
+}
+
+/**
+ * Page returned by {@link JoinRequestRepository.listByRequester}.
+ */
+export interface ListByRequesterPage {
+  joinRequests: JoinRequest[];
+  nextCursor: ListJoinRequestsByRequesterCursor | null;
 }
 
 /**
@@ -53,4 +62,22 @@ export interface JoinRequestRepository {
     filters: ListJoinRequestsFilters,
     ctx?: TxContext,
   ): Promise<JoinRequest[]>;
+
+  /**
+   * Cursor-paginated listing of all join requests made by a given user,
+   * optionally scoped to a single event (for "do I already have a request
+   * for this event?" lookups on the mobile event-detail screen).
+   *
+   * Ordered `requestedAt DESC, id DESC` (newest first). The cursor is a
+   * `(requestedAt, id)` keyset so pages stay stable under concurrent inserts.
+   * Callers supply `limit + 1` rows implicitly — the impl takes `limit + 1`
+   * and the caller checks `rows.length > limit` to derive `nextCursor`.
+   */
+  listByRequester(
+    requesterUserId: string,
+    eventId: string | undefined,
+    cursor: ListJoinRequestsByRequesterCursor | null,
+    limit: number,
+    ctx?: TxContext,
+  ): Promise<ListByRequesterPage>;
 }

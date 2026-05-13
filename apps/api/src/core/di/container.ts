@@ -72,6 +72,7 @@ import type { EventRepository } from '@/features/events/domain/repositories/even
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
+import { ListJoinRequestsByRequesterUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-requester.usecase.js';
 import { RejectJoinRequestUseCase } from '@/features/join-requests/application/usecases/reject-join-request.usecase.js';
 import { RequestToJoinEventUseCase } from '@/features/join-requests/application/usecases/request-to-join-event.usecase.js';
 import { JoinRequestPrismaRepository } from '@/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
@@ -168,6 +169,7 @@ export interface Container {
   rejectJoinRequestUseCase: RejectJoinRequestUseCase;
   cancelJoinRequestByRequesterUseCase: CancelJoinRequestByRequesterUseCase;
   listJoinRequestsByEventUseCase: ListJoinRequestsByEventUseCase;
+  listJoinRequestsByRequesterUseCase: ListJoinRequestsByRequesterUseCase;
 }
 
 export const buildContainer = (): Container => {
@@ -353,6 +355,11 @@ export const buildContainer = (): Container => {
   const listJoinRequestsByEventUseCase = new ListJoinRequestsByEventUseCase(
     joinRequestRepository,
     eventRepository,
+    userRepository,
+  );
+  const listJoinRequestsByRequesterUseCase = new ListJoinRequestsByRequesterUseCase(
+    joinRequestRepository,
+    eventRepository,
   );
 
   // --- Consumers (per-consumer offsets registry) ---
@@ -412,5 +419,6 @@ export const buildContainer = (): Container => {
     rejectJoinRequestUseCase,
     cancelJoinRequestByRequesterUseCase,
     listJoinRequestsByEventUseCase,
+    listJoinRequestsByRequesterUseCase,
   };
 };
