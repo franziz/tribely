@@ -3,9 +3,9 @@ import type { JoinRequest } from '../../../domain/entities/join-request.js';
 import type {
   JoinRequestRepository,
   ListByRequesterPage,
+  ListJoinRequestsByRequesterCursor,
   ListJoinRequestsFilters,
 } from '../../../domain/repositories/join-request.repository.js';
-import type { ListJoinRequestsByRequesterCursor } from '../../../application/dto/list-join-requests-by-requester.result.js';
 
 // Re-export the cross-feature fakes from events so use case tests have a
 // single import surface. These are pure infrastructure-free fakes — sharing

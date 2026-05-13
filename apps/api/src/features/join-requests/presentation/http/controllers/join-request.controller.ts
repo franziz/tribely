@@ -17,7 +17,7 @@ import type {
   MyJoinRequestsListResponse,
   RejectJoinRequestBody,
 } from '../schemas/join-request.schemas.js';
-import type { ListJoinRequestsByRequesterCursor } from '../../../application/dto/list-join-requests-by-requester.result.js';
+import type { ListJoinRequestsByRequesterCursor } from '../../../domain/repositories/join-request.repository.js';
 
 const toJoinRequestResponse = (jr: JoinRequest): JoinRequestResponse => ({
   id: jr.id,

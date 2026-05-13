@@ -1,10 +1,9 @@
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 import type {
+  JoinRequestRepository,
   JoinRequestWithEventSummary,
   ListJoinRequestsByRequesterCursor,
-  ListJoinRequestsByRequesterResult,
-} from '../dto/list-join-requests-by-requester.result.js';
-import type { JoinRequestRepository } from '../../domain/repositories/join-request.repository.js';
+} from '../../domain/repositories/join-request.repository.js';
 
 export interface ListJoinRequestsByRequesterInput {
   requesterUserId: string;
@@ -12,6 +11,11 @@ export interface ListJoinRequestsByRequesterInput {
   eventId?: string;
   cursor?: ListJoinRequestsByRequesterCursor;
   limit: number;
+}
+
+export interface ListJoinRequestsByRequesterResult {
+  items: JoinRequestWithEventSummary[];
+  nextCursor: ListJoinRequestsByRequesterCursor | null;
 }
 
 const MAX_LIMIT = 50;

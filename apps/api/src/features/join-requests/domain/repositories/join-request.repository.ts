@@ -1,6 +1,7 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
+import type { Event } from '@/features/events/domain/entities/event.js';
+import type { User } from '@/features/users/domain/entities/user.js';
 import type { JoinRequest } from '../entities/join-request.js';
-import type { ListJoinRequestsByRequesterCursor } from '../../application/dto/list-join-requests-by-requester.result.js';
 
 /**
  * Filters for listing join requests inside an event. Today only
@@ -13,11 +14,51 @@ export interface ListJoinRequestsFilters {
 }
 
 /**
+ * Opaque keyset cursor for {@link JoinRequestRepository.listByRequester}.
+ *
+ * Encodes the `(requestedAt, id)` position of the last item on the previous
+ * page. Callers treat this as an opaque blob; the infrastructure layer
+ * produces and consumes it. The presentation layer encodes it as base64url
+ * on the wire.
+ */
+export interface ListJoinRequestsByRequesterCursor {
+  lastRequestedAt: Date;
+  lastJoinRequestId: string;
+}
+
+/**
  * Page returned by {@link JoinRequestRepository.listByRequester}.
  */
 export interface ListByRequesterPage {
   joinRequests: JoinRequest[];
   nextCursor: ListJoinRequestsByRequesterCursor | null;
+}
+
+/**
+ * A join request paired with a lightweight event summary so the requester's
+ * list-view can render title / time / venue without a second fetch.
+ *
+ * The `event` projection is intentionally narrow — only what the mobile
+ * list-view needs. Add fields here only when a new consumer genuinely needs
+ * them (don't inflate to the full Event aggregate).
+ */
+export interface JoinRequestWithEventSummary {
+  joinRequest: JoinRequest;
+  event: Pick<Event, 'id' | 'title' | 'startsAt' | 'endsAt' | 'status' | 'capacity'> & {
+    venue: { address: string; city: string };
+  };
+}
+
+/**
+ * A join request paired with the requester's user record so the host-facing
+ * list can render a name alongside each request without a second fetch.
+ *
+ * `requester` is the full User aggregate; the presentation layer projects
+ * whatever fields it needs (currently only `id` + `displayName`).
+ */
+export interface JoinRequestWithRequester {
+  joinRequest: JoinRequest;
+  requester: User;
 }
 
 /**
