@@ -10,6 +10,8 @@
 //   7. Tap routes to /events/:id via context.push().
 //   8. Golden at 375dp width (iPhone 12 mini-ish).
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -154,19 +156,25 @@ void main() {
     // -------------------------------------------------------------------------
     // Golden test
     // -------------------------------------------------------------------------
-    testWidgets('8. golden at 375dp width', (tester) async {
-      // 375×400 gives enough height for the full card without overflow.
-      tester.view.physicalSize = const Size(375, 400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+    // Goldens are macOS-baseline; Linux CI skips due to font-render delta.
+    // See CLAUDE.md "Golden tests are developer-machine-only" gotcha.
+    testWidgets(
+      '8. golden at 375dp width',
+      skip: Platform.isLinux ? 'Goldens are macOS-baseline; Linux CI skips' : null,
+      (tester) async {
+        // 375×400 gives enough height for the full card without overflow.
+        tester.view.physicalSize = const Size(375, 400);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-      await _pumpCard(tester, _makeEvent(), width: 375);
+        await _pumpCard(tester, _makeEvent(), width: 375);
 
-      await expectLater(
-        find.byType(EventCard),
-        matchesGoldenFile('goldens/event_card_375.png'),
-      );
-    });
+        await expectLater(
+          find.byType(EventCard),
+          matchesGoldenFile('goldens/event_card_375.png'),
+        );
+      },
+    );
   });
 }
