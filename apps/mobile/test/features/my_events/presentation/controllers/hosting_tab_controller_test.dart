@@ -38,8 +38,13 @@ class FakeListMyHostedEventsParams extends Fake
 
 /// Drains the microtask queue so the async load triggered by
 /// `Future(() => load())` in [HostingTabController.build] completes.
+///
+/// 20 turns are needed to cover the chained async hops:
+/// (1) Future() callback, (2) load() await useCase, (3) state assignment,
+/// (4+) Riverpod notification propagation. 10 is too few and causes silent
+/// timeouts where the state never transitions out of Loading.
 Future<void> _pump() async {
-  for (var i = 0; i < 10; i++) {
+  for (var i = 0; i < 20; i++) {
     await Future<void>.delayed(Duration.zero);
   }
 }
