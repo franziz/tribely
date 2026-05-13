@@ -41,7 +41,9 @@ import 'package:tribely/src/features/join_requests/presentation/controllers/my_j
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
+import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
 
 // ---------------------------------------------------------------------------
 // Keys for stub widgets — used as primary finders in assertions.
@@ -105,6 +107,14 @@ class _FixedHostingPendingCountController
 
   @override
   Future<void> refresh() async {}
+}
+
+/// Bypasses HostingTabController's _load() which reads
+/// listMyHostedEventsUseCaseProvider → sl<>. Returns an empty loaded state
+/// immediately so MyEventsPage can render in router tests without GetIt.
+class _FixedHostingTabController extends HostingTabController {
+  @override
+  HostingTabState build() => const HostingTabLoaded(events: []);
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +284,12 @@ Future<void> pumpRouter(
         hostingPendingCountControllerProvider(
           '',
         ).overrideWith(() => _FixedHostingPendingCountController('')),
+        // HostingTabController's async _load() reads
+        // listMyHostedEventsUseCaseProvider → sl<>, crashing tests that don't
+        // initialise GetIt. Override with an empty loaded-state stub.
+        hostingTabControllerProvider.overrideWith(
+          _FixedHostingTabController.new,
+        ),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
