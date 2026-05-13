@@ -160,7 +160,9 @@ void main() {
     // See CLAUDE.md "Golden tests are developer-machine-only" gotcha.
     testWidgets(
       '8. golden at 375dp width',
-      skip: Platform.isLinux ? 'Goldens are macOS-baseline; Linux CI skips' : null,
+      // Goldens are macOS-baseline; Linux CI skips due to font-render delta.
+      // See CLAUDE.md "Flutter golden tests" gotcha.
+      skip: Platform.isLinux,
       (tester) async {
         // 375×400 gives enough height for the full card without overflow.
         tester.view.physicalSize = const Size(375, 400);
