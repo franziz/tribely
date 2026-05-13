@@ -223,7 +223,7 @@ describe('ListJoinRequestsByEventUseCase', () => {
     expect(result.joinRequests).toEqual([]);
   });
 
-  it('returns only pending rows for the host — filters out approved, rejected, and cancelled', async () => {
+  it('returns only pending rows for the host when no status filter supplied (default contract)', async () => {
     const { events, joinRequests, users, useCase } = buildSut();
     seedEvent(events);
     seedUser(users, 'user_pending');
@@ -241,5 +241,48 @@ describe('ListJoinRequestsByEventUseCase', () => {
     expect(result.joinRequests).toHaveLength(1);
     expect(result.joinRequests[0]?.joinRequest.id).toBe('jr_pending');
     expect(result.joinRequests[0]?.joinRequest.status).toBe('pending');
+  });
+
+  it('returns only approved rows when status=[approved] is supplied (Attending list path)', async () => {
+    const { events, joinRequests, users, useCase } = buildSut();
+    seedEvent(events);
+    seedUser(users, 'user_pending');
+    seedUser(users, 'user_approved_a');
+    seedUser(users, 'user_approved_b');
+    seedUser(users, 'user_rejected');
+
+    seedJoinRequest(joinRequests, 'jr_pending', 'user_pending', 0);
+    seedApprovedJoinRequest(joinRequests, 'jr_approved_a', 'user_approved_a', 1000);
+    seedApprovedJoinRequest(joinRequests, 'jr_approved_b', 'user_approved_b', 2000);
+    seedRejectedJoinRequest(joinRequests, 'jr_rejected', 'user_rejected', 3000);
+
+    const result = await useCase.execute({
+      eventId: 'evt_1',
+      actorUserId: 'host_1',
+      status: ['approved'],
+    });
+
+    expect(result.joinRequests).toHaveLength(2);
+    const ids = result.joinRequests.map((item) => item.joinRequest.id);
+    expect(ids).toContain('jr_approved_a');
+    expect(ids).toContain('jr_approved_b');
+    for (const item of result.joinRequests) {
+      expect(item.joinRequest.status).toBe('approved');
+    }
+  });
+
+  it('returns empty list for approved status filter when no approved rows exist', async () => {
+    const { events, joinRequests, users, useCase } = buildSut();
+    seedEvent(events);
+    seedUser(users, 'user_pending');
+    seedJoinRequest(joinRequests, 'jr_pending', 'user_pending', 0);
+
+    const result = await useCase.execute({
+      eventId: 'evt_1',
+      actorUserId: 'host_1',
+      status: ['approved'],
+    });
+
+    expect(result.joinRequests).toHaveLength(0);
   });
 });

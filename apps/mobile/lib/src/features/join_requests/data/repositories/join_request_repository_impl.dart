@@ -90,6 +90,20 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
   }
 
   @override
+  Future<Either<Failure, List<JoinRequestWithRequester>>> listApprovedForEvent({
+    required String eventId,
+  }) async {
+    try {
+      final models = await _remote.listApprovedForEvent(eventId: eventId);
+      return Right(models.map((m) => m.toEntity()).toList(growable: false));
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<JoinRequestWithEvent>>> listMyJoinRequests({
     String? eventId,
   }) async {

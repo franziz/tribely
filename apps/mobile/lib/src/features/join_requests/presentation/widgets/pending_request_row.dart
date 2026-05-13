@@ -27,6 +27,7 @@ class PendingRequestRow extends StatefulWidget {
     required this.onApprove,
     required this.onDecline,
     this.isInFlight = false,
+    this.onTapRequester,
     super.key,
   });
 
@@ -44,6 +45,11 @@ class PendingRequestRow extends StatefulWidget {
   /// Both buttons are disabled while true.
   final bool isInFlight;
 
+  /// Optional callback invoked when the user taps the avatar or display name.
+  /// Used by the host event detail page to open the requester profile sheet.
+  /// When null, the avatar/name area is not tappable.
+  final VoidCallback? onTapRequester;
+
   @override
   State<PendingRequestRow> createState() => _PendingRequestRowState();
 }
@@ -59,30 +65,43 @@ class _PendingRequestRowState extends State<PendingRequestRow>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar placeholder — 40dp square, neutral fill.
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: TribelyColors.paperBorderSubtle,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(
-              Icons.person,
-              size: 20,
-              color: TribelyColors.paperInkSecondary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Display name — fills remaining space.
+          // Avatar + display name wrapped in InkWell to open the profile sheet.
+          // The Approve/Decline buttons stay outside so they remain independently
+          // tappable (separate touch targets per PM spec).
           Expanded(
-            child: Text(
-              displayName,
-              style: TribelyType.bodyM(
-                TribelyColors.paperInkPrimary,
-              ).copyWith(fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: InkWell(
+              onTap: widget.onTapRequester,
+              borderRadius: BorderRadius.circular(6),
+              child: Row(
+                children: [
+                  // Avatar placeholder — 40dp square, neutral fill.
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: TribelyColors.paperBorderSubtle,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 20,
+                      color: TribelyColors.paperInkSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Display name — fills remaining space.
+                  Expanded(
+                    child: Text(
+                      displayName,
+                      style: TribelyType.bodyM(
+                        TribelyColors.paperInkPrimary,
+                      ).copyWith(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 8),

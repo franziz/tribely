@@ -29,6 +29,11 @@ abstract class JoinRequestRepository {
     required String eventId,
   });
 
+  /// GET /events/:eventId/join-requests?status=approved  (host view — approved/attending)
+  Future<Either<Failure, List<JoinRequestWithRequester>>> listApprovedForEvent({
+    required String eventId,
+  });
+
   /// GET /me/join-requests?eventId=...  (joiner view; eventId is optional)
   Future<Either<Failure, List<JoinRequestWithEvent>>> listMyJoinRequests({
     String? eventId,

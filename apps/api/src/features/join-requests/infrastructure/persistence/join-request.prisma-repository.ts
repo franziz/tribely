@@ -101,6 +101,9 @@ export class JoinRequestPrismaRepository implements JoinRequestRepository {
     if (filters.requesterUserId !== undefined) {
       where.requesterUserId = filters.requesterUserId;
     }
+    if (filters.status !== undefined && filters.status.length > 0) {
+      where.status = { in: filters.status };
+    }
     const rows = await client.joinRequest.findMany({
       where,
       orderBy: { requestedAt: 'asc' },

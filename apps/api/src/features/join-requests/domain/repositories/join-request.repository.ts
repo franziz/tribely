@@ -1,16 +1,20 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { Event } from '@/features/events/domain/entities/event.js';
 import type { User } from '@/features/users/domain/entities/user.js';
-import type { JoinRequest } from '../entities/join-request.js';
+import type { JoinRequest, JoinRequestStatus } from '../entities/join-request.js';
 
 /**
- * Filters for listing join requests inside an event. Today only
- * `requesterUserId` is supported (so a host can scope to one user, or so
- * the requester can fetch their own row); status filtering is the caller's
- * job to keep this interface narrow. Add fields here as new use cases arrive.
+ * Filters for listing join requests inside an event.
+ *
+ * `requesterUserId` scopes to a single user (host scoping or requester self-view).
+ *
+ * `status` restricts to specific statuses; absent means no status restriction
+ * (returns all statuses). Callers should supply an explicit value rather than
+ * relying on repository-level defaults — the use case layer owns defaulting.
  */
 export interface ListJoinRequestsFilters {
   requesterUserId?: string;
+  status?: JoinRequestStatus[];
 }
 
 /**

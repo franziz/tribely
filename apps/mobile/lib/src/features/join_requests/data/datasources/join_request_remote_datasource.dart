@@ -30,6 +30,11 @@ abstract class JoinRequestRemoteDatasource {
     required String eventId,
   });
 
+  /// GET /events/:eventId/join-requests?status=approved  (host attending list)
+  Future<List<JoinRequestWithRequesterModel>> listApprovedForEvent({
+    required String eventId,
+  });
+
   /// GET /me/join-requests?eventId=...  (joiner view; eventId is optional)
   Future<List<JoinRequestWithEventModel>> listMyJoinRequests({String? eventId});
 }
@@ -97,5 +102,20 @@ class JoinRequestRemoteDatasourceImpl implements JoinRequestRemoteDatasource {
     final list = (response.data!['joinRequests'] as List<dynamic>)
         .cast<Map<String, dynamic>>();
     return list.map(JoinRequestWithEventModel.fromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<JoinRequestWithRequesterModel>> listApprovedForEvent({
+    required String eventId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/events/$eventId/join-requests',
+      queryParameters: {'status': 'approved'},
+    );
+    final list = (response.data!['joinRequests'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
+    return list
+        .map(JoinRequestWithRequesterModel.fromJson)
+        .toList(growable: false);
   }
 }

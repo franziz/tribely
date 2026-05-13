@@ -36,6 +36,7 @@ import '../../features/join_requests/data/repositories/join_request_repository_i
 import '../../features/join_requests/domain/repositories/join_request_repository.dart';
 import '../../features/join_requests/domain/usecases/approve_join_request_usecase.dart';
 import '../../features/join_requests/domain/usecases/decline_join_request_usecase.dart';
+import '../../features/join_requests/domain/usecases/list_approved_for_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/list_my_join_requests_usecase.dart';
 import '../../features/join_requests/domain/usecases/list_pending_for_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
@@ -167,6 +168,9 @@ Future<void> configureDependencies() async {
   );
   sl.registerLazySingleton(
     () => ListPendingForEventUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ListApprovedForEventUseCase(sl<JoinRequestRepository>()),
   );
   sl.registerLazySingleton(
     () => ListMyJoinRequestsUseCase(sl<JoinRequestRepository>()),

@@ -93,6 +93,12 @@ export class FakeJoinRequestRepository implements JoinRequestRepository {
         (jr) =>
           filters.requesterUserId === undefined || jr.requesterUserId === filters.requesterUserId,
       )
+      .filter(
+        (jr) =>
+          filters.status === undefined ||
+          filters.status.length === 0 ||
+          filters.status.includes(jr.status),
+      )
       // Stable order: oldest-requested first. Lets tests assert order without
       // depending on Map insertion semantics across rehydration paths.
       .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime());

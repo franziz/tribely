@@ -13,6 +13,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import type {
   EnrichedJoinRequestListResponse,
   JoinRequestResponse,
+  ListJoinRequestsByEventQuery,
   ListMyJoinRequestsQuery,
   MyJoinRequestsListResponse,
   RejectJoinRequestBody,
@@ -85,11 +86,24 @@ export class JoinRequestController {
   };
 
   /**
-   * C2: GET /events/:id/join-requests — now returns enriched shape with
-   * requester displayName so the host can render a name alongside each row.
+   * C2: GET /events/:id/join-requests — returns enriched shape with requester
+   * displayName so the host can render a name alongside each row.
+   *
+   * Accepts an optional `status` query param (repeatable) to filter by status.
+   * Defaults to `['pending']` at the use-case layer when absent — preserving
+   * the original contract for the pending-requests list.
    */
-  listAction = async (c: Context, eventId: string, actorUserId: string) => {
-    const result = await this.listJoinRequestsByEvent.execute({ eventId, actorUserId });
+  listAction = async (
+    c: Context,
+    eventId: string,
+    actorUserId: string,
+    query: ListJoinRequestsByEventQuery,
+  ) => {
+    const result = await this.listJoinRequestsByEvent.execute({
+      eventId,
+      actorUserId,
+      ...(query.status !== undefined && { status: query.status }),
+    });
     const response: EnrichedJoinRequestListResponse = {
       joinRequests: result.joinRequests.map((item) => ({
         joinRequest: toJoinRequestResponse(item.joinRequest),

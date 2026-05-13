@@ -19,6 +19,28 @@ export const listMyJoinRequestsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+// ---- Query: GET /events/:id/join-requests ----
+
+/**
+ * Query params for `GET /events/:id/join-requests`.
+ *
+ * `status` restricts results to the given status values. Repeated params
+ * (`?status=pending&status=approved`) are the standard multi-value pattern in
+ * this API. Defaults to `['pending']` at the use-case layer when absent.
+ */
+export const listJoinRequestsByEventQuerySchema = z.object({
+  status: z
+    .union([
+      z.enum(['pending', 'approved', 'rejected', 'cancelled']),
+      z.array(z.enum(['pending', 'approved', 'rejected', 'cancelled'])),
+    ])
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      return Array.isArray(v) ? v : [v];
+    }),
+});
+
 // ---- Shared sub-schema ----
 
 const joinRequestStatusSchema = z.enum(['pending', 'approved', 'rejected', 'cancelled']);
@@ -71,6 +93,7 @@ export const enrichedJoinRequestListResponseSchema = z.object({
 
 export type RejectJoinRequestBody = z.infer<typeof rejectJoinRequestBodySchema>;
 export type ListMyJoinRequestsQuery = z.infer<typeof listMyJoinRequestsQuerySchema>;
+export type ListJoinRequestsByEventQuery = z.infer<typeof listJoinRequestsByEventQuerySchema>;
 export type JoinRequestResponse = z.infer<typeof joinRequestResponseSchema>;
 export type MyJoinRequestsListResponse = z.infer<typeof myJoinRequestsListResponseSchema>;
 export type EnrichedJoinRequestListResponse = z.infer<typeof enrichedJoinRequestListResponseSchema>;
