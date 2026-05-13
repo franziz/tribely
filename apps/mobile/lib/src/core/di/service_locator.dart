@@ -25,6 +25,11 @@ import '../../features/events/domain/usecases/clear_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/create_event_usecase.dart';
 import '../../features/events/domain/usecases/load_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/save_event_draft_usecase.dart';
+import '../../features/discover/data/datasources/discover_remote_datasource.dart';
+import '../../features/discover/data/repositories/discover_repository_impl.dart';
+import '../../features/discover/domain/repositories/discover_repository.dart';
+import '../../features/discover/domain/usecases/browse_events_usecase.dart';
+import '../../features/discover/domain/usecases/get_event_detail_usecase.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
@@ -107,4 +112,20 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => SaveEventDraftUseCase(sl<EventRepository>()));
   sl.registerLazySingleton(() => LoadEventDraftUseCase(sl<EventRepository>()));
   sl.registerLazySingleton(() => ClearEventDraftUseCase(sl<EventRepository>()));
+
+  // Discover — datasources
+  sl.registerLazySingleton<DiscoverRemoteDatasource>(
+    () => DiscoverRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Discover — repositories
+  sl.registerLazySingleton<DiscoverRepository>(
+    () => DiscoverRepositoryImpl(remote: sl<DiscoverRemoteDatasource>()),
+  );
+
+  // Discover — use cases
+  sl.registerLazySingleton(() => BrowseEventsUseCase(sl<DiscoverRepository>()));
+  sl.registerLazySingleton(
+    () => GetEventDetailUseCase(sl<DiscoverRepository>()),
+  );
 }

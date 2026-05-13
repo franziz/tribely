@@ -301,6 +301,7 @@ After scaffolding, you must:
 - **Production sender domain is `gotribely.com`** (not `tribely.app`). `EMAIL_FROM` defaults to `onboarding@resend.dev` in code so dev "just works" without DNS verification; production must override once `gotribely.com` DKIM is set up in Resend.
 - **CI test steps need `DATABASE_URL` + `JWT_SECRET` set as placeholders.** `env.ts` parses `process.env` at module load and throws on missing required vars; any test that transitively imports the logger (or anything from `core/`) fails to collect. `_api.yml`'s test step sets dummy values — copy that pattern when adding new test surfaces.
 - **Vitest does not auto-load `.env`.** Integration tests that need real env vars (e.g., `RESEND_API_KEY`) must `import 'dotenv/config'` at the top of the test file. Without it, `process.env.X` is `undefined` and `it.skipIf(!process.env.X)` silently skips the suite even when `apps/api/.env` is present.
+- **Flutter golden tests are macOS-baseline; Linux CI must skip them.** Goldens generated on macOS will not match CI's Linux FreeType rendering (~1-2% pixel diff from font hinting/anti-aliasing). Guard golden test bodies with `skip: Platform.isLinux ? 'skip reason' : null` so they run on developer machines (catching real layout regressions at PR-author time) but skip in CI. Cross-platform baselines or font-normalization harnesses (alchemist, golden_toolkit) are deferred — revisit when goldens become a recurring pattern, not a one-off.
 
 ## Agent orchestration & role boundaries
 

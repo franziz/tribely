@@ -3,14 +3,22 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_category.dart';
 
-/// JSON model mirroring the server's EventResponse shape.
+/// JSON model mirroring the server's EventResponse shape PLUS a flattened
+/// [hostDisplayName] projection synthesised by the datasource layer from the
+/// [eventWithHostResponseSchema] wrapper (`{ event: {...}, host: { displayName } }`).
+///
+/// This model is no longer a 1:1 mirror of eventResponseSchema — it also carries
+/// the [hostDisplayName] pulled from the wrapper's `host` sibling. The datasource
+/// synthesises this via a spread so [fromJson] remains a single-map parse.
+///
 /// See apps/api/src/features/events/presentation/http/schemas/event.schemas.ts
-/// (eventResponseSchema) and the controller's toEventResponse() serializer for
-/// the canonical field list.
+/// (eventResponseSchema + eventWithHostResponseSchema) and the controller's
+/// toEventResponse() serialiser for the canonical server field list.
 ///
 /// Fields not present in the domain [Event] entity (cancellationReason,
 /// updatedAt) are parsed defensively but discarded — the domain has no use
 /// for them in v1. Add them to [Event] when a feature needs them.
+/// host.avatarUrl + goingCount remain deferred to TRI-19.
 class EventModel extends Equatable {
   const EventModel({
     required this.id,
@@ -26,6 +34,7 @@ class EventModel extends Equatable {
     required this.approvalMode,
     required this.status,
     required this.createdAt,
+    this.hostDisplayName,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +57,7 @@ class EventModel extends Equatable {
       approvalMode: json['approvalMode'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+      hostDisplayName: json['hostDisplayName'] as String?,
     );
   }
 
@@ -65,6 +75,13 @@ class EventModel extends Equatable {
   final String status;
   final DateTime createdAt;
 
+  /// Projected from the [eventWithHostResponseSchema] wrapper's `host.displayName`
+  /// field by the datasource. Nullable — server contract says non-null, but the
+  /// datasource applies a defensive null-safe cast so absent/null gracefully
+  /// flows through as null rather than throwing. host.avatarUrl + goingCount
+  /// deferred to TRI-19.
+  final String? hostDisplayName;
+
   /// Map to the domain [Event] entity. The domain field is named [hostId];
   /// the server wire field is [hostUserId] — translation lives here.
   Event toEntity() => Event(
@@ -81,6 +98,7 @@ class EventModel extends Equatable {
     approvalMode: approvalMode,
     status: status,
     createdAt: createdAt,
+    hostDisplayName: hostDisplayName,
   );
 
   @override
@@ -98,6 +116,7 @@ class EventModel extends Equatable {
     approvalMode,
     status,
     createdAt,
+    hostDisplayName,
   ];
 }
 

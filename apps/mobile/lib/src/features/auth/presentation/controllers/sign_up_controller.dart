@@ -16,9 +16,12 @@ class SignUpController extends Notifier<AuthFormState> {
   }) async {
     state = const AuthFormSubmitting();
     final useCase = ref.read(signUpUseCaseProvider);
-    final result = await useCase(
-      SignUpParams(email: email, password: password, displayName: displayName),
+    final params = SignUpParams(
+      email: email,
+      password: password,
+      displayName: displayName,
     );
+    final result = await useCase(params);
     state = result.match(
       (failure) {
         // 409 (email already exists) — special-case so the page can show a
@@ -55,6 +58,7 @@ String _bannerFor(Failure failure) {
     AuthFailure() => failure.message,
     EmailNotVerifiedFailure() => failure.message,
     ValidationFailure() => failure.message,
+    NotFoundFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

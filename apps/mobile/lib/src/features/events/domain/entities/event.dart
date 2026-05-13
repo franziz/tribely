@@ -19,12 +19,18 @@ class Event extends Equatable {
     required this.approvalMode,
     required this.status,
     required this.createdAt,
+    this.hostDisplayName,
   });
 
   final String id;
   final String hostId;
   final String title;
   final String? description;
+
+  /// Display name of the host, projected from the eventWithHostResponseSchema
+  /// wrapper by the data layer. Nullable — graceful fallback to 'Host' in the
+  /// UI when absent. Avatar + profile nav deferred to TRI-19.
+  final String? hostDisplayName;
 
   /// Venue is kept as a nested value. The data layer maps the server's venue
   /// object into this [EventVenue] struct.
@@ -61,6 +67,7 @@ class Event extends Equatable {
     String? approvalMode,
     String? status,
     DateTime? createdAt,
+    String? hostDisplayName,
   }) => Event(
     id: id ?? this.id,
     hostId: hostId ?? this.hostId,
@@ -75,6 +82,7 @@ class Event extends Equatable {
     approvalMode: approvalMode ?? this.approvalMode,
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
+    hostDisplayName: hostDisplayName ?? this.hostDisplayName,
   );
 
   @override
@@ -92,6 +100,7 @@ class Event extends Equatable {
     approvalMode,
     status,
     createdAt,
+    hostDisplayName,
   ];
 }
 
