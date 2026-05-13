@@ -30,6 +30,15 @@ import '../../features/discover/data/repositories/discover_repository_impl.dart'
 import '../../features/discover/domain/repositories/discover_repository.dart';
 import '../../features/discover/domain/usecases/browse_events_usecase.dart';
 import '../../features/discover/domain/usecases/get_event_detail_usecase.dart';
+import '../../features/join_requests/data/datasources/join_request_remote_datasource.dart';
+import '../../features/join_requests/data/repositories/join_request_repository_impl.dart';
+import '../../features/join_requests/domain/repositories/join_request_repository.dart';
+import '../../features/join_requests/domain/usecases/approve_join_request_usecase.dart';
+import '../../features/join_requests/domain/usecases/decline_join_request_usecase.dart';
+import '../../features/join_requests/domain/usecases/list_my_join_requests_usecase.dart';
+import '../../features/join_requests/domain/usecases/list_pending_for_event_usecase.dart';
+import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
+import '../../features/join_requests/domain/usecases/withdraw_join_request_usecase.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
@@ -127,5 +136,35 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => BrowseEventsUseCase(sl<DiscoverRepository>()));
   sl.registerLazySingleton(
     () => GetEventDetailUseCase(sl<DiscoverRepository>()),
+  );
+
+  // JoinRequests — datasources
+  sl.registerLazySingleton<JoinRequestRemoteDatasource>(
+    () => JoinRequestRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // JoinRequests — repositories
+  sl.registerLazySingleton<JoinRequestRepository>(
+    () => JoinRequestRepositoryImpl(remote: sl<JoinRequestRemoteDatasource>()),
+  );
+
+  // JoinRequests — use cases
+  sl.registerLazySingleton(
+    () => RequestToJoinEventUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ApproveJoinRequestUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => DeclineJoinRequestUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => WithdrawJoinRequestUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ListPendingForEventUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ListMyJoinRequestsUseCase(sl<JoinRequestRepository>()),
   );
 }
