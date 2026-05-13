@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
-import '../../../auth/presentation/controllers/session_controller.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
@@ -52,9 +51,7 @@ class OwnProfilePage extends ConsumerWidget {
                 ),
               );
               if (confirmed == true) {
-                await ref
-                    .read(sessionControllerProvider.notifier)
-                    .signOut();
+                await ref.read(sessionControllerProvider.notifier).signOut();
               }
             },
           ),

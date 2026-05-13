@@ -39,16 +39,19 @@ class _FixedMyProfileController extends MyProfileController {
   Future<void> retry() async {}
 }
 
-/// Tracks `signOut` call count; never calls the use case or mutates session.
+/// Calls [onSignOut] when signOut is invoked; never calls the use case or
+/// mutates session state.
 class _SpySessionController extends SessionController {
-  int signOutCallCount = 0;
+  _SpySessionController({this.onSignOut});
+
+  final VoidCallback? onSignOut;
 
   @override
   SessionState build() => const SessionUnauthenticated();
 
   @override
   Future<void> signOut() async {
-    signOutCallCount++;
+    onSignOut?.call();
   }
 }
 
@@ -56,24 +59,26 @@ class _SpySessionController extends SessionController {
 // Pump helper
 // ---------------------------------------------------------------------------
 
-/// Pump [OwnProfilePage] under a [ProviderScope] with provider overrides and
-/// return the spy controller so tests can assert on it.
-Future<_SpySessionController> _pumpPage(WidgetTester tester) async {
-  final spy = _SpySessionController();
-
+/// Pump [OwnProfilePage] under a [ProviderScope] with provider overrides.
+///
+/// [onSignOut] is forwarded to [_SpySessionController] so callers can assert
+/// on sign-out invocations via a local counter.
+Future<void> _pumpPage(WidgetTester tester, {VoidCallback? onSignOut}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        myProfileControllerProvider.overrideWith(() => _FixedMyProfileController()),
-        sessionControllerProvider.overrideWith(() => spy),
+        myProfileControllerProvider.overrideWith(
+          () => _FixedMyProfileController(),
+        ),
+        sessionControllerProvider.overrideWith(
+          () => _SpySessionController(onSignOut: onSignOut),
+        ),
       ],
       child: const MaterialApp(home: OwnProfilePage()),
     ),
   );
-  // Drain the Future(() => _load()) scheduled by _FixedMyProfileController.build.
+  // Drain the initial pump so the page layout settles.
   await tester.pump();
-
-  return spy;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +92,6 @@ void main() {
     // -----------------------------------------------------------------------
     testWidgets('sign-out IconButton is present in the AppBar', (tester) async {
       await _pumpPage(tester);
-
       expect(find.byIcon(Icons.logout), findsOneWidget);
       expect(find.byTooltip('Sign out'), findsOneWidget);
     });
@@ -99,15 +103,11 @@ void main() {
       'tapping sign-out button opens AlertDialog with correct title and actions',
       (tester) async {
         await _pumpPage(tester);
-
         await tester.tap(find.byIcon(Icons.logout));
         await tester.pumpAndSettle();
 
-        // Dialog must be visible.
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.text('Sign out of Tribely?'), findsOneWidget);
-
-        // Both action labels must be present.
         expect(find.text('Cancel'), findsOneWidget);
         expect(find.text('Sign out'), findsOneWidget);
       },
@@ -116,25 +116,22 @@ void main() {
     // -----------------------------------------------------------------------
     // 3. Cancel dismisses without signing out
     // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping Cancel dismisses the dialog without calling signOut',
-      (tester) async {
-        final spy = await _pumpPage(tester);
+    testWidgets('tapping Cancel dismisses the dialog without calling signOut', (
+      tester,
+    ) async {
+      var signOutCalls = 0;
+      await _pumpPage(tester, onSignOut: () => signOutCalls++);
+      await tester.tap(find.byIcon(Icons.logout));
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(Icons.logout));
-        await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
 
-        expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Cancel'));
-        await tester.pumpAndSettle();
-
-        // Dialog dismissed.
-        expect(find.byType(AlertDialog), findsNothing);
-        // signOut must NOT have been called.
-        expect(spy.signOutCallCount, equals(0));
-      },
-    );
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(signOutCalls, equals(0));
+    });
 
     // -----------------------------------------------------------------------
     // 4. Confirming calls signOut exactly once
@@ -142,8 +139,8 @@ void main() {
     testWidgets(
       'tapping "Sign out" in the dialog calls SessionController.signOut once',
       (tester) async {
-        final spy = await _pumpPage(tester);
-
+        var signOutCalls = 0;
+        await _pumpPage(tester, onSignOut: () => signOutCalls++);
         await tester.tap(find.byIcon(Icons.logout));
         await tester.pumpAndSettle();
 
@@ -152,7 +149,7 @@ void main() {
         await tester.tap(find.text('Sign out'));
         await tester.pumpAndSettle();
 
-        expect(spy.signOutCallCount, equals(1));
+        expect(signOutCalls, equals(1));
       },
     );
   });
