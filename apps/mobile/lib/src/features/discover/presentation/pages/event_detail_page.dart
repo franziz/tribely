@@ -587,9 +587,6 @@ class _PendingRequestsSectionState
               _handleDeclineRequest(context, controller, item),
           onClearSectionError: controller.clearSectionError,
         ),
-      // Satisfy exhaustiveness: HostPendingListInitial is not reachable
-      // (build() always transitions immediately to Loading).
-      _ => const SizedBox.shrink(),
     };
   }
 

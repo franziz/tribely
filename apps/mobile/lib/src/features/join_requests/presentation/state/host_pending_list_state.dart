@@ -4,16 +4,9 @@ import '../../../../core/error/failures.dart';
 import '../../domain/entities/join_request_with_requester.dart';
 
 /// State machine for the host's per-event pending-requests list.
+/// Progression: Loading → (Loaded | Error).
 sealed class HostPendingListState extends Equatable {
   const HostPendingListState();
-}
-
-/// No fetch has been triggered yet.
-final class HostPendingListInitial extends HostPendingListState {
-  const HostPendingListInitial();
-
-  @override
-  List<Object?> get props => [];
 }
 
 /// Fetch is in progress.
