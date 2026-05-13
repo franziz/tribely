@@ -44,6 +44,7 @@ import '../../features/join_requests/domain/usecases/withdraw_join_request_useca
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
+import '../../features/users/domain/usecases/get_user_profile_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -95,9 +96,14 @@ Future<void> configureDependencies() async {
     () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
   );
 
-  // Users — use cases are constructed inline in users_providers.dart via
-  // Riverpod ref.read() so they can resolve Riverpod-backed ports (e.g.
-  // SessionReader). No use-case registrations here.
+  // Users — use cases
+  // GetUserProfileUseCase is registered here so core/providers/ can bridge it
+  // to Riverpod for cross-feature profile lookups (join_requests, discover).
+  // Other users use cases that need Riverpod-backed ports (SessionReader) are
+  // still constructed inline in users_providers.dart.
+  sl.registerLazySingleton<GetUserProfileUseCase>(
+    () => GetUserProfileUseCase(sl<UserProfileRepository>()),
+  );
 
   // Events — SharedPreferences (async init, resolved once at boot)
   final prefs = await SharedPreferences.getInstance();

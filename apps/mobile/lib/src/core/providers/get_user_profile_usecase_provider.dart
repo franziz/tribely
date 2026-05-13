@@ -23,12 +23,9 @@ final getUserProfileUseCaseByIdProvider = Provider<GetUserProfileUseCase>(
 /// `AsyncValue`.
 ///
 /// Family key: `userId` string.
-final userProfileByIdProvider =
-    FutureProvider.autoDispose.family<UserProfile, String>((ref, userId) async {
-  final useCase = ref.read(getUserProfileUseCaseByIdProvider);
-  final result = await useCase(GetUserProfileParams(userId: userId));
-  return result.fold(
-    (failure) => throw failure,
-    (profile) => profile,
-  );
-});
+final userProfileByIdProvider = FutureProvider.autoDispose
+    .family<UserProfile, String>((ref, userId) async {
+      final useCase = ref.read(getUserProfileUseCaseByIdProvider);
+      final result = await useCase(GetUserProfileParams(userId: userId));
+      return result.fold((failure) => throw failure, (profile) => profile);
+    });

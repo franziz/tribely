@@ -68,15 +68,12 @@ class HostPendingListController extends Notifier<HostPendingListState> {
 
     if (!ref.mounted) return;
 
-    result.fold(
-      (failure) => _handleActionFailure(failure, joinRequestId),
-      (_) {
-        _removeFromList(joinRequestId);
-        // Approved row moves to the Attending list — invalidate so the
-        // Attending section refreshes without a manual pull.
-        ref.invalidate(hostAttendingListControllerProvider(eventId));
-      },
-    );
+    result.fold((failure) => _handleActionFailure(failure, joinRequestId), (_) {
+      _removeFromList(joinRequestId);
+      // Approved row moves to the Attending list — invalidate so the
+      // Attending section refreshes without a manual pull.
+      ref.invalidate(hostAttendingListControllerProvider(eventId));
+    });
   }
 
   /// Decline [joinRequestId] with an optional [reason].

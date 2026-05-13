@@ -12,9 +12,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:tribely/src/core/error/failures.dart';
-import 'package:tribely/src/core/providers/get_user_profile_usecase_provider.dart';
+import 'package:tribely/src/core/providers/get_user_profile_usecase_provider.dart'
+    show userProfileByIdProvider;
 import 'package:tribely/src/core/widgets/banner_message.dart';
 import 'package:tribely/src/core/widgets/requester_profile_sheet.dart';
 import 'package:tribely/src/features/users/domain/entities/user_profile.dart';
@@ -41,8 +43,8 @@ UserProfile _makeProfile({
 // ---------------------------------------------------------------------------
 
 /// Pumps [RequesterProfileSheet] with [userProfileByIdProvider] overridden to
-/// the given [AsyncValue]. This exercises the sheet's `.when()` branches
-/// without touching the DI container.
+/// the given [AsyncValue]. Uses [overrideWithValue] to inject the state
+/// synchronously — no async settling required.
 Future<void> _pumpSheet(
   WidgetTester tester,
   AsyncValue<UserProfile> asyncValue,
@@ -50,24 +52,14 @@ Future<void> _pumpSheet(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        userProfileByIdProvider(_testUserId).overrideWith(
-          (ref) => switch (asyncValue) {
-            AsyncData(:final value) => Future.value(value),
-            AsyncError(:final error) => Future.error(error),
-            // Loading: return a future that never completes.
-            _ => Future<UserProfile>.delayed(const Duration(hours: 1)),
-          },
-        ),
+        userProfileByIdProvider(_testUserId).overrideWithValue(asyncValue),
       ],
       child: const MaterialApp(
-        home: Scaffold(
-          body: RequesterProfileSheet(userId: _testUserId),
-        ),
+        home: Scaffold(body: RequesterProfileSheet(userId: _testUserId)),
       ),
     ),
   );
-  // Two pumps: initial build + microtask resolution (or timeout for loading).
-  await tester.pump();
+  // One pump to build the widget tree with the pre-set state.
   await tester.pump();
 }
 
@@ -76,28 +68,34 @@ Future<void> _pumpSheet(
 // ---------------------------------------------------------------------------
 
 void main() {
+  setUpAll(() async {
+    // DateFormat.yMMMM('en') used in _LoadedBody requires locale data to be
+    // initialized. In a running Flutter app the framework handles this; tests
+    // must do it explicitly.
+    await initializeDateFormatting('en');
+  });
+
   group('RequesterProfileSheet', () {
     // -----------------------------------------------------------------------
     // 1. Loaded: display name + member-since text
     // -----------------------------------------------------------------------
-    testWidgets(
-      'loaded state renders display name and Member since text',
-      (tester) async {
-        await _pumpSheet(
-          tester,
-          AsyncData(
-            _makeProfile(
-              displayName: 'Alice Tan',
-              createdAt: DateTime.utc(2026, 1, 1),
-            ),
+    testWidgets('loaded state renders display name and Member since text', (
+      tester,
+    ) async {
+      await _pumpSheet(
+        tester,
+        AsyncData(
+          _makeProfile(
+            displayName: 'Alice Tan',
+            createdAt: DateTime.utc(2026, 1, 1),
           ),
-        );
+        ),
+      );
 
-        expect(find.text('Alice Tan'), findsOneWidget);
-        // DateFormat.yMMMM('en').format(DateTime.utc(2026, 1, 1)) = "January 2026"
-        expect(find.textContaining('Member since January 2026'), findsOneWidget);
-      },
-    );
+      expect(find.text('Alice Tan'), findsOneWidget);
+      // DateFormat.yMMMM('en').format(DateTime.utc(2026, 1, 1)) = "January 2026"
+      expect(find.textContaining('Member since January 2026'), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // 2. Error state: BannerMessage with retry
@@ -105,10 +103,7 @@ void main() {
     testWidgets('error state renders BannerMessage with Retry', (tester) async {
       await _pumpSheet(
         tester,
-        AsyncError(
-          const NetworkFailure('timeout'),
-          StackTrace.empty,
-        ),
+        const AsyncError(NetworkFailure('timeout'), StackTrace.empty),
       );
 
       expect(find.byType(BannerMessage), findsOneWidget);

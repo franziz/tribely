@@ -14,7 +14,6 @@ import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/features/join_requests/domain/entities/join_request.dart';
 import 'package:tribely/src/features/join_requests/domain/entities/join_request_with_requester.dart';
 import 'package:tribely/src/features/join_requests/domain/usecases/list_approved_for_event_usecase.dart';
-import 'package:tribely/src/features/join_requests/presentation/controllers/host_attending_list_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/host_attending_list_state.dart';
 
@@ -52,9 +51,7 @@ JoinRequestWithRequester _makeItem(String id, String name) =>
 
 ProviderContainer _makeContainer(MockListApprovedForEventUseCase mock) {
   final container = ProviderContainer(
-    overrides: [
-      listApprovedForEventUseCaseProvider.overrideWithValue(mock),
-    ],
+    overrides: [listApprovedForEventUseCaseProvider.overrideWithValue(mock)],
   );
   addTearDown(container.dispose);
   // Eagerly read so build() fires and schedules the initial _load microtask.
@@ -74,21 +71,26 @@ void main() {
   // -------------------------------------------------------------------------
   // 1. load() success → HostAttendingListLoaded with returned items
   // -------------------------------------------------------------------------
-  test('load() success → HostAttendingListLoaded with returned items', () async {
-    final mock = MockListApprovedForEventUseCase();
-    final items = [_makeItem('jr-1', 'Alice'), _makeItem('jr-2', 'Bob')];
+  test(
+    'load() success → HostAttendingListLoaded with returned items',
+    () async {
+      final mock = MockListApprovedForEventUseCase();
+      final items = [_makeItem('jr-1', 'Alice'), _makeItem('jr-2', 'Bob')];
 
-    when(() => mock(any())).thenAnswer((_) async => Right(items));
+      when(() => mock(any())).thenAnswer((_) async => Right(items));
 
-    final container = _makeContainer(mock);
-    await container
-        .read(hostAttendingListControllerProvider(_testEventId).notifier)
-        .retry();
+      final container = _makeContainer(mock);
+      await container
+          .read(hostAttendingListControllerProvider(_testEventId).notifier)
+          .retry();
 
-    final state = container.read(hostAttendingListControllerProvider(_testEventId));
-    expect(state, isA<HostAttendingListLoaded>());
-    expect((state as HostAttendingListLoaded).items, equals(items));
-  });
+      final state = container.read(
+        hostAttendingListControllerProvider(_testEventId),
+      );
+      expect(state, isA<HostAttendingListLoaded>());
+      expect((state as HostAttendingListLoaded).items, equals(items));
+    },
+  );
 
   // -------------------------------------------------------------------------
   // 2. load() failure → HostAttendingListError
@@ -96,21 +98,20 @@ void main() {
   test('load() NetworkFailure → HostAttendingListError', () async {
     final mock = MockListApprovedForEventUseCase();
 
-    when(() => mock(any())).thenAnswer(
-      (_) async => const Left(NetworkFailure('timeout')),
-    );
+    when(
+      () => mock(any()),
+    ).thenAnswer((_) async => const Left(NetworkFailure('timeout')));
 
     final container = _makeContainer(mock);
     await container
         .read(hostAttendingListControllerProvider(_testEventId).notifier)
         .retry();
 
-    final state = container.read(hostAttendingListControllerProvider(_testEventId));
-    expect(state, isA<HostAttendingListError>());
-    expect(
-      (state as HostAttendingListError).failure,
-      isA<NetworkFailure>(),
+    final state = container.read(
+      hostAttendingListControllerProvider(_testEventId),
     );
+    expect(state, isA<HostAttendingListError>());
+    expect((state as HostAttendingListError).failure, isA<NetworkFailure>());
   });
 
   // -------------------------------------------------------------------------

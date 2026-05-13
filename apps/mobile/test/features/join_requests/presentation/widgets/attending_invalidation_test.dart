@@ -13,7 +13,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/features/join_requests/domain/entities/join_request.dart';
 import 'package:tribely/src/features/join_requests/domain/entities/join_request_with_requester.dart';
 import 'package:tribely/src/features/join_requests/domain/usecases/approve_join_request_usecase.dart';
@@ -102,112 +101,97 @@ void main() {
     registerFallbackValue(FakeListApprovedForEventParams());
   });
 
-  test(
-    'approve() success invalidates hostAttendingListControllerProvider '
-    'causing attending list to reflect newly approved requester',
-    () async {
-      final mockApprove = MockApproveJoinRequestUseCase();
-      final mockDecline = MockDeclineJoinRequestUseCase();
-      final mockListPending = MockListPendingForEventUseCase();
-      final mockListApproved = MockListApprovedForEventUseCase();
+  test('approve() success invalidates hostAttendingListControllerProvider '
+      'causing attending list to reflect newly approved requester', () async {
+    final mockApprove = MockApproveJoinRequestUseCase();
+    final mockDecline = MockDeclineJoinRequestUseCase();
+    final mockListPending = MockListPendingForEventUseCase();
+    final mockListApproved = MockListApprovedForEventUseCase();
 
-      final pendingItem = _makePendingItem('jr-1', 'Alice');
-      final approvedItem = _makeApprovedItem('jr-1', 'Alice');
+    final pendingItem = _makePendingItem('jr-1', 'Alice');
+    final approvedItem = _makeApprovedItem('jr-1', 'Alice');
 
-      // Pending list returns [alice] initially.
-      when(
-        () => mockListPending(any()),
-      ).thenAnswer((_) async => Right([pendingItem]));
+    // Pending list returns [alice] initially.
+    when(
+      () => mockListPending(any()),
+    ).thenAnswer((_) async => Right([pendingItem]));
 
-      // Approve succeeds.
-      when(
-        () => mockApprove(any()),
-      ).thenAnswer((_) async => Right(_makeApprovedJoinRequest('jr-1')));
+    // Approve succeeds.
+    when(
+      () => mockApprove(any()),
+    ).thenAnswer((_) async => Right(_makeApprovedJoinRequest('jr-1')));
 
-      // After approval, approved list returns [alice].
-      when(
-        () => mockListApproved(any()),
-      ).thenAnswer((_) async => Right([approvedItem]));
+    // After approval, approved list returns [alice].
+    when(
+      () => mockListApproved(any()),
+    ).thenAnswer((_) async => Right([approvedItem]));
 
-      final container = ProviderContainer(
-        overrides: [
-          approveJoinRequestUseCaseProvider.overrideWithValue(mockApprove),
-          declineJoinRequestUseCaseProvider.overrideWithValue(mockDecline),
-          listPendingForEventUseCaseProvider.overrideWithValue(mockListPending),
-          listApprovedForEventUseCaseProvider.overrideWithValue(mockListApproved),
-        ],
-      );
-      addTearDown(container.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        approveJoinRequestUseCaseProvider.overrideWithValue(mockApprove),
+        declineJoinRequestUseCaseProvider.overrideWithValue(mockDecline),
+        listPendingForEventUseCaseProvider.overrideWithValue(mockListPending),
+        listApprovedForEventUseCaseProvider.overrideWithValue(mockListApproved),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      // Eagerly read both controllers.
-      container.read(hostPendingListControllerProvider(_eventId));
-      container.read(hostAttendingListControllerProvider(_eventId));
+    // Eagerly read both controllers.
+    container.read(hostPendingListControllerProvider(_eventId));
+    container.read(hostAttendingListControllerProvider(_eventId));
 
-      // Drive the initial pending load.
-      await container
-          .read(hostPendingListControllerProvider(_eventId).notifier)
-          .load();
+    // Drive the initial pending load.
+    await container
+        .read(hostPendingListControllerProvider(_eventId).notifier)
+        .load();
 
-      final pendingBefore = container.read(
-        hostPendingListControllerProvider(_eventId),
-      );
-      expect(pendingBefore, isA<HostPendingListLoaded>());
-      expect(
-        (pendingBefore as HostPendingListLoaded).items,
-        hasLength(1),
-      );
+    final pendingBefore = container.read(
+      hostPendingListControllerProvider(_eventId),
+    );
+    expect(pendingBefore, isA<HostPendingListLoaded>());
+    expect((pendingBefore as HostPendingListLoaded).items, hasLength(1));
 
-      // Drive the initial attending load.
-      await container
-          .read(hostAttendingListControllerProvider(_eventId).notifier)
-          .retry();
+    // Drive the initial attending load.
+    await container
+        .read(hostAttendingListControllerProvider(_eventId).notifier)
+        .retry();
 
-      // Before approve: approved list is empty (no items yet in this sim).
-      // We model this via mockListApproved returning empty first call, then alice.
-      // Re-stub to empty for pre-approve call and alice for post-approve.
-      var approvedCallCount = 0;
-      when(() => mockListApproved(any())).thenAnswer((_) async {
-        approvedCallCount++;
-        if (approvedCallCount == 1) return const Right([]);
-        return Right([approvedItem]);
-      });
+    // Before approve: approved list is empty (no items yet in this sim).
+    // We model this via mockListApproved returning empty first call, then alice.
+    // Re-stub to empty for pre-approve call and alice for post-approve.
+    var approvedCallCount = 0;
+    when(() => mockListApproved(any())).thenAnswer((_) async {
+      approvedCallCount++;
+      if (approvedCallCount == 1) return const Right([]);
+      return Right([approvedItem]);
+    });
 
-      // Re-drive attending: first call → empty.
-      await container
-          .read(hostAttendingListControllerProvider(_eventId).notifier)
-          .retry();
-      final attendingBefore = container.read(
-        hostAttendingListControllerProvider(_eventId),
-      );
-      expect(
-        (attendingBefore as HostAttendingListLoaded).items,
-        isEmpty,
-      );
+    // Re-drive attending: first call → empty.
+    await container
+        .read(hostAttendingListControllerProvider(_eventId).notifier)
+        .retry();
+    final attendingBefore = container.read(
+      hostAttendingListControllerProvider(_eventId),
+    );
+    expect((attendingBefore as HostAttendingListLoaded).items, isEmpty);
 
-      // Approve the pending row — this should invalidate the attending provider.
-      await container
-          .read(hostPendingListControllerProvider(_eventId).notifier)
-          .approve('jr-1');
+    // Approve the pending row — this should invalidate the attending provider.
+    await container
+        .read(hostPendingListControllerProvider(_eventId).notifier)
+        .approve('jr-1');
 
-      // The invalidation causes the attending controller to re-build (Loading)
-      // and schedule a new _load(). Drive it by calling retry().
-      await container
-          .read(hostAttendingListControllerProvider(_eventId).notifier)
-          .retry();
+    // The invalidation causes the attending controller to re-build (Loading)
+    // and schedule a new _load(). Drive it by calling retry().
+    await container
+        .read(hostAttendingListControllerProvider(_eventId).notifier)
+        .retry();
 
-      // Post-approve: attending list should now contain alice.
-      final attendingAfter = container.read(
-        hostAttendingListControllerProvider(_eventId),
-      );
-      expect(attendingAfter, isA<HostAttendingListLoaded>());
-      expect(
-        (attendingAfter as HostAttendingListLoaded).items,
-        hasLength(1),
-      );
-      expect(
-        (attendingAfter).items.first.requester.displayName,
-        'Alice',
-      );
-    },
-  );
+    // Post-approve: attending list should now contain alice.
+    final attendingAfter = container.read(
+      hostAttendingListControllerProvider(_eventId),
+    );
+    expect(attendingAfter, isA<HostAttendingListLoaded>());
+    expect((attendingAfter as HostAttendingListLoaded).items, hasLength(1));
+    expect((attendingAfter).items.first.requester.displayName, 'Alice');
+  });
 }

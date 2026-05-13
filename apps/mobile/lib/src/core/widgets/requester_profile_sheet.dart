@@ -98,8 +98,10 @@ class RequesterProfileSheet extends ConsumerWidget {
   }
 
   String _messageFor(Object error) {
-    if (error is NetworkFailure) return "Couldn't reach Tribely. Check your connection.";
-    if (error is ServerFailure && error.statusCode == 404) return 'User not found.';
+    if (error is NetworkFailure)
+      return "Couldn't reach Tribely. Check your connection.";
+    if (error is ServerFailure && error.statusCode == 404)
+      return 'User not found.';
     if (error is ServerFailure) return 'Something went wrong. Try again.';
     if (error is Failure) return error.message;
     return 'Something went wrong. Try again.';
@@ -116,11 +118,7 @@ class _LoadingBody extends StatelessWidget {
     return Column(
       children: [
         // Avatar placeholder circle — 96dp.
-        const SkeletonLoader(
-          width: 96,
-          height: 96,
-          borderRadius: 48.0,
-        ),
+        const SkeletonLoader(width: 96, height: 96, borderRadius: 48.0),
         const SizedBox(height: 16),
         // Name shimmer line (~50% width).
         SkeletonLoader(
@@ -164,10 +162,7 @@ class _ErrorBody extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _LoadedBody extends StatelessWidget {
-  const _LoadedBody({
-    required this.displayName,
-    required this.createdAt,
-  });
+  const _LoadedBody({required this.displayName, required this.createdAt});
 
   final String displayName;
   final DateTime createdAt;
@@ -217,10 +212,7 @@ class _LoadedBody extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 /// Opens [RequesterProfileSheet] as a drag-dismissible modal bottom sheet.
-Future<void> showRequesterProfileSheet(
-  BuildContext context,
-  String userId,
-) {
+Future<void> showRequesterProfileSheet(BuildContext context, String userId) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,

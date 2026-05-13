@@ -847,10 +847,7 @@ class _AttendingSection extends ConsumerWidget {
 }
 
 class _AttendingErrorSection extends StatelessWidget {
-  const _AttendingErrorSection({
-    required this.message,
-    required this.onRetry,
-  });
+  const _AttendingErrorSection({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -895,10 +892,8 @@ class _AttendingLoadedSection extends StatelessWidget {
           (item) => AttendingRequestRow(
             key: ValueKey(item.joinRequest.id),
             item: item,
-            onTapRequester: () => showRequesterProfileSheet(
-              context,
-              item.requester.id,
-            ),
+            onTapRequester: () =>
+                showRequesterProfileSheet(context, item.requester.id),
           ),
         ),
       ],

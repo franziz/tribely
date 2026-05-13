@@ -150,9 +150,7 @@ void main() {
       (tester) async {
         await _pumpSection(
           tester,
-          HostAttendingListLoaded(
-            items: [_makeItem('jr-1', 'Alice Tan')],
-          ),
+          HostAttendingListLoaded(items: [_makeItem('jr-1', 'Alice Tan')]),
         );
 
         expect(find.byType(AttendingRequestRow), findsOneWidget);
@@ -182,9 +180,7 @@ void main() {
     testWidgets('error state renders BannerMessage with retry', (tester) async {
       await _pumpSection(
         tester,
-        HostAttendingListError(
-          failure: const NetworkFailure('timeout'),
-        ),
+        const HostAttendingListError(failure: NetworkFailure('timeout')),
       );
 
       expect(find.byType(BannerMessage), findsOneWidget);

@@ -42,9 +42,10 @@ final listPendingForEventUseCaseProvider = Provider<ListPendingForEventUseCase>(
   (_) => sl<ListPendingForEventUseCase>(),
 );
 
-final listApprovedForEventUseCaseProvider = Provider<ListApprovedForEventUseCase>(
-  (_) => sl<ListApprovedForEventUseCase>(),
-);
+final listApprovedForEventUseCaseProvider =
+    Provider<ListApprovedForEventUseCase>(
+      (_) => sl<ListApprovedForEventUseCase>(),
+    );
 
 final listMyJoinRequestsUseCaseProvider = Provider<ListMyJoinRequestsUseCase>(
   (_) => sl<ListMyJoinRequestsUseCase>(),

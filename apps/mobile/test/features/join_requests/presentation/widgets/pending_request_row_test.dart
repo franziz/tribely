@@ -190,65 +190,58 @@ void main() {
     // -----------------------------------------------------------------------
     // 9. Tapping avatar/name area calls onTapRequester
     // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping avatar/name InkWell calls onTapRequester',
-      (tester) async {
-        var tapCalled = false;
-        await _pumpRow(
-          tester,
-          onApprove: () {},
-          onDecline: (_) {},
-          onTapRequester: () => tapCalled = true,
-        );
+    testWidgets('tapping avatar/name InkWell calls onTapRequester', (
+      tester,
+    ) async {
+      var tapCalled = false;
+      await _pumpRow(
+        tester,
+        onApprove: () {},
+        onDecline: (_) {},
+        onTapRequester: () => tapCalled = true,
+      );
 
-        // The InkWell wraps avatar + name; tap the name text.
-        await tester.tap(find.text('Priya Sharma'));
-        await tester.pump();
+      // The InkWell wraps avatar + name; tap the name text.
+      await tester.tap(find.text('Priya Sharma'));
+      await tester.pump();
 
-        expect(tapCalled, isTrue);
-      },
-    );
+      expect(tapCalled, isTrue);
+    });
 
     // -----------------------------------------------------------------------
     // 10. Tapping Approve does NOT call onTapRequester
     // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping Approve does NOT call onTapRequester',
-      (tester) async {
-        var tapCalled = false;
-        await _pumpRow(
-          tester,
-          onApprove: () {},
-          onDecline: (_) {},
-          onTapRequester: () => tapCalled = true,
-        );
+    testWidgets('tapping Approve does NOT call onTapRequester', (tester) async {
+      var tapCalled = false;
+      await _pumpRow(
+        tester,
+        onApprove: () {},
+        onDecline: (_) {},
+        onTapRequester: () => tapCalled = true,
+      );
 
-        await tester.tap(find.widgetWithText(OutlinedButton, 'Approve'));
-        await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Approve'));
+      await tester.pump();
 
-        expect(tapCalled, isFalse);
-      },
-    );
+      expect(tapCalled, isFalse);
+    });
 
     // -----------------------------------------------------------------------
     // 11. Tapping Decline does NOT call onTapRequester
     // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping Decline does NOT call onTapRequester',
-      (tester) async {
-        var tapCalled = false;
-        await _pumpRow(
-          tester,
-          onApprove: () {},
-          onDecline: (_) {},
-          onTapRequester: () => tapCalled = true,
-        );
+    testWidgets('tapping Decline does NOT call onTapRequester', (tester) async {
+      var tapCalled = false;
+      await _pumpRow(
+        tester,
+        onApprove: () {},
+        onDecline: (_) {},
+        onTapRequester: () => tapCalled = true,
+      );
 
-        await tester.tap(find.widgetWithText(OutlinedButton, 'Decline'));
-        await tester.pump();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Decline'));
+      await tester.pump();
 
-        expect(tapCalled, isFalse);
-      },
-    );
+      expect(tapCalled, isFalse);
+    });
   });
 }
