@@ -10,6 +10,11 @@ export interface ListEventsInput {
   category?: string;
   from?: Date;
   to?: Date;
+  /**
+   * Filter by host user id. Caller-resolved (controller passes the
+   * authenticated user's id for /me/events; public listings pass undefined).
+   */
+  hostUserId?: string;
   cursor?: ListEventsCursor;
   limit: number;
 }
@@ -33,6 +38,7 @@ export class ListEventsUseCase {
         ...(input.category !== undefined && { category: input.category }),
         ...(input.from !== undefined && { from: input.from }),
         ...(input.to !== undefined && { to: input.to }),
+        ...(input.hostUserId !== undefined && { hostUserId: input.hostUserId }),
       },
       input.cursor ?? null,
       input.limit,

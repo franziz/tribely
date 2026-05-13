@@ -106,14 +106,40 @@ export class EventController {
     return c.json(toEventResponse(event), 201);
   };
 
+  /**
+   * Public event listing. `GET /events`.
+   * `hostUserId` query param accepts a concrete user id for admin/moderation
+   * use cases. The `'me'` sentinel is NOT supported here — callers that want
+   * their own hosted events must use `GET /me/events` (requireAuth route).
+   */
   listAction = async (c: Context, query: ListEventsQuery) => {
     const result = await this.listEvents.execute({
       ...(query.city !== undefined && { city: query.city }),
       ...(query.category !== undefined && { category: query.category }),
       ...(query.from !== undefined && { from: new Date(query.from) }),
       ...(query.to !== undefined && { to: new Date(query.to) }),
+      ...(query.hostUserId !== undefined && { hostUserId: query.hostUserId }),
       ...(query.cursor !== undefined && { cursor: decodeCursor(query.cursor) }),
       limit: query.limit,
+    });
+    const response: EventListingResponse = {
+      events: result.events.map(toEventResponse),
+      nextCursor: result.nextCursor ? encodeCursor(result.nextCursor) : null,
+    };
+    return c.json(response, 200);
+  };
+
+  /**
+   * Authenticated user's own hosted events. `GET /me/events`.
+   * Returns the same EventListingResponse shape as listAction.
+   * No cursor/filter support — returns up to 50 events (max page size).
+   * The mobile Hosting tab doesn't paginate; this matches the existing
+   * mobile pattern for "list my join requests" which also fetches all at once.
+   */
+  listMyEventsAction = async (c: Context, actorUserId: string) => {
+    const result = await this.listEvents.execute({
+      hostUserId: actorUserId,
+      limit: 50,
     });
     const response: EventListingResponse = {
       events: result.events.map(toEventResponse),

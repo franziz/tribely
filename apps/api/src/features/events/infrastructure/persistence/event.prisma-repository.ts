@@ -83,6 +83,7 @@ export class EventPrismaRepository implements EventRepository {
     if (filters.category !== undefined) filterClauses.push({ category: filters.category });
     if (filters.from !== undefined) filterClauses.push({ startsAt: { gte: filters.from } });
     if (filters.to !== undefined) filterClauses.push({ startsAt: { lte: filters.to } });
+    if (filters.hostUserId !== undefined) filterClauses.push({ hostUserId: filters.hostUserId });
     if (cursor) {
       filterClauses.push({
         OR: [

@@ -1,18 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createJoinRequestBodySchema,
+  listJoinRequestsByEventQuerySchema,
   rejectJoinRequestBodySchema,
 } from './join-request.schemas.js';
-
-describe('createJoinRequestBodySchema', () => {
-  it('accepts an empty body', () => {
-    expect(createJoinRequestBodySchema.parse({})).toEqual({});
-  });
-
-  it('rejects unknown fields (strict)', () => {
-    expect(() => createJoinRequestBodySchema.parse({ message: 'hi' })).toThrowError();
-  });
-});
 
 describe('rejectJoinRequestBodySchema', () => {
   it('accepts a normal reason', () => {
@@ -31,5 +21,28 @@ describe('rejectJoinRequestBodySchema', () => {
 
   it('rejects a missing reason', () => {
     expect(() => rejectJoinRequestBodySchema.parse({})).toThrowError();
+  });
+});
+
+describe('listJoinRequestsByEventQuerySchema', () => {
+  it('accepts absent status → returns undefined (use case applies default)', () => {
+    const result = listJoinRequestsByEventQuerySchema.parse({});
+    expect(result.status).toBeUndefined();
+  });
+
+  it('accepts a single status string and coerces to array', () => {
+    const result = listJoinRequestsByEventQuerySchema.parse({ status: 'approved' });
+    expect(result.status).toEqual(['approved']);
+  });
+
+  it('accepts an array of status values', () => {
+    const result = listJoinRequestsByEventQuerySchema.parse({
+      status: ['pending', 'approved'],
+    });
+    expect(result.status).toEqual(['pending', 'approved']);
+  });
+
+  it('rejects an invalid status value', () => {
+    expect(() => listJoinRequestsByEventQuerySchema.parse({ status: 'unknown' })).toThrowError();
   });
 });

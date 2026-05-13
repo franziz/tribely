@@ -62,6 +62,12 @@ export const listEventsQuerySchema = z.object({
   category: categorySchema.optional(),
   from: isoDatetime.optional(),
   to: isoDatetime.optional(),
+  /**
+   * Filter by host. Accepts a concrete user id (for admin/moderation use cases).
+   * The `'me'` sentinel is NOT supported — callers that want their own hosted
+   * events must use `GET /me/events`.
+   */
+  hostUserId: z.string().min(1).optional(),
   cursor: z.string().min(1).optional(),
   // `coerce` lets the query string `?limit=20` arrive as a string and parse to
   // a number. The integer + clamp constraint stays.

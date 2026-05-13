@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/services/location_service_providers.dart';
 import '../../domain/entities/discover_filters.dart';
 import '../../domain/usecases/browse_events_usecase.dart';
-import '../providers/browse_events_usecase_provider.dart';
+import '../../../../core/providers/browse_events_usecase_provider.dart';
 import '../providers/discover_filter_providers.dart';
 import '../state/discover_filter_state.dart';
 import '../state/discover_state.dart';

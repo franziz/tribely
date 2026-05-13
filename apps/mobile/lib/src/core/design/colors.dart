@@ -21,6 +21,9 @@ class TribelyColors {
   static const Color paperAccent = Color(0xFFD85730); // ember coral
   static const Color paperAccentSoft = Color(0xFFFCE4DC); // banner backdrop
   static const Color paperSuccess = Color(0xFF4A7C59);
+  static const Color paperSuccessSoft = Color(
+    0xFFE6F2EA,
+  ); // approved pill backdrop
 
   // Dark — Equatorial Night
   static const Color nightSurface = Color(0xFF131110);
@@ -33,4 +36,7 @@ class TribelyColors {
   static const Color nightAccent = Color(0xFFE07F5F);
   static const Color nightAccentSoft = Color(0xFF2E1F1A);
   static const Color nightSuccess = Color(0xFF82B091);
+  // TODO(design): night value is a placeholder — confirm final dark-mode
+  // approved-pill background with designer before production release.
+  static const Color nightSuccessSoft = Color(0xFF1F3D2A);
 }

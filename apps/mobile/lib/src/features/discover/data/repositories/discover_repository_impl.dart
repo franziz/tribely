@@ -46,6 +46,18 @@ class DiscoverRepositoryImpl implements DiscoverRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<Event>>> listMyHostedEvents() async {
+    try {
+      final response = await _remote.listMyHostedEvents();
+      return Right(response.events.map((m) => m.toEntity()).toList());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Dio → Failure mapping
   // ---------------------------------------------------------------------------

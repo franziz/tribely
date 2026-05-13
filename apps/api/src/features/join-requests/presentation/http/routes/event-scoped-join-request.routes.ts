@@ -7,7 +7,7 @@ import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type { JoinRequestController } from '../controllers/join-request.controller.js';
-import { createJoinRequestBodySchema } from '../schemas/join-request.schemas.js';
+import { listJoinRequestsByEventQuerySchema } from '../schemas/join-request.schemas.js';
 
 export interface EventScopedJoinRequestRouteDeps {
   controller: JoinRequestController;
@@ -49,15 +49,15 @@ export const buildEventScopedJoinRequestRoutes = (
   });
 
   return new Hono<{ Variables: AuthVariables }>()
-    .post(
+    .post('/:id/join-requests', auth, verified, limitCreate, (c) =>
+      deps.controller.createAction(c, c.req.param('id'), c.get('userId')),
+    )
+    .get(
       '/:id/join-requests',
       auth,
       verified,
-      limitCreate,
-      zValidator('json', createJoinRequestBodySchema),
-      (c) => deps.controller.createAction(c, c.req.param('id'), c.get('userId')),
-    )
-    .get('/:id/join-requests', auth, verified, (c) =>
-      deps.controller.listAction(c, c.req.param('id'), c.get('userId')),
+      zValidator('query', listJoinRequestsByEventQuerySchema),
+      (c) =>
+        deps.controller.listAction(c, c.req.param('id'), c.get('userId'), c.req.valid('query')),
     );
 };

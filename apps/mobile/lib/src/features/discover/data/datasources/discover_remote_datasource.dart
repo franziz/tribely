@@ -32,6 +32,10 @@ abstract class DiscoverRemoteDatasource {
 
   /// Fetches the full detail of a single event from `GET /events/:id`.
   Future<EventModel> getEventDetail(String eventId);
+
+  /// Fetches the authenticated user's own hosted events from `GET /me/events`.
+  /// Requires a valid Bearer token (API client handles injection automatically).
+  Future<EventPageResponse> listMyHostedEvents();
 }
 
 class DiscoverRemoteDatasourceImpl implements DiscoverRemoteDatasource {
@@ -45,6 +49,12 @@ class DiscoverRemoteDatasourceImpl implements DiscoverRemoteDatasource {
       '/events',
       queryParameters: filters.toQueryParams(),
     );
+    return EventPageResponse.fromJson(response.data!);
+  }
+
+  @override
+  Future<EventPageResponse> listMyHostedEvents() async {
+    final response = await _dio.get<Map<String, dynamic>>('/me/events');
     return EventPageResponse.fromJson(response.data!);
   }
 

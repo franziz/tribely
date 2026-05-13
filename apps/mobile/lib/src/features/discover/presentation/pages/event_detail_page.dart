@@ -1,14 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
+import '../../../../core/design/motion.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/error/failures.dart';
+import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
+import '../../../../core/widgets/status_pill.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
 import '../../../events/domain/entities/event.dart';
+import '../../../join_requests/domain/entities/join_request.dart';
+import '../../../join_requests/domain/entities/join_request_with_requester.dart';
+import '../../../join_requests/presentation/controllers/host_pending_list_controller.dart';
+import '../../../join_requests/presentation/controllers/request_to_join_controller.dart';
+import '../../../join_requests/presentation/providers/join_requests_providers.dart';
+import '../../../join_requests/presentation/state/host_attending_list_state.dart';
+import '../../../join_requests/presentation/state/host_pending_list_state.dart';
+import '../../../join_requests/presentation/state/request_to_join_state.dart';
+import '../../../join_requests/presentation/widgets/attending_request_row.dart';
+import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
+import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
+import '../../../join_requests/presentation/widgets/pending_request_row.dart';
+import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../providers/event_detail_providers.dart';
 import '../state/event_detail_state.dart';
 
@@ -17,19 +35,21 @@ import '../state/event_detail_state.dart';
 /// Renders outside the bottom-nav shell (parentNavigatorKey: _rootNavigatorKey
 /// in app_router.dart) so the nav bar is hidden on this screen (§E).
 ///
-/// CTA: "Request to join" is shown to non-host authenticated viewers and
-/// unauthenticated viewers. Hosts viewing their own event see NO CTA (no
-/// empty button slot, no layout artifact). Tapping fires a SnackBar
-/// communicating temporal unavailability (§F inert-CTA pattern).
-/// The actual join-request submission is TRI-28.
+/// Non-host viewer CTA renders a sticky bottom bar with state-aware content:
+///   - No existing request → "Request to join" button → ConfirmJoinSheet
+///   - Pending request → StatusPill + "Sent to {host}" + "Withdraw request" link
+///   - Approved request → StatusPill(approved), no action
+///   - Declined request → StatusPill(declined) + decisionReason caption
+///   - Withdrawn request (event not past) → PrimaryButton("Request to join") → re-request
+///   - Event past / capacity full → disabled button + inline reason
+///   - 403 EMAIL_NOT_VERIFIED → BannerMessage above bar + "Verify now" link
+///
+/// Host viewers see NO CTA (isHostViewer branch). B2 will wire the host-side
+/// management UI; leave the slot intact via [_HostBranchPlaceholder].
 class EventDetailPage extends ConsumerWidget {
   const EventDetailPage({required this.eventId, super.key});
 
   final String eventId;
-
-  static const String _ctaSnackBarMessage =
-      'Join requests are coming soon — you\'ll be first to know.';
-  static const Duration _ctaSnackBarDuration = Duration(seconds: 3);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,6 +67,33 @@ class EventDetailPage extends ConsumerWidget {
         state is EventDetailLoaded &&
         session.session.user.id == state.event.hostId;
 
+    // Watch join state at the outer Scaffold level so we can supply
+    // bottomNavigationBar — Scaffold auto-reserves the exact inset, eliminating
+    // the manual stickyBarHeight estimation that caused the overlap bug.
+    // Only matters when the event is loaded and the viewer is not the host;
+    // for all other states joinState is ignored.
+    final joinState = state is EventDetailLoaded
+        ? ref.watch(requestToJoinControllerProvider(eventId))
+        : null;
+
+    final effectiveRequest = switch (joinState) {
+      RequestToJoinSubmitted(:final joinRequest) => joinRequest,
+      RequestToJoinIdle(:final existingRequest) => existingRequest,
+      RequestToJoinWithdrawing(:final withdrawingRequest) => withdrawingRequest,
+      _ => null,
+    };
+
+    final emailNotVerifiedFailure = switch (joinState) {
+      RequestToJoinFailed(:final failure)
+          when failure is EmailNotVerifiedFailure =>
+        failure,
+      _ => null,
+    };
+
+    // Determine if we should show the sticky join bar.
+    final showStickyBar =
+        !isHostViewer && state is EventDetailLoaded && joinState != null;
+
     return Scaffold(
       backgroundColor: TribelyColors.paperSurface,
       // extendBodyBehindAppBar = true allows the hero image to bleed behind
@@ -59,13 +106,30 @@ class EventDetailPage extends ConsumerWidget {
         leading: _BackButton(),
         // Share action deferred per §E technical non-goals.
       ),
+      // Scaffold.bottomNavigationBar auto-insets the body by the bar's exact
+      // rendered height — no manual height estimation needed. This fixes the
+      // sticky-bar overlap that occurred with the old Stack + stickyBarHeight()
+      // approach (pending/declined content was ~126px; estimate was 100px).
+      //
+      // showStickyBar == true only when state is EventDetailLoaded and
+      // joinState != null, so the pattern-match and null-check below are safe.
+      bottomNavigationBar: switch (showStickyBar) {
+        true when state is EventDetailLoaded && joinState != null =>
+          _StickyJoinBar(
+            event: state.event,
+            joinState: joinState,
+            effectiveRequest: effectiveRequest,
+            emailNotVerifiedBanner: emailNotVerifiedFailure != null,
+          ),
+        _ => null,
+      },
       body: switch (state) {
         EventDetailInitial() => const _LoadingSkeleton(),
         EventDetailLoading() => const _LoadingSkeleton(),
         EventDetailLoaded(:final event) => _LoadedBody(
           event: event,
           isHostViewer: isHostViewer,
-          onJoinPressed: () => _showJoinSnackBar(context),
+          eventId: eventId,
         ),
         EventDetailError(:final failure) => _ErrorBody(
           message: failure.message,
@@ -74,16 +138,6 @@ class EventDetailPage extends ConsumerWidget {
         ),
         EventDetailNotFound() => _NotFoundBody(),
       },
-    );
-  }
-
-  void _showJoinSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_ctaSnackBarMessage),
-        duration: _ctaSnackBarDuration,
-      ),
     );
   }
 }
@@ -195,65 +249,53 @@ class _LoadedBody extends StatelessWidget {
   const _LoadedBody({
     required this.event,
     required this.isHostViewer,
-    required this.onJoinPressed,
+    required this.eventId,
   });
 
   final Event event;
 
-  /// True when the authenticated user is the event's host. Passed in from the
-  /// parent ConsumerWidget so this widget stays a plain StatelessWidget.
+  /// True when the authenticated user is the event's host.
   final bool isHostViewer;
 
-  final VoidCallback onJoinPressed;
+  final String eventId;
 
   @override
   Widget build(BuildContext context) {
-    // When the host is viewing their own event, drop the 80dp sticky-bar
-    // reservation — no CTA, no empty layout artifact.
-    final bottomPadding = isHostViewer
-        ? MediaQuery.paddingOf(context).bottom
-        : 80 + MediaQuery.paddingOf(context).bottom;
-
-    return Stack(
-      children: [
-        // Scrollable content.
-        SingleChildScrollView(
-          // Bottom padding reserves space for the sticky CTA when visible.
-          // For host viewers the CTA is absent, so only safe-area padding applies.
-          padding: EdgeInsets.only(bottom: bottomPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HeroImage(event: event),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TitleBlock(event: event),
-                    const SizedBox(height: 20),
-                    _MetaRows(event: event),
-                    const SizedBox(height: 24),
-                    _AboutSection(description: event.description),
-                    const SizedBox(height: 16),
-                    _CapacityLine(event: event),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            ],
+    // Scrollable content only — the sticky CTA is now Scaffold.bottomNavigationBar
+    // on the outer Scaffold, which auto-insets the body by its exact rendered
+    // height. No Stack, no Positioned, no manual height estimation.
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HeroImage(event: event),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TitleBlock(event: event),
+                const SizedBox(height: 20),
+                _MetaRows(event: event),
+                const SizedBox(height: 24),
+                _AboutSection(description: event.description),
+                const SizedBox(height: 16),
+                _CapacityLine(event: event),
+                const SizedBox(height: 8),
+                // Host-only: pending requests section (B2a) + attending section.
+                if (isHostViewer) ...[
+                  const SizedBox(height: 16),
+                  _PendingRequestsSection(eventId: eventId),
+                  const SizedBox(height: 8),
+                  _AttendingSection(eventId: eventId),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
           ),
-        ),
-        // Sticky bottom CTA (§E + §F). Hidden for host viewers — no "manage"
-        // CTA in v1; host-side management deferred per non-goals.
-        if (!isHostViewer)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _StickyJoinBar(onPressed: onJoinPressed),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -472,15 +514,494 @@ class _CapacityLine extends StatelessWidget {
   }
 }
 
-/// Sticky bottom bar — always visible, always tappable. Toast on tap (§F).
-class _StickyJoinBar extends StatelessWidget {
-  const _StickyJoinBar({required this.onPressed});
+// ---------------------------------------------------------------------------
+// Pending requests section — host branch only (B2a)
+// ---------------------------------------------------------------------------
 
-  final VoidCallback onPressed;
+/// Section that renders the host's list of pending join requests inline within
+/// the event detail scroll body.
+///
+/// Hidden entirely when zero pending (PM AC: no empty section header).
+/// Error handling: full-load failures show a [BannerMessage] with retry;
+/// action-level failures (approve/decline) show an inline section banner while
+/// keeping the row list intact.
+class _PendingRequestsSection extends ConsumerStatefulWidget {
+  const _PendingRequestsSection({required this.eventId});
+
+  final String eventId;
+
+  @override
+  ConsumerState<_PendingRequestsSection> createState() =>
+      _PendingRequestsSectionState();
+}
+
+class _PendingRequestsSectionState
+    extends ConsumerState<_PendingRequestsSection> {
+  // Track which rows have been "dismissed" (approved/declined) so we can
+  // run the slide-out animation before removal.
+  final Set<String> _dismissingIds = {};
 
   @override
   Widget build(BuildContext context) {
+    final pendingState = ref.watch(
+      hostPendingListControllerProvider(widget.eventId),
+    );
+    final controller = ref.read(
+      hostPendingListControllerProvider(widget.eventId).notifier,
+    );
+
+    // Listen for race-condition conflicts: show a toast then clear.
+    ref.listen<HostPendingListState>(
+      hostPendingListControllerProvider(widget.eventId),
+      (prev, next) {
+        if (next is HostPendingListLoaded && next.raceConflictId != null) {
+          controller.clearRaceConflict();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This request was already handled.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      },
+    );
+
+    return switch (pendingState) {
+      HostPendingListLoading() => const _PendingLoadingRow(),
+      HostPendingListError(:final failure) => _PendingErrorSection(
+        message: failure.message,
+        onRetry: controller.retry,
+      ),
+      HostPendingListLoaded(items: final items) when items.isEmpty =>
+        const SizedBox.shrink(), // hide entire section at zero pending
+      HostPendingListLoaded(
+        :final items,
+        :final sectionError,
+        :final actionInFlightId,
+      ) =>
+        _PendingLoadedSection(
+          eventId: widget.eventId,
+          items: items,
+          sectionError: sectionError,
+          actionInFlightId: actionInFlightId,
+          dismissingIds: _dismissingIds,
+          onApprove: (id) => _handleApprove(controller, id),
+          onDeclineRequest: (item) =>
+              _handleDeclineRequest(context, controller, item),
+          onClearSectionError: controller.clearSectionError,
+          onTapRequester: (userId) =>
+              showRequesterProfileSheet(context, userId),
+        ),
+    };
+  }
+
+  Future<void> _handleApprove(
+    HostPendingListController controller,
+    String joinRequestId,
+  ) async {
+    setState(() => _dismissingIds.add(joinRequestId));
+    await controller.approve(joinRequestId);
+    if (mounted) setState(() => _dismissingIds.remove(joinRequestId));
+  }
+
+  Future<void> _handleDeclineRequest(
+    BuildContext context,
+    HostPendingListController controller,
+    JoinRequestWithRequester item,
+  ) async {
+    await showDeclineReasonSheet(
+      context,
+      requesterDisplayName: item.requester.displayName,
+      onSubmit: (reason) async {
+        setState(() => _dismissingIds.add(item.joinRequest.id));
+        await controller.decline(item.joinRequest.id, reason: reason);
+        if (mounted) setState(() => _dismissingIds.remove(item.joinRequest.id));
+        // If there's a sectionError after decline, return it; otherwise null.
+        final st = ref.read(hostPendingListControllerProvider(widget.eventId));
+        if (st is HostPendingListLoaded && st.sectionError != null) {
+          return st.sectionError;
+        }
+        return null;
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pending section sub-widgets
+// ---------------------------------------------------------------------------
+
+class _PendingLoadingRow extends StatelessWidget {
+  const _PendingLoadingRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _PendingErrorSection extends StatelessWidget {
+  const _PendingErrorSection({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BannerMessage(
+          message: message,
+          action: BannerAction(label: 'Retry', onTap: onRetry),
+        ),
+      ],
+    );
+  }
+}
+
+class _PendingLoadedSection extends StatelessWidget {
+  const _PendingLoadedSection({
+    required this.eventId,
+    required this.items,
+    required this.sectionError,
+    required this.actionInFlightId,
+    required this.dismissingIds,
+    required this.onApprove,
+    required this.onDeclineRequest,
+    required this.onClearSectionError,
+    required this.onTapRequester,
+  });
+
+  final String eventId;
+  final List<JoinRequestWithRequester> items;
+  final String? sectionError;
+  final String? actionInFlightId;
+  final Set<String> dismissingIds;
+  final ValueChanged<String> onApprove;
+  final ValueChanged<JoinRequestWithRequester> onDeclineRequest;
+  final VoidCallback onClearSectionError;
+  final ValueChanged<String> onTapRequester;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header: "REQUESTS (N)" — caption/13, paperInkSecondary,
+        // uppercase. Per PM AC: hidden at zero (caller guards this).
+        Semantics(
+          header: true,
+          child: Text(
+            'REQUESTS (${items.length})',
+            style: TribelyType.caption(
+              TribelyColors.paperInkSecondary,
+            ).copyWith(letterSpacing: 0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Inline section error (action failures: network, capacity-full).
+        if (sectionError != null) ...[
+          BannerMessage(message: sectionError!, onDismiss: onClearSectionError),
+          const SizedBox(height: 12),
+        ],
+        // Pending rows with slide-out animation on removal.
+        ...items.map((item) {
+          final isDismissing = dismissingIds.contains(item.joinRequest.id);
+          return _AnimatedPendingRow(
+            key: ValueKey(item.joinRequest.id),
+            item: item,
+            isDismissing: isDismissing,
+            isInFlight: actionInFlightId == item.joinRequest.id,
+            onApprove: () => onApprove(item.joinRequest.id),
+            onDecline: (_) => onDeclineRequest(item),
+            onTapRequester: () => onTapRequester(item.requester.id),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+/// Wraps [PendingRequestRow] in a slide-left + fade-out animation when
+/// [isDismissing] transitions to true.
+class _AnimatedPendingRow extends StatefulWidget {
+  const _AnimatedPendingRow({
+    required this.item,
+    required this.isDismissing,
+    required this.isInFlight,
+    required this.onApprove,
+    required this.onDecline,
+    required this.onTapRequester,
+    super.key,
+  });
+
+  final JoinRequestWithRequester item;
+  final bool isDismissing;
+  final bool isInFlight;
+  final VoidCallback onApprove;
+  final ValueChanged<String> onDecline;
+  final VoidCallback onTapRequester;
+
+  @override
+  State<_AnimatedPendingRow> createState() => _AnimatedPendingRowState();
+}
+
+class _AnimatedPendingRowState extends State<_AnimatedPendingRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _opacity = Tween<double>(
+      begin: 1,
+      end: 0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: TribelyMotion.easeIn));
+    _slide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-1.0, 0.0),
+    ).animate(CurvedAnimation(parent: _ctrl, curve: TribelyMotion.easeIn));
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedPendingRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isDismissing && !oldWidget.isDismissing) {
+      _ctrl.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _slide,
+        child: PendingRequestRow(
+          item: widget.item,
+          onApprove: widget.onApprove,
+          onDecline: widget.onDecline,
+          isInFlight: widget.isInFlight,
+          onTapRequester: widget.onTapRequester,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Attending section — host branch only
+// ---------------------------------------------------------------------------
+
+/// Section that renders the host's list of approved (attending) join requests
+/// inline within the event detail scroll body.
+///
+/// Hidden entirely when N=0 (PM AC: no empty section header).
+/// Automatically refreshed when [HostPendingListController.approve] succeeds
+/// via [ref.invalidate(hostAttendingListControllerProvider(eventId))].
+class _AttendingSection extends ConsumerWidget {
+  const _AttendingSection({required this.eventId});
+
+  final String eventId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final attendingState = ref.watch(
+      hostAttendingListControllerProvider(eventId),
+    );
+    final controller = ref.read(
+      hostAttendingListControllerProvider(eventId).notifier,
+    );
+
+    return switch (attendingState) {
+      HostAttendingListLoading() => const SizedBox.shrink(),
+      HostAttendingListError(:final failure) => _AttendingErrorSection(
+        message: failure.message,
+        onRetry: controller.retry,
+      ),
+      HostAttendingListLoaded(items: final items) when items.isEmpty =>
+        const SizedBox.shrink(), // hide when no attendees
+      HostAttendingListLoaded(:final items) => _AttendingLoadedSection(
+        items: items,
+      ),
+    };
+  }
+}
+
+class _AttendingErrorSection extends StatelessWidget {
+  const _AttendingErrorSection({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BannerMessage(
+          message: message,
+          action: BannerAction(label: 'Retry', onTap: onRetry),
+        ),
+      ],
+    );
+  }
+}
+
+class _AttendingLoadedSection extends StatelessWidget {
+  const _AttendingLoadedSection({required this.items});
+
+  final List<JoinRequestWithRequester> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header: "ATTENDING (N)" — caption/13, paperInkSecondary,
+        // uppercase. Matches the "REQUESTS (N)" pattern in the pending section.
+        Semantics(
+          header: true,
+          child: Text(
+            'ATTENDING (${items.length})',
+            style: TribelyType.caption(
+              TribelyColors.paperInkSecondary,
+            ).copyWith(letterSpacing: 0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...items.map(
+          (item) => AttendingRequestRow(
+            key: ValueKey(item.joinRequest.id),
+            item: item,
+            onTapRequester: () =>
+                showRequesterProfileSheet(context, item.requester.id),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sticky bottom bar — state-aware, non-host branch only (B1a)
+// ---------------------------------------------------------------------------
+
+/// Sticky bottom bar for non-host viewers. Renders one of:
+///   - No request: PrimaryButton("Request to join") → opens ConfirmJoinSheet
+///   - Pending: StatusPill(pending) + "Sent to {host}" + withdraw link
+///   - Approved: StatusPill(approved)
+///   - Declined: StatusPill(declined) + decisionReason caption
+///   - Withdrawn (event not past): PrimaryButton("Request to join") → re-request
+///   - Event past or capacity full: disabled PrimaryButton + inline reason
+///   - EmailNotVerified: BannerMessage above bar + "Verify now" link
+///
+/// [emailNotVerifiedBanner]: when true, shows the verify-email inline banner
+/// above the button instead of navigating the user away.
+class _StickyJoinBar extends ConsumerWidget {
+  const _StickyJoinBar({
+    required this.event,
+    required this.joinState,
+    required this.effectiveRequest,
+    required this.emailNotVerifiedBanner,
+  });
+
+  final Event event;
+  final RequestToJoinState joinState;
+  final JoinRequest? effectiveRequest;
+  final bool emailNotVerifiedBanner;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(
+      requestToJoinControllerProvider(event.id).notifier,
+    );
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final hostName = event.hostDisplayName ?? 'Host';
+
+    // Determine whether the event is past or cancelled.
+    final now = DateTime.now().toUtc();
+    final isEventPast =
+        event.endsAt.toUtc().isBefore(now) || event.status == 'cancelled';
+
+    Widget content;
+
+    if (emailNotVerifiedBanner) {
+      content = _VerifyEmailBanner(event: event, controller: controller);
+    } else if (effectiveRequest != null &&
+        effectiveRequest!.status == JoinRequestStatus.withdrawn &&
+        !isEventPast) {
+      // Withdrawn → re-request CTA. PM verdict: same affordance as never-
+      // requested; tapping opens ConfirmJoinSheet which creates a new
+      // JoinRequest. No cooldown, no per-event cap.
+      // Note: capacity-full / cancelled are covered by isEventPast above.
+      final isSubmitting = joinState is RequestToJoinSubmitting;
+      content = PrimaryButton(
+        label: 'Request to join',
+        state: isSubmitting
+            ? PrimaryButtonState.loading
+            : PrimaryButtonState.idle,
+        onPressed: isSubmitting
+            ? null
+            : () => showConfirmJoinSheet(
+                context,
+                eventId: event.id,
+                hostName: hostName,
+                eventTitle: event.title,
+                startsAt: event.startsAt,
+                endsAt: event.endsAt,
+              ),
+      );
+    } else if (effectiveRequest != null) {
+      content = _RequestStatusContent(
+        request: effectiveRequest!,
+        hostName: hostName,
+        controller: controller,
+        isWithdrawing: joinState is RequestToJoinWithdrawing,
+      );
+    } else if (isEventPast) {
+      // Disabled CTA: event has ended. Per feedback_disabled_cta_must_explain_blocker —
+      // never silently disable; always render inline reason text.
+      content = const _DisabledCta(reason: 'Event has ended');
+    } else {
+      // No existing request: show the primary CTA.
+      final isSubmitting = joinState is RequestToJoinSubmitting;
+      content = PrimaryButton(
+        label: 'Request to join',
+        state: isSubmitting
+            ? PrimaryButtonState.loading
+            : PrimaryButtonState.idle,
+        onPressed: isSubmitting
+            ? null
+            : () => showConfirmJoinSheet(
+                context,
+                eventId: event.id,
+                hostName: hostName,
+                eventTitle: event.title,
+                startsAt: event.startsAt,
+                endsAt: event.endsAt,
+              ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
       decoration: const BoxDecoration(
@@ -489,11 +1010,160 @@ class _StickyJoinBar extends StatelessWidget {
           top: BorderSide(color: TribelyColors.paperBorderSubtle, width: 1),
         ),
       ),
-      child: PrimaryButton(
-        label: 'Request to join',
-        state: PrimaryButtonState.idle,
-        onPressed: onPressed,
+      child: content,
+    );
+  }
+}
+
+/// StatusPill + caption + optional withdraw link for pending/approved/
+/// declined/withdrawn request states.
+///
+/// Note: the Withdrawn-with-re-request CTA is handled upstream in
+/// [_StickyJoinBar] — this widget only sees Withdrawn when the event is
+/// past/cancelled (in which case no re-request action is shown).
+class _RequestStatusContent extends StatelessWidget {
+  const _RequestStatusContent({
+    required this.request,
+    required this.hostName,
+    required this.controller,
+    required this.isWithdrawing,
+  });
+
+  final JoinRequest request;
+  final String hostName;
+  final RequestToJoinController controller;
+  final bool isWithdrawing;
+
+  @override
+  Widget build(BuildContext context) {
+    final pillState = switch (request.status) {
+      JoinRequestStatus.pending => StatusPillState.pending,
+      JoinRequestStatus.approved => StatusPillState.approved,
+      JoinRequestStatus.declined => StatusPillState.declined,
+      JoinRequestStatus.withdrawn => StatusPillState.withdrawn,
+    };
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Centred pill.
+        Center(child: StatusPill(state: pillState)),
+        // Context caption.
+        if (request.status == JoinRequestStatus.pending) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Sent to $hostName',
+            textAlign: TextAlign.center,
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+          ),
+          const SizedBox(height: 8),
+          // Withdraw text link.
+          Center(
+            child: isWithdrawing
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : GestureDetector(
+                    onTap: () => _showWithdrawDialog(context),
+                    child: Text(
+                      'Withdraw request',
+                      style: TribelyType.caption(
+                        TribelyColors.paperPrimary,
+                      ).copyWith(decoration: TextDecoration.underline),
+                    ),
+                  ),
+          ),
+        ] else if (request.status == JoinRequestStatus.declined &&
+            request.decisionReason != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            request.decisionReason!,
+            textAlign: TextAlign.center,
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _showWithdrawDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Withdraw your request?'),
+        content: const Text(
+          'You can request again later if you change your mind.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Withdraw'),
+          ),
+        ],
       ),
+    );
+
+    if (confirmed == true) {
+      await controller.withdraw(request.id);
+    }
+  }
+}
+
+/// Disabled CTA with inline reason text.
+/// Per feedback_disabled_cta_must_explain_blocker — always explain why disabled.
+class _DisabledCta extends StatelessWidget {
+  const _DisabledCta({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PrimaryButton(
+          label: reason,
+          onPressed: null,
+          state: PrimaryButtonState.idle,
+        ),
+      ],
+    );
+  }
+}
+
+/// EMAIL_NOT_VERIFIED inline banner. Shown above the (disabled) CTA when the
+/// server returns a 403 with code EMAIL_NOT_VERIFIED.
+class _VerifyEmailBanner extends StatelessWidget {
+  const _VerifyEmailBanner({required this.event, required this.controller});
+
+  final Event event;
+  final RequestToJoinController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BannerMessage(
+          message: 'Verify your email to request events',
+          action: BannerAction(
+            label: 'Verify now',
+            onTap: () => context.push('/verify-email'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const PrimaryButton(
+          label: 'Request to join',
+          onPressed: null,
+          state: PrimaryButtonState.idle,
+        ),
+      ],
     );
   }
 }

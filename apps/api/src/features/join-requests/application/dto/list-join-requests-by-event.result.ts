@@ -1,8 +1,5 @@
-import type { JoinRequest } from '../../domain/entities/join-request.js';
+import type { JoinRequestWithRequester } from '../../domain/repositories/join-request.repository.js';
 
-/**
- * Result of {@link ListJoinRequestsByEventUseCase.execute}.
- */
 export interface ListJoinRequestsByEventResult {
-  joinRequests: JoinRequest[];
+  joinRequests: JoinRequestWithRequester[];
 }

@@ -6,6 +6,8 @@ import { AppError } from '@/core/errors/app-error.js';
 import type { JoinRequest } from '../../domain/entities/join-request.js';
 import type {
   JoinRequestRepository,
+  ListByRequesterPage,
+  ListJoinRequestsByRequesterCursor,
   ListJoinRequestsFilters,
 } from '../../domain/repositories/join-request.repository.js';
 import { toJoinRequest, toRow } from './join-request.mapper.js';
@@ -99,10 +101,58 @@ export class JoinRequestPrismaRepository implements JoinRequestRepository {
     if (filters.requesterUserId !== undefined) {
       where.requesterUserId = filters.requesterUserId;
     }
+    if (filters.status !== undefined && filters.status.length > 0) {
+      where.status = { in: filters.status };
+    }
     const rows = await client.joinRequest.findMany({
       where,
       orderBy: { requestedAt: 'asc' },
     });
     return rows.map(toJoinRequest);
+  }
+
+  async listByRequester(
+    requesterUserId: string,
+    eventId: string | undefined,
+    cursor: ListJoinRequestsByRequesterCursor | null,
+    limit: number,
+    ctx?: TxContext,
+  ): Promise<ListByRequesterPage> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+
+    const filterClauses: Prisma.JoinRequestWhereInput[] = [{ requesterUserId }];
+    if (eventId !== undefined) {
+      filterClauses.push({ eventId });
+    }
+    if (cursor) {
+      // Keyset: rows strictly before (requestedAt, id) in DESC order, i.e.
+      // requestedAt < cursor.lastRequestedAt OR
+      // (requestedAt = cursor.lastRequestedAt AND id < cursor.lastJoinRequestId)
+      filterClauses.push({
+        OR: [
+          { requestedAt: { lt: cursor.lastRequestedAt } },
+          {
+            AND: [
+              { requestedAt: cursor.lastRequestedAt },
+              { id: { lt: cursor.lastJoinRequestId } },
+            ],
+          },
+        ],
+      });
+    }
+
+    const rows = await client.joinRequest.findMany({
+      where: { AND: filterClauses },
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+    });
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page.at(-1);
+    const nextCursor: ListJoinRequestsByRequesterCursor | null =
+      hasMore && last ? { lastRequestedAt: last.requestedAt, lastJoinRequestId: last.id } : null;
+
+    return { joinRequests: page.map(toJoinRequest), nextCursor };
   }
 }

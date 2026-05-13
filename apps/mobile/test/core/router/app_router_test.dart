@@ -3,13 +3,14 @@
 // Strategy: build a test-scoped GoRouter that mirrors the production route
 // tree but replaces pages that require the full get_it DI graph (OwnProfilePage,
 // EditProfilePage, UserProfilePage) with labelled stub Scaffolds.  DiscoverPage
-// and MyEventsPage are trivial ConsumerWidgets with no DI and are rendered
-// directly to validate that the real pages appear under the bottom nav.
+// and MyEventsPage are rendered directly to validate that the real pages appear
+// under the bottom nav.
 //
 // Stub-builder pattern is used for:
-//   - OwnProfilePage  → reads myProfileControllerProvider → needs get_it
-//   - EditProfilePage → reads editProfileControllerProvider → needs get_it
-//   - UserProfilePage → reads userProfileControllerProvider → needs get_it
+//   - OwnProfilePage            → reads myProfileControllerProvider → needs get_it
+//   - EditProfilePage           → reads editProfileControllerProvider → needs get_it
+//   - UserProfilePage           → reads userProfileControllerProvider → needs get_it
+//   - MyJoinRequestsController  → reads listMyJoinRequestsUseCaseProvider → needs get_it
 //
 // Each stub Scaffold carries a unique Key so finders don't need to import
 // the production widgets at all.
@@ -36,7 +37,15 @@ import 'package:tribely/src/features/discover/presentation/providers/discover_ma
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/my_join_requests_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/my_events_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
+import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
+import 'package:tribely/src/features/my_events/presentation/state/my_events_state.dart';
 
 // ---------------------------------------------------------------------------
 // Keys for stub widgets — used as primary finders in assertions.
@@ -73,6 +82,59 @@ class _FixedFilterController extends DiscoverFilterController {
 class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
   @override
   bool build() => true;
+}
+
+/// Bypasses MyJoinRequestsController's use-case fetch (which calls sl<>) so
+/// that MyEventsPage can be rendered in router tests without initialising GetIt.
+class _FixedMyJoinRequestsController extends MyJoinRequestsController {
+  _FixedMyJoinRequestsController() : super(null);
+
+  @override
+  MyJoinRequestsState build() => const MyJoinRequestsLoaded(items: []);
+}
+
+/// Bypasses HostingPendingCountController's _load() which reads
+/// listPendingForEventUseCaseProvider → sl<>. Returns zero state immediately.
+///
+/// MyEventsPage watches hostingPendingCountControllerProvider('') (empty key)
+/// on every build. Without this override the controller's scheduled async
+/// _load() crashes on GetIt access even when eventIds is empty.
+class _FixedHostingPendingCountController
+    extends HostingPendingCountController {
+  _FixedHostingPendingCountController(super.eventIdsKey);
+
+  @override
+  HostingPendingCountState build() =>
+      const HostingPendingCountState(total: 0, perEvent: {});
+
+  @override
+  Future<void> refresh() async {}
+}
+
+/// Bypasses HostingTabController's _load() which reads
+/// listMyHostedEventsUseCaseProvider → sl<>. Returns an empty loaded state
+/// immediately so MyEventsPage can render in router tests without GetIt.
+class _FixedHostingTabController extends HostingTabController {
+  @override
+  HostingTabState build() => const HostingTabLoaded(events: []);
+}
+
+/// Bypasses MyEventsController's async load() which reads
+/// listMyHostedEventsUseCaseProvider → sl<>. Returns an empty loaded state
+/// immediately so MyEventsPage can render in router tests without GetIt.
+///
+/// MyEventsPage watches myEventsControllerProvider on every build to derive
+/// the pending-count key. Without this override the scheduled async load()
+/// crashes on GetIt access even when the event list is empty.
+class _FixedMyEventsController extends MyEventsController {
+  @override
+  MyEventsState build() => const MyEventsLoaded(hostedEventIds: []);
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> refresh() async {}
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +291,29 @@ Future<void> pumpRouter(
         locationPromptShownProvider.overrideWith(
           _PromptAlreadyShownNotifier.new,
         ),
+        // MyEventsPage now renders MyJoinRequestsTab which reads
+        // listMyJoinRequestsUseCaseProvider → sl<>. Override to bypass GetIt.
+        myJoinRequestsControllerProvider(
+          null,
+        ).overrideWith(() => _FixedMyJoinRequestsController()),
+        // MyEventsPage watches hostingPendingCountControllerProvider('') on every
+        // build (initial _hostedEventIds is const [], sorted-join key is '').
+        // The controller's async _load() reads listPendingForEventUseCaseProvider
+        // → sl<>, crashing tests that don't initialise GetIt. Override with a
+        // zero-state stub.
+        hostingPendingCountControllerProvider(
+          '',
+        ).overrideWith(() => _FixedHostingPendingCountController('')),
+        // HostingTabController's async _load() reads
+        // listMyHostedEventsUseCaseProvider → sl<>, crashing tests that don't
+        // initialise GetIt. Override with an empty loaded-state stub.
+        hostingTabControllerProvider.overrideWith(
+          _FixedHostingTabController.new,
+        ),
+        // MyEventsController's async load() reads
+        // listMyHostedEventsUseCaseProvider → sl<>, crashing tests that don't
+        // initialise GetIt. Override with an empty loaded-state stub.
+        myEventsControllerProvider.overrideWith(_FixedMyEventsController.new),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
