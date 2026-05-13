@@ -3,13 +3,14 @@
 // Strategy: build a test-scoped GoRouter that mirrors the production route
 // tree but replaces pages that require the full get_it DI graph (OwnProfilePage,
 // EditProfilePage, UserProfilePage) with labelled stub Scaffolds.  DiscoverPage
-// and MyEventsPage are trivial ConsumerWidgets with no DI and are rendered
-// directly to validate that the real pages appear under the bottom nav.
+// and MyEventsPage are rendered directly to validate that the real pages appear
+// under the bottom nav.
 //
 // Stub-builder pattern is used for:
-//   - OwnProfilePage  → reads myProfileControllerProvider → needs get_it
-//   - EditProfilePage → reads editProfileControllerProvider → needs get_it
-//   - UserProfilePage → reads userProfileControllerProvider → needs get_it
+//   - OwnProfilePage            → reads myProfileControllerProvider → needs get_it
+//   - EditProfilePage           → reads editProfileControllerProvider → needs get_it
+//   - UserProfilePage           → reads userProfileControllerProvider → needs get_it
+//   - MyJoinRequestsController  → reads listMyJoinRequestsUseCaseProvider → needs get_it
 //
 // Each stub Scaffold carries a unique Key so finders don't need to import
 // the production widgets at all.
@@ -36,6 +37,9 @@ import 'package:tribely/src/features/discover/presentation/providers/discover_ma
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/my_join_requests_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -73,6 +77,15 @@ class _FixedFilterController extends DiscoverFilterController {
 class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
   @override
   bool build() => true;
+}
+
+/// Bypasses MyJoinRequestsController's use-case fetch (which calls sl<>) so
+/// that MyEventsPage can be rendered in router tests without initialising GetIt.
+class _FixedMyJoinRequestsController extends MyJoinRequestsController {
+  _FixedMyJoinRequestsController() : super(null);
+
+  @override
+  MyJoinRequestsState build() => const MyJoinRequestsLoaded(items: []);
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +242,11 @@ Future<void> pumpRouter(
         locationPromptShownProvider.overrideWith(
           _PromptAlreadyShownNotifier.new,
         ),
+        // MyEventsPage now renders MyJoinRequestsTab which reads
+        // listMyJoinRequestsUseCaseProvider → sl<>. Override to bypass GetIt.
+        myJoinRequestsControllerProvider(
+          null,
+        ).overrideWith(() => _FixedMyJoinRequestsController()),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),

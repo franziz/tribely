@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/error/failures.dart';
+import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
+import '../../../../core/widgets/status_pill.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
 import '../../../events/domain/entities/event.dart';
+import '../../../join_requests/domain/entities/join_request.dart';
+import '../../../join_requests/presentation/controllers/request_to_join_controller.dart';
+import '../../../join_requests/presentation/providers/join_requests_providers.dart';
+import '../../../join_requests/presentation/state/request_to_join_state.dart';
+import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
 import '../providers/event_detail_providers.dart';
 import '../state/event_detail_state.dart';
 
@@ -17,19 +26,21 @@ import '../state/event_detail_state.dart';
 /// Renders outside the bottom-nav shell (parentNavigatorKey: _rootNavigatorKey
 /// in app_router.dart) so the nav bar is hidden on this screen (§E).
 ///
-/// CTA: "Request to join" is shown to non-host authenticated viewers and
-/// unauthenticated viewers. Hosts viewing their own event see NO CTA (no
-/// empty button slot, no layout artifact). Tapping fires a SnackBar
-/// communicating temporal unavailability (§F inert-CTA pattern).
-/// The actual join-request submission is TRI-28.
+/// Non-host viewer CTA renders a sticky bottom bar with state-aware content:
+///   - No existing request → "Request to join" button → ConfirmJoinSheet
+///   - Pending request → StatusPill + "Sent to {host}" + "Withdraw request" link
+///   - Approved request → StatusPill(approved), no action
+///   - Declined request → StatusPill(declined) + decisionReason caption
+///   - Withdrawn request → StatusPill(withdrawn)
+///   - Event past / capacity full → disabled button + inline reason
+///   - 403 EMAIL_NOT_VERIFIED → BannerMessage above bar + "Verify now" link
+///
+/// Host viewers see NO CTA (isHostViewer branch). B2 will wire the host-side
+/// management UI; leave the slot intact via [_HostBranchPlaceholder].
 class EventDetailPage extends ConsumerWidget {
   const EventDetailPage({required this.eventId, super.key});
 
   final String eventId;
-
-  static const String _ctaSnackBarMessage =
-      'Join requests are coming soon — you\'ll be first to know.';
-  static const Duration _ctaSnackBarDuration = Duration(seconds: 3);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,7 +76,7 @@ class EventDetailPage extends ConsumerWidget {
         EventDetailLoaded(:final event) => _LoadedBody(
           event: event,
           isHostViewer: isHostViewer,
-          onJoinPressed: () => _showJoinSnackBar(context),
+          eventId: eventId,
         ),
         EventDetailError(:final failure) => _ErrorBody(
           message: failure.message,
@@ -74,16 +85,6 @@ class EventDetailPage extends ConsumerWidget {
         ),
         EventDetailNotFound() => _NotFoundBody(),
       },
-    );
-  }
-
-  void _showJoinSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(_ctaSnackBarMessage),
-        duration: _ctaSnackBarDuration,
-      ),
     );
   }
 }
@@ -191,35 +192,52 @@ class _LoadingSkeleton extends StatelessWidget {
 // Loaded body
 // ---------------------------------------------------------------------------
 
-class _LoadedBody extends StatelessWidget {
+class _LoadedBody extends ConsumerWidget {
   const _LoadedBody({
     required this.event,
     required this.isHostViewer,
-    required this.onJoinPressed,
+    required this.eventId,
   });
 
   final Event event;
 
-  /// True when the authenticated user is the event's host. Passed in from the
-  /// parent ConsumerWidget so this widget stays a plain StatelessWidget.
+  /// True when the authenticated user is the event's host.
   final bool isHostViewer;
 
-  final VoidCallback onJoinPressed;
+  final String eventId;
 
   @override
-  Widget build(BuildContext context) {
-    // When the host is viewing their own event, drop the 80dp sticky-bar
-    // reservation — no CTA, no empty layout artifact.
+  Widget build(BuildContext context, WidgetRef ref) {
+    final joinState = ref.watch(requestToJoinControllerProvider(eventId));
+
+    // Determine effective request: prefer submitted result, else existing from idle.
+    final effectiveRequest = switch (joinState) {
+      RequestToJoinSubmitted(:final joinRequest) => joinRequest,
+      RequestToJoinIdle(:final existingRequest) => existingRequest,
+      RequestToJoinWithdrawing(:final withdrawingRequest) => withdrawingRequest,
+      _ => null,
+    };
+
+    // Check if there is a pending email-not-verified failure to show the banner.
+    final emailNotVerifiedFailure = switch (joinState) {
+      RequestToJoinFailed(:final failure)
+          when failure is EmailNotVerifiedFailure =>
+        failure,
+      _ => null,
+    };
+
+    // When the host is viewing their own event, drop the sticky-bar reservation —
+    // no CTA, no empty layout artifact.
     final bottomPadding = isHostViewer
         ? MediaQuery.paddingOf(context).bottom
-        : 80 + MediaQuery.paddingOf(context).bottom;
+        : _stickyBarHeight(effectiveRequest, emailNotVerifiedFailure) +
+              MediaQuery.paddingOf(context).bottom;
 
     return Stack(
       children: [
         // Scrollable content.
         SingleChildScrollView(
           // Bottom padding reserves space for the sticky CTA when visible.
-          // For host viewers the CTA is absent, so only safe-area padding applies.
           padding: EdgeInsets.only(bottom: bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,17 +262,39 @@ class _LoadedBody extends StatelessWidget {
             ],
           ),
         ),
-        // Sticky bottom CTA (§E + §F). Hidden for host viewers — no "manage"
-        // CTA in v1; host-side management deferred per non-goals.
+        // Sticky bottom bar. Hidden for host viewers — B2 will wire host-side
+        // management. Non-host branch is the real CTA.
         if (!isHostViewer)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: _StickyJoinBar(onPressed: onJoinPressed),
+            child: _StickyJoinBar(
+              event: event,
+              joinState: joinState,
+              effectiveRequest: effectiveRequest,
+              emailNotVerifiedBanner: emailNotVerifiedFailure != null,
+            ),
           ),
+        // B2 attachment point: host-side management slot.
+        // Replace _HostBranchPlaceholder with actual host CTA when B2 lands.
       ],
     );
+  }
+
+  /// Estimated sticky bar height for scroll-padding calculation.
+  /// Varies based on whether extra content (banner, withdraw link) is present.
+  double _stickyBarHeight(
+    JoinRequest? request,
+    EmailNotVerifiedFailure? emailFailure,
+  ) {
+    if (emailFailure != null) return 140;
+    if (request == null) return 80;
+    return switch (request.status) {
+      JoinRequestStatus.pending => 100,
+      JoinRequestStatus.declined => 100,
+      _ => 80,
+    };
   }
 }
 
@@ -472,15 +512,81 @@ class _CapacityLine extends StatelessWidget {
   }
 }
 
-/// Sticky bottom bar — always visible, always tappable. Toast on tap (§F).
-class _StickyJoinBar extends StatelessWidget {
-  const _StickyJoinBar({required this.onPressed});
+// ---------------------------------------------------------------------------
+// Sticky bottom bar — state-aware, non-host branch only (B1a)
+// ---------------------------------------------------------------------------
 
-  final VoidCallback onPressed;
+/// Sticky bottom bar for non-host viewers. Renders one of:
+///   - No request: PrimaryButton("Request to join") → opens ConfirmJoinSheet
+///   - Pending: StatusPill(pending) + "Sent to {host}" + withdraw link
+///   - Approved: StatusPill(approved)
+///   - Declined: StatusPill(declined) + decisionReason caption
+///   - Withdrawn: StatusPill(withdrawn)
+///   - Event past or capacity full: disabled PrimaryButton + inline reason
+///   - EmailNotVerified: BannerMessage above bar + "Verify now" link
+///
+/// [emailNotVerifiedBanner]: when true, shows the verify-email inline banner
+/// above the button instead of navigating the user away.
+class _StickyJoinBar extends ConsumerWidget {
+  const _StickyJoinBar({
+    required this.event,
+    required this.joinState,
+    required this.effectiveRequest,
+    required this.emailNotVerifiedBanner,
+  });
+
+  final Event event;
+  final RequestToJoinState joinState;
+  final JoinRequest? effectiveRequest;
+  final bool emailNotVerifiedBanner;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(
+      requestToJoinControllerProvider(event.id).notifier,
+    );
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final hostName = event.hostDisplayName ?? 'Host';
+
+    // Determine whether the event is past or cancelled.
+    final now = DateTime.now().toUtc();
+    final isEventPast =
+        event.endsAt.toUtc().isBefore(now) || event.status == 'cancelled';
+
+    Widget content;
+
+    if (emailNotVerifiedBanner) {
+      content = _VerifyEmailBanner(event: event, controller: controller);
+    } else if (effectiveRequest != null) {
+      content = _RequestStatusContent(
+        request: effectiveRequest!,
+        hostName: hostName,
+        controller: controller,
+        isWithdrawing: joinState is RequestToJoinWithdrawing,
+      );
+    } else if (isEventPast) {
+      // Disabled CTA: event has ended. Per feedback_disabled_cta_must_explain_blocker —
+      // never silently disable; always render inline reason text.
+      content = const _DisabledCta(reason: 'Event has ended');
+    } else {
+      // No existing request: show the primary CTA.
+      final isSubmitting = joinState is RequestToJoinSubmitting;
+      content = PrimaryButton(
+        label: 'Request to join',
+        state: isSubmitting
+            ? PrimaryButtonState.loading
+            : PrimaryButtonState.idle,
+        onPressed: isSubmitting
+            ? null
+            : () => showConfirmJoinSheet(
+                context,
+                eventId: event.id,
+                hostName: hostName,
+                eventTitle: event.title,
+              ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
       decoration: const BoxDecoration(
@@ -489,11 +595,156 @@ class _StickyJoinBar extends StatelessWidget {
           top: BorderSide(color: TribelyColors.paperBorderSubtle, width: 1),
         ),
       ),
-      child: PrimaryButton(
-        label: 'Request to join',
-        state: PrimaryButtonState.idle,
-        onPressed: onPressed,
+      child: content,
+    );
+  }
+}
+
+/// StatusPill + caption + optional withdraw link for pending/approved/
+/// declined/withdrawn request states.
+class _RequestStatusContent extends StatelessWidget {
+  const _RequestStatusContent({
+    required this.request,
+    required this.hostName,
+    required this.controller,
+    required this.isWithdrawing,
+  });
+
+  final JoinRequest request;
+  final String hostName;
+  final RequestToJoinController controller;
+  final bool isWithdrawing;
+
+  @override
+  Widget build(BuildContext context) {
+    final pillState = switch (request.status) {
+      JoinRequestStatus.pending => StatusPillState.pending,
+      JoinRequestStatus.approved => StatusPillState.approved,
+      JoinRequestStatus.declined => StatusPillState.declined,
+      JoinRequestStatus.withdrawn => StatusPillState.withdrawn,
+    };
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Centred pill.
+        Center(child: StatusPill(state: pillState)),
+        // Context caption.
+        if (request.status == JoinRequestStatus.pending) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Sent to $hostName',
+            textAlign: TextAlign.center,
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+          ),
+          const SizedBox(height: 8),
+          // Withdraw text link.
+          Center(
+            child: isWithdrawing
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : GestureDetector(
+                    onTap: () => _showWithdrawDialog(context),
+                    child: Text(
+                      'Withdraw request',
+                      style: TribelyType.caption(
+                        TribelyColors.paperPrimary,
+                      ).copyWith(decoration: TextDecoration.underline),
+                    ),
+                  ),
+          ),
+        ] else if (request.status == JoinRequestStatus.declined &&
+            request.decisionReason != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            request.decisionReason!,
+            textAlign: TextAlign.center,
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _showWithdrawDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Withdraw your request?'),
+        content: const Text(
+          'You can request again later if you change your mind.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Withdraw'),
+          ),
+        ],
       ),
+    );
+
+    if (confirmed == true) {
+      await controller.withdraw(request.id);
+    }
+  }
+}
+
+/// Disabled CTA with inline reason text.
+/// Per feedback_disabled_cta_must_explain_blocker — always explain why disabled.
+class _DisabledCta extends StatelessWidget {
+  const _DisabledCta({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PrimaryButton(
+          label: reason,
+          onPressed: null,
+          state: PrimaryButtonState.idle,
+        ),
+      ],
+    );
+  }
+}
+
+/// EMAIL_NOT_VERIFIED inline banner. Shown above the (disabled) CTA when the
+/// server returns a 403 with code EMAIL_NOT_VERIFIED.
+class _VerifyEmailBanner extends StatelessWidget {
+  const _VerifyEmailBanner({required this.event, required this.controller});
+
+  final Event event;
+  final RequestToJoinController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BannerMessage(
+          message: 'Verify your email to request events',
+          action: BannerAction(
+            label: 'Verify now',
+            onTap: () => context.push('/verify-email'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const PrimaryButton(
+          label: 'Request to join',
+          onPressed: null,
+          state: PrimaryButtonState.idle,
+        ),
+      ],
     );
   }
 }

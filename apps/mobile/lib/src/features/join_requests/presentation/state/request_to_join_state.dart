@@ -9,6 +9,9 @@ import '../../domain/entities/join_request.dart';
 ///   Idle ──────────── submit() ──────────► Submitting
 ///   Submitting ─────── success ──────────► Submitted(joinRequest)
 ///   Submitting ─────── failure ──────────► Failed(failure)
+///   Idle(pending) ─── withdraw() ────────► Withdrawing
+///   Withdrawing ────── success ──────────► Idle(existingRequest: withdrawn)
+///   Withdrawing ────── failure ──────────► Failed(failure)
 ///   Failed / Submitted ── reset() ───────► Idle
 sealed class RequestToJoinState extends Equatable {
   const RequestToJoinState();
@@ -54,4 +57,15 @@ final class RequestToJoinFailed extends RequestToJoinState {
 
   @override
   List<Object?> get props => [failure];
+}
+
+/// A withdraw operation is in flight. [withdrawingRequest] is the pending
+/// request being withdrawn — kept to avoid a flicker in the pill display.
+final class RequestToJoinWithdrawing extends RequestToJoinState {
+  const RequestToJoinWithdrawing({this.withdrawingRequest});
+
+  final JoinRequest? withdrawingRequest;
+
+  @override
+  List<Object?> get props => [withdrawingRequest];
 }

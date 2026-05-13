@@ -2,10 +2,10 @@
 //
 // Covers:
 //   1. Loading state    — _LoadingSkeleton is rendered.
-//   2. Loaded state     — event data is rendered; CTA is tappable + fires SnackBar.
+//   2. Loaded state     — event data is rendered; CTA is tappable + opens ConfirmJoinSheet.
 //   3. Error state      — error icon + message + "Try again" button.
 //   4. NotFound state   — "no longer exists" copy.
-//   5. CTA SnackBar     — exact message copy per §F / Step 8.5.
+//   5. CTA behaviour    — CTA tappable (non-null onPressed); opens ConfirmJoinSheet (TRI-28 B1a).
 //   6. Router           — /events/:id routes to EventDetailPage OUTSIDE the
 //                         StatefulShellRoute (no NavigationBar visible).
 //
@@ -13,6 +13,8 @@
 //   - `eventDetailControllerProvider` is overridden per test via
 //     ProviderScope.overrides. Each override installs a _FixedEventDetailController
 //     that returns a predetermined state from build().
+//   - `requestToJoinControllerProvider` is overridden with a no-op stub to
+//     prevent GetIt access from _LoadedBody's ConsumerWidget CTA branch.
 //   - GetIt / service locator is never initialised — all DI goes through
 //     provider overrides, keeping tests hermetic.
 
@@ -49,6 +51,9 @@ import 'package:tribely/src/features/discover/presentation/state/event_detail_st
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/core/error/failures.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/request_to_join_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -128,6 +133,27 @@ class _FixedEventDetailController extends EventDetailController {
   }
 }
 
+/// Bypasses RequestToJoinController's use-case lookups so EventDetailPage can
+/// be rendered without initialising GetIt. Returns Idle with no existing request.
+class _FixedRequestToJoinController extends RequestToJoinController {
+  _FixedRequestToJoinController(super.eventId);
+
+  @override
+  RequestToJoinState build() {
+    // Skip loadExisting() — no GetIt in unit tests.
+    return const RequestToJoinIdle();
+  }
+
+  @override
+  Future<void> loadExisting() async {}
+
+  @override
+  Future<void> submit() async {}
+
+  @override
+  Future<void> withdraw(String joinRequestId) async {}
+}
+
 // ---------------------------------------------------------------------------
 // Pump helpers
 // ---------------------------------------------------------------------------
@@ -152,6 +178,9 @@ Future<void> _pumpPage(
         sessionControllerProvider.overrideWith(
           () => _FixedSessionController(sessionState),
         ),
+        requestToJoinControllerProvider(
+          eventId,
+        ).overrideWith(() => _FixedRequestToJoinController(eventId)),
       ],
       child: MaterialApp(home: EventDetailPage(eventId: eventId)),
     ),
@@ -368,9 +397,9 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 3. CTA SnackBar — exact copy per §F + Step 8.5
+    // 3. CTA behaviour — TRI-28 B1a (ConfirmJoinSheet replaces SnackBar)
     // -----------------------------------------------------------------------
-    testWidgets('tapping CTA fires SnackBar with exact message', (
+    testWidgets('tapping CTA opens ConfirmJoinSheet (no longer a SnackBar)', (
       tester,
     ) async {
       await _pumpPage(
@@ -380,12 +409,12 @@ void main() {
       );
 
       await tester.tap(find.byType(PrimaryButton));
-      await tester.pump(); // trigger SnackBar animation
+      await tester.pumpAndSettle();
 
-      expect(
-        find.text("Join requests are coming soon — you'll be first to know."),
-        findsOneWidget,
-      );
+      // ConfirmJoinSheet is shown — "Send request" button visible inside sheet.
+      expect(find.text('Send request'), findsOneWidget);
+      // Old SnackBar copy must be absent.
+      expect(find.textContaining('coming soon'), findsNothing);
     });
 
     testWidgets('CTA is tappable (onPressed is non-null)', (tester) async {
@@ -396,7 +425,7 @@ void main() {
       );
 
       final button = tester.widget<PrimaryButton>(find.byType(PrimaryButton));
-      // Per §F: CTA is NEVER disabled — onPressed must be wired.
+      // CTA must be enabled — user has no existing request.
       expect(button.onPressed, isNotNull);
       expect(button.state, equals(PrimaryButtonState.idle));
     });
