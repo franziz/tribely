@@ -52,10 +52,16 @@ export class ListJoinRequestsByEventUseCase {
       });
     }
 
+    // Only surface pending requests — approved/rejected/cancelled rows are
+    // historical records, not actionable items for the host count or list view.
+    // YAGNI: if a full-history view is needed later, extend
+    // ListJoinRequestsFilters with a status param; don't undo this default.
+    const pendingRows = rows.filter((jr) => jr.status === 'pending');
+
     // Batch-fetch distinct requesters — one query per distinct user id.
     // For the requester-scoped path this is at most one lookup; for the host
     // path it's bounded by event capacity (always small).
-    const requesterIds = [...new Set(rows.map((jr) => jr.requesterUserId))];
+    const requesterIds = [...new Set(pendingRows.map((jr) => jr.requesterUserId))];
     const userMap = new Map<string, Awaited<ReturnType<UserRepository['findById']>>>();
     await Promise.all(
       requesterIds.map(async (id) => {
@@ -65,7 +71,7 @@ export class ListJoinRequestsByEventUseCase {
     );
 
     const enriched: JoinRequestWithRequester[] = [];
-    for (const jr of rows) {
+    for (const jr of pendingRows) {
       const requester = userMap.get(jr.requesterUserId);
       if (!requester) continue; // silently drop orphaned rows
       enriched.push({ joinRequest: jr, requester });

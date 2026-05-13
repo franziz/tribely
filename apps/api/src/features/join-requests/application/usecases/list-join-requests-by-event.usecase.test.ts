@@ -84,6 +84,69 @@ const seedJoinRequest = (
   return jr;
 };
 
+const seedApprovedJoinRequest = (
+  repo: FakeJoinRequestRepository,
+  id: string,
+  requesterUserId: string,
+  offsetMs = 0,
+): JoinRequest => {
+  const jr = JoinRequest.request({
+    id,
+    eventId: 'evt_1',
+    requesterUserId,
+    now: new Date(NOW.getTime() + offsetMs),
+    autoApprove: false,
+    hostUserId: 'host_1',
+    eventSnapshot: SNAPSHOT,
+  });
+  jr.approve({ by: 'host_1', now: new Date(NOW.getTime() + offsetMs + 1000), eventSnapshot: SNAPSHOT });
+  jr.pullEvents();
+  repo.put(jr);
+  return jr;
+};
+
+const seedRejectedJoinRequest = (
+  repo: FakeJoinRequestRepository,
+  id: string,
+  requesterUserId: string,
+  offsetMs = 0,
+): JoinRequest => {
+  const jr = JoinRequest.request({
+    id,
+    eventId: 'evt_1',
+    requesterUserId,
+    now: new Date(NOW.getTime() + offsetMs),
+    autoApprove: false,
+    hostUserId: 'host_1',
+    eventSnapshot: SNAPSHOT,
+  });
+  jr.reject({ by: 'host_1', reason: 'Not a good fit', now: new Date(NOW.getTime() + offsetMs + 1000) });
+  jr.pullEvents();
+  repo.put(jr);
+  return jr;
+};
+
+const seedCancelledJoinRequest = (
+  repo: FakeJoinRequestRepository,
+  id: string,
+  requesterUserId: string,
+  offsetMs = 0,
+): JoinRequest => {
+  const jr = JoinRequest.request({
+    id,
+    eventId: 'evt_1',
+    requesterUserId,
+    now: new Date(NOW.getTime() + offsetMs),
+    autoApprove: false,
+    hostUserId: 'host_1',
+    eventSnapshot: SNAPSHOT,
+  });
+  jr.cancelByRequester(new Date(NOW.getTime() + offsetMs + 1000));
+  jr.pullEvents();
+  repo.put(jr);
+  return jr;
+};
+
 const buildSut = () => {
   const events = new FakeEventRepository();
   const joinRequests = new FakeJoinRequestRepository();
@@ -150,5 +213,25 @@ describe('ListJoinRequestsByEventUseCase', () => {
 
     const result = await useCase.execute({ eventId: 'evt_1', actorUserId: 'host_1' });
     expect(result.joinRequests).toEqual([]);
+  });
+
+  it('returns only pending rows for the host — filters out approved, rejected, and cancelled', async () => {
+    const { events, joinRequests, users, useCase } = buildSut();
+    seedEvent(events);
+    seedUser(users, 'user_pending');
+    seedUser(users, 'user_approved');
+    seedUser(users, 'user_rejected');
+    seedUser(users, 'user_cancelled');
+
+    seedJoinRequest(joinRequests, 'jr_pending', 'user_pending', 0);
+    seedApprovedJoinRequest(joinRequests, 'jr_approved', 'user_approved', 1000);
+    seedRejectedJoinRequest(joinRequests, 'jr_rejected', 'user_rejected', 2000);
+    seedCancelledJoinRequest(joinRequests, 'jr_cancelled', 'user_cancelled', 3000);
+
+    const result = await useCase.execute({ eventId: 'evt_1', actorUserId: 'host_1' });
+
+    expect(result.joinRequests).toHaveLength(1);
+    expect(result.joinRequests[0]?.joinRequest.id).toBe('jr_pending');
+    expect(result.joinRequests[0]?.joinRequest.status).toBe('pending');
   });
 });
