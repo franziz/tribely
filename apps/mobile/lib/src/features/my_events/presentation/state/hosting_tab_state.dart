@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-import '../../../../core/error/failures.dart';
 import '../../../events/domain/entities/event.dart';
 
 /// State machine for the Hosting tab in [MyEventsPage].

@@ -19,7 +19,7 @@ final hostingTabControllerProvider =
 ///
 /// Failure mapping mirrors the previous [_HostingTabState._mapFailureToUserCopy]
 /// logic: raw API error strings are never surfaced to the user.
-class HostingTabController extends AutoDisposeNotifier<HostingTabState> {
+class HostingTabController extends Notifier<HostingTabState> {
   @override
   HostingTabState build() {
     Future(() => load());

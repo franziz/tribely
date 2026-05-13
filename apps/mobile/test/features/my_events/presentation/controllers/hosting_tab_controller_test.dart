@@ -109,9 +109,9 @@ void main() {
   test('load() NetworkFailure → HostingTabError with network copy', () async {
     final mock = MockListMyHostedEventsUseCase();
 
-    when(() => mock(any())).thenAnswer(
-      (_) async => const Left(NetworkFailure('timeout')),
-    );
+    when(
+      () => mock(any()),
+    ).thenAnswer((_) async => const Left(NetworkFailure('timeout')));
 
     final container = _makeContainer(mock);
     await _pump();
@@ -127,9 +127,9 @@ void main() {
   test('load() generic failure → HostingTabError with fallback copy', () async {
     final mock = MockListMyHostedEventsUseCase();
 
-    when(() => mock(any())).thenAnswer(
-      (_) async => const Left(ServerFailure('internal')),
-    );
+    when(
+      () => mock(any()),
+    ).thenAnswer((_) async => const Left(ServerFailure('internal')));
 
     final container = _makeContainer(mock);
     await _pump();
@@ -158,9 +158,7 @@ void main() {
     verify(() => mock(any())).called(1);
 
     // refresh() triggers a second call.
-    await container
-        .read(hostingTabControllerProvider.notifier)
-        .refresh();
+    await container.read(hostingTabControllerProvider.notifier).refresh();
     await _pump();
 
     verify(() => mock(any())).called(1); // one more call
