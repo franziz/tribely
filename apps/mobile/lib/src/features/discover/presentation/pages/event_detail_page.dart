@@ -19,11 +19,14 @@ import '../../../join_requests/domain/entities/join_request_with_requester.dart'
 import '../../../join_requests/presentation/controllers/host_pending_list_controller.dart';
 import '../../../join_requests/presentation/controllers/request_to_join_controller.dart';
 import '../../../join_requests/presentation/providers/join_requests_providers.dart';
+import '../../../join_requests/presentation/state/host_attending_list_state.dart';
 import '../../../join_requests/presentation/state/host_pending_list_state.dart';
 import '../../../join_requests/presentation/state/request_to_join_state.dart';
+import '../../../join_requests/presentation/widgets/attending_request_row.dart';
 import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
 import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
 import '../../../join_requests/presentation/widgets/pending_request_row.dart';
+import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../providers/event_detail_providers.dart';
 import '../state/event_detail_state.dart';
 
@@ -280,10 +283,12 @@ class _LoadedBody extends StatelessWidget {
                 const SizedBox(height: 16),
                 _CapacityLine(event: event),
                 const SizedBox(height: 8),
-                // Host-only: pending requests section (B2a).
+                // Host-only: pending requests section (B2a) + attending section.
                 if (isHostViewer) ...[
                   const SizedBox(height: 16),
                   _PendingRequestsSection(eventId: eventId),
+                  const SizedBox(height: 8),
+                  _AttendingSection(eventId: eventId),
                   const SizedBox(height: 8),
                 ],
               ],
@@ -586,6 +591,8 @@ class _PendingRequestsSectionState
           onDeclineRequest: (item) =>
               _handleDeclineRequest(context, controller, item),
           onClearSectionError: controller.clearSectionError,
+          onTapRequester: (userId) =>
+              showRequesterProfileSheet(context, userId),
         ),
     };
   }
@@ -668,6 +675,7 @@ class _PendingLoadedSection extends StatelessWidget {
     required this.onApprove,
     required this.onDeclineRequest,
     required this.onClearSectionError,
+    required this.onTapRequester,
   });
 
   final String eventId;
@@ -678,6 +686,7 @@ class _PendingLoadedSection extends StatelessWidget {
   final ValueChanged<String> onApprove;
   final ValueChanged<JoinRequestWithRequester> onDeclineRequest;
   final VoidCallback onClearSectionError;
+  final ValueChanged<String> onTapRequester;
 
   @override
   Widget build(BuildContext context) {
@@ -711,6 +720,7 @@ class _PendingLoadedSection extends StatelessWidget {
             isInFlight: actionInFlightId == item.joinRequest.id,
             onApprove: () => onApprove(item.joinRequest.id),
             onDecline: (_) => onDeclineRequest(item),
+            onTapRequester: () => onTapRequester(item.requester.id),
           );
         }),
       ],
@@ -727,6 +737,7 @@ class _AnimatedPendingRow extends StatefulWidget {
     required this.isInFlight,
     required this.onApprove,
     required this.onDecline,
+    required this.onTapRequester,
     super.key,
   });
 
@@ -735,6 +746,7 @@ class _AnimatedPendingRow extends StatefulWidget {
   final bool isInFlight;
   final VoidCallback onApprove;
   final ValueChanged<String> onDecline;
+  final VoidCallback onTapRequester;
 
   @override
   State<_AnimatedPendingRow> createState() => _AnimatedPendingRowState();
@@ -788,8 +800,108 @@ class _AnimatedPendingRowState extends State<_AnimatedPendingRow>
           onApprove: widget.onApprove,
           onDecline: widget.onDecline,
           isInFlight: widget.isInFlight,
+          onTapRequester: widget.onTapRequester,
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Attending section — host branch only
+// ---------------------------------------------------------------------------
+
+/// Section that renders the host's list of approved (attending) join requests
+/// inline within the event detail scroll body.
+///
+/// Hidden entirely when N=0 (PM AC: no empty section header).
+/// Automatically refreshed when [HostPendingListController.approve] succeeds
+/// via [ref.invalidate(hostAttendingListControllerProvider(eventId))].
+class _AttendingSection extends ConsumerWidget {
+  const _AttendingSection({required this.eventId});
+
+  final String eventId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final attendingState = ref.watch(
+      hostAttendingListControllerProvider(eventId),
+    );
+    final controller = ref.read(
+      hostAttendingListControllerProvider(eventId).notifier,
+    );
+
+    return switch (attendingState) {
+      HostAttendingListLoading() => const SizedBox.shrink(),
+      HostAttendingListError(:final failure) => _AttendingErrorSection(
+        message: failure.message,
+        onRetry: controller.retry,
+      ),
+      HostAttendingListLoaded(items: final items) when items.isEmpty =>
+        const SizedBox.shrink(), // hide when no attendees
+      HostAttendingListLoaded(:final items) => _AttendingLoadedSection(
+        items: items,
+      ),
+    };
+  }
+}
+
+class _AttendingErrorSection extends StatelessWidget {
+  const _AttendingErrorSection({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        BannerMessage(
+          message: message,
+          action: BannerAction(label: 'Retry', onTap: onRetry),
+        ),
+      ],
+    );
+  }
+}
+
+class _AttendingLoadedSection extends StatelessWidget {
+  const _AttendingLoadedSection({required this.items});
+
+  final List<JoinRequestWithRequester> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header: "ATTENDING (N)" — caption/13, paperInkSecondary,
+        // uppercase. Matches the "REQUESTS (N)" pattern in the pending section.
+        Semantics(
+          header: true,
+          child: Text(
+            'ATTENDING (${items.length})',
+            style: TribelyType.caption(
+              TribelyColors.paperInkSecondary,
+            ).copyWith(letterSpacing: 0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...items.map(
+          (item) => AttendingRequestRow(
+            key: ValueKey(item.joinRequest.id),
+            item: item,
+            onTapRequester: () => showRequesterProfileSheet(
+              context,
+              item.requester.id,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
