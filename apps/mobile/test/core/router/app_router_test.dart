@@ -40,6 +40,7 @@ import 'package:tribely/src/features/discover/presentation/state/discover_state.
 import 'package:tribely/src/features/join_requests/presentation/controllers/my_join_requests_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,24 @@ class _FixedMyJoinRequestsController extends MyJoinRequestsController {
 
   @override
   MyJoinRequestsState build() => const MyJoinRequestsLoaded(items: []);
+}
+
+/// Bypasses HostingPendingCountController's _load() which reads
+/// listPendingForEventUseCaseProvider → sl<>. Returns zero state immediately.
+///
+/// MyEventsPage watches hostingPendingCountControllerProvider([]) (empty list)
+/// on every build. Without this override the controller's scheduled async
+/// _load() crashes on GetIt access even when eventIds is empty.
+class _FixedHostingPendingCountController
+    extends HostingPendingCountController {
+  _FixedHostingPendingCountController(super.eventIds);
+
+  @override
+  HostingPendingCountState build() =>
+      const HostingPendingCountState(total: 0, perEvent: {});
+
+  @override
+  Future<void> refresh() async {}
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +266,13 @@ Future<void> pumpRouter(
         myJoinRequestsControllerProvider(
           null,
         ).overrideWith(() => _FixedMyJoinRequestsController()),
+        // MyEventsPage watches hostingPendingCountControllerProvider([]) on every
+        // build (initial _hostedEventIds is const []). The controller's async
+        // _load() reads listPendingForEventUseCaseProvider → sl<>, crashing
+        // tests that don't initialise GetIt. Override with a zero-state stub.
+        hostingPendingCountControllerProvider(
+          const [],
+        ).overrideWith(() => _FixedHostingPendingCountController(const [])),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),

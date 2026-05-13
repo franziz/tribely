@@ -4,22 +4,24 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
+import '../../../discover/domain/entities/discover_filters.dart';
+import '../../../discover/domain/usecases/browse_events_usecase.dart';
+import '../../../discover/presentation/providers/browse_events_usecase_provider.dart';
+import '../controllers/hosting_pending_count_controller.dart';
+import 'hosting_tab.dart';
 import 'my_join_requests_tab.dart';
 
 /// My Events page — segmented-control tabbed shell.
 ///
 /// Tabs:
-///   0 — Hosting: placeholder for B2. Replace [_HostingTabPlaceholder] with
-///       the actual hosting list when B2 lands. The tab label slot is exposed
-///       via [_TabLabel] so B2 can overlay a notification dot without
-///       restructuring the segmented control.
+///   0 — Hosting: [HostingTab] — full implementation in B2b.
 ///   1 — Requested: [MyJoinRequestsTab] — full implementation in B1b.
 ///
-/// B2 attachment contract:
-///   - Replace `const _HostingTabPlaceholder()` with the real hosting widget.
-///   - Wrap the "Hosting" label in a Stack/Badge overlay for the notification
-///     dot by providing a custom [_TabLabel] with [badgeCount] set.
-///   - No restructuring of the segmented control itself is required.
+/// The "Hosting" tab label shows an 8dp [TribelyColors.paperAccent] filled dot
+/// when ≥1 hosted event has ≥1 pending request. The dot is derived from
+/// [HostingPendingCountController] and clears at zero.
 class MyEventsPage extends ConsumerStatefulWidget {
   const MyEventsPage({super.key});
 
@@ -29,9 +31,60 @@ class MyEventsPage extends ConsumerStatefulWidget {
 
 class _MyEventsPageState extends ConsumerState<MyEventsPage> {
   int _selectedTab = 0;
+  List<String> _hostedEventIds = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadHostedEventIds());
+  }
+
+  /// Fetches the current user's hosted event IDs once so [_TabLabel] can
+  /// derive the notification dot count via [HostingPendingCountController].
+  ///
+  /// Failures are silently ignored — the dot simply won't show rather than
+  /// crashing the page. The tab content itself handles error states with retry.
+  Future<void> _loadHostedEventIds() async {
+    try {
+      final session = ref.read(sessionControllerProvider);
+      if (session is! SessionAuthenticated) return;
+
+      final useCase = ref.read(browseEventsUseCaseProvider);
+      final result = await useCase(
+        const BrowseEventsParams(filters: DiscoverFilters(hostUserId: 'me')),
+      );
+      if (!mounted) return;
+
+      result.fold(
+        (_) => null, // silent failure — dot just stays invisible
+        (page) => setState(() {
+          _hostedEventIds = page.events.map((e) => e.id).toList();
+        }),
+      );
+    } catch (_) {
+      // Swallow all errors — the dot stays invisible, not worth crashing.
+    }
+  }
+
+  /// Called when the Hosting tab is re-selected — invalidates the pending
+  /// count provider so it refetches fresh data.
+  void _onTabSelected(int index) {
+    setState(() => _selectedTab = index);
+    if (index == 0 && _hostedEventIds.isNotEmpty) {
+      ref.invalidate(hostingPendingCountControllerProvider(_hostedEventIds));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Derive notification dot count from the pending count controller.
+    // When _hostedEventIds is empty (initial load or no events) the watch
+    // returns the default state with total=0, which is correct.
+    final pendingCountState = ref.watch(
+      hostingPendingCountControllerProvider(_hostedEventIds),
+    );
+    final totalPending = pendingCountState.total;
+
     return Scaffold(
       backgroundColor: TribelyColors.paperSurface,
       appBar: AppBar(
@@ -43,9 +96,6 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
           style: TribelyType.headline(TribelyColors.paperInkPrimary),
         ),
         actions: [
-          // Create event FAB is replaced by an action icon in the AppBar
-          // so it doesn't interfere with the hosting list (B2 may place a
-          // FAB if needed — this is the minimal non-floating version for now).
           IconButton(
             icon: const Icon(Icons.add, color: TribelyColors.paperPrimary),
             tooltip: 'Create event',
@@ -55,24 +105,28 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
       ),
       body: Column(
         children: [
-          // Segmented control — cleanly parameterized so B2 can override labels.
+          // Segmented control with notification dot on Hosting tab.
           _SegmentedControl(
             selectedIndex: _selectedTab,
-            labels: const [
-              // B2: replace with _TabLabel(label: 'Hosting', badgeCount: pendingCount)
-              // to overlay a notification dot without restructuring.
-              _TabLabel(label: 'Hosting'),
-              _TabLabel(label: 'Requested'),
+            labels: [
+              _TabLabel(
+                label: 'Hosting',
+                badgeCount: totalPending,
+                semanticsLabel: totalPending > 0
+                    ? 'Hosting, $totalPending pending request${totalPending == 1 ? '' : 's'}'
+                    : 'Hosting',
+              ),
+              const _TabLabel(label: 'Requested'),
             ],
-            onTabSelected: (index) => setState(() => _selectedTab = index),
+            onTabSelected: _onTabSelected,
           ),
           // Tab content.
           Expanded(
             child: IndexedStack(
               index: _selectedTab,
               children: const [
-                // Tab 0 — Hosting (B2 will replace this).
-                _HostingTabPlaceholder(),
+                // Tab 0 — Hosting (B2b).
+                HostingTab(),
                 // Tab 1 — Requested (B1b).
                 MyJoinRequestsTab(),
               ],
@@ -151,20 +205,28 @@ class _SegmentedControl extends StatelessWidget {
 // Tab label slot (B2 attachment point)
 // ---------------------------------------------------------------------------
 
-/// A tab label widget with an optional badge count overlay.
+/// A tab label widget with an optional notification-dot overlay.
 ///
-/// B2 attachment: construct with a non-zero [badgeCount] to render a
-/// notification dot over the label. The dot sits top-right of the text,
-/// rendered via a [Stack] so the label width is unaffected.
+/// Construct with a non-zero [badgeCount] to render an 8dp
+/// [TribelyColors.paperAccent] filled dot top-right of the label text.
+/// The dot is positioned via a [Stack] so the label width is unaffected.
+///
+/// [semanticsLabel] overrides the a11y label when the dot is visible.
+/// Pass `"Hosting, N pending requests"` to satisfy PM AC.
 class _TabLabel extends StatelessWidget {
-  // ignore: unused_element_parameter — B2 will pass badgeCount for the Hosting tab.
-  const _TabLabel({required this.label, this.badgeCount = 0});
+  const _TabLabel({
+    required this.label,
+    this.badgeCount = 0,
+    this.semanticsLabel,
+  });
 
   final String label;
 
-  /// When > 0, a small red dot is shown top-right of the label.
-  /// B2 sets this to the number of pending requests for the Hosting tab.
+  /// When > 0, an 8dp accent dot is shown top-right of the label.
   final int badgeCount;
+
+  /// Accessibility label override. When null, falls back to [label].
+  final String? semanticsLabel;
 
   Widget _build(BuildContext context, {required bool isSelected}) {
     final textColor = isSelected
@@ -180,27 +242,36 @@ class _TabLabel extends StatelessWidget {
     );
 
     if (badgeCount <= 0) {
-      return textWidget;
+      return Semantics(
+        label: semanticsLabel ?? label,
+        excludeSemantics: semanticsLabel != null,
+        child: textWidget,
+      );
     }
 
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.center,
-      children: [
-        textWidget,
-        Positioned(
-          top: -2,
-          right: -8,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: TribelyColors.paperAccent,
-              shape: BoxShape.circle,
+    return Semantics(
+      label: semanticsLabel ?? label,
+      excludeSemantics: true,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          textWidget,
+          // 8dp accent dot — top-right of the label text.
+          Positioned(
+            top: -2,
+            right: -8,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: TribelyColors.paperAccent,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -209,23 +280,5 @@ class _TabLabel extends StatelessWidget {
     // The _build method is called by _SegmentedControl with isSelected context.
     // When used standalone (e.g. in tests), render in the non-selected style.
     return _build(context, isSelected: false);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Hosting tab placeholder (B2 will replace this)
-// ---------------------------------------------------------------------------
-
-/// Placeholder for the Hosting tab content.
-///
-/// B2 attachment: replace this widget assignment in [_MyEventsPageState.build]
-/// with the actual hosting list widget. This const class is intentionally
-/// minimal — it's a named slot marker, not a real content widget.
-class _HostingTabPlaceholder extends StatelessWidget {
-  const _HostingTabPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('Hosting tab coming soon'));
   }
 }
