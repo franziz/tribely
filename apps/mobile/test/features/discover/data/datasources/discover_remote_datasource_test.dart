@@ -43,10 +43,7 @@ Map<String, dynamic> _innerEventJson({String id = 'evt-42'}) => {
 Map<String, dynamic> _wrapperJson({
   String id = 'evt-42',
   Map<String, dynamic>? host = const {'id': 'usr-1', 'displayName': 'Alice'},
-}) => {
-  'event': _innerEventJson(id: id),
-  if (host != null) 'host': host,
-};
+}) => {'event': _innerEventJson(id: id), 'host': ?host};
 
 /// Synthesise a Dio [Response] for test stubs.
 Response<Map<String, dynamic>> _dioResponse(Map<String, dynamic> data) =>
@@ -133,9 +130,7 @@ void main() {
             cancelToken: any(named: 'cancelToken'),
             onReceiveProgress: any(named: 'onReceiveProgress'),
           ),
-        ).thenAnswer(
-          (_) async => _dioResponse(_wrapperJson(host: null)),
-        );
+        ).thenAnswer((_) async => _dioResponse(_wrapperJson(host: null)));
 
         // Act.
         final model = await datasource.getEventDetail('evt-42');

@@ -442,83 +442,78 @@ void main() {
     // 6. Role-aware CTA gating
     // -----------------------------------------------------------------------
 
-    testWidgets(
-      'host viewer (session.user.id == event.hostId) → CTA absent',
-      (tester) async {
-        // The authenticated user IS the event host.
-        final hostSession = AuthSession(
-          user: User(
-            id: 'user-host-1', // matches _testEvent.hostId
-            email: 'host@tribely.com',
-            displayName: 'Host User',
-            createdAt: DateTime.utc(2024),
-            updatedAt: DateTime.utc(2024),
-            emailVerifiedAt: DateTime.utc(2024),
-          ),
-          accessToken: 'token',
-          accessTokenExpiresAt: DateTime.utc(2099),
-          refreshToken: 'refresh',
-          refreshTokenExpiresAt: DateTime.utc(2099),
-        );
+    testWidgets('host viewer (session.user.id == event.hostId) → CTA absent', (
+      tester,
+    ) async {
+      // The authenticated user IS the event host.
+      final hostSession = AuthSession(
+        user: User(
+          id: 'user-host-1', // matches _testEvent.hostId
+          email: 'host@tribely.com',
+          displayName: 'Host User',
+          createdAt: DateTime.utc(2024),
+          updatedAt: DateTime.utc(2024),
+          emailVerifiedAt: DateTime.utc(2024),
+        ),
+        accessToken: 'token',
+        accessTokenExpiresAt: DateTime.utc(2099),
+        refreshToken: 'refresh',
+        refreshTokenExpiresAt: DateTime.utc(2099),
+      );
 
-        await _pumpPage(
-          tester,
-          eventId: _testEventId,
-          initialState: EventDetailLoaded(_testEvent),
-          sessionState: SessionAuthenticated(hostSession),
-        );
+      await _pumpPage(
+        tester,
+        eventId: _testEventId,
+        initialState: EventDetailLoaded(_testEvent),
+        sessionState: SessionAuthenticated(hostSession),
+      );
 
-        // CTA must be absent — no empty button slot for the host viewer.
-        expect(find.text('Request to join'), findsNothing);
-        expect(find.byType(PrimaryButton), findsNothing);
-      },
-    );
+      // CTA must be absent — no empty button slot for the host viewer.
+      expect(find.text('Request to join'), findsNothing);
+      expect(find.byType(PrimaryButton), findsNothing);
+    });
 
-    testWidgets(
-      'non-host authenticated viewer → CTA renders',
-      (tester) async {
-        // Authenticated but different user from the event host.
-        final otherSession = AuthSession(
-          user: User(
-            id: 'user-other-99', // different from _testEvent.hostId
-            email: 'other@tribely.com',
-            displayName: 'Other User',
-            createdAt: DateTime.utc(2024),
-            updatedAt: DateTime.utc(2024),
-            emailVerifiedAt: DateTime.utc(2024),
-          ),
-          accessToken: 'token',
-          accessTokenExpiresAt: DateTime.utc(2099),
-          refreshToken: 'refresh',
-          refreshTokenExpiresAt: DateTime.utc(2099),
-        );
+    testWidgets('non-host authenticated viewer → CTA renders', (tester) async {
+      // Authenticated but different user from the event host.
+      final otherSession = AuthSession(
+        user: User(
+          id: 'user-other-99', // different from _testEvent.hostId
+          email: 'other@tribely.com',
+          displayName: 'Other User',
+          createdAt: DateTime.utc(2024),
+          updatedAt: DateTime.utc(2024),
+          emailVerifiedAt: DateTime.utc(2024),
+        ),
+        accessToken: 'token',
+        accessTokenExpiresAt: DateTime.utc(2099),
+        refreshToken: 'refresh',
+        refreshTokenExpiresAt: DateTime.utc(2099),
+      );
 
-        await _pumpPage(
-          tester,
-          eventId: _testEventId,
-          initialState: EventDetailLoaded(_testEvent),
-          sessionState: SessionAuthenticated(otherSession),
-        );
+      await _pumpPage(
+        tester,
+        eventId: _testEventId,
+        initialState: EventDetailLoaded(_testEvent),
+        sessionState: SessionAuthenticated(otherSession),
+      );
 
-        expect(find.text('Request to join'), findsOneWidget);
-        expect(find.byType(PrimaryButton), findsOneWidget);
-      },
-    );
+      expect(find.text('Request to join'), findsOneWidget);
+      expect(find.byType(PrimaryButton), findsOneWidget);
+    });
 
-    testWidgets(
-      'unauthenticated viewer → CTA renders (default)',
-      (tester) async {
-        await _pumpPage(
-          tester,
-          eventId: _testEventId,
-          initialState: EventDetailLoaded(_testEvent),
-          sessionState: const SessionUnauthenticated(),
-        );
+    testWidgets('unauthenticated viewer → CTA renders (default)', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        eventId: _testEventId,
+        initialState: EventDetailLoaded(_testEvent),
+        sessionState: const SessionUnauthenticated(),
+      );
 
-        expect(find.text('Request to join'), findsOneWidget);
-        expect(find.byType(PrimaryButton), findsOneWidget);
-      },
-    );
+      expect(find.text('Request to join'), findsOneWidget);
+      expect(find.byType(PrimaryButton), findsOneWidget);
+    });
 
     // -----------------------------------------------------------------------
     // 7. Host display name rendering
@@ -527,9 +522,7 @@ void main() {
     testWidgets(
       'event.hostDisplayName non-null → "Hosted by <name>" rendered',
       (tester) async {
-        final eventWithHostName = _testEvent.copyWith(
-          hostDisplayName: 'Alice',
-        );
+        final eventWithHostName = _testEvent.copyWith(hostDisplayName: 'Alice');
 
         await _pumpPage(
           tester,

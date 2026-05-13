@@ -42,7 +42,8 @@ class EventDetailPage extends ConsumerWidget {
     // isHostViewer = true only when the authenticated user is the event's host.
     // Unauthenticated → false → CTA renders (default). Per PM AC: no empty
     // button slot, no layout artifact when the host views their own event.
-    final isHostViewer = session is SessionAuthenticated &&
+    final isHostViewer =
+        session is SessionAuthenticated &&
         state is EventDetailLoaded &&
         session.session.user.id == state.event.hostId;
 
