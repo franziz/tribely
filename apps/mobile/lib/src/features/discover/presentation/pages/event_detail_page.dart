@@ -6,6 +6,8 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
 import '../../../events/domain/entities/event.dart';
 import '../providers/event_detail_providers.dart';
 import '../state/event_detail_state.dart';
@@ -15,8 +17,10 @@ import '../state/event_detail_state.dart';
 /// Renders outside the bottom-nav shell (parentNavigatorKey: _rootNavigatorKey
 /// in app_router.dart) so the nav bar is hidden on this screen (§E).
 ///
-/// CTA: "Request to join" is always visible + tappable. Tapping fires a
-/// SnackBar communicating temporal unavailability (§F inert-CTA pattern).
+/// CTA: "Request to join" is shown to non-host authenticated viewers and
+/// unauthenticated viewers. Hosts viewing their own event see NO CTA (no
+/// empty button slot, no layout artifact). Tapping fires a SnackBar
+/// communicating temporal unavailability (§F inert-CTA pattern).
 /// The actual join-request submission is TRI-28.
 class EventDetailPage extends ConsumerWidget {
   const EventDetailPage({required this.eventId, super.key});
@@ -30,6 +34,17 @@ class EventDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(eventDetailControllerProvider(eventId));
+    // Sanctioned cross-feature presentation import per CLAUDE.md mobile rules —
+    // session identity is genuinely app-global state.
+    final session = ref.watch(sessionControllerProvider);
+
+    // Hoist host-viewer check here so _LoadedBody stays a plain StatelessWidget.
+    // isHostViewer = true only when the authenticated user is the event's host.
+    // Unauthenticated → false → CTA renders (default). Per PM AC: no empty
+    // button slot, no layout artifact when the host views their own event.
+    final isHostViewer = session is SessionAuthenticated &&
+        state is EventDetailLoaded &&
+        session.session.user.id == state.event.hostId;
 
     return Scaffold(
       backgroundColor: TribelyColors.paperSurface,
@@ -48,6 +63,7 @@ class EventDetailPage extends ConsumerWidget {
         EventDetailLoading() => const _LoadingSkeleton(),
         EventDetailLoaded(:final event) => _LoadedBody(
           event: event,
+          isHostViewer: isHostViewer,
           onJoinPressed: () => _showJoinSnackBar(context),
         ),
         EventDetailError(:final failure) => _ErrorBody(
@@ -175,22 +191,35 @@ class _LoadingSkeleton extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _LoadedBody extends StatelessWidget {
-  const _LoadedBody({required this.event, required this.onJoinPressed});
+  const _LoadedBody({
+    required this.event,
+    required this.isHostViewer,
+    required this.onJoinPressed,
+  });
 
   final Event event;
+
+  /// True when the authenticated user is the event's host. Passed in from the
+  /// parent ConsumerWidget so this widget stays a plain StatelessWidget.
+  final bool isHostViewer;
+
   final VoidCallback onJoinPressed;
 
   @override
   Widget build(BuildContext context) {
+    // When the host is viewing their own event, drop the 80dp sticky-bar
+    // reservation — no CTA, no empty layout artifact.
+    final bottomPadding = isHostViewer
+        ? MediaQuery.paddingOf(context).bottom
+        : 80 + MediaQuery.paddingOf(context).bottom;
+
     return Stack(
       children: [
         // Scrollable content.
         SingleChildScrollView(
-          // Bottom padding = sticky bar height (80dp) + safe area bottom,
-          // so content isn't occluded by the sticky CTA.
-          padding: EdgeInsets.only(
-            bottom: 80 + MediaQuery.paddingOf(context).bottom,
-          ),
+          // Bottom padding reserves space for the sticky CTA when visible.
+          // For host viewers the CTA is absent, so only safe-area padding applies.
+          padding: EdgeInsets.only(bottom: bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -214,13 +243,15 @@ class _LoadedBody extends StatelessWidget {
             ],
           ),
         ),
-        // Sticky bottom CTA (§E + §F).
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: _StickyJoinBar(onPressed: onJoinPressed),
-        ),
+        // Sticky bottom CTA (§E + §F). Hidden for host viewers — no "manage"
+        // CTA in v1; host-side management deferred per non-goals.
+        if (!isHostViewer)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _StickyJoinBar(onPressed: onJoinPressed),
+          ),
       ],
     );
   }
@@ -349,9 +380,10 @@ class _MetaRows extends StatelessWidget {
         const SizedBox(height: 10),
         _MetaRow(
           icon: Icons.person_outline,
-          // v1 trim: no avatar (API doesn't ship avatarUrl). Display host ID
-          // as a placeholder until TRI-28 / users API wires host name.
-          label: 'Hosted by ${event.hostId}',
+          // host.displayName is now wired from the eventWithHostResponseSchema
+          // wrapper. Falls back to 'Host' if absent (defensive parse).
+          // Avatar deferred to TRI-19 (API doesn't ship avatarUrl in v1).
+          label: 'Hosted by ${event.hostDisplayName ?? 'Host'}',
         ),
       ],
     );

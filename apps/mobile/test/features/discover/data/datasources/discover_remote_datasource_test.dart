@@ -40,9 +40,12 @@ Map<String, dynamic> _innerEventJson({String id = 'evt-42'}) => {
 /// The WRAPPER shape that GET /events/:id actually returns:
 /// { event: {...inner...}, host: { id, displayName } }
 /// Defined in eventWithHostResponseSchema (event.schemas.ts:91-94).
-Map<String, dynamic> _wrapperJson({String id = 'evt-42'}) => {
+Map<String, dynamic> _wrapperJson({
+  String id = 'evt-42',
+  Map<String, dynamic>? host = const {'id': 'usr-1', 'displayName': 'Alice'},
+}) => {
   'event': _innerEventJson(id: id),
-  'host': {'id': 'usr-1', 'displayName': 'Alice'},
+  if (host != null) 'host': host,
 };
 
 /// Synthesise a Dio [Response] for test stubs.
@@ -89,6 +92,56 @@ void main() {
         expect(model.hostUserId, 'usr-1');
         expect(model.title, 'Sunset Drinks');
         expect(model.venue.city, 'Singapore');
+      },
+    );
+
+    test(
+      'host.displayName is synthesised onto the model as hostDisplayName',
+      () async {
+        // Arrange: wrapper with host.displayName present.
+        when(
+          () => dio.get<Map<String, dynamic>>(
+            '/events/evt-42',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          ),
+        ).thenAnswer(
+          (_) async => _dioResponse(
+            _wrapperJson(host: {'id': 'usr-1', 'displayName': 'Alice'}),
+          ),
+        );
+
+        // Act.
+        final model = await datasource.getEventDetail('evt-42');
+
+        // Assert: host display name flows through.
+        expect(model.hostDisplayName, 'Alice');
+      },
+    );
+
+    test(
+      'absent host sibling → hostDisplayName is null (graceful fallback)',
+      () async {
+        // Arrange: wrapper with no host key.
+        when(
+          () => dio.get<Map<String, dynamic>>(
+            '/events/evt-42',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          ),
+        ).thenAnswer(
+          (_) async => _dioResponse(_wrapperJson(host: null)),
+        );
+
+        // Act.
+        final model = await datasource.getEventDetail('evt-42');
+
+        // Assert: graceful null — no throw.
+        expect(model.hostDisplayName, isNull);
       },
     );
 
