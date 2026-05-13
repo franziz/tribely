@@ -127,7 +127,7 @@ describe.skipIf(!dbUrl)('GET /me/events (integration)', () => {
           startsAt: new Date(now.getTime() + 9 * 24 * 60 * 60 * 1000),
           endsAt: new Date(now.getTime() + 9 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
           capacity: 5,
-          category: 'hiking',
+          category: 'hike',
           costSplit: 'own',
           approvalMode: 'manual',
           status: 'published',

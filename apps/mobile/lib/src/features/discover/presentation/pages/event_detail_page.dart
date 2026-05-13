@@ -37,7 +37,7 @@ import '../state/event_detail_state.dart';
 ///   - Pending request → StatusPill + "Sent to {host}" + "Withdraw request" link
 ///   - Approved request → StatusPill(approved), no action
 ///   - Declined request → StatusPill(declined) + decisionReason caption
-///   - Withdrawn request → StatusPill(withdrawn)
+///   - Withdrawn request (event not past) → PrimaryButton("Request to join") → re-request
 ///   - Event past / capacity full → disabled button + inline reason
 ///   - 403 EMAIL_NOT_VERIFIED → BannerMessage above bar + "Verify now" link
 ///
@@ -806,7 +806,7 @@ class _AnimatedPendingRowState extends State<_AnimatedPendingRow>
 ///   - Pending: StatusPill(pending) + "Sent to {host}" + withdraw link
 ///   - Approved: StatusPill(approved)
 ///   - Declined: StatusPill(declined) + decisionReason caption
-///   - Withdrawn: StatusPill(withdrawn)
+///   - Withdrawn (event not past): PrimaryButton("Request to join") → re-request
 ///   - Event past or capacity full: disabled PrimaryButton + inline reason
 ///   - EmailNotVerified: BannerMessage above bar + "Verify now" link
 ///
@@ -842,6 +842,30 @@ class _StickyJoinBar extends ConsumerWidget {
 
     if (emailNotVerifiedBanner) {
       content = _VerifyEmailBanner(event: event, controller: controller);
+    } else if (effectiveRequest != null &&
+        effectiveRequest!.status == JoinRequestStatus.withdrawn &&
+        !isEventPast) {
+      // Withdrawn → re-request CTA. PM verdict: same affordance as never-
+      // requested; tapping opens ConfirmJoinSheet which creates a new
+      // JoinRequest. No cooldown, no per-event cap.
+      // Note: capacity-full / cancelled are covered by isEventPast above.
+      final isSubmitting = joinState is RequestToJoinSubmitting;
+      content = PrimaryButton(
+        label: 'Request to join',
+        state: isSubmitting
+            ? PrimaryButtonState.loading
+            : PrimaryButtonState.idle,
+        onPressed: isSubmitting
+            ? null
+            : () => showConfirmJoinSheet(
+                context,
+                eventId: event.id,
+                hostName: hostName,
+                eventTitle: event.title,
+                startsAt: event.startsAt,
+                endsAt: event.endsAt,
+              ),
+      );
     } else if (effectiveRequest != null) {
       content = _RequestStatusContent(
         request: effectiveRequest!,
@@ -889,6 +913,10 @@ class _StickyJoinBar extends ConsumerWidget {
 
 /// StatusPill + caption + optional withdraw link for pending/approved/
 /// declined/withdrawn request states.
+///
+/// Note: the Withdrawn-with-re-request CTA is handled upstream in
+/// [_StickyJoinBar] — this widget only sees Withdrawn when the event is
+/// past/cancelled (in which case no re-request action is shown).
 class _RequestStatusContent extends StatelessWidget {
   const _RequestStatusContent({
     required this.request,

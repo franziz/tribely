@@ -108,14 +108,20 @@ class _FixedEventDetailController extends EventDetailController {
 }
 
 class _FixedRequestToJoinController extends RequestToJoinController {
-  _FixedRequestToJoinController(this._ctaState, {this.onWithdrawCalled})
-    : super(_testEventId);
+  _FixedRequestToJoinController(
+    this._ctaState, {
+    this.onWithdrawCalled,
+    this.onSubmitCalled,
+  }) : super(_testEventId);
 
   final RequestToJoinState _ctaState;
 
   /// Invoked when [withdraw] is called. Test code reads this to verify side
   /// effects without exposing a mutable field on the Notifier.
   final VoidCallback? onWithdrawCalled;
+
+  /// Invoked when [submit] is called.
+  final VoidCallback? onSubmitCalled;
 
   @override
   RequestToJoinState build() => _ctaState;
@@ -124,7 +130,9 @@ class _FixedRequestToJoinController extends RequestToJoinController {
   Future<void> loadExisting() async {}
 
   @override
-  Future<void> submit() async {}
+  Future<void> submit() async {
+    onSubmitCalled?.call();
+  }
 
   @override
   Future<void> withdraw(String joinRequestId) async {
@@ -150,10 +158,12 @@ Future<_FixedRequestToJoinController> _pumpPage(
   required RequestToJoinState ctaState,
   SessionState sessionState = const SessionUnauthenticated(),
   VoidCallback? onWithdrawCalled,
+  VoidCallback? onSubmitCalled,
 }) async {
   final controller = _FixedRequestToJoinController(
     ctaState,
     onWithdrawCalled: onWithdrawCalled,
+    onSubmitCalled: onSubmitCalled,
   );
 
   await tester.pumpWidget(
@@ -252,22 +262,43 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 5. Withdrawn request → pill, no re-request
+    // 5. Withdrawn request (future event) → re-request CTA (TRI-28 Fix C)
     // -----------------------------------------------------------------------
-    testWidgets('withdrawn request → StatusPill(withdrawn), no CTA button', (
-      tester,
-    ) async {
-      await _pumpPage(
-        tester,
-        event: _testEvent,
-        ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
-      );
+    testWidgets(
+      'withdrawn request (future event) → "Request to join" CTA enabled',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          event: _testEvent,
+          ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+        );
 
-      expect(find.byType(StatusPill), findsOneWidget);
-      expect(find.text('Withdraw request'), findsNothing);
-      // No "Request to join" button.
-      expect(find.text('Request to join'), findsNothing);
-    });
+        // StatusPill must NOT be shown — we show the CTA button instead.
+        expect(find.byType(StatusPill), findsNothing);
+        expect(find.text('Withdraw request'), findsNothing);
+        // The re-request CTA is the same affordance as never-requested.
+        final button = tester.widget<PrimaryButton>(
+          find.widgetWithText(PrimaryButton, 'Request to join'),
+        );
+        expect(button.onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'withdrawn request (past event) → shows StatusPill, no re-request CTA',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          event: _pastEvent,
+          ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+        );
+
+        // Past event + withdrawn → show the withdrawn pill but NOT a re-request
+        // button (event is over).
+        expect(find.byType(StatusPill), findsOneWidget);
+        expect(find.text('Request to join'), findsNothing);
+      },
+    );
 
     // -----------------------------------------------------------------------
     // 6. Event past → disabled CTA + inline reason
@@ -363,6 +394,51 @@ void main() {
 
       expect(withdrawCalled, isFalse);
     });
+  });
+
+  // -----------------------------------------------------------------------
+  // Fix C regression: Withdrawn → re-request flow
+  // -----------------------------------------------------------------------
+  group('Withdrawn re-request CTA (TRI-28 Fix C)', () {
+    testWidgets(
+      'tapping "Request to join" in withdrawn state opens ConfirmJoinSheet',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          event: _testEvent,
+          ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+        );
+
+        await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+        await tester.pumpAndSettle();
+
+        // ConfirmJoinSheet shows "Send request" button.
+        expect(find.text('Send request'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'confirming re-request in ConfirmJoinSheet calls controller.submit()',
+      (tester) async {
+        var submitCalled = false;
+        await _pumpPage(
+          tester,
+          event: _testEvent,
+          ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+          onSubmitCalled: () => submitCalled = true,
+        );
+
+        // Open the ConfirmJoinSheet.
+        await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+        await tester.pumpAndSettle();
+
+        // Tap the "Send request" button inside the sheet.
+        await tester.tap(find.text('Send request'));
+        await tester.pumpAndSettle();
+
+        expect(submitCalled, isTrue);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
