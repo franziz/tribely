@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../join_requests/domain/entities/join_request.dart';
 import '../../../join_requests/domain/usecases/list_pending_for_event_usecase.dart';
 import '../../../join_requests/presentation/providers/join_requests_providers.dart';
 
@@ -106,7 +107,20 @@ class HostingPendingCountController extends Notifier<HostingPendingCountState> {
       _eventIds.map((id) async {
         final result = await useCase(ListPendingForEventParams(eventId: id));
         // Returns (id, count) on success, (id, null) on failure.
-        return MapEntry(id, result.fold((_) => null, (items) => items.length));
+        return MapEntry(
+          id,
+          result.fold(
+            (_) => null,
+            // Defense-in-depth: only count pending rows. The backend already
+            // filters to pending, but this guard protects against future
+            // regressions or stale cache returning non-pending records.
+            (items) => items
+                .where(
+                  (jr) => jr.joinRequest.status == JoinRequestStatus.pending,
+                )
+                .length,
+          ),
+        );
       }),
     );
 
@@ -157,7 +171,17 @@ class HostingPendingCountController extends Notifier<HostingPendingCountState> {
     final results = await Future.wait(
       stillFailed.map((id) async {
         final result = await useCase(ListPendingForEventParams(eventId: id));
-        return MapEntry(id, result.fold((_) => null, (items) => items.length));
+        return MapEntry(
+          id,
+          result.fold(
+            (_) => null,
+            (items) => items
+                .where(
+                  (jr) => jr.joinRequest.status == JoinRequestStatus.pending,
+                )
+                .length,
+          ),
+        );
       }),
     );
 
