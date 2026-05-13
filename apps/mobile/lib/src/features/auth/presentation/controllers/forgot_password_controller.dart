@@ -47,6 +47,8 @@ String _bannerFor(Failure failure) {
     AuthFailure() => failure.message,
     ValidationFailure() => failure.message,
     NotFoundFailure() => failure.message,
+    CapacityFullFailure() => failure.message,
+    ConflictFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

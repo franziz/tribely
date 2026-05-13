@@ -48,3 +48,20 @@ class NotFoundFailure extends Failure {
 class UnknownFailure extends Failure {
   const UnknownFailure(super.message, {super.code});
 }
+
+/// 409 with details.subcode === 'CAPACITY_FULL'. The event has no more room.
+class CapacityFullFailure extends Failure {
+  const CapacityFullFailure(super.message, {super.code});
+}
+
+/// 409 with a subcode indicating a state-transition conflict (e.g.
+/// ALREADY_APPROVED, ALREADY_REJECTED, ALREADY_CANCELLED). [subcode] carries
+/// the machine-readable value so the UI can render context-specific copy.
+class ConflictFailure extends Failure {
+  const ConflictFailure(super.message, {required this.subcode, super.code});
+
+  final String subcode;
+
+  @override
+  List<Object?> get props => [...super.props, subcode];
+}

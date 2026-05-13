@@ -51,6 +51,8 @@ String _bannerFor(Failure failure) {
     // enumeration surface clean.
     ValidationFailure() => failure.message,
     NotFoundFailure() => failure.message,
+    CapacityFullFailure() => failure.message,
+    ConflictFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }
