@@ -63,10 +63,9 @@ export const listEventsQuerySchema = z.object({
   from: isoDatetime.optional(),
   to: isoDatetime.optional(),
   /**
-   * Filter by host. Accepts a user id OR the sentinel `'me'`, which the
-   * controller resolves to the authenticated caller's id before passing to the
-   * use case. `'me'` without authentication is rejected upstream by the
-   * optional `requireAuth` guard in the route.
+   * Filter by host. Accepts a concrete user id (for admin/moderation use cases).
+   * The `'me'` sentinel is NOT supported — callers that want their own hosted
+   * events must use `GET /me/events`.
    */
   hostUserId: z.string().min(1).optional(),
   cursor: z.string().min(1).optional(),

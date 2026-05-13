@@ -6,7 +6,9 @@ import { errorHandler } from './core/middleware/error-handler.js';
 import { requestContext } from './core/middleware/request-context.js';
 import { auditHttp } from './features/audit/presentation/middleware/audit-http.js';
 import { buildAuthRoutes } from './features/auth/presentation/http/routes/auth.routes.js';
+import { EventController } from './features/events/presentation/http/controllers/event.controller.js';
 import { buildEventRoutes } from './features/events/presentation/http/routes/event.routes.js';
+import { buildMyEventRoutes } from './features/events/presentation/http/routes/my-event.routes.js';
 import { JoinRequestController } from './features/join-requests/presentation/http/controllers/join-request.controller.js';
 import { buildEventScopedJoinRequestRoutes } from './features/join-requests/presentation/http/routes/event-scoped-join-request.routes.js';
 import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
@@ -56,6 +58,13 @@ export const buildApp = (): { app: Hono; container: Container } => {
       clock: container.clock,
     }),
   );
+  const eventController = new EventController(
+    container.createEventUseCase,
+    container.listEventsUseCase,
+    container.getEventUseCase,
+    container.updateEventUseCase,
+    container.cancelEventUseCase,
+  );
   app.route(
     '/events',
     buildEventRoutes({
@@ -66,6 +75,16 @@ export const buildApp = (): { app: Hono; container: Container } => {
       cancelEvent: container.cancelEventUseCase,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
+    }),
+  );
+  // GET /me/events — authenticated user's own hosted events.
+  // Mirrors the /me/join-requests pattern (MyJoinRequestRoutes).
+  app.route(
+    '/me',
+    buildMyEventRoutes({
+      controller: eventController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
     }),
   );
 

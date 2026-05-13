@@ -6,19 +6,19 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/error/failures.dart';
+import '../../../../core/providers/list_my_hosted_events_usecase_provider.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
-import '../../../discover/domain/entities/discover_filters.dart';
-import '../../../discover/domain/usecases/browse_events_usecase.dart';
-import '../../../../core/providers/browse_events_usecase_provider.dart';
+import '../../../discover/domain/usecases/list_my_hosted_events_usecase.dart';
 import '../../../events/domain/entities/event.dart';
 import '../controllers/hosting_pending_count_controller.dart';
 
 /// Content for the "Hosting" tab in [MyEventsPage].
 ///
-/// Lists events the current user hosts via [GET /events?hostUserId=me].
+/// Lists events the current user hosts via [GET /me/events].
 /// Per-row pending count badge is sourced from [HostingPendingCountController].
 ///
 /// States:
@@ -51,25 +51,25 @@ class _HostingTabState extends ConsumerState<HostingTab> {
       if (session is! SessionAuthenticated) {
         setState(
           () => _viewState = const _HostingTabError(
-            message: 'Sign in to see your hosted events.',
+            message: 'Sign in to see events you\'re hosting.',
           ),
         );
         return;
       }
 
-      final useCase = ref.read(browseEventsUseCaseProvider);
-      final result = await useCase(
-        const BrowseEventsParams(filters: DiscoverFilters(hostUserId: 'me')),
-      );
+      final useCase = ref.read(listMyHostedEventsUseCaseProvider);
+      final result = await useCase(const ListMyHostedEventsParams());
 
       if (!mounted) return;
 
       result.fold(
         (failure) => setState(
-          () => _viewState = _HostingTabError(message: failure.message),
+          () => _viewState = _HostingTabError(
+            message: _mapFailureToUserCopy(failure),
+          ),
         ),
-        (page) =>
-            setState(() => _viewState = _HostingTabLoaded(events: page.events)),
+        (events) =>
+            setState(() => _viewState = _HostingTabLoaded(events: events)),
       );
     } catch (e) {
       if (mounted) {
@@ -81,6 +81,15 @@ class _HostingTabState extends ConsumerState<HostingTab> {
       }
     }
   }
+
+  /// Maps a [Failure] to user-facing copy. Raw [failure.message] values from
+  /// the API are NEVER exposed to the UI — they are server-internal strings
+  /// (e.g. "hostUserId=me requires authentication") that mean nothing to users.
+  static String _mapFailureToUserCopy(Failure failure) => switch (failure) {
+    NetworkFailure() => 'No connection. Pull down to retry.',
+    AuthFailure() => 'Sign in to see events you\'re hosting.',
+    _ => 'Something went wrong. Please try again.',
+  };
 
   Future<void> _refresh() => _load();
 

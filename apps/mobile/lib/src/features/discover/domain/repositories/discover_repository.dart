@@ -26,4 +26,13 @@ abstract class DiscoverRepository {
   /// Possible failures: [NotFoundFailure] (404), [AuthFailure] (401),
   /// [ServerFailure] (5xx), [NetworkFailure] (no connectivity).
   Future<Either<Failure, Event>> getEventDetail(String eventId);
+
+  /// Fetch the authenticated user's own hosted events from `GET /me/events`.
+  ///
+  /// Requires a valid Bearer token — callers must ensure the user is
+  /// authenticated before invoking.
+  ///
+  /// Possible failures: [AuthFailure] (401), [ServerFailure] (5xx),
+  /// [NetworkFailure] (no connectivity).
+  Future<Either<Failure, List<Event>>> listMyHostedEvents();
 }

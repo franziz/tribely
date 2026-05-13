@@ -30,6 +30,7 @@ import '../../features/discover/data/repositories/discover_repository_impl.dart'
 import '../../features/discover/domain/repositories/discover_repository.dart';
 import '../../features/discover/domain/usecases/browse_events_usecase.dart';
 import '../../features/discover/domain/usecases/get_event_detail_usecase.dart';
+import '../../features/discover/domain/usecases/list_my_hosted_events_usecase.dart';
 import '../../features/join_requests/data/datasources/join_request_remote_datasource.dart';
 import '../../features/join_requests/data/repositories/join_request_repository_impl.dart';
 import '../../features/join_requests/domain/repositories/join_request_repository.dart';
@@ -136,6 +137,9 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => BrowseEventsUseCase(sl<DiscoverRepository>()));
   sl.registerLazySingleton(
     () => GetEventDetailUseCase(sl<DiscoverRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ListMyHostedEventsUseCase(sl<DiscoverRepository>()),
   );
 
   // JoinRequests — datasources

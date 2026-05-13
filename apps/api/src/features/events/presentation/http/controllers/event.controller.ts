@@ -107,33 +107,39 @@ export class EventController {
   };
 
   /**
-   * `actorUserId` is optional: `GET /events` is public (no auth required).
-   * When `query.hostUserId === 'me'`, the sentinel resolves to `actorUserId`.
-   * If the caller did not authenticate but supplied `hostUserId=me`, we throw
-   * a 422 validation error — the caller must supply a concrete id or a valid
-   * Bearer token.
+   * Public event listing. `GET /events`.
+   * `hostUserId` query param accepts a concrete user id for admin/moderation
+   * use cases. The `'me'` sentinel is NOT supported here — callers that want
+   * their own hosted events must use `GET /me/events` (requireAuth route).
    */
-  listAction = async (c: Context, query: ListEventsQuery, actorUserId?: string) => {
-    let resolvedHostUserId: string | undefined;
-    if (query.hostUserId !== undefined) {
-      if (query.hostUserId === 'me') {
-        if (!actorUserId) {
-          throw AppError.validation('hostUserId=me requires authentication');
-        }
-        resolvedHostUserId = actorUserId;
-      } else {
-        resolvedHostUserId = query.hostUserId;
-      }
-    }
-
+  listAction = async (c: Context, query: ListEventsQuery) => {
     const result = await this.listEvents.execute({
       ...(query.city !== undefined && { city: query.city }),
       ...(query.category !== undefined && { category: query.category }),
       ...(query.from !== undefined && { from: new Date(query.from) }),
       ...(query.to !== undefined && { to: new Date(query.to) }),
-      ...(resolvedHostUserId !== undefined && { hostUserId: resolvedHostUserId }),
+      ...(query.hostUserId !== undefined && { hostUserId: query.hostUserId }),
       ...(query.cursor !== undefined && { cursor: decodeCursor(query.cursor) }),
       limit: query.limit,
+    });
+    const response: EventListingResponse = {
+      events: result.events.map(toEventResponse),
+      nextCursor: result.nextCursor ? encodeCursor(result.nextCursor) : null,
+    };
+    return c.json(response, 200);
+  };
+
+  /**
+   * Authenticated user's own hosted events. `GET /me/events`.
+   * Returns the same EventListingResponse shape as listAction.
+   * No cursor/filter support — returns up to 50 events (max page size).
+   * The mobile Hosting tab doesn't paginate; this matches the existing
+   * mobile pattern for "list my join requests" which also fetches all at once.
+   */
+  listMyEventsAction = async (c: Context, actorUserId: string) => {
+    const result = await this.listEvents.execute({
+      hostUserId: actorUserId,
+      limit: 50,
     });
     const response: EventListingResponse = {
       events: result.events.map(toEventResponse),
