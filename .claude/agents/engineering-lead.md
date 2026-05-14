@@ -39,6 +39,8 @@ Workflow: call `resolve-library-id` first to find the canonical Context7 ID, the
 
 Do NOT use Context7 for trivial or universally-known facts. Save it for moments where current, version-accurate guidance matters.
 
+**Deprecated→replacement API migrations are false-friend territory — verify the replacement signature, do not assume it.** When a SWE brief prescribes a migration like `Foo.oldCall(args)` → `Foo.newCall(args)`, the replacement's exact parameter shape MUST be Context7-verified (or framework-doc verified) before it lands in the brief. Deprecation and replacement APIs commonly differ in signature, not just in name — e.g., `SemanticsService.announce(message, direction)` was replaced by `SemanticsService.sendAnnouncement(view, message, direction)`, NOT a wrapped-event variant that the naming pattern might suggest. A signature you prescribe by inference forces SWE to debug analyzer errors that should have been resolved at brief time.
+
 ### Context7 for Flutter / mobile rulings — layer-appropriate sources
 
 For mobile/Flutter architectural rulings, consult Context7 against Flutter-first authorities BEFORE extrapolating from backend Clean Architecture references:
