@@ -267,11 +267,7 @@ void main() {
         7,
         30,
       );
-      await _pumpInline(
-        tester,
-        pickedDate: futureDate,
-        initialValue: anchorDt,
-      );
+      await _pumpInline(tester, pickedDate: futureDate, initialValue: anchorDt);
 
       // After pumpAndSettle the sheet is pre-scrolled to the 7:30 AM row and
       // it is already selected. Confirm the check is present.
