@@ -36,7 +36,5 @@ class TribelyColors {
   static const Color nightAccent = Color(0xFFE07F5F);
   static const Color nightAccentSoft = Color(0xFF2E1F1A);
   static const Color nightSuccess = Color(0xFF82B091);
-  // TODO(design): night value is a placeholder — confirm final dark-mode
-  // approved-pill background with designer before production release.
   static const Color nightSuccessSoft = Color(0xFF1F3D2A);
 }
