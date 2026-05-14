@@ -64,10 +64,22 @@ void main() {
     ) async {
       await _pumpInline(tester, pickedDate: futureDate);
 
-      // Verify the first and last row labels are present somewhere in the tree
-      // (some rows may be off-screen but ListView.separated builds lazily —
-      // we verify count via finder on all rendered items).
+      // The sheet pre-scrolls to _bestGuessIndex = (now.hour * 4) + (now.minute
+      // ~/ 15), so index 0 ("12:00 AM") is off-screen unless this runs at
+      // midnight. Scroll upward (negative delta = toward earlier rows) to bring
+      // it into the viewport before asserting.
+      final _pickerScrollable = find.descendant(
+        of: find.byType(TimePickerSheet),
+        matching: find.byType(Scrollable),
+      ).first;
+      await tester.scrollUntilVisible(
+        find.text(_rowLabel(0)),
+        -50.0,
+        scrollable: _pickerScrollable,
+      );
+      await tester.pumpAndSettle();
       expect(find.text(_rowLabel(0)), findsOneWidget); // 12:00 AM
+
       // Scroll to the bottom to trigger lazy-build of last rows.
       await tester.dragUntilVisible(
         find.text(_rowLabel(95)), // 11:45 PM
@@ -146,7 +158,18 @@ void main() {
     testWidgets('tapping a row shows check icon', (tester) async {
       await _pumpInline(tester, pickedDate: futureDate);
 
-      // Tap the first visible row (12:00 AM).
+      // The sheet pre-scrolls to the current time; index 0 ("12:00 AM") is
+      // off-screen on any non-midnight run. Scroll upward (negative delta)
+      // to bring it into the viewport before tapping.
+      await tester.scrollUntilVisible(
+        find.text(_rowLabel(0)),
+        -50.0,
+        scrollable: find.descendant(
+          of: find.byType(TimePickerSheet),
+          matching: find.byType(Scrollable),
+        ).first,
+      );
+
       await tester.tap(find.text(_rowLabel(0)));
       await tester.pump();
 
@@ -181,6 +204,18 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
+      // The sheet pre-scrolls to the current time; index 0 ("12:00 AM") is
+      // off-screen on any non-midnight run. Scroll upward (negative delta)
+      // to bring it into the viewport before tapping.
+      await tester.scrollUntilVisible(
+        find.text(_rowLabel(0)),
+        -50.0,
+        scrollable: find.descendant(
+          of: find.byType(TimePickerSheet),
+          matching: find.byType(Scrollable),
+        ).first,
+      );
+
       // Tap the first row (index 0 = 12:00 AM).
       await tester.tap(find.text(_rowLabel(0)));
       await tester.pump();
@@ -197,9 +232,31 @@ void main() {
     testWidgets('tapping a second row moves check to new row', (tester) async {
       await _pumpInline(tester, pickedDate: futureDate);
 
+      // Both index 0 ("12:00 AM") and index 1 ("12:15 AM") are off-screen when
+      // the sheet pre-scrolls to the current time. Scroll upward (negative
+      // delta) to bring them into the viewport before tapping.
+      final _pickerScrollable = find.descendant(
+        of: find.byType(TimePickerSheet),
+        matching: find.byType(Scrollable),
+      ).first;
+
+      await tester.scrollUntilVisible(
+        find.text(_rowLabel(0)),
+        -50.0,
+        scrollable: _pickerScrollable,
+      );
+
       await tester.tap(find.text(_rowLabel(0))); // 12:00 AM
       await tester.pump();
       expect(find.byIcon(Icons.check), findsOneWidget);
+
+      // Index 1 ("12:15 AM") is adjacent and should still be in the viewport
+      // after scrolling to index 0; assert visible before tapping.
+      await tester.scrollUntilVisible(
+        find.text(_rowLabel(1)),
+        -50.0,
+        scrollable: _pickerScrollable,
+      );
 
       await tester.tap(find.text(_rowLabel(1))); // 12:15 AM
       await tester.pump();
@@ -219,19 +276,24 @@ void main() {
       await _pumpInline(tester, pickedDate: today);
 
       // Row 0 is 12:00 AM — unavailable unless it's currently before 12:05 AM.
-      // We scroll to it just in case the initial scroll jumped away.
+      // Scroll upward (negative delta) to bring it into the viewport so the
+      // assertion runs deterministically rather than passing vacuously when the
+      // sheet is pre-scrolled away from index 0.
       final row0Label = _rowLabel(0); // "12:00 AM"
+      await tester.scrollUntilVisible(
+        find.text(row0Label),
+        -50.0,
+        scrollable: find.descendant(
+          of: find.byType(TimePickerSheet),
+          matching: find.byType(Scrollable),
+        ).first,
+      );
 
-      // If 12:00 AM row is present and visible, attempt a tap.
-      if (tester.any(find.text(row0Label))) {
-        await tester.tap(find.text(row0Label), warnIfMissed: false);
-        await tester.pump();
+      await tester.tap(find.text(row0Label), warnIfMissed: false);
+      await tester.pump();
 
-        // No check icon should appear — the tap was a no-op.
-        expect(find.byIcon(Icons.check), findsNothing);
-      }
-      // If the row isn't in the viewport (pre-scrolled away), the test passes
-      // vacuously — unavailability is not observable from outside the viewport.
+      // No check icon should appear — the tap was a no-op (past row).
+      expect(find.byIcon(Icons.check), findsNothing);
     });
 
     // -------------------------------------------------------------------------
@@ -268,11 +330,20 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap row index 28 → 7:00 AM (28 = 7*4).
+      // The sheet pre-scrolls to the current time; 7:00 AM may be above or
+      // below the viewport depending on time of day. Negative delta scrolls
+      // upward toward earlier rows, which is correct when the anchor (now) is
+      // past 7 AM — the dominant case during business-hours CI runs. If the
+      // test runs before 7 AM the row is already near the top or just below the
+      // anchor; deterministic clock injection is tracked as follow-up tech debt.
       final label700 = _rowLabel(28); // "7:00 AM"
-      await tester.dragUntilVisible(
+      await tester.scrollUntilVisible(
         find.text(label700),
-        find.byType(ListView),
-        const Offset(0, -200),
+        -50.0,
+        scrollable: find.descendant(
+          of: find.byType(TimePickerSheet),
+          matching: find.byType(Scrollable),
+        ).first,
       );
       await tester.pumpAndSettle();
 
