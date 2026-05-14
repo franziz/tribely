@@ -23,8 +23,9 @@ class VerifiedPill extends StatelessWidget {
 
     final dark = Theme.of(context).brightness == Brightness.dark;
     final fg = dark ? TribelyColors.nightSuccess : TribelyColors.paperSuccess;
-    final bg =
-        dark ? TribelyColors.nightSuccessSoft : TribelyColors.paperSuccessSoft;
+    final bg = dark
+        ? TribelyColors.nightSuccessSoft
+        : TribelyColors.paperSuccessSoft;
 
     return Semantics(
       label: 'Verified',

@@ -15,15 +15,17 @@ Widget _wrap(Widget child, {Brightness brightness = Brightness.light}) =>
 
 void main() {
   group('VerifiedPill — rendering', () {
-    testWidgets('renders Icons.verified glyph at size 14 when isVerified=true',
-        (tester) async {
-      await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: true)));
-      await tester.pump();
+    testWidgets(
+      'renders Icons.verified glyph at size 14 when isVerified=true',
+      (tester) async {
+        await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: true)));
+        await tester.pump();
 
-      expect(find.byIcon(Icons.verified), findsOneWidget);
-      final icon = tester.widget<Icon>(find.byIcon(Icons.verified));
-      expect(icon.size, 14);
-    });
+        expect(find.byIcon(Icons.verified), findsOneWidget);
+        final icon = tester.widget<Icon>(find.byIcon(Icons.verified));
+        expect(icon.size, 14);
+      },
+    );
 
     testWidgets('renders "Verified" label when isVerified=true', (
       tester,
@@ -77,18 +79,22 @@ void main() {
       // VerifiedPill renders a single Container when isVerified=true.
       // Assert the rendered height matches the 20dp spec directly,
       // not via Container.constraints (which is null when height: is used positionally).
-      final size = tester.getSize(find.byType(Container));
+      final size = tester.getSize(
+        find.descendant(
+          of: find.byType(VerifiedPill),
+          matching: find.byType(Container),
+        ),
+      );
       expect(size.height, 20.0);
     });
 
-    testWidgets('isVerified=false renders SizedBox.shrink (zero size)',
-        (tester) async {
+    testWidgets('isVerified=false renders SizedBox.shrink (zero size)', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: false)));
       await tester.pump();
 
-      final box = tester.renderObject<RenderBox>(
-        find.byType(VerifiedPill),
-      );
+      final box = tester.renderObject<RenderBox>(find.byType(VerifiedPill));
       expect(box.size, Size.zero);
     });
 
@@ -102,16 +108,18 @@ void main() {
   });
 
   group('VerifiedPill — semantics', () {
-    testWidgets('isVerified=true exposes "Verified" semantics label',
-        (tester) async {
+    testWidgets('isVerified=true exposes "Verified" semantics label', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: true)));
       await tester.pump();
 
       expect(find.bySemanticsLabel('Verified'), findsOneWidget);
     });
 
-    testWidgets('isVerified=false contributes nothing to semantics tree',
-        (tester) async {
+    testWidgets('isVerified=false contributes nothing to semantics tree', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: false)));
       await tester.pump();
 
@@ -154,9 +162,7 @@ void main() {
 
   group('VerifiedPill — golden', () {
     testWidgets('verified state renders correctly (light)', (tester) async {
-      await tester.pumpWidget(
-        _wrap(const VerifiedPill(isVerified: true)),
-      );
+      await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: true)));
       await tester.pump();
 
       await expectLater(
