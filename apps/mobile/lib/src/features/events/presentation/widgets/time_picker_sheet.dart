@@ -1,5 +1,3 @@
-import 'dart:ui' show TextDirection;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:intl/intl.dart';
