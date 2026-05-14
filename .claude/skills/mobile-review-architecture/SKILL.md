@@ -129,11 +129,22 @@ Use the exact format under [Output format](#output-format).
 
 ### A6. page-is-consumer-widget
 
-**Targets:** `lib/src/features/<f>/presentation/pages/*_page.dart`, `*_sheet.dart`.
+**Targets:** files under `lib/src/features/<f>/presentation/pages/` (any `*.dart`, but `*_page.dart` is the canonical case). Also `*_sheet.dart` files anywhere that read providers or own controller-coupled behavior.
 
-**Check:** The page/sheet class extends `ConsumerWidget` or `ConsumerStatefulWidget`. Plain `StatelessWidget` / `StatefulWidget` is flagged (means the page can't read providers ergonomically).
+**Check:** Pages/sheets that hold their own state, dispatch to controllers, or read providers must extend `ConsumerWidget` or `ConsumerStatefulWidget`. Plain `StatelessWidget` / `StatefulWidget` is flagged when the file has provider-reading or controller-dispatching intent (means the file can't read providers ergonomically and the next contributor will refactor it anyway).
 
-**Exception:** purely presentational sub-widgets that don't read providers MAY be plain `StatelessWidget` — but those should live under `presentation/widgets/`, not `presentation/pages/`.
+**Exception:** purely presentational sub-widgets that don't read providers MAY be plain `StatelessWidget`. The exception is location + intent based, NOT suffix based: a `*_sheet.dart` file that lives under `presentation/widgets/` AND pops its result via `Navigator.pop` (rather than calling a controller or reading a provider) satisfies the exception cleanly — the `_sheet` suffix alone does NOT trigger the primary rule. Location-under-`widgets/` + no-provider intent overrides the suffix.
+
+**Examples that satisfy the exception:**
+
+- `features/events/presentation/widgets/category_sheet.dart` — a single-select picker that pops the chosen value via `Navigator.pop(context, value)`. No provider reads, no controller dispatch. `StatelessWidget` is correct.
+- `features/<f>/presentation/widgets/<name>_sheet.dart` — generally, any sheet under `widgets/` whose only effect is "return a value to the caller" can be `StatelessWidget`.
+
+**Examples that trigger the rule (must extend `ConsumerWidget`):**
+
+- `features/<f>/presentation/pages/*_page.dart` — pages are provider-coupled by definition.
+- `features/<f>/presentation/pages/*_sheet.dart` — sheets that live alongside pages are page-grade flow surfaces.
+- A sheet under `widgets/` that calls `ref.read(controllerProvider).doX()` directly — provider-reading intent forces `ConsumerWidget`.
 
 **Severity:** warn.
 

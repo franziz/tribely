@@ -245,7 +245,8 @@ Once reviewer and qa are both clean:
 1. Verify working tree is clean (`git status`), commits are pushed, branch is up to date with `main` (rebase if needed — delegate to `software-engineer` if rebase produces conflicts).
 2. Invoke the `/github-pr` skill. The skill auto-detects the Linear issue from the branch name.
 3. In the PR description, include EL's accept-with-rationale notes from step 7 (if any).
-4. Output the PR URL to the user.
+4. **Document any deviation from a prescriptive ticket body in the PR description, NOT by editing the ticket body.** When the ticket prescribes a specific file shape / API / pattern that EL overrides during step 5 (e.g., the ticket says "wrap in `FormField<T>`" and EL rules it dead code because no parent `Form` exists), capture the deviation verbatim in the PR body under a "Notable engineering decisions" heading: state what the ticket said, what was implemented, and EL's rationale. The ticket body stays as-authored so the audit trail is preserved — future readers see both the original instruction and why it was overridden. PM does NOT retroactively edit the issue description to "match reality."
+5. Output the PR URL to the user.
 
 ### 10. Linear update (spawn `product-manager`)
 
@@ -255,6 +256,7 @@ Final PM spawn:
 - Comment the PR URL on the issue.
 - File any follow-up issues EL queued in step 7 (`fix-followup-issue` items), and any follow-up engineering / ops / legal-engagement work `legal-compliance` identified in step 4.5.
 - **Triage any open questions EL or `legal-compliance` surfaced.** Default: PM decides — file as a separate Linear ticket, bundle into an existing ticket, or, only if the question is genuinely outside any agent's domain (taste, owner-only authority), surface to the user. Do NOT pre-instruct PM to "surface to user" in the Step 10 prompt — that's an orchestrator-induced bounce. The repo owner hired the agents to handle their domains; ticket-scoping / sequencing / dependency-mapping is squarely PM's. See memory `feedback_dont_bounce_agent_domain_decisions` for the underlying rule.
+- **Do NOT edit the issue description / acceptance criteria retroactively to match the implementation.** Implementation deviations from a prescriptive ticket body are captured in the PR description (step 9, item 4), not by rewriting the ticket. The original ticket body is the audit trail; the PR description is the "what we actually did and why" trail. Both stay intact.
 
 Orchestrator emits the final Step 10 summary and stops.
 
