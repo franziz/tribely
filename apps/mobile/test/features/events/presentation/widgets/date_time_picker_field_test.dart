@@ -100,10 +100,7 @@ void main() {
     testWidgets('renders errorText below trigger row when provided', (
       tester,
     ) async {
-      await _pumpField(
-        tester,
-        errorText: 'End time must be after start time',
-      );
+      await _pumpField(tester, errorText: 'End time must be after start time');
       expect(find.text('End time must be after start time'), findsOneWidget);
     });
 
@@ -147,9 +144,7 @@ void main() {
                   children: [
                     TextField(
                       focusNode: focusNode,
-                      decoration: const InputDecoration(
-                        hintText: 'type here',
-                      ),
+                      decoration: const InputDecoration(hintText: 'type here'),
                     ),
                     DateTimePickerField(
                       label: 'Starts at',
@@ -170,10 +165,7 @@ void main() {
         // Tap the DateTimePickerField trigger. showModalBottomSheet will throw
         // in test environment without a navigator overlay — we catch that or
         // accept the sheet not appearing; what matters is the unfocus side-effect.
-        await tester.tap(
-          find.byType(DateTimePickerField),
-          warnIfMissed: false,
-        );
+        await tester.tap(find.byType(DateTimePickerField), warnIfMissed: false);
         await tester.pump();
 
         // Focus must have been cleared by the unfocus() call in onTap.

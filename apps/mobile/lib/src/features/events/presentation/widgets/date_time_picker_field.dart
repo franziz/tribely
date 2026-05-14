@@ -73,10 +73,8 @@ class DateTimePickerField extends StatelessWidget {
       isDismissible: true,
       enableDrag: true,
       useRootNavigator: false,
-      builder: (_) => TimePickerSheet(
-        pickedDate: pickedDate,
-        initialValue: value,
-      ),
+      builder: (_) =>
+          TimePickerSheet(pickedDate: pickedDate, initialValue: value),
     );
     if (result == null) return;
 
@@ -97,7 +95,9 @@ class DateTimePickerField extends StatelessWidget {
     final border = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
     final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
 
     final hasError = errorText != null && errorText!.isNotEmpty;
@@ -128,7 +128,9 @@ class DateTimePickerField extends StatelessWidget {
                       Text(label, style: TribelyType.caption(inkSecondary)),
                       const SizedBox(height: 2),
                       Text(
-                        value != null ? _format.format(value!) : 'Tap to select',
+                        value != null
+                            ? _format.format(value!)
+                            : 'Tap to select',
                         style: TribelyType.bodyM(
                           value != null ? ink : inkSecondary,
                         ),

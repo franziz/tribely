@@ -28,43 +28,6 @@ Future<void> _pumpSheet(
   );
 }
 
-/// Pumps an opener button, opens [DatePickerSheet] via [Navigator.push] (not
-/// showModalBottomSheet), and returns the popped result via a closure so we
-/// can assert on it.
-Future<DateTime?> _pumpAndOpen(
-  WidgetTester tester, {
-  required DateTime initial,
-}) async {
-  DateTime? result;
-
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: ElevatedButton(
-            onPressed: () async {
-              result = await Navigator.push<DateTime?>(
-                context,
-                MaterialPageRoute<DateTime?>(
-                  builder: (_) => Scaffold(
-                    body: DatePickerSheet(initial: initial),
-                  ),
-                ),
-              );
-            },
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  await tester.tap(find.text('Open'));
-  await tester.pumpAndSettle();
-
-  return result; // starts as null; caller updates after tap
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -124,9 +87,8 @@ void main() {
                   poppedResult = await Navigator.push<DateTime?>(
                     context,
                     MaterialPageRoute<DateTime?>(
-                      builder: (_) => Scaffold(
-                        body: DatePickerSheet(initial: initial),
-                      ),
+                      builder: (_) =>
+                          Scaffold(body: DatePickerSheet(initial: initial)),
                     ),
                   );
                 },
@@ -199,10 +161,7 @@ void main() {
     ) async {
       await _pumpSheet(tester, initial: DateTime(2026, 6, 1));
 
-      expect(
-        find.bySemanticsLabel('Pick a date dialog'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Pick a date dialog'), findsOneWidget);
     });
   });
 }

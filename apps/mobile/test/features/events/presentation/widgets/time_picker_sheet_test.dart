@@ -27,47 +27,6 @@ String _rowLabel(int index) {
   return _timeFmt.format(DateTime(0, 1, 1, h, m));
 }
 
-/// Pumps [TimePickerSheet] in a standard route (not modal) so that the
-/// [Navigator.pop] call in the sheet works correctly in tests.
-Future<DateTime?> _pumpAndOpen(
-  WidgetTester tester, {
-  required DateTime pickedDate,
-  DateTime? initialValue,
-}) async {
-  DateTime? result;
-
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: ElevatedButton(
-            onPressed: () async {
-              result = await Navigator.push<DateTime?>(
-                context,
-                MaterialPageRoute<DateTime?>(
-                  builder: (_) => Scaffold(
-                    body: TimePickerSheet(
-                      pickedDate: pickedDate,
-                      initialValue: initialValue,
-                    ),
-                  ),
-                ),
-              );
-            },
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  await tester.tap(find.text('Open'));
-  // Allow scroll-controller postFrameCallback to settle.
-  await tester.pumpAndSettle();
-
-  return result;
-}
-
 /// Pumps [TimePickerSheet] inline (no Navigator) for render-only assertions.
 Future<void> _pumpInline(
   WidgetTester tester, {

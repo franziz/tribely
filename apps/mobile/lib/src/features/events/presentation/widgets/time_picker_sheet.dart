@@ -1,3 +1,5 @@
+import 'dart:ui' show TextDirection;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:intl/intl.dart';
@@ -115,19 +117,13 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
     final now = DateTime.now();
     final rowHour = index ~/ 4;
     final rowMinute = (index % 4) * 15;
-    final rowTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      rowHour,
-      rowMinute,
-    );
+    final rowTime = DateTime(now.year, now.month, now.day, rowHour, rowMinute);
     return rowTime.isBefore(now.add(const Duration(minutes: 5)));
   }
 
   int get _bestGuessIndex {
     final now = DateTime.now();
-    return ((now.hour * 4) + (now.minute ~/ 4)).clamp(0, _rowCount - 1);
+    return ((now.hour * 4) + (now.minute ~/ 15)).clamp(0, _rowCount - 1);
   }
 
   DateTime get _combinedDateTime {
@@ -153,8 +149,10 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
     if (!_scrollController.hasClients) return;
     final targetIndex = _selectedIndex ?? _bestGuessIndex;
     final viewportHeight = _scrollController.position.viewportDimension;
-    final offset = (targetIndex * _rowHeight - (viewportHeight / 2 - 28))
-        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    final offset = (targetIndex * _rowHeight - (viewportHeight / 2 - 28)).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
     _scrollController.jumpTo(offset);
   }
 
@@ -223,7 +221,7 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
                 child: ListView.separated(
                   controller: _scrollController,
                   itemCount: _rowCount,
-                  separatorBuilder: (_, __) => const Divider(
+                  separatorBuilder: (context, index) => const Divider(
                     height: 1,
                     thickness: 1,
                     color: TribelyColors.paperBorderSubtle,
@@ -236,6 +234,9 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
                     onTap: () {
                       final label = _formatRowTime(i);
                       setState(() => _selectedIndex = i);
+                      // ignore: deprecated_member_use
+                      // sendAnnouncement requires FlutterView (needs BuildContext
+                      // threaded through VoidCallback) — deferred to a future cycle.
                       SemanticsService.announce(
                         '$label selected',
                         TextDirection.ltr,
@@ -274,9 +275,7 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
                         ),
                       ),
                     ),
-                    SizedBox(
-                      height: MediaQuery.paddingOf(context).bottom + 8,
-                    ),
+                    SizedBox(height: MediaQuery.paddingOf(context).bottom + 8),
                   ],
                 ),
               ),
