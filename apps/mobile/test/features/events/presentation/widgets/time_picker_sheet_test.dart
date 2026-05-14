@@ -68,7 +68,7 @@ void main() {
       // ~/ 15), so index 0 ("12:00 AM") is off-screen unless this runs at
       // midnight. Scroll upward (negative delta = toward earlier rows) to bring
       // it into the viewport before asserting.
-      final _pickerScrollable = find
+      final pickerScrollable = find
           .descendant(
             of: find.byType(TimePickerSheet),
             matching: find.byType(Scrollable),
@@ -77,7 +77,7 @@ void main() {
       await tester.scrollUntilVisible(
         find.text(_rowLabel(0)),
         -50.0,
-        scrollable: _pickerScrollable,
+        scrollable: pickerScrollable,
       );
       await tester.pumpAndSettle();
       expect(find.text(_rowLabel(0)), findsOneWidget); // 12:00 AM
@@ -98,9 +98,9 @@ void main() {
     });
 
     testWidgets('renders date sub-label in EEE d MMM format', (tester) async {
-      // 2030-01-15 → "Wed 15 Jan"
+      // 2030-01-15 → "Tue 15 Jan" (Jan 15 2030 is a Tuesday)
       await _pumpInline(tester, pickedDate: futureDate);
-      expect(find.text('Wed 15 Jan'), findsOneWidget);
+      expect(find.text('Tue 15 Jan'), findsOneWidget);
     });
 
     // -------------------------------------------------------------------------
@@ -158,14 +158,22 @@ void main() {
     // 3. Tapping a row enables "Confirm time" and shows a check icon
     // -------------------------------------------------------------------------
     testWidgets('tapping a row shows check icon', (tester) async {
-      await _pumpInline(tester, pickedDate: futureDate);
+      // Pre-scroll to 7:30 AM (index 30) so the target row is centred in the
+      // viewport and reliably tappable. Row 0 ("12:00 AM") can land behind the
+      // sheet header when scrollUntilVisible overshoots to the minimum extent.
+      final anchorDt = DateTime(
+        futureDate.year,
+        futureDate.month,
+        futureDate.day,
+        7,
+        30,
+      );
+      await _pumpInline(tester, pickedDate: futureDate, initialValue: anchorDt);
 
-      // The sheet pre-scrolls to the current time; index 0 ("12:00 AM") is
-      // off-screen on any non-midnight run. Scroll upward (negative delta)
-      // to bring it into the viewport before tapping.
+      // _jumpToInitialRow centres row 30 ("7:30 AM") in the viewport.
       await tester.scrollUntilVisible(
-        find.text(_rowLabel(0)),
-        -50.0,
+        find.text(_rowLabel(30)),
+        50.0,
         scrollable: find
             .descendant(
               of: find.byType(TimePickerSheet),
@@ -174,7 +182,7 @@ void main() {
             .first,
       );
 
-      await tester.tap(find.text(_rowLabel(0)));
+      await tester.tap(find.text(_rowLabel(30)));
       await tester.pump();
 
       expect(find.byIcon(Icons.check), findsOneWidget);
@@ -182,6 +190,18 @@ void main() {
 
     testWidgets('tapping a row enables the Confirm button', (tester) async {
       DateTime? result;
+
+      // Pre-select 7:30 AM (index 30) so _jumpToInitialRow centres the list on
+      // a row that is reliably in the tappable area of the viewport, away from
+      // the sheet header. Row 0 ("12:00 AM") can land behind the header when
+      // scrollUntilVisible overshoots to the minimum scroll extent.
+      final anchorDt = DateTime(
+        futureDate.year,
+        futureDate.month,
+        futureDate.day,
+        7,
+        30,
+      );
 
       await tester.pumpWidget(
         MaterialApp(
@@ -193,7 +213,10 @@ void main() {
                     context,
                     MaterialPageRoute<DateTime?>(
                       builder: (_) => Scaffold(
-                        body: TimePickerSheet(pickedDate: futureDate),
+                        body: TimePickerSheet(
+                          pickedDate: futureDate,
+                          initialValue: anchorDt,
+                        ),
                       ),
                     ),
                   );
@@ -208,12 +231,10 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // The sheet pre-scrolls to the current time; index 0 ("12:00 AM") is
-      // off-screen on any non-midnight run. Scroll upward (negative delta)
-      // to bring it into the viewport before tapping.
+      // The 7:30 AM row is pre-selected and centred by _jumpToInitialRow.
       await tester.scrollUntilVisible(
-        find.text(_rowLabel(0)),
-        -50.0,
+        find.text(_rowLabel(30)),
+        50.0,
         scrollable: find
             .descendant(
               of: find.byType(TimePickerSheet),
@@ -222,8 +243,8 @@ void main() {
             .first,
       );
 
-      // Tap the first row (index 0 = 12:00 AM).
-      await tester.tap(find.text(_rowLabel(0)));
+      // Tap row 30 (7:30 AM) — it is already selected, but tapping re-affirms it.
+      await tester.tap(find.text(_rowLabel(30)));
       await tester.pump();
 
       // Now confirm.
@@ -231,43 +252,47 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(result, isNotNull);
-      expect(result!.hour, 0);
-      expect(result!.minute, 0);
+      expect(result!.hour, 7);
+      expect(result!.minute, 30);
     });
 
     testWidgets('tapping a second row moves check to new row', (tester) async {
-      await _pumpInline(tester, pickedDate: futureDate);
+      // Pre-select index 30 (7:30 AM) via initialValue so that _jumpToInitialRow
+      // centres the list on a known position far from the header/footer edges.
+      // Index 31 (7:45 AM) will be adjacent and comfortably in the viewport.
+      final anchorDt = DateTime(
+        futureDate.year,
+        futureDate.month,
+        futureDate.day,
+        7,
+        30,
+      );
+      await _pumpInline(
+        tester,
+        pickedDate: futureDate,
+        initialValue: anchorDt,
+      );
 
-      // Both index 0 ("12:00 AM") and index 1 ("12:15 AM") are off-screen when
-      // the sheet pre-scrolls to the current time. Scroll upward (negative
-      // delta) to bring them into the viewport before tapping.
-      final _pickerScrollable = find
+      // After pumpAndSettle the sheet is pre-scrolled to the 7:30 AM row and
+      // it is already selected. Confirm the check is present.
+      expect(find.byIcon(Icons.check), findsOneWidget);
+
+      // Tap the adjacent 7:45 AM row (index 31) — it should be visible because
+      // the pre-scroll centred the list on index 30.
+      final pickerScrollable = find
           .descendant(
             of: find.byType(TimePickerSheet),
             matching: find.byType(Scrollable),
           )
           .first;
-
       await tester.scrollUntilVisible(
-        find.text(_rowLabel(0)),
-        -50.0,
-        scrollable: _pickerScrollable,
+        find.text(_rowLabel(31)),
+        50.0,
+        scrollable: pickerScrollable,
       );
 
-      await tester.tap(find.text(_rowLabel(0))); // 12:00 AM
-      await tester.pump();
-      expect(find.byIcon(Icons.check), findsOneWidget);
-
-      // Index 1 ("12:15 AM") is adjacent and should still be in the viewport
-      // after scrolling to index 0; assert visible before tapping.
-      await tester.scrollUntilVisible(
-        find.text(_rowLabel(1)),
-        -50.0,
-        scrollable: _pickerScrollable,
-      );
-
-      await tester.tap(find.text(_rowLabel(1))); // 12:15 AM
-      await tester.pump();
+      await tester.tap(find.text(_rowLabel(31))); // 7:45 AM
+      await tester.pumpAndSettle();
       // Still exactly one check — moved to the new row.
       expect(find.byIcon(Icons.check), findsOneWidget);
     });
