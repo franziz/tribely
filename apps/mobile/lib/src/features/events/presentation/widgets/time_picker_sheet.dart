@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
@@ -230,15 +229,7 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
                     isSelected: _selectedIndex == i,
                     isUnavailable: _isUnavailable(i),
                     onTap: () {
-                      final label = _formatRowTime(i);
                       setState(() => _selectedIndex = i);
-                      // ignore: deprecated_member_use
-                      // sendAnnouncement requires FlutterView (needs BuildContext
-                      // threaded through VoidCallback) — deferred to a future cycle.
-                      SemanticsService.announce(
-                        '$label selected',
-                        textDirection: TextDirection.ltr,
-                      );
                     },
                   ),
                 ),
