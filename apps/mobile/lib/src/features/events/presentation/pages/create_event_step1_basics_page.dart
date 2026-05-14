@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/event_category.dart';
 import '../../domain/validators/event_validators.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
+import '../widgets/category_selector_field.dart';
 import '../widgets/event_form_field.dart';
 
 /// Step 1 — Title and Category.
@@ -52,26 +52,10 @@ class CreateEventStep1BasicsPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          DropdownButtonFormField<EventCategory>(
-            initialValue: draft.category,
-            decoration: InputDecoration(
-              labelText: 'Category',
-              errorText: errors['category'],
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            items: EventCategory.values
-                .map(
-                  (c) => DropdownMenuItem(value: c, child: Text(c.displayName)),
-                )
-                .toList(),
-            onChanged: (v) =>
-                controller.updateField(field: 'category', value: v),
+          CategorySelectorField(
+            value: draft.category,
+            errorText: errors['category'],
+            onChanged: (v) => controller.updateField(field: 'category', value: v),
           ),
         ],
       ),
