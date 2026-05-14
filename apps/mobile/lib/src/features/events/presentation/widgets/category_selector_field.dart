@@ -3,21 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../domain/entities/event_category.dart';
+import 'category_icons.dart';
 import 'category_sheet.dart';
-
-/// Icon for the trigger row leading icon.
-///
-/// When [value] is set, renders the category-specific icon in [paperPrimary].
-/// When [value] is null, renders [Icons.category_outlined] in [paperInkSecondary].
-const Map<EventCategory, IconData> _kCategoryIcons = {
-  EventCategory.drinks: Icons.local_bar_outlined,
-  EventCategory.food: Icons.restaurant_outlined,
-  EventCategory.hike: Icons.terrain,
-  EventCategory.museum: Icons.account_balance_outlined,
-  EventCategory.sports: Icons.sports_outlined,
-  EventCategory.nightlife: Icons.nightlife,
-  EventCategory.other: Icons.category_outlined,
-};
 
 /// Pattern A trigger widget for the create-event Step 1 category field.
 ///
@@ -59,12 +46,15 @@ class CategorySelectorField extends StatelessWidget {
         ? TribelyColors.paperAccent
         : TribelyColors.paperBorderSubtle;
 
-    final leadingIconData =
-        hasValue ? _kCategoryIcons[value!]! : Icons.category_outlined;
-    final leadingIconColor =
-        hasValue ? TribelyColors.paperPrimary : TribelyColors.paperInkSecondary;
-    final valueTextColor =
-        hasValue ? TribelyColors.paperInkPrimary : TribelyColors.paperInkSecondary;
+    final leadingIconData = hasValue
+        ? kCategoryIcons[value!]!
+        : Icons.category_outlined;
+    final leadingIconColor = hasValue
+        ? TribelyColors.paperPrimary
+        : TribelyColors.paperInkSecondary;
+    final valueTextColor = hasValue
+        ? TribelyColors.paperInkPrimary
+        : TribelyColors.paperInkSecondary;
     final valueText = hasValue ? value!.displayName : 'Tap to select';
 
     return Column(
@@ -96,10 +86,7 @@ class CategorySelectorField extends StatelessWidget {
                           TribelyColors.paperInkSecondary,
                         ),
                       ),
-                      Text(
-                        valueText,
-                        style: TribelyType.bodyM(valueTextColor),
-                      ),
+                      Text(valueText, style: TribelyType.bodyM(valueTextColor)),
                     ],
                   ),
                 ),

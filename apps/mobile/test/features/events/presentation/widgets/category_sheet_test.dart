@@ -17,55 +17,9 @@ import 'package:tribely/src/features/events/presentation/widgets/category_sheet.
 // Pump helpers
 // ---------------------------------------------------------------------------
 
-/// Pumps [CategorySheet] pushed as a route so that [Navigator.pop] has a
-/// route to pop to. Returns the pop result via a [Future] stored in [result].
-///
-/// Strategy:
-///   - Build a [MaterialApp] with two routes: `/` (an empty Scaffold) and
-///     `/sheet` which returns the sheet directly.
-///   - Navigate to `/sheet` using a Navigator push so pop() has somewhere to
-///     go and so the test can await the pop result.
-Future<EventCategory?> _pumpSheetAndGetResult(
-  WidgetTester tester, {
-  EventCategory? initial,
-}) async {
-  EventCategory? poppedValue;
-
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: ElevatedButton(
-            onPressed: () async {
-              poppedValue = await Navigator.push<EventCategory?>(
-                context,
-                MaterialPageRoute<EventCategory?>(
-                  builder: (_) => Scaffold(
-                    body: CategorySheet(initial: initial),
-                  ),
-                ),
-              );
-            },
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  // Trigger the push.
-  await tester.tap(find.text('Open'));
-  await tester.pumpAndSettle();
-
-  return poppedValue;
-}
-
 /// Pumps [CategorySheet] inside a simple [Scaffold] without navigating — for
 /// render-only assertions that don't need pop semantics.
-Future<void> _pumpSheet(
-  WidgetTester tester, {
-  EventCategory? initial,
-}) async {
+Future<void> _pumpSheet(WidgetTester tester, {EventCategory? initial}) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(body: CategorySheet(initial: initial)),
@@ -82,8 +36,9 @@ void main() {
     // -------------------------------------------------------------------------
     // 1. All 7 rows render in enum order
     // -------------------------------------------------------------------------
-    testWidgets('renders all 7 category display names in enum order',
-        (tester) async {
+    testWidgets('renders all 7 category display names in enum order', (
+      tester,
+    ) async {
       await _pumpSheet(tester);
 
       for (final category in EventCategory.values) {
@@ -91,8 +46,9 @@ void main() {
       }
     });
 
-    testWidgets('renders categories in EventCategory.values declaration order',
-        (tester) async {
+    testWidgets('renders categories in EventCategory.values declaration order', (
+      tester,
+    ) async {
       await _pumpSheet(tester);
 
       // Collect top-Y positions of each category label to verify ordering.
@@ -122,27 +78,30 @@ void main() {
       expect(find.byIcon(Icons.check), findsOneWidget);
     });
 
-    testWidgets('unselected rows have no check icon when no initial is set',
-        (tester) async {
+    testWidgets('unselected rows have no check icon when no initial is set', (
+      tester,
+    ) async {
       await _pumpSheet(tester);
 
       expect(find.byIcon(Icons.check), findsNothing);
     });
 
     testWidgets(
-        'only the initially-selected row has a checkmark when initial is museum',
-        (tester) async {
-      await _pumpSheet(tester, initial: EventCategory.museum);
+      'only the initially-selected row has a checkmark when initial is museum',
+      (tester) async {
+        await _pumpSheet(tester, initial: EventCategory.museum);
 
-      // Only one check icon total.
-      expect(find.byIcon(Icons.check), findsOneWidget);
-    });
+        // Only one check icon total.
+        expect(find.byIcon(Icons.check), findsOneWidget);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // 3. Tap-to-pop returns the tapped category
     // -------------------------------------------------------------------------
-    testWidgets('tapping a row pops the sheet with the tapped category',
-        (tester) async {
+    testWidgets('tapping a row pops the sheet with the tapped category', (
+      tester,
+    ) async {
       EventCategory? poppedResult;
 
       await tester.pumpWidget(
@@ -176,7 +135,9 @@ void main() {
       expect(poppedResult, EventCategory.hike);
     });
 
-    testWidgets('tapping "Drinks" returns EventCategory.drinks', (tester) async {
+    testWidgets('tapping "Drinks" returns EventCategory.drinks', (
+      tester,
+    ) async {
       EventCategory? poppedResult;
 
       await tester.pumpWidget(
@@ -212,8 +173,9 @@ void main() {
     // -------------------------------------------------------------------------
     // 4. Navigator.maybePop returns null (dismiss without selection)
     // -------------------------------------------------------------------------
-    testWidgets('Navigator.maybePop dismisses sheet with null result',
-        (tester) async {
+    testWidgets('Navigator.maybePop dismisses sheet with null result', (
+      tester,
+    ) async {
       EventCategory? poppedResult;
       var hasPopped = false;
 
@@ -229,7 +191,7 @@ void main() {
                       builder: (innerContext) => Scaffold(
                         body: Column(
                           children: [
-                            CategorySheet(initial: EventCategory.food),
+                            const CategorySheet(initial: EventCategory.food),
                             ElevatedButton(
                               onPressed: () {
                                 hasPopped = true;
@@ -264,8 +226,9 @@ void main() {
     // -------------------------------------------------------------------------
     // 5. Semantics label contains ", selected" for the selected row
     // -------------------------------------------------------------------------
-    testWidgets('selected row semantics label contains ", selected"',
-        (tester) async {
+    testWidgets('selected row semantics label contains ", selected"', (
+      tester,
+    ) async {
       await _pumpSheet(tester, initial: EventCategory.food);
 
       // Use find.bySemanticsLabel to locate nodes by their semantic label.
@@ -273,12 +236,14 @@ void main() {
       expect(
         find.bySemanticsLabel(RegExp('Food.*selected')),
         findsOneWidget,
-        reason: 'Selected row must have a semantics label containing "Food, selected"',
+        reason:
+            'Selected row must have a semantics label containing "Food, selected"',
       );
     });
 
-    testWidgets('unselected rows do not have "selected" in semantics label',
-        (tester) async {
+    testWidgets('unselected rows do not have "selected" in semantics label', (
+      tester,
+    ) async {
       await _pumpSheet(tester, initial: EventCategory.food);
 
       // No category other than Food should have ", selected" in its label.

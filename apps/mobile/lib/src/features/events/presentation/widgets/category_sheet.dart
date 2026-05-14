@@ -4,23 +4,13 @@ import 'package:flutter/semantics.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../domain/entities/event_category.dart';
-
-/// Icon for each [EventCategory] row in [CategorySheet].
-const Map<EventCategory, IconData> _kCategoryIcons = {
-  EventCategory.drinks: Icons.local_bar_outlined,
-  EventCategory.food: Icons.restaurant_outlined,
-  EventCategory.hike: Icons.terrain,
-  EventCategory.museum: Icons.account_balance_outlined,
-  EventCategory.sports: Icons.sports_outlined,
-  EventCategory.nightlife: Icons.nightlife,
-  EventCategory.other: Icons.category_outlined,
-};
+import 'category_icons.dart';
 
 /// Pattern A single-select bottom-sheet content.
 ///
 /// Renders the seven [EventCategory] rows in enum declaration order.
 /// Selection is immediate: tapping a row announces the choice via
-/// [SemanticsService.announce] and calls [Navigator.pop] with the tapped
+/// [SemanticsService.sendAnnouncement] and calls [Navigator.pop] with the tapped
 /// category. No Confirm button — tap-to-dismiss is the specified interaction.
 ///
 /// The sheet does NOT hold any selected-row state; [initial] is used purely to
@@ -114,10 +104,7 @@ class CategorySheet extends StatelessWidget {
 
 /// A single tappable category row inside [CategorySheet].
 class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({
-    required this.category,
-    required this.isSelected,
-  });
+  const _CategoryRow({required this.category, required this.isSelected});
 
   final EventCategory category;
   final bool isSelected;
@@ -140,7 +127,8 @@ class _CategoryRow extends StatelessWidget {
       button: true,
       child: InkWell(
         onTap: () {
-          SemanticsService.announce(
+          SemanticsService.sendAnnouncement(
+            View.of(context),
             '${category.displayName} selected',
             TextDirection.ltr,
           );
@@ -154,11 +142,7 @@ class _CategoryRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                Icon(
-                  _kCategoryIcons[category],
-                  size: 22,
-                  color: iconColor,
-                ),
+                Icon(kCategoryIcons[category], size: 22, color: iconColor),
                 const SizedBox(width: 16),
                 Text(
                   category.displayName,

@@ -16,10 +16,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/features/events/domain/entities/event_draft.dart';
+import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/domain/validators/event_validators.dart';
 import 'package:tribely/src/features/events/presentation/controllers/create_event_controller.dart';
 import 'package:tribely/src/features/events/presentation/pages/create_event_page.dart';
@@ -142,6 +144,20 @@ class _CategoryErrorController extends CreateEventController {
 }
 
 // ---------------------------------------------------------------------------
+// Fakes
+// ---------------------------------------------------------------------------
+
+/// No-op fake for [SaveEventDraftUseCase] — prevents the 500ms autosave timer
+/// from hitting the real GetIt-resolved use case during widget tests.
+class _FakeSaveEventDraftUseCase implements SaveEventDraftUseCase {
+  const _FakeSaveEventDraftUseCase();
+
+  @override
+  Future<Either<Never, void>> call(EventDraft params) =>
+      Future.value(const Right(null));
+}
+
+// ---------------------------------------------------------------------------
 // Pump helper
 // ---------------------------------------------------------------------------
 
@@ -170,6 +186,9 @@ Future<void> _pumpPage(
     ProviderScope(
       overrides: [
         createEventControllerProvider.overrideWith(controllerFactory),
+        saveEventDraftUseCaseProvider.overrideWithValue(
+          const _FakeSaveEventDraftUseCase(),
+        ),
       ],
       child: MaterialApp.router(routerConfig: _buildTestRouter()),
     ),
@@ -200,8 +219,9 @@ void main() {
       expect(find.byType(CategorySheet), findsOneWidget);
     });
 
-    testWidgets('CategorySheet contains all 7 rows after trigger tap',
-        (tester) async {
+    testWidgets('CategorySheet contains all 7 rows after trigger tap', (
+      tester,
+    ) async {
       await _pumpPage(tester, _EmptyDraftController.new);
 
       await tester.tap(find.text('Tap to select'));
@@ -216,65 +236,69 @@ void main() {
     // 2. Trigger label updates after selection
     // -------------------------------------------------------------------------
     testWidgets(
-        'tapping "Hike" in the sheet closes it and shows "Hike" on trigger',
-        (tester) async {
-      // We need a real controller that responds to updateField. However,
-      // the fixed controllers override build() only. To test that the trigger
-      // label updates after selection, we use _EmptyDraftController and verify
-      // the sheet dismisses correctly — the trigger's label update depends on
-      // the controller calling updateField and the provider rebuilding.
-      //
-      // Since _EmptyDraftController ignores updateField (it returns a fixed
-      // state), we instead verify the sheet closes after tapping "Hike",
-      // confirming the tap-to-dismiss flow works end-to-end.
-      await _pumpPage(tester, _EmptyDraftController.new);
+      'tapping "Hike" in the sheet closes it and shows "Hike" on trigger',
+      (tester) async {
+        // We need a real controller that responds to updateField. However,
+        // the fixed controllers override build() only. To test that the trigger
+        // label updates after selection, we use _EmptyDraftController and verify
+        // the sheet dismisses correctly — the trigger's label update depends on
+        // the controller calling updateField and the provider rebuilding.
+        //
+        // Since _EmptyDraftController ignores updateField (it returns a fixed
+        // state), we instead verify the sheet closes after tapping "Hike",
+        // confirming the tap-to-dismiss flow works end-to-end.
+        await _pumpPage(tester, _EmptyDraftController.new);
 
-      await tester.tap(find.text('Tap to select'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Tap to select'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(CategorySheet), findsOneWidget);
+        expect(find.byType(CategorySheet), findsOneWidget);
 
-      await tester.tap(find.text('Hike'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Hike'));
+        await tester.pumpAndSettle();
 
-      // Sheet must be gone after selection.
-      expect(find.byType(CategorySheet), findsNothing);
-    });
+        // Sheet must be gone after selection.
+        expect(find.byType(CategorySheet), findsNothing);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // 3. Reopen shows previously-selected row marked
     // -------------------------------------------------------------------------
     testWidgets(
-        'opening sheet with draft.category == museum shows checkmark on Museum row',
-        (tester) async {
-      await _pumpPage(tester, _PreselectedMuseumController.new);
+      'opening sheet with draft.category == museum shows checkmark on Museum row',
+      (tester) async {
+        await _pumpPage(tester, _PreselectedMuseumController.new);
 
-      // Trigger should show the selected value "Museum".
-      expect(find.text('Museum'), findsOneWidget);
+        // Trigger should show the selected value "Museum".
+        expect(find.text('Museum'), findsOneWidget);
 
-      // Tap the trigger row — find by the current label "Museum".
-      await tester.tap(find.text('Museum'));
-      await tester.pumpAndSettle();
+        // Tap the trigger row — find by the current label "Museum".
+        await tester.tap(find.text('Museum'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(CategorySheet), findsOneWidget);
+        expect(find.byType(CategorySheet), findsOneWidget);
 
-      // The Museum row in the sheet should have the checkmark.
-      // CategorySheet renders a check Icon only for the selected row.
-      expect(find.byIcon(Icons.check), findsOneWidget);
-    });
+        // The Museum row in the sheet should have the checkmark.
+        // CategorySheet renders a check Icon only for the selected row.
+        expect(find.byIcon(Icons.check), findsOneWidget);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // 4. Error text renders when errors['category'] is set
     // -------------------------------------------------------------------------
-    testWidgets('renders error text when fieldErrors contains category error',
-        (tester) async {
+    testWidgets('renders error text when fieldErrors contains category error', (
+      tester,
+    ) async {
       await _pumpPage(tester, _CategoryErrorController.new);
 
       expect(find.text('Category is required'), findsOneWidget);
     });
 
-    testWidgets('trigger border uses accent color when error is present',
-        (tester) async {
+    testWidgets('trigger border uses accent color when error is present', (
+      tester,
+    ) async {
       await _pumpPage(tester, _CategoryErrorController.new);
 
       // The trigger container uses paperAccent border when errorText != null.
@@ -284,41 +308,45 @@ void main() {
       expect(find.text('Category is required'), findsOneWidget);
     });
 
-    testWidgets('no error text when fieldErrors does not contain category key',
-        (tester) async {
-      await _pumpPage(tester, _EmptyDraftController.new);
+    testWidgets(
+      'no error text when fieldErrors does not contain category key',
+      (tester) async {
+        await _pumpPage(tester, _EmptyDraftController.new);
 
-      expect(find.text('Category is required'), findsNothing);
-    });
+        expect(find.text('Category is required'), findsNothing);
+      },
+    );
 
     // -------------------------------------------------------------------------
     // 5. Next button is disabled when category == null (validation gate AC#5)
     // -------------------------------------------------------------------------
     testWidgets(
-        'StepNavigationBar.canAdvance is false when draft.category is null',
-        (tester) async {
-      await _pumpPage(tester, _EmptyDraftController.new);
+      'StepNavigationBar.canAdvance is false when draft.category is null',
+      (tester) async {
+        await _pumpPage(tester, _EmptyDraftController.new);
 
-      // Step 0 with category == null → blockingFields[0] contains 'category'.
-      // StepNavigationBar receives canAdvance: false.
-      final navBar = tester.widget<StepNavigationBar>(
-        find.byType(StepNavigationBar),
-      );
-      expect(navBar.canAdvance, isFalse);
-    });
+        // Step 0 with category == null → blockingFields[0] contains 'category'.
+        // StepNavigationBar receives canAdvance: false.
+        final navBar = tester.widget<StepNavigationBar>(
+          find.byType(StepNavigationBar),
+        );
+        expect(navBar.canAdvance, isFalse);
+      },
+    );
 
     testWidgets(
-        'StepNavigationBar.canAdvance is true when draft has valid title and category',
-        (tester) async {
-      await _pumpPage(tester, _PreselectedMuseumController.new);
+      'StepNavigationBar.canAdvance is true when draft has valid title and category',
+      (tester) async {
+        await _pumpPage(tester, _PreselectedMuseumController.new);
 
-      // Museum + title both set → step 0 unblocked.
-      // _PreselectedMuseumController seeds title + category so step 0 is
-      // valid. Verify canAdvance is true.
-      final navBar = tester.widget<StepNavigationBar>(
-        find.byType(StepNavigationBar),
-      );
-      expect(navBar.canAdvance, isTrue);
-    });
+        // Museum + title both set → step 0 unblocked.
+        // _PreselectedMuseumController seeds title + category so step 0 is
+        // valid. Verify canAdvance is true.
+        final navBar = tester.widget<StepNavigationBar>(
+          find.byType(StepNavigationBar),
+        );
+        expect(navBar.canAdvance, isTrue);
+      },
+    );
   });
 }

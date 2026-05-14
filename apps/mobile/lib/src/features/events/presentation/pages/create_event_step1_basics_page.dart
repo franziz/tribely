@@ -55,7 +55,8 @@ class CreateEventStep1BasicsPage extends ConsumerWidget {
           CategorySelectorField(
             value: draft.category,
             errorText: errors['category'],
-            onChanged: (v) => controller.updateField(field: 'category', value: v),
+            onChanged: (v) =>
+                controller.updateField(field: 'category', value: v),
           ),
         ],
       ),
