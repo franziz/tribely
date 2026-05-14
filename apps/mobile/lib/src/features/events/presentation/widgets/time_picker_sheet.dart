@@ -237,7 +237,7 @@ class _TimePickerSheetState extends State<TimePickerSheet> {
                       // threaded through VoidCallback) — deferred to a future cycle.
                       SemanticsService.announce(
                         '$label selected',
-                        TextDirection.ltr,
+                        textDirection: TextDirection.ltr,
                       );
                     },
                   ),
