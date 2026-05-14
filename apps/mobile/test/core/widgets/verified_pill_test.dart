@@ -74,20 +74,11 @@ void main() {
       await tester.pumpWidget(_wrap(const VerifiedPill(isVerified: true)));
       await tester.pump();
 
-      final containers = tester.widgetList<Container>(find.byType(Container));
-      final has20dp = containers.any((c) {
-        final deco = c.decoration;
-        if (deco is! BoxDecoration) return false;
-        return c.constraints?.maxHeight == 20 ||
-            tester
-                    .renderObject<RenderBox>(
-                      find.byWidgetPredicate((w) => w == c),
-                    )
-                    .size
-                    .height ==
-                20;
-      });
-      expect(has20dp, isTrue);
+      // VerifiedPill renders a single Container when isVerified=true.
+      // Assert the rendered height matches the 20dp spec directly,
+      // not via Container.constraints (which is null when height: is used positionally).
+      final size = tester.getSize(find.byType(Container));
+      expect(size.height, 20.0);
     });
 
     testWidgets('isVerified=false renders SizedBox.shrink (zero size)',
