@@ -30,6 +30,7 @@ These are **non-negotiable**:
 - **Architecture-reviewer and qa report to EL via the orchestrator.** Without Agent Teams, there is no direct messaging — orchestrator relays. EL decides what's fix-now vs. fix-followup vs. accept-with-rationale.
 - **CEO is consulted for strategic alignment, not technical review.** Anything that could pull Tribely outside Singapore-only / English-only / no-payments / mobile-first MUST hit CEO before EL. Pure tech-debt or refactors with no user-facing surface may use `--skip-ceo` (justify in the relay).
 - **`ui-ux-designer` is consulted ONLY when the issue has user-facing UI/UX design surface that needs design decisions** — new screens/flows, significant layout or hierarchy changes, design-system additions, or competitor-aware UX evaluation. It produces design specifications, NOT code. Skip the step entirely for pure backend work, tooling, infra, refactors with no user-visible surface, or UI work that just follows an already-specified design. PM flags the need in step 2; orchestrator gates step 4 on that flag.
+- **`legal-compliance` is consulted ONLY when the issue has a legal / regulatory / store-policy surface** — policy docs (privacy, retention, T&C addenda), regulatory analysis (PDPA, GDPR, AU Privacy Act), store-policy interpretation (Apple/Play guidelines), age-gating, UGC liability, payments/marketplace rules (if/when enabled), jurisdictional expansion, or any feature whose scope touches non-obvious compliance triggers. It produces drafted policy content + posture memos, NOT code, NOT Linear tickets. Slotted after CEO sign-off because CEO's parameter decisions are an input to legal-compliance's drafted posture, and before EL because legal-compliance often produces the deliverable content EL then routes for SWE commit. Skip entirely for pure tech debt, infra, or features clearly inside an already-cleared compliance posture. PM flags the need in step 2; orchestrator gates step 4.5 on that flag.
 - **Stop on disagreement.** PM↔CEO scope conflict, PM↔EL feasibility conflict, designer↔EL design-vs-technical conflict, reviewer/EL ruling disputes → orchestrator stops, relays both views, waits for user direction. Never pick a side.
 - **"CPO" or other unassigned-role questions from sub-agents must be split by domain.** When a designer flags "CPO consultation needed," a PM brief surfaces an "open question for CPO," or any sub-agent uses "CPO" (or any role not in the agent roster) as a placeholder addressee, the orchestrator MUST decompose the question by domain before surfacing — strategic / launch-funnel implications → `ceo`; UX pattern / design-system additions → `ui-ux-designer`; technical feasibility → `engineering-lead`. Do NOT lump the question to the user as "CPO question to you." The repo owner may wear those hats personally, but the orchestration value of agent routing is getting each domain its dedicated reasoner before the user synthesizes. Lumping bypasses the structure the workflow exists to provide.
 - **When CEO / designer / EL produces a ruling that affects PM's Linear queue, orchestrator MUST explicitly relay to PM in the moment — not just to the user.** Any ruling that creates follow-up tickets, tightens AC, transitions status, or alters Step 10 ticket plans must be delivered to PM via Agent spawn or SendMessage as it happens. Relaying only to the user produces an out-of-sync backlog: PM hits Step 10 (or the equivalent ticket-management step) and re-derives scope from a stale state, missing the ruling. The user is the audience for status updates; PM is the operational handler.
@@ -62,7 +63,7 @@ If `--resume` was passed: skip 4–5, verify the expected branch exists, checkou
 Spawn `product-manager` with a self-contained prompt containing:
 
 - The Linear issue id and full issue body (don't make PM re-fetch unless needed).
-- Instruction: decompose into user-observable acceptance criteria, explicit non-goals, dependencies, and open questions. Apply the Singapore-launch scope filter. Flag anything that warrants CEO sign-off. **Also flag `needs-ui-ux-design: true|false` with a one-line rationale** — true when the issue introduces new user-facing screens/flows, requires meaningful layout or hierarchy decisions, adds to the design system, or asks competitor-aware UX questions; false for pure backend, infra, tooling, refactors with no visible surface, or UI work that just implements an already-specified design.
+- Instruction: decompose into user-observable acceptance criteria, explicit non-goals, dependencies, and open questions. Apply the Singapore-launch scope filter. Flag anything that warrants CEO sign-off. **Also flag `needs-ui-ux-design: true|false` with a one-line rationale** — true when the issue introduces new user-facing screens/flows, requires meaningful layout or hierarchy decisions, adds to the design system, or asks competitor-aware UX questions; false for pure backend, infra, tooling, refactors with no visible surface, or UI work that just implements an already-specified design. **Also flag `needs-legal-compliance: true|false` with a one-line rationale** — true when the deliverable is a policy doc (privacy, retention, T&C addendum), a regulatory analysis, a store-policy interpretation, a jurisdictional expansion, or a feature whose scope touches non-obvious PDPA / UGC / age-gating / store-policy implications; false for tech debt, infra, or features clearly inside an already-cleared compliance posture.
 
 PM returns a product brief including the `needs-ui-ux-design` flag. Orchestrator relays the brief to the user verbatim (or near-verbatim) and proceeds.
 
@@ -99,6 +100,31 @@ Designer's job:
 Designer returns a design spec. Orchestrator relays the spec to the user, then proceeds to step 5 with the spec attached.
 
 If the designer flags a new design-system pattern requiring CPO consultation → orchestrator stops, surfaces the open question to the user, waits for direction before proceeding to EL.
+
+### 4.5. Legal & compliance (conditional — spawn `legal-compliance`)
+
+**Gate:** run this step ONLY if PM's step-2 brief flagged `needs-legal-compliance: true`. Otherwise emit `Step 4.5/10 — Legal & compliance  Agent: skipped  Verdict: no legal/compliance surface  Next: EL technical spec` and proceed to step 5.
+
+Slotted after CEO sign-off (step 3) and after UI/UX design (step 4) because CEO's strategic parameters and any design choices are inputs to legal-compliance's drafted posture. Slotted BEFORE EL (step 5) because for policy-doc issues, legal-compliance produces the deliverable content that SWE later commits verbatim — EL's technical brief needs that content in hand to scope file paths, asset wiring, and follow-up engineering work.
+
+Spawn `legal-compliance` with:
+
+- The Linear issue id and full issue body.
+- PM's product brief (acceptance criteria + non-goals + dependencies + the `needs-legal-compliance` rationale + any legal-specific open questions PM tagged).
+- CEO's verdict + any parameter decisions / conditions (retention windows, jurisdictional scope, store-policy stance, etc.).
+- The UI/UX design spec from step 4 (if step 4 ran).
+
+Legal-compliance's job:
+
+- For policy-doc deliverables: produce the drafted markdown body verbatim in the response (ready for SWE to commit downstream), plus any companion artefacts (in-app excerpt copy, posture memo).
+- Map applicable regulation / store policy to the proposed scope, citing specific sections (PDPA s14, App Store Review Guideline 5.1.1(v), Play Account Deletion Policy 2024, etc.).
+- Flag external-counsel triggers — statutory interpretation edge cases, contract drafting, litigation, regulator correspondence, licensure. These are launch-blocking items the orchestrator surfaces to CEO for engagement (NOT engineering work).
+- Identify follow-up engineering / ops / legal work for the orchestrator to queue with PM at step 10.
+- NO code. NO Linear writes.
+
+Legal-compliance returns a posture/draft + open questions. Orchestrator relays to the user, then proceeds to step 5 with the legal output attached to EL's brief.
+
+If legal-compliance flags a launch-blocking risk that conflicts with CEO's prior verdict → orchestrator stops, surfaces both views to the user, re-spawns CEO with the conflict for re-adjudication. Do NOT proceed to EL on a contested compliance posture.
 
 ### 5. Technical specification (spawn `engineering-lead`)
 
@@ -224,7 +250,8 @@ Final PM spawn:
 
 - **Target status:** Call `mcp__plugin_linear_linear__get_issue` before issuing any state change. If the PR is still open, move the issue to "In Review". If the PR has already been merged (e.g., Linear's GitHub integration auto-completed the issue, or the user merged before step 10 ran), confirm the status is "Done" and skip the transition — do NOT regress from "Done" to "In Review".
 - Comment the PR URL on the issue.
-- File any follow-up issues EL queued in step 7 (`fix-followup-issue` items).
+- File any follow-up issues EL queued in step 7 (`fix-followup-issue` items), and any follow-up engineering / ops / legal-engagement work `legal-compliance` identified in step 4.5.
+- **Triage any open questions EL or `legal-compliance` surfaced.** Default: PM decides — file as a separate Linear ticket, bundle into an existing ticket, or, only if the question is genuinely outside any agent's domain (taste, owner-only authority), surface to the user. Do NOT pre-instruct PM to "surface to user" in the Step 10 prompt — that's an orchestrator-induced bounce. The repo owner hired the agents to handle their domains; ticket-scoping / sequencing / dependency-mapping is squarely PM's. See memory `feedback_dont_bounce_agent_domain_decisions` for the underlying rule.
 
 Orchestrator emits the final Step 10 summary and stops.
 
@@ -239,7 +266,7 @@ Step <N>/10 — <step name>
   Next: <one-line next-step preview, or "blocked: <reason>">
 ```
 
-Step 4 (UI/UX design) is conditional — when skipped, emit `Step 4/10 — UI/UX design  Agent: skipped  Verdict: no UI/UX design surface  Next: EL technical spec`. Step 8.5 (Manual on-device smoke) is conditional — when skipped, emit `Step 8.5/10 — Manual on-device smoke  Agent: skipped  Verdict: no hero-flow / time-validator surface  Next: PR creation`.
+Step 4 (UI/UX design) is conditional — when skipped, emit `Step 4/10 — UI/UX design  Agent: skipped  Verdict: no UI/UX design surface  Next: EL technical spec`. Step 4.5 (Legal & compliance) is conditional — when skipped, emit `Step 4.5/10 — Legal & compliance  Agent: skipped  Verdict: no legal/compliance surface  Next: EL technical spec`. Step 8.5 (Manual on-device smoke) is conditional — when skipped, emit `Step 8.5/10 — Manual on-device smoke  Agent: skipped  Verdict: no hero-flow / time-validator surface  Next: PR creation`.
 
 Keep updates terse. The user reads these to track a long workflow without reading every agent transcript.
 
