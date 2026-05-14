@@ -68,10 +68,12 @@ void main() {
       // ~/ 15), so index 0 ("12:00 AM") is off-screen unless this runs at
       // midnight. Scroll upward (negative delta = toward earlier rows) to bring
       // it into the viewport before asserting.
-      final _pickerScrollable = find.descendant(
-        of: find.byType(TimePickerSheet),
-        matching: find.byType(Scrollable),
-      ).first;
+      final _pickerScrollable = find
+          .descendant(
+            of: find.byType(TimePickerSheet),
+            matching: find.byType(Scrollable),
+          )
+          .first;
       await tester.scrollUntilVisible(
         find.text(_rowLabel(0)),
         -50.0,
@@ -164,10 +166,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text(_rowLabel(0)),
         -50.0,
-        scrollable: find.descendant(
-          of: find.byType(TimePickerSheet),
-          matching: find.byType(Scrollable),
-        ).first,
+        scrollable: find
+            .descendant(
+              of: find.byType(TimePickerSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
 
       await tester.tap(find.text(_rowLabel(0)));
@@ -210,10 +214,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text(_rowLabel(0)),
         -50.0,
-        scrollable: find.descendant(
-          of: find.byType(TimePickerSheet),
-          matching: find.byType(Scrollable),
-        ).first,
+        scrollable: find
+            .descendant(
+              of: find.byType(TimePickerSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
 
       // Tap the first row (index 0 = 12:00 AM).
@@ -235,10 +241,12 @@ void main() {
       // Both index 0 ("12:00 AM") and index 1 ("12:15 AM") are off-screen when
       // the sheet pre-scrolls to the current time. Scroll upward (negative
       // delta) to bring them into the viewport before tapping.
-      final _pickerScrollable = find.descendant(
-        of: find.byType(TimePickerSheet),
-        matching: find.byType(Scrollable),
-      ).first;
+      final _pickerScrollable = find
+          .descendant(
+            of: find.byType(TimePickerSheet),
+            matching: find.byType(Scrollable),
+          )
+          .first;
 
       await tester.scrollUntilVisible(
         find.text(_rowLabel(0)),
@@ -283,10 +291,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text(row0Label),
         -50.0,
-        scrollable: find.descendant(
-          of: find.byType(TimePickerSheet),
-          matching: find.byType(Scrollable),
-        ).first,
+        scrollable: find
+            .descendant(
+              of: find.byType(TimePickerSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
 
       await tester.tap(find.text(row0Label), warnIfMissed: false);
@@ -340,10 +350,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text(label700),
         -50.0,
-        scrollable: find.descendant(
-          of: find.byType(TimePickerSheet),
-          matching: find.byType(Scrollable),
-        ).first,
+        scrollable: find
+            .descendant(
+              of: find.byType(TimePickerSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await tester.pumpAndSettle();
 
