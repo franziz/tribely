@@ -1,5 +1,6 @@
 import type { DomainEvent } from '@/core/events/domain-event.js';
 import type { EventCategoryValue } from '../value-objects/event-category.js';
+import type { VenueCategoryValue } from '../value-objects/venue-category.js';
 
 export const EVENT_UPDATED = 'events.eventUpdated' as const;
 
@@ -22,6 +23,7 @@ export interface EventUpdatedPayload {
   endsAt: string;
   capacity: number;
   category: EventCategoryValue;
+  venueCategory: VenueCategoryValue;
   costSplit: 'own' | 'host_paid' | 'split';
   approvalMode: 'auto' | 'manual';
   updatedAt: string;
