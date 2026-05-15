@@ -57,6 +57,7 @@ Event _stubEvent({String id = 'evt-1'}) {
       city: 'Singapore',
       latitude: 1.28,
       longitude: 103.85,
+      category: 'restaurant',
     ),
     startsAt: DateTime(2030, 1, 1, 18),
     endsAt: DateTime(2030, 1, 1, 21),

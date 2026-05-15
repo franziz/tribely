@@ -45,6 +45,24 @@ DioException _dioWith(Object inner) {
   return DioException(requestOptions: RequestOptions(), error: inner);
 }
 
+/// Build a [DioException] that also carries a [Response] with [responseData].
+///
+/// Used for 422 tests where _mapDioError reads `e.response?.data` to extract
+/// `error.details.subcode` — the _ErrorInterceptor in production attaches the
+/// full response, so both [error] and [response] are present.
+DioException _dioWithResponse(Object inner, Map<String, dynamic> responseData) {
+  final opts = RequestOptions(path: '/events');
+  return DioException(
+    requestOptions: opts,
+    error: inner,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: opts,
+      data: responseData,
+      statusCode: (inner is ServerException) ? inner.statusCode : 422,
+    ),
+  );
+}
+
 /// Minimal [EventModel] for happy-path assertions.
 final _stubModel = EventModel(
   id: 'evt-1',
@@ -56,6 +74,7 @@ final _stubModel = EventModel(
     city: 'Singapore',
     latitude: 1.28,
     longitude: 103.85,
+    category: 'restaurant',
   ),
   startsAt: DateTime(2030, 1, 1, 18),
   endsAt: DateTime(2030, 1, 1, 21),
@@ -72,6 +91,7 @@ final _stubParams = CreateEventParams(
   title: 'Test Event',
   category: EventCategory.drinks,
   venueName: '1 Marina Blvd',
+  venueCategory: 'restaurant',
   latitude: 1.28,
   longitude: 103.85,
   startsAt: DateTime(2030, 1, 1, 18),
@@ -196,6 +216,109 @@ void main() {
         expect(failure, isA<ServerFailure>());
         expect((failure as ServerFailure).statusCode, 429);
         expect(failure.message, 'Too many requests');
+      },
+    );
+
+    test(
+      'ServerException(422, FIRST_EVENT_MUST_BE_PUBLIC, category_not_public) '
+      '→ Left(FirstEventMustBePublicFailure) with reason=category_not_public',
+      () async {
+        // The interceptor wraps the error as ServerException(422) and also
+        // attaches the raw response. _mapDioError reads both.
+        final ex = const ServerException(
+          'First event must be at a public venue.',
+          statusCode: 422,
+          code: 'UNPROCESSABLE',
+        );
+        final responseBody = {
+          'error': {
+            'message': 'First event must be at a public venue.',
+            'code': 'UNPROCESSABLE',
+            'details': {
+              'subcode': 'FIRST_EVENT_MUST_BE_PUBLIC',
+              'reason': 'category_not_public',
+            },
+          },
+        };
+        when(
+          () => remote.createEvent(any()),
+        ).thenThrow(_dioWithResponse(ex, responseBody));
+
+        final result = await repo.createEvent(_stubParams);
+
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<FirstEventMustBePublicFailure>());
+        expect(
+          (failure as FirstEventMustBePublicFailure).reason,
+          'category_not_public',
+        );
+      },
+    );
+
+    test(
+      'ServerException(422, FIRST_EVENT_MUST_BE_PUBLIC, keyword_match) '
+      '→ Left(FirstEventMustBePublicFailure) with reason=keyword_match',
+      () async {
+        final ex = const ServerException(
+          'First event must be at a public venue.',
+          statusCode: 422,
+          code: 'UNPROCESSABLE',
+        );
+        final responseBody = {
+          'error': {
+            'message': 'First event must be at a public venue.',
+            'code': 'UNPROCESSABLE',
+            'details': {
+              'subcode': 'FIRST_EVENT_MUST_BE_PUBLIC',
+              'reason': 'keyword_match',
+            },
+          },
+        };
+        when(
+          () => remote.createEvent(any()),
+        ).thenThrow(_dioWithResponse(ex, responseBody));
+
+        final result = await repo.createEvent(_stubParams);
+
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<FirstEventMustBePublicFailure>());
+        expect(
+          (failure as FirstEventMustBePublicFailure).reason,
+          'keyword_match',
+        );
+      },
+    );
+
+    test(
+      'ServerException(422) without FIRST_EVENT_MUST_BE_PUBLIC subcode '
+      '→ Left(ServerFailure) with status 422',
+      () async {
+        // A 422 with a different subcode (e.g. generic validation) must fall
+        // through to ServerFailure, not FirstEventMustBePublicFailure.
+        final ex = const ServerException(
+          'Unprocessable entity',
+          statusCode: 422,
+          code: 'UNPROCESSABLE',
+        );
+        final responseBody = {
+          'error': {
+            'message': 'Unprocessable entity',
+            'code': 'UNPROCESSABLE',
+            'details': {'subcode': 'SOME_OTHER_SUBCODE'},
+          },
+        };
+        when(
+          () => remote.createEvent(any()),
+        ).thenThrow(_dioWithResponse(ex, responseBody));
+
+        final result = await repo.createEvent(_stubParams);
+
+        expect(result.isLeft(), isTrue);
+        final failure = (result as Left).value;
+        expect(failure, isA<ServerFailure>());
+        expect((failure as ServerFailure).statusCode, 422);
       },
     );
 

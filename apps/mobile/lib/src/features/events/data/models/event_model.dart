@@ -127,6 +127,7 @@ class EventVenueModel extends Equatable {
     required this.city,
     required this.latitude,
     required this.longitude,
+    required this.category,
   });
 
   factory EventVenueModel.fromJson(Map<String, dynamic> json) {
@@ -135,6 +136,9 @@ class EventVenueModel extends Equatable {
       city: json['city'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      // category is non-nullable on the wire (server enforces it on all events
+      // after TRI-33). Defensive fallback to empty string if server sends null.
+      category: (json['category'] as String?) ?? '',
     );
   }
 
@@ -143,13 +147,18 @@ class EventVenueModel extends Equatable {
   final double latitude;
   final double longitude;
 
+  /// Raw snake_case venue category string matching the server enum.
+  /// See [VenueCategory] for the full closed set and public/private helpers.
+  final String category;
+
   EventVenue toEntity() => EventVenue(
     address: address,
     city: city,
     latitude: latitude,
     longitude: longitude,
+    category: category,
   );
 
   @override
-  List<Object?> get props => [address, city, latitude, longitude];
+  List<Object?> get props => [address, city, latitude, longitude, category];
 }

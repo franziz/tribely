@@ -105,13 +105,14 @@ class Event extends Equatable {
 }
 
 /// Venue sub-value embedded in [Event]. Mirrors the server's Venue value
-/// object shape (address, city, lat, lng).
+/// object shape (address, city, lat, lng, category).
 class EventVenue extends Equatable {
   const EventVenue({
     required this.address,
     required this.city,
     required this.latitude,
     required this.longitude,
+    required this.category,
   });
 
   final String address;
@@ -119,6 +120,9 @@ class EventVenue extends Equatable {
   final double latitude;
   final double longitude;
 
+  /// Raw snake_case venue category string. See [VenueCategory] for helpers.
+  final String category;
+
   @override
-  List<Object?> get props => [address, city, latitude, longitude];
+  List<Object?> get props => [address, city, latitude, longitude, category];
 }

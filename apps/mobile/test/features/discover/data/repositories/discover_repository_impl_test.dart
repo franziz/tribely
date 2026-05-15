@@ -35,6 +35,7 @@ const _venueModel = EventVenueModel(
   city: 'Singapore',
   latitude: 1.28,
   longitude: 103.85,
+  category: 'restaurant',
 );
 
 /// Minimal [EventModel] for happy-path assertions.

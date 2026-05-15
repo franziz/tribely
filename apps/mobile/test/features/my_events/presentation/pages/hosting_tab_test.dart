@@ -40,6 +40,7 @@ EventVenue _venue() => const EventVenue(
   city: 'Singapore',
   latitude: 1.3,
   longitude: 103.8,
+  category: 'restaurant',
 );
 
 Event _event({

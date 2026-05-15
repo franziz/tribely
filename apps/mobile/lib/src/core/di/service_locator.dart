@@ -41,8 +41,11 @@ import '../../features/join_requests/domain/usecases/list_my_join_requests_useca
 import '../../features/join_requests/domain/usecases/list_pending_for_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/withdraw_join_request_usecase.dart';
+import '../../features/users/data/datasources/user_capabilities_remote_datasource.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
+import '../../features/users/data/repositories/user_capabilities_repository_impl.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
+import '../../features/users/domain/repositories/user_capabilities_repository.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
 import '../../features/users/domain/usecases/get_user_profile_usecase.dart';
 
@@ -90,10 +93,18 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<UserProfileRemoteDatasource>(
     () => UserProfileRemoteDatasourceImpl(sl<ApiClient>().dio),
   );
+  sl.registerLazySingleton<UserCapabilitiesRemoteDatasource>(
+    () => UserCapabilitiesRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
 
   // Users — repositories
   sl.registerLazySingleton<UserProfileRepository>(
     () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
+  );
+  sl.registerLazySingleton<UserCapabilitiesRepository>(
+    () => UserCapabilitiesRepositoryImpl(
+      remote: sl<UserCapabilitiesRemoteDatasource>(),
+    ),
   );
 
   // Users — use cases

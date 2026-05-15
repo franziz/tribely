@@ -107,6 +107,7 @@ Event _makeEvent(String id, {double lat = 1.2789, double lng = 103.8536}) =>
         city: 'Singapore',
         latitude: lat,
         longitude: lng,
+        category: 'restaurant',
       ),
       startsAt: DateTime.utc(2026, 6, 1, 18, 0),
       endsAt: DateTime.utc(2026, 6, 1, 21, 0),

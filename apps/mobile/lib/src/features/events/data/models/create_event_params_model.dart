@@ -10,6 +10,7 @@ class CreateEventParamsModel {
     required this.title,
     required this.description,
     required this.venueAddress,
+    required this.venueCategory,
     required this.latitude,
     required this.longitude,
     required this.startsAt,
@@ -24,6 +25,7 @@ class CreateEventParamsModel {
       title: params.title.trim(),
       description: params.description.trim(),
       venueAddress: params.venueName.trim(),
+      venueCategory: params.venueCategory,
       latitude: params.latitude,
       longitude: params.longitude,
       startsAt: params.startsAt,
@@ -37,6 +39,11 @@ class CreateEventParamsModel {
   final String title;
   final String description;
   final String venueAddress;
+
+  /// Raw snake_case venue category string (see [VenueCategory]).
+  /// Serialised as `venue.category` in the POST body.
+  final String venueCategory;
+
   final double latitude;
   final double longitude;
   final DateTime startsAt;
@@ -64,6 +71,7 @@ class CreateEventParamsModel {
         'city': venueCity,
         'latitude': latitude,
         'longitude': longitude,
+        'category': venueCategory,
       },
       'startsAt': startsAt.toUtc().toIso8601String(),
       'endsAt': endsAt.toUtc().toIso8601String(),

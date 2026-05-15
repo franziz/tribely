@@ -380,6 +380,10 @@ class CreateEventController extends Notifier<CreateEventState> {
       title: draft.title!,
       category: draft.category!,
       venueName: draft.venueName!,
+      // venueCategory may be null when the user hasn't selected one yet
+      // (pre-Brief 9). Fallback to empty string so the server returns a
+      // validation error with a clear message rather than crashing the client.
+      venueCategory: draft.venueCategory ?? '',
       latitude: draft.latitude!,
       longitude: draft.longitude!,
       startsAt: draft.startsAt!,
