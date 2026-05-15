@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecase/usecase.dart';
+import '../../../users/presentation/providers/capability_providers.dart';
 import '../../domain/entities/event_category.dart';
 import '../../domain/entities/event_draft.dart';
 import '../../domain/repositories/event_repository.dart';
+import '../../domain/services/private_venue_policy.dart';
 import '../../domain/validators/event_validators.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
@@ -234,6 +236,92 @@ class CreateEventController extends Notifier<CreateEventState> {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Venue category selection + private-venue warning (Brief 9)
+  // ---------------------------------------------------------------------------
+
+  /// Select a venue category chip on Step 2.
+  ///
+  /// Updates [CreateEventEditing.selectedVenueCategory] + [EventDraft.venueCategory]
+  /// in a single state emission, then recomputes the private-venue warning.
+  /// Tapping the already-selected chip is a no-op (single-select, no deselect).
+  void selectVenueCategory(String value) {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    if (current.selectedVenueCategory == value) return;
+
+    final updatedDraft = current.formData.copyWith(venueCategory: value);
+    final warning = _computeWarning(value, updatedDraft.venueName ?? '');
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      updatedDraft,
+    );
+    state = current.copyWith(
+      formData: updatedDraft,
+      selectedVenueCategory: value,
+      privateVenueWarning: warning,
+      // Clear the nudge once a chip is selected.
+      venueCategoryNudge: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
+    );
+    _scheduleAutosave(updatedDraft);
+  }
+
+  /// Called on every keystroke in the venue name text field.
+  ///
+  /// Delegates the existing field-update path for 'venueName' and recomputes
+  /// the private-venue warning against the new text.
+  void onVenueNameChanged(String text) {
+    // Reuse the existing updateField path for draft mutation + validation.
+    updateField(field: 'venueName', value: text.isEmpty ? null : text);
+
+    // Recompute warning after the state has been updated by updateField.
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    final warning = _computeWarning(
+      current.selectedVenueCategory,
+      text,
+    );
+    state = current.copyWith(privateVenueWarning: warning);
+  }
+
+  /// Compute the [PrivateVenueWarning] variant for the given inputs.
+  ///
+  /// Reads [myCapabilitiesProvider] synchronously (AsyncValue — does not trigger
+  /// a network call; the provider is a FutureProvider that caches its result).
+  PrivateVenueWarning _computeWarning(
+    String? categoryValue,
+    String venueName,
+  ) {
+    final detection = detectPrivateVenue(
+      categoryValue: categoryValue,
+      venueName: venueName,
+    );
+
+    if (!detection.isPrivate) return const PrivateVenueWarningNone();
+
+    // Determine which warning variant based on the user's capabilities.
+    final capsAsync = ref.read(myCapabilitiesProvider);
+    return capsAsync.when(
+      data: (caps) => caps.canPostPrivateVenue
+          ? const PrivateVenueWarningEstablishedHost()
+          : const PrivateVenueWarningFirstTimeHost(),
+      // Loading or error → first-time-host warning (safer default).
+      loading: () => const PrivateVenueWarningFirstTimeHost(),
+      error: (_, __) => const PrivateVenueWarningFirstTimeHost(),
+    );
+  }
+
+  /// Surfaces the venue-category nudge when the user hits Next without
+  /// having selected a chip. Called by the Step 2 page on next-tap.
+  /// Does NOT block navigation.
+  void showVenueCategoryNudge() {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    if (current.selectedVenueCategory != null) return;
+    state = current.copyWith(venueCategoryNudge: true);
+  }
+
   void _scheduleAutosave(EventDraft draft) {
     _autosaveTimer?.cancel();
     _autosaveTimer = Timer(const Duration(milliseconds: 500), () async {
@@ -322,6 +410,9 @@ class CreateEventController extends Notifier<CreateEventState> {
     final current = state;
     if (current is! CreateEventEditing) return;
     if (current.currentStep < 4) {
+      // On Step 2 (venue, index 1), surface the chip nudge if no category was
+      // chosen. Non-blocking — navigation proceeds regardless.
+      if (current.currentStep == 1) showVenueCategoryNudge();
       goToStep(current.currentStep + 1);
     }
   }

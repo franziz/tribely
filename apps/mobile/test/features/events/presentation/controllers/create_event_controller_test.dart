@@ -15,6 +15,8 @@ import 'package:tribely/src/features/events/domain/usecases/load_event_draft_use
 import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Mock use cases
@@ -868,5 +870,277 @@ void main() {
       focusNode.dispose();
       container.dispose();
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Brief 9: selectVenueCategory + onVenueNameChanged — private-venue warnings
+  // ---------------------------------------------------------------------------
+  //
+  // The controller reads [myCapabilitiesProvider] synchronously (AsyncValue).
+  // Tests override [myCapabilitiesProvider] directly via ProviderContainer
+  // overrides to control the loading/data/error states without a network call.
+  //
+  // Warning invariants:
+  //   A. Public category + clean name → PrivateVenueWarningNone
+  //   B. Private category (e.g. 'apartment') + no caps loaded → FirstTimeHost
+  //   C. Private category + caps(canPostPrivateVenue: true) → EstablishedHost
+  //   D. Keyword match in venue name + no category → FirstTimeHost
+  // ---------------------------------------------------------------------------
+
+  /// Build a container that also overrides [myCapabilitiesProvider] with a
+  /// resolved [UserCapabilities] value.
+  ({
+    ProviderContainer container,
+    _MockCreateEventUseCase create,
+    _MockLoadEventDraftUseCase load,
+    _MockSaveEventDraftUseCase save,
+    _MockClearEventDraftUseCase clear,
+  })
+  _makeContainerWithCaps({
+    required UserCapabilities caps,
+  }) {
+    final create = _MockCreateEventUseCase();
+    final load = _MockLoadEventDraftUseCase();
+    final save = _MockSaveEventDraftUseCase();
+    final clear = _MockClearEventDraftUseCase();
+
+    final container = ProviderContainer(
+      overrides: [
+        createEventUseCaseProvider.overrideWithValue(create),
+        loadEventDraftUseCaseProvider.overrideWithValue(load),
+        saveEventDraftUseCaseProvider.overrideWithValue(save),
+        clearEventDraftUseCaseProvider.overrideWithValue(clear),
+        myCapabilitiesProvider.overrideWith((_) async => caps),
+      ],
+    );
+
+    return (
+      container: container,
+      create: create,
+      load: load,
+      save: save,
+      clear: clear,
+    );
+  }
+
+  group('selectVenueCategory — private-venue warning', () {
+    // A. Public category + clean name → no warning
+    test(
+      'A: selecting a public category with a clean venue name → PrivateVenueWarningNone',
+      () async {
+        final result = _makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        // Set a clean venue name first.
+        controller.updateField(field: 'venueName', value: 'Gardens by the Bay');
+        // Select a public category.
+        controller.selectVenueCategory('park');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.selectedVenueCategory, 'park');
+        expect(state.privateVenueWarning, isA<PrivateVenueWarningNone>());
+      },
+    );
+
+    // B. Private category + no caps loaded → FirstTimeHost warning
+    test(
+      'B: selecting a private category ("apartment") with caps not yet loaded → PrivateVenueWarningFirstTimeHost',
+      () async {
+        // Override myCapabilitiesProvider to stay in loading state indefinitely
+        // by using a completer that never completes within the test.
+        final create = _MockCreateEventUseCase();
+        final load = _MockLoadEventDraftUseCase();
+        final save = _MockSaveEventDraftUseCase();
+        final clear = _MockClearEventDraftUseCase();
+
+        final container = ProviderContainer(
+          overrides: [
+            createEventUseCaseProvider.overrideWithValue(create),
+            loadEventDraftUseCaseProvider.overrideWithValue(load),
+            saveEventDraftUseCaseProvider.overrideWithValue(save),
+            clearEventDraftUseCaseProvider.overrideWithValue(clear),
+            // Caps stay in loading state — never resolves.
+            myCapabilitiesProvider.overrideWith(
+              (_) => Future.delayed(const Duration(days: 1)),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        when(() => load(any())).thenAnswer((_) async => const Right(null));
+        when(() => save(any())).thenAnswer((_) async => const Right(null));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('apartment');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.privateVenueWarning, isA<PrivateVenueWarningFirstTimeHost>());
+      },
+    );
+
+    // C. Private category + caps(canPostPrivateVenue: true) → EstablishedHost
+    test(
+      'C: selecting a private category with canPostPrivateVenue=true → PrivateVenueWarningEstablishedHost',
+      () async {
+        final result = _makeContainerWithCaps(
+          caps: const UserCapabilities(canPostPrivateVenue: true),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+
+        // Let the caps provider settle before initialising the controller so
+        // that ref.read(myCapabilitiesProvider) returns AsyncData on first call.
+        await container.read(myCapabilitiesProvider.future);
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('apartment');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.privateVenueWarning, isA<PrivateVenueWarningEstablishedHost>());
+      },
+    );
+
+    // D. Keyword in venue name with no category → FirstTimeHost warning
+    test(
+      'D: typing "my apartment" in venue name with no category selected → PrivateVenueWarningFirstTimeHost',
+      () async {
+        final result = _makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+
+        // Let the caps provider settle (restricted = canPostPrivateVenue: false)
+        // so ref.read(myCapabilitiesProvider) returns AsyncData on first call.
+        await container.read(myCapabilitiesProvider.future);
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        // No category selected — null.
+        controller.onVenueNameChanged('my apartment');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.privateVenueWarning, isA<PrivateVenueWarningFirstTimeHost>());
+      },
+    );
+
+    // E. Selecting the same chip twice is a no-op
+    test(
+      'E: selectVenueCategory called twice with the same value is a no-op on state',
+      () async {
+        final result = _makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('cafe');
+
+        final stateAfterFirst =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // Second tap on the same chip.
+        controller.selectVenueCategory('cafe');
+
+        final stateAfterSecond =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // State should remain identical (the controller guards against no-op mutations).
+        expect(stateAfterSecond, equals(stateAfterFirst));
+      },
+    );
+
+    // F. selectedVenueCategory mirrors EventDraft.venueCategory
+    test(
+      'F: selectVenueCategory updates both selectedVenueCategory and draft.venueCategory',
+      () async {
+        final result = _makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('museum');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.selectedVenueCategory, 'museum');
+        expect(state.formData.venueCategory, 'museum');
+      },
+    );
   });
 }

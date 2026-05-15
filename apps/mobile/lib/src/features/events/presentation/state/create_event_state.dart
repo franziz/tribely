@@ -3,6 +3,40 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/event_draft.dart';
 
+// ---------------------------------------------------------------------------
+// PrivateVenueWarning — sealed warning state for Step 2 venue detection.
+// Inline here because it is tightly coupled to [CreateEventEditing] and does
+// not form an independent bounded concept that warrants its own file.
+// ---------------------------------------------------------------------------
+
+/// Warning level for the private-venue inline banner on Step 2.
+///
+/// Computed by [CreateEventController] on every `selectVenueCategory` /
+/// `onVenueNameChanged` call using the mobile-mirror detection from
+/// [detectPrivateVenue] and the user's [myCapabilitiesProvider] state.
+sealed class PrivateVenueWarning {
+  const PrivateVenueWarning();
+}
+
+/// No private-venue signal detected. Banner is hidden.
+final class PrivateVenueWarningNone extends PrivateVenueWarning {
+  const PrivateVenueWarningNone();
+}
+
+/// User has not yet earned private-venue access.
+/// Copy: "Tribely events meet in public. Your first event must be at a public
+/// spot like a cafe, park, or hawker centre."
+final class PrivateVenueWarningFirstTimeHost extends PrivateVenueWarning {
+  const PrivateVenueWarningFirstTimeHost();
+}
+
+/// User has earned private-venue access but is using a private location.
+/// Copy: "Public spots get more joiners. Private venues are allowed but
+/// discouraged."
+final class PrivateVenueWarningEstablishedHost extends PrivateVenueWarning {
+  const PrivateVenueWarningEstablishedHost();
+}
+
 /// The complete state surface for the multi-step create-event flow.
 ///
 /// State machine:
@@ -23,6 +57,9 @@ final class CreateEventEditing extends CreateEventState {
     required this.isResuming,
     this.blockingFields = const {},
     this.blockingFieldErrors = const {},
+    this.selectedVenueCategory,
+    this.privateVenueWarning = const PrivateVenueWarningNone(),
+    this.venueCategoryNudge = false,
   });
 
   /// The current form values. All fields start null and are filled as the
@@ -66,6 +103,27 @@ final class CreateEventEditing extends CreateEventState {
   /// back into the controller.
   final Map<int, List<(String, String)>> blockingFieldErrors;
 
+  /// The raw snake_case venue category currently selected via the chip grid
+  /// on Step 2. Mirrors [EventDraft.venueCategory]; kept as a separate field
+  /// so the chip grid can render selection state from the controller state
+  /// without going through the draft DTO.
+  final String? selectedVenueCategory;
+
+  /// Current warning level for the private-venue inline banner on Step 2.
+  /// Recomputed whenever [selectedVenueCategory] or the venue name text
+  /// changes.
+  final PrivateVenueWarning privateVenueWarning;
+
+  /// When true, the Step 2 page renders a non-blocking inline nudge near the
+  /// chip grid ("Pick a venue type"). Set on [nextStep] when no chip has been
+  /// selected yet. Cleared automatically when a chip is selected.
+  final bool venueCategoryNudge;
+
+  // Sentinel token for the nullable [selectedVenueCategory] copyWith param.
+  // Using a private static const avoids the "const Object()" problem — the
+  // bool is a primitive constant that doesn't conflict with any valid value.
+  static const _unsetVenueCategory = '_unset_';
+
   CreateEventEditing copyWith({
     EventDraft? formData,
     int? currentStep,
@@ -73,6 +131,11 @@ final class CreateEventEditing extends CreateEventState {
     bool? isResuming,
     Map<int, List<String>>? blockingFields,
     Map<int, List<(String, String)>>? blockingFieldErrors,
+    // Use a sentinel String so callers can explicitly pass null to clear
+    // the selection. Passing nothing → preserve current value.
+    String? selectedVenueCategory = _unsetVenueCategory,
+    PrivateVenueWarning? privateVenueWarning,
+    bool? venueCategoryNudge,
   }) => CreateEventEditing(
     formData: formData ?? this.formData,
     currentStep: currentStep ?? this.currentStep,
@@ -80,6 +143,11 @@ final class CreateEventEditing extends CreateEventState {
     isResuming: isResuming ?? this.isResuming,
     blockingFields: blockingFields ?? this.blockingFields,
     blockingFieldErrors: blockingFieldErrors ?? this.blockingFieldErrors,
+    selectedVenueCategory: selectedVenueCategory == _unsetVenueCategory
+        ? this.selectedVenueCategory
+        : selectedVenueCategory,
+    privateVenueWarning: privateVenueWarning ?? this.privateVenueWarning,
+    venueCategoryNudge: venueCategoryNudge ?? this.venueCategoryNudge,
   );
 
   @override
@@ -90,8 +158,12 @@ final class CreateEventEditing extends CreateEventState {
     isResuming,
     blockingFields,
     blockingFieldErrors,
+    selectedVenueCategory,
+    privateVenueWarning,
+    venueCategoryNudge,
   ];
 }
+
 
 /// The form is being submitted to the server. The UI should disable all
 /// inputs and show a loading indicator.
