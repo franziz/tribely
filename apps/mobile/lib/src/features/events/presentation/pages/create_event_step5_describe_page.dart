@@ -8,6 +8,7 @@ import '../../domain/validators/event_validators.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
 import '../widgets/event_form_field.dart';
+import '../widgets/first_event_must_be_public_modal.dart';
 
 /// Step 5 — Description + Review.
 ///
@@ -16,6 +17,11 @@ import '../widgets/event_form_field.dart';
 /// that navigates back to the owning step via [CreateEventController.goToStep].
 ///
 /// The Publish CTA lives in [StepNavigationBar], not here.
+///
+/// Listens to [CreateEventEditing.publishRejection] — when it becomes
+/// [PublishRejectionFirstEventMustBePublic] this page shows
+/// [FirstEventMustBePublicModal] and routes the result back into the
+/// controller via [CreateEventController.onPublishRejectionAcknowledged].
 class CreateEventStep5DescribePage extends ConsumerWidget {
   const CreateEventStep5DescribePage({super.key});
 
@@ -23,6 +29,32 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Listen for publish rejections that require a modal. ref.listen fires the
+    // callback outside the build phase, making it safe to call showDialog here.
+    ref.listen<CreateEventState>(createEventControllerProvider, (prev, next) {
+      if (next is! CreateEventEditing) return;
+      if (next.publishRejection is! PublishRejectionFirstEventMustBePublic) {
+        return;
+      }
+      // Guard: don't re-show the modal if the previous state already had the
+      // same rejection (e.g. a spurious rebuild without a real state change).
+      if (prev is CreateEventEditing &&
+          prev.publishRejection is PublishRejectionFirstEventMustBePublic) {
+        return;
+      }
+
+      // Show the modal and route the result back into the controller.
+      // Capture context before the async gap — the widget may no longer be
+      // mounted by the time the future resolves, so we check mounted.
+      final capturedContext = context;
+      FirstEventMustBePublicModal.show(capturedContext).then((result) {
+        if (!capturedContext.mounted) return;
+        ref
+            .read(createEventControllerProvider.notifier)
+            .onPublishRejectionAcknowledged(result);
+      });
+    });
+
     final state = ref.watch(createEventControllerProvider);
     if (state is! CreateEventEditing) {
       return const SizedBox.shrink();

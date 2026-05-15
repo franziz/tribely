@@ -13,6 +13,7 @@ import '../../domain/services/private_venue_policy.dart';
 import '../../domain/validators/event_validators.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
+import '../widgets/first_event_must_be_public_modal.dart';
 
 /// Owns the multi-step create-event state machine.
 ///
@@ -491,8 +492,18 @@ class CreateEventController extends Notifier<CreateEventState> {
     if (!ref.mounted) return;
 
     await result.fold(
-      (failure) async =>
-          _handleSubmitFailure(failure, draft, current.currentStep),
+      (failure) async {
+        if (!ref.mounted) return;
+        // FirstEventMustBePublicFailure is handled via a modal acknowledgment
+        // flow on Step 5 rather than as a generic SubmissionError. Transition
+        // back to the editing state (on Step 5) with publishRejection set so
+        // the page can show the modal.
+        if (failure is FirstEventMustBePublicFailure) {
+          _handleFirstEventMustBePublicFailure(draft, current.currentStep);
+          return;
+        }
+        _handleSubmitFailure(failure, draft, current.currentStep);
+      },
       (event) async {
         final clearUseCase = ref.read(clearEventDraftUseCaseProvider);
         await clearUseCase(const NoParams());
@@ -500,6 +511,90 @@ class CreateEventController extends Notifier<CreateEventState> {
         state = CreateEventSubmissionSuccess(event.id);
       },
     );
+  }
+
+  /// Handles [FirstEventMustBePublicFailure] from the publish path.
+  ///
+  /// Returns to [CreateEventEditing] on the current step (Step 5) with
+  /// [CreateEventEditing.publishRejection] set to
+  /// [PublishRejectionFirstEventMustBePublic]. The Step 5 page watches this
+  /// field and shows [FirstEventMustBePublicModal] when it becomes non-null.
+  ///
+  /// After the modal closes the page calls [onPublishRejectionAcknowledged]
+  /// to clear the rejection and branch on the user's choice.
+  void _handleFirstEventMustBePublicFailure(EventDraft draft, int step) {
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(draft);
+    state = CreateEventEditing(
+      formData: draft,
+      currentStep: step,
+      fieldErrors: const {},
+      isResuming: false,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
+      selectedVenueCategory: draft.venueCategory,
+      publishRejection: const PublishRejectionFirstEventMustBePublic(),
+    );
+  }
+
+  /// Called by the Step 5 page after [FirstEventMustBePublicModal] closes.
+  ///
+  /// Branches on [result]:
+  ///   - [FirstEventMustBePublicModalResult.pickPublicPlace]: clears venue
+  ///     fields (address + category) from the draft, navigates to Step 2, and
+  ///     clears [publishRejection] so the modal does not re-show.
+  ///   - [FirstEventMustBePublicModalResult.cancel]: stays on Step 5 and
+  ///     clears [publishRejection] so the host can retry publish without the
+  ///     modal immediately re-appearing.
+  void onPublishRejectionAcknowledged(
+    FirstEventMustBePublicModalResult result,
+  ) {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+
+    switch (result) {
+      case FirstEventMustBePublicModalResult.pickPublicPlace:
+        // Clear venue fields only — preserve all other wizard fields.
+        // EventDraft.copyWith uses ?? so it cannot null out fields;
+        // construct a fresh draft explicitly propagating every non-venue field.
+        final clearedDraft = EventDraft(
+          title: current.formData.title,
+          category: current.formData.category,
+          // venueName and venueCategory are intentionally cleared.
+          venueName: null,
+          venueCategory: null,
+          latitude: current.formData.latitude,
+          longitude: current.formData.longitude,
+          startsAt: current.formData.startsAt,
+          endsAt: current.formData.endsAt,
+          capacity: current.formData.capacity,
+          costNotes: current.formData.costNotes,
+          approvalMode: current.formData.approvalMode,
+          description: current.formData.description,
+          currentStep: 1,
+          lastUpdatedAt: current.formData.lastUpdatedAt,
+        );
+        final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+          clearedDraft,
+        );
+        state = CreateEventEditing(
+          formData: clearedDraft,
+          currentStep: 1,
+          fieldErrors: const {},
+          isResuming: false,
+          blockingFields: blockingFields,
+          blockingFieldErrors: blockingFieldErrors,
+          // selectedVenueCategory cleared so the chip grid resets visually.
+          selectedVenueCategory: null,
+          publishRejection: null,
+        );
+        _scheduleAutosave(clearedDraft);
+
+      case FirstEventMustBePublicModalResult.cancel:
+        // Stay on Step 5; clear publishRejection so the modal doesn't re-show.
+        // Venue fields retain their original (rejected) values — host can
+        // update them manually or retry publish as-is.
+        state = current.copyWith(publishRejection: null);
+    }
   }
 
   void _handleSubmitFailure(

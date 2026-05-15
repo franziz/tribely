@@ -37,6 +37,28 @@ final class PrivateVenueWarningEstablishedHost extends PrivateVenueWarning {
   const PrivateVenueWarningEstablishedHost();
 }
 
+// ---------------------------------------------------------------------------
+// PublishRejection — sealed signal for server-side publish rejections.
+// Inline here because it is tightly coupled to [CreateEventEditing] and does
+// not form an independent bounded concept that warrants its own file.
+// ---------------------------------------------------------------------------
+
+/// Signals that the most recent [CreateEventController.submit] call was
+/// rejected by the server with a domain-specific failure that requires a
+/// modal acknowledgment before the user can retry.
+///
+/// Null on [CreateEventEditing] means no rejection is pending.
+sealed class PublishRejection {
+  const PublishRejection();
+}
+
+/// 422 FIRST_EVENT_MUST_BE_PUBLIC. The server rejected the event because the
+/// user's first event must use a public venue category. The modal routes the
+/// user back to Step 2 to pick a public place, or lets them cancel and retry.
+final class PublishRejectionFirstEventMustBePublic extends PublishRejection {
+  const PublishRejectionFirstEventMustBePublic();
+}
+
 /// The complete state surface for the multi-step create-event flow.
 ///
 /// State machine:
@@ -60,6 +82,7 @@ final class CreateEventEditing extends CreateEventState {
     this.selectedVenueCategory,
     this.privateVenueWarning = const PrivateVenueWarningNone(),
     this.venueCategoryNudge = false,
+    this.publishRejection,
   });
 
   /// The current form values. All fields start null and are filled as the
@@ -119,10 +142,21 @@ final class CreateEventEditing extends CreateEventState {
   /// selected yet. Cleared automatically when a chip is selected.
   final bool venueCategoryNudge;
 
+  /// Non-null when the most recent [CreateEventController.submit] call was
+  /// rejected by the server with a domain-specific failure that requires a
+  /// modal acknowledgment. The Step 5 page watches this field and shows the
+  /// appropriate modal when it becomes non-null. Call
+  /// [CreateEventController.onPublishRejectionAcknowledged] to clear it.
+  final PublishRejection? publishRejection;
+
   // Sentinel token for the nullable [selectedVenueCategory] copyWith param.
   // Using a private static const avoids the "const Object()" problem — the
   // bool is a primitive constant that doesn't conflict with any valid value.
   static const _unsetVenueCategory = '_unset_';
+
+  // Sentinel token for the nullable [publishRejection] copyWith param.
+  // A static const avoids allocating a new object on every copyWith call.
+  static const Object _unsetPublishRejection = Object();
 
   CreateEventEditing copyWith({
     EventDraft? formData,
@@ -136,6 +170,9 @@ final class CreateEventEditing extends CreateEventState {
     String? selectedVenueCategory = _unsetVenueCategory,
     PrivateVenueWarning? privateVenueWarning,
     bool? venueCategoryNudge,
+    // Use a sentinel Object so callers can explicitly pass null to clear
+    // the rejection. Passing nothing → preserve current value.
+    Object? publishRejection = _unsetPublishRejection,
   }) => CreateEventEditing(
     formData: formData ?? this.formData,
     currentStep: currentStep ?? this.currentStep,
@@ -148,6 +185,9 @@ final class CreateEventEditing extends CreateEventState {
         : selectedVenueCategory,
     privateVenueWarning: privateVenueWarning ?? this.privateVenueWarning,
     venueCategoryNudge: venueCategoryNudge ?? this.venueCategoryNudge,
+    publishRejection: publishRejection == _unsetPublishRejection
+        ? this.publishRejection
+        : publishRejection as PublishRejection?,
   );
 
   @override
@@ -161,6 +201,7 @@ final class CreateEventEditing extends CreateEventState {
     selectedVenueCategory,
     privateVenueWarning,
     venueCategoryNudge,
+    publishRejection,
   ];
 }
 

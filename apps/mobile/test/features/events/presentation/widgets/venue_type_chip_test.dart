@@ -178,7 +178,7 @@ void main() {
     // -------------------------------------------------------------------------
     testWidgets(
       'VenueTypeChip — unselected golden',
-      skip: Platform.isLinux ? 'macOS baseline; skip on Linux CI' : null,
+      skip: Platform.isLinux,
       (tester) async {
         await _pumpChip(
           tester,
@@ -197,7 +197,7 @@ void main() {
 
     testWidgets(
       'VenueTypeChip — selected golden',
-      skip: Platform.isLinux ? 'macOS baseline; skip on Linux CI' : null,
+      skip: Platform.isLinux,
       (tester) async {
         await _pumpChip(
           tester,

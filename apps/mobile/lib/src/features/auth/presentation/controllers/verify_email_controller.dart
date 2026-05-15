@@ -108,6 +108,7 @@ String _bannerFor(Failure failure) {
     NotFoundFailure() => failure.message,
     CapacityFullFailure() => failure.message,
     ConflictFailure() => failure.message,
+    FirstEventMustBePublicFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

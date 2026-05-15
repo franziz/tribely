@@ -15,6 +15,7 @@ import 'package:tribely/src/features/events/domain/usecases/load_event_draft_use
 import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
+import 'package:tribely/src/features/events/presentation/widgets/first_event_must_be_public_modal.dart';
 import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
 import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
 
@@ -896,7 +897,7 @@ void main() {
     _MockSaveEventDraftUseCase save,
     _MockClearEventDraftUseCase clear,
   })
-  _makeContainerWithCaps({
+  makeContainerWithCaps({
     required UserCapabilities caps,
   }) {
     final create = _MockCreateEventUseCase();
@@ -923,12 +924,12 @@ void main() {
     );
   }
 
-  group('selectVenueCategory — private-venue warning', () {
+  group('selectVenueCategory — private-venue warning (Brief 9)', () {
     // A. Public category + clean name → no warning
     test(
       'A: selecting a public category with a clean venue name → PrivateVenueWarningNone',
       () async {
-        final result = _makeContainerWithCaps(
+        final result = makeContainerWithCaps(
           caps: const UserCapabilities.restricted(),
         );
         final container = result.container;
@@ -1005,7 +1006,7 @@ void main() {
     test(
       'C: selecting a private category with canPostPrivateVenue=true → PrivateVenueWarningEstablishedHost',
       () async {
-        final result = _makeContainerWithCaps(
+        final result = makeContainerWithCaps(
           caps: const UserCapabilities(canPostPrivateVenue: true),
         );
         final container = result.container;
@@ -1036,11 +1037,11 @@ void main() {
       },
     );
 
-    // D. Keyword in venue name with no category → FirstTimeHost warning
+    // D. Keyword in venue name with no category → FirstTimeHost warning (Brief 9)
     test(
       'D: typing "my apartment" in venue name with no category selected → PrivateVenueWarningFirstTimeHost',
       () async {
-        final result = _makeContainerWithCaps(
+        final result = makeContainerWithCaps(
           caps: const UserCapabilities.restricted(),
         );
         final container = result.container;
@@ -1072,11 +1073,11 @@ void main() {
       },
     );
 
-    // E. Selecting the same chip twice is a no-op
+    // E. Selecting the same chip twice is a no-op (Brief 9)
     test(
       'E: selectVenueCategory called twice with the same value is a no-op on state',
       () async {
-        final result = _makeContainerWithCaps(
+        final result = makeContainerWithCaps(
           caps: const UserCapabilities.restricted(),
         );
         final container = result.container;
@@ -1111,11 +1112,11 @@ void main() {
       },
     );
 
-    // F. selectedVenueCategory mirrors EventDraft.venueCategory
+    // F. selectedVenueCategory mirrors EventDraft.venueCategory (Brief 9)
     test(
       'F: selectVenueCategory updates both selectedVenueCategory and draft.venueCategory',
       () async {
-        final result = _makeContainerWithCaps(
+        final result = makeContainerWithCaps(
           caps: const UserCapabilities.restricted(),
         );
         final container = result.container;
@@ -1140,6 +1141,237 @@ void main() {
             container.read(createEventControllerProvider) as CreateEventEditing;
         expect(state.selectedVenueCategory, 'museum');
         expect(state.formData.venueCategory, 'museum');
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Brief 11: FirstEventMustBePublicFailure — recovery flow
+  //
+  // Tests the two branches of [onPublishRejectionAcknowledged]:
+  //   1. pickPublicPlace: clears venue fields, navigates to Step 2, all other
+  //      fields preserved, publishRejection cleared.
+  //   2. cancel: stays on Step 5, publishRejection cleared, venue fields intact.
+  //
+  // Uses makeContainerWithCaps with restricted caps (canPostPrivateVenue=false)
+  // so the private-venue warning machinery also exercises the right path.
+  // ---------------------------------------------------------------------------
+
+  /// A fully-valid draft where venueCategory is a private category. This
+  /// triggers [FirstEventMustBePublicFailure] on the server side.
+  EventDraft validDraftWithPrivateVenue() {
+    return EventDraft(
+      title: 'Sunday Morning Hike',
+      category: EventCategory.hike,
+      venueName: 'My Apartment Block',
+      venueCategory: 'apartment',
+      latitude: 1.28,
+      longitude: 103.85,
+      startsAt: DateTime(2030, 6, 1, 8),
+      endsAt: DateTime(2030, 6, 1, 11),
+      capacity: 10,
+      approvalMode: 'auto',
+      description: 'A lovely hike for solo travellers exploring Singapore.',
+      currentStep: 4,
+    );
+  }
+
+  /// Seeds the controller with all fields from [draft] via [updateField] and
+  /// [selectVenueCategory], then navigates to step 4 (Step 5).
+  Future<void> seedControllerWithDraft(
+    ProviderContainer container,
+    EventDraft draft,
+  ) async {
+    final controller = container.read(createEventControllerProvider.notifier);
+    controller.updateField(field: 'title', value: draft.title!);
+    controller.updateField(field: 'category', value: draft.category!);
+    controller.updateField(field: 'venueName', value: draft.venueName!);
+    if (draft.venueCategory != null) {
+      controller.selectVenueCategory(draft.venueCategory!);
+    }
+    controller.updateField(field: 'latitude', value: draft.latitude!);
+    controller.updateField(field: 'longitude', value: draft.longitude!);
+    controller.updateField(field: 'startsAt', value: draft.startsAt!);
+    controller.updateField(field: 'endsAt', value: draft.endsAt!);
+    controller.updateField(field: 'capacity', value: draft.capacity!);
+    controller.updateField(field: 'approvalMode', value: draft.approvalMode!);
+    controller.updateField(field: 'description', value: draft.description!);
+    controller.goToStep(4);
+  }
+
+  group('submit — FirstEventMustBePublicFailure (Brief 11)', () {
+    test(
+      'server returns FirstEventMustBePublicFailure → '
+      'state is CreateEventEditing on Step 5 with publishRejection set',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.create(any())).thenAnswer(
+          (_) async => const Left(
+            FirstEventMustBePublicFailure(reason: 'category_not_public'),
+          ),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final draft = validDraftWithPrivateVenue();
+        await seedControllerWithDraft(container, draft);
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
+
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventEditing>());
+        final editing = state as CreateEventEditing;
+        // publishRejection must be set.
+        expect(
+          editing.publishRejection,
+          isA<PublishRejectionFirstEventMustBePublic>(),
+        );
+        // Must remain on Step 5.
+        expect(editing.currentStep, 4);
+      },
+    );
+  });
+
+  group('onPublishRejectionAcknowledged — pickPublicPlace (Brief 11)', () {
+    test(
+      'pickPublicPlace: clears venue fields, navigates to Step 2, '
+      'preserves all other fields, clears publishRejection',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.create(any())).thenAnswer(
+          (_) async => const Left(
+            FirstEventMustBePublicFailure(reason: 'category_not_public'),
+          ),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final draft = validDraftWithPrivateVenue();
+        await seedControllerWithDraft(container, draft);
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
+
+        // Confirm rejection was set.
+        final rejectedState =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(
+          rejectedState.publishRejection,
+          isA<PublishRejectionFirstEventMustBePublic>(),
+        );
+
+        // Acknowledge with pickPublicPlace.
+        controller.onPublishRejectionAcknowledged(
+          FirstEventMustBePublicModalResult.pickPublicPlace,
+        );
+
+        final afterState =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // publishRejection must be cleared.
+        expect(afterState.publishRejection, isNull);
+
+        // Step must be 2 (venue step, index 1).
+        expect(afterState.currentStep, 1);
+
+        // Venue fields must be cleared.
+        expect(afterState.formData.venueName, isNull);
+        expect(afterState.formData.venueCategory, isNull);
+        expect(afterState.selectedVenueCategory, isNull);
+
+        // All other fields must be preserved.
+        expect(afterState.formData.title, draft.title);
+        expect(afterState.formData.category, draft.category);
+        expect(afterState.formData.latitude, draft.latitude);
+        expect(afterState.formData.longitude, draft.longitude);
+        expect(afterState.formData.startsAt, draft.startsAt);
+        expect(afterState.formData.endsAt, draft.endsAt);
+        expect(afterState.formData.capacity, draft.capacity);
+        expect(afterState.formData.approvalMode, draft.approvalMode);
+        expect(afterState.formData.description, draft.description);
+      },
+    );
+  });
+
+  group('onPublishRejectionAcknowledged — cancel (Brief 11)', () {
+    test(
+      'cancel: stays on Step 5, clears publishRejection, venue fields intact',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(() => result.load(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.save(any())).thenAnswer(
+          (_) async => const Right(null),
+        );
+        when(() => result.create(any())).thenAnswer(
+          (_) async => const Left(
+            FirstEventMustBePublicFailure(reason: 'category_not_public'),
+          ),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final draft = validDraftWithPrivateVenue();
+        await seedControllerWithDraft(container, draft);
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
+
+        // Acknowledge with cancel.
+        controller.onPublishRejectionAcknowledged(
+          FirstEventMustBePublicModalResult.cancel,
+        );
+
+        final afterState =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // publishRejection must be cleared.
+        expect(afterState.publishRejection, isNull);
+
+        // Must still be on Step 5.
+        expect(afterState.currentStep, 4);
+
+        // Venue fields must be intact — host can retry or edit manually.
+        expect(afterState.formData.venueName, draft.venueName);
+        expect(afterState.formData.venueCategory, draft.venueCategory);
       },
     );
   });
