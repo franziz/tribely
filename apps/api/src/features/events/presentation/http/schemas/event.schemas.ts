@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EventCategory } from '../../../domain/value-objects/event-category.js';
+import { VenueCategory } from '../../../domain/value-objects/venue-category.js';
 
 // ---- Shared sub-schemas ----
 
@@ -8,6 +9,7 @@ const venueSchema = z.object({
   city: z.string().min(1).max(120),
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
+  category: z.enum(VenueCategory.VALUES),
 });
 
 const costSplitSchema = z.enum(['own', 'host_paid', 'split']);

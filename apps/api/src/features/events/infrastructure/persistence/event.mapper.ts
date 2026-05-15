@@ -52,7 +52,10 @@ export const toEvent = (row: EventRow): Event => {
     endsAt: row.endsAt,
     capacity: Capacity.create(row.capacity),
     category: EventCategory.create(row.category),
-    venueCategory: VenueCategory.create(row.venueCategory),
+    // String() coercion: row.venueCategory is `any` until `prisma generate` runs
+    // post-migration. The CHECK constraint on the column guarantees the value is
+    // a valid VenueCategoryValue; VenueCategory.create throws AppError.internal if not.
+    venueCategory: VenueCategory.create(String(row.venueCategory)),
     costSplit: row.costSplit,
     approvalMode: row.approvalMode,
     status: row.status,

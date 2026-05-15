@@ -3,6 +3,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import { Event } from '@/features/events/domain/entities/event.js';
 import { Capacity } from '@/features/events/domain/value-objects/capacity.js';
 import { EventCategory } from '@/features/events/domain/value-objects/event-category.js';
+import { VenueCategory } from '@/features/events/domain/value-objects/venue-category.js';
 import { Venue } from '@/features/events/domain/value-objects/venue.js';
 import { JoinRequest } from '../../domain/entities/join-request.js';
 import { JOIN_REQUEST_APPROVED } from '../../domain/events/approved.event.js';
@@ -37,6 +38,7 @@ const seedEvent = (repo: FakeEventRepository, capacity = 4): Event => {
     endsAt: ENDS,
     capacity: Capacity.create(capacity),
     category: EventCategory.create('food'),
+    venueCategory: VenueCategory.create('cafe'),
     costSplit: 'own',
     approvalMode: 'manual',
     now: NOW,
