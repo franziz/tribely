@@ -62,12 +62,15 @@ void main() {
     testWidgets('renders 96 time rows (12:00 AM through 11:45 PM)', (
       tester,
     ) async {
-      await _pumpInline(tester, pickedDate: futureDate);
+      await _pumpInline(
+        tester,
+        pickedDate: futureDate,
+        initialValue: DateTime(2030, 1, 15, 0, 0),
+      );
 
-      // The sheet pre-scrolls to _bestGuessIndex = (now.hour * 4) + (now.minute
-      // ~/ 15), so index 0 ("12:00 AM") is off-screen unless this runs at
-      // midnight. Scroll upward (negative delta = toward earlier rows) to bring
-      // it into the viewport before asserting.
+      // initialValue pins the anchor to index 0 (12:00 AM), so the scrollUntilVisible
+      // below is a deterministic no-op — kept for defensive determinism in case
+      // _bestGuessIndex semantics change.
       final pickerScrollable = find
           .descendant(
             of: find.byType(TimePickerSheet),
@@ -302,12 +305,16 @@ void main() {
       // today = right now; row 0 (12:00 AM) will almost certainly be in the
       // past unless this test runs at midnight — safe assumption.
       final today = DateTime.now();
-      await _pumpInline(tester, pickedDate: today);
+      await _pumpInline(
+        tester,
+        pickedDate: today,
+        initialValue: DateTime(today.year, today.month, today.day, 12, 0),
+      );
 
-      // Row 0 is 12:00 AM — unavailable unless it's currently before 12:05 AM.
-      // Scroll upward (negative delta) to bring it into the viewport so the
-      // assertion runs deterministically rather than passing vacuously when the
-      // sheet is pre-scrolled away from index 0.
+      // initialValue pins the anchor to noon today (index 48), so the upward scroll
+      // to row 0 (12:00 AM) is deterministic. The assertion's correctness — row 0
+      // must be a past time — still depends on wall-clock (12:00 AM is past at
+      // noon, which is the run-time the pinned anchor enforces).
       final row0Label = _rowLabel(0); // "12:00 AM"
       await tester.scrollUntilVisible(
         find.text(row0Label),
