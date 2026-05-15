@@ -54,6 +54,7 @@ export class EventPrismaRepository implements EventRepository {
         endsAt: event.endsAt,
         capacity: event.capacity.value,
         category: event.category.value,
+        venueCategory: event.venueCategory.value,
         costSplit: event.costSplit,
         approvalMode: event.approvalMode,
         status: event.status,
