@@ -72,4 +72,11 @@ export interface EventRepository {
     limit: number,
     ctx?: TxContext,
   ): Promise<ListEventsPage>;
+
+  /**
+   * Returns the number of events with status `completed` hosted by the given
+   * user. Used by the capabilities use case to determine whether a host has
+   * earned private-venue posting access.
+   */
+  countCompletedByHost(hostUserId: string, ctx?: TxContext): Promise<number>;
 }

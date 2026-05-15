@@ -47,8 +47,10 @@ import type { PasswordResetTokenRepository } from '@/features/auth/domain/reposi
 import type { RefreshTokenRepository } from '@/features/auth/domain/repositories/refresh-token.repository.js';
 
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
+import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
+import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapters/stub-host-ratings-read-model.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
@@ -125,6 +127,7 @@ export interface Container {
   userRepository: UserRepository;
   getUserUseCase: GetUserUseCase;
   updateUserProfileUseCase: UpdateUserProfileUseCase;
+  getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -323,6 +326,13 @@ export const buildContainer = (): Container => {
   const updateEventUseCase = new UpdateEventUseCase(unitOfWork, eventRepository, publisher, clock);
   const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
 
+  // --- User Capabilities (depends on eventRepository — wired after Events) ---
+  const stubHostRatingsReadModel = new StubHostRatingsReadModel();
+  const getUserCapabilitiesUseCase = new GetUserCapabilitiesUseCase(
+    eventRepository,
+    stubHostRatingsReadModel,
+  );
+
   // --- Join Requests ---
   const joinRequestRepository = new JoinRequestPrismaRepository(db);
   const requestToJoinEventUseCase = new RequestToJoinEventUseCase(
@@ -383,6 +393,7 @@ export const buildContainer = (): Container => {
     userRepository,
     getUserUseCase,
     updateUserProfileUseCase,
+    getUserCapabilitiesUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,

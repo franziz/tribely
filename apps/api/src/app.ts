@@ -54,6 +54,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
     buildUserRoutes({
       getUser: container.getUserUseCase,
       updateUserProfile: container.updateUserProfileUseCase,
+      getUserCapabilities: container.getUserCapabilitiesUseCase,
       accessTokens: container.accessTokens,
       clock: container.clock,
     }),

@@ -111,4 +111,9 @@ export class EventPrismaRepository implements EventRepository {
 
     return { events, nextCursor };
   }
+
+  async countCompletedByHost(hostUserId: string, ctx?: TxContext): Promise<number> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    return client.event.count({ where: { hostUserId, status: 'completed' } });
+  }
 }

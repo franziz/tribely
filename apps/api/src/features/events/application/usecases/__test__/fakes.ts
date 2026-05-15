@@ -106,6 +106,13 @@ export class FakeEventRepository implements EventRepository {
     return Promise.resolve();
   }
 
+  countCompletedByHost(hostUserId: string): Promise<number> {
+    const count = Array.from(this.byId.values()).filter(
+      (e) => e.hostUserId === hostUserId && e.status === 'completed',
+    ).length;
+    return Promise.resolve(count);
+  }
+
   findManyForListing(
     filters: ListEventsFilters,
     cursor: ListEventsCursor | null,

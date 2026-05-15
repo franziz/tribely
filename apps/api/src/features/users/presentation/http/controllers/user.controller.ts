@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { User } from '../../../domain/entities/user.js';
 import type { GetUserUseCase } from '../../../application/usecases/get-user.usecase.js';
+import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
 import type { UpdateUserProfileInput } from '../../../application/usecases/update-user-profile.usecase.js';
 import type { UpdateUserProfileUseCase } from '../../../application/usecases/update-user-profile.usecase.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
@@ -51,11 +52,18 @@ export class UserController {
     private readonly getUser: GetUserUseCase,
     private readonly updateProfile: UpdateUserProfileUseCase,
     private readonly clock: Clock,
+    private readonly getUserCapabilities: GetUserCapabilitiesUseCase,
   ) {}
 
   get = async (c: Context, id: string) => {
     const user = await this.getUser.execute({ id });
     return c.json(toResponse(user), 200);
+  };
+
+  getMyCapabilities = async (c: Context<{ Variables: AuthVariables }>) => {
+    const userId = c.var.userId;
+    const result = await this.getUserCapabilities.execute({ userId });
+    return c.json(result);
   };
 
   patchMe = async (c: Context<{ Variables: AuthVariables }>, body: UpdateUserProfileBody) => {
