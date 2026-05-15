@@ -345,7 +345,11 @@ void main() {
                     context,
                     MaterialPageRoute<DateTime?>(
                       builder: (_) => Scaffold(
-                        body: TimePickerSheet(pickedDate: futureDate),
+                        body: TimePickerSheet(
+                          pickedDate: futureDate,
+                          // initialValue pins anchor to index 30 so scrollUntilVisible(-50.0) reaches index 28 deterministically across CI run-times.
+                          initialValue: DateTime(2030, 1, 15, 7, 30),
+                        ),
                       ),
                     ),
                   );
@@ -360,13 +364,8 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // Tap row index 28 → 7:00 AM (28 = 7*4).
-      // The sheet pre-scrolls to the current time; 7:00 AM may be above or
-      // below the viewport depending on time of day. Negative delta scrolls
-      // upward toward earlier rows, which is correct when the anchor (now) is
-      // past 7 AM — the dominant case during business-hours CI runs. If the
-      // test runs before 7 AM the row is already near the top or just below the
-      // anchor; deterministic clock injection is tracked as follow-up tech debt.
+      // Tap row index 28 → 7:00 AM (28 = 7*4). initialValue anchors at index 30
+      // (7:30 AM), so -50.0 (upward) reliably reaches index 28 at any UTC time.
       final label700 = _rowLabel(28); // "7:00 AM"
       await tester.scrollUntilVisible(
         find.text(label700),
