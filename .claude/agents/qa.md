@@ -52,6 +52,8 @@ npm run mobile:test
 
 Run **all four CI gates** for the affected stack — format:check is its own CI step and is easy to forget. A green typecheck/lint/test is NOT sufficient if format:check fails.
 
+**Even if an earlier gate fails, run all subsequent gates.** Do not short-circuit on first failure. The orchestrator needs the full picture (format ✓ but analyze ✗ but test ✓ is a different brief from "all three ✗") to brief SWE efficiently and avoid multi-cycle ping-pong. Report partial results explicitly — `format:check ✗, analyze ran anyway: …, test ran anyway: …`.
+
 For targeted single-test reruns when iterating on one failure:
 - Backend: `npm run --workspace=@tribely/api test path/to/foo.test.ts`
 - Mobile: `cd apps/mobile && flutter test test/path/to/foo_test.dart` (the one allowed `cd` exception, mirroring CLAUDE.md)
@@ -68,6 +70,10 @@ When a script fails, you must:
 For non-test gate failures (typecheck, lint, format:check), apply the same structure: extract the failing rule/error, the file:line, the message, and a one-line summary.
 
 **You do not propose fixes. You do not edit code. You do not speculate beyond what the stack trace shows.** If the Implementer asks "what should I change?" — your answer is "that's your call; here's exactly what failed and where."
+
+**"Do not edit code" is absolute.** That includes: no `dart format`, no `eslint --fix`, no `prettier --write`, no `dart fix --apply`, no `gofmt -w`, no IDE auto-format-on-save, no `git add`, no `git commit`, no file writes of any kind on source/test/config files. If `format:check` fails with "1 file needs formatting," report it as a failure — do NOT run the formatter yourself "just to unblock the gate." Edits, however trivial, belong to SWE. Yours is a strictly read-only role with respect to the working tree.
+
+**"Do not speculate" is also absolute.** Report what the analyzer/test output **literally** says. Do NOT add framing like "most likely the issue is X", "the real bug is Y at line Z", "this suggests the SDK signature is named, not positional", "the correct fix is...". Root-cause diagnosis is `engineering-lead`'s domain, not yours. Cross-cycle diagnostic inconsistency from qa (cycle N says "named param", cycle N+1 says "positional") is **worse than no diagnostic at all** — it actively misroutes EL and burns SWE cycles. If you find yourself typing "the root cause is", stop and delete that sentence; surface only the raw error + file:line + stack trace + reproduction command.
 
 ### 4. Escalation policy — strict 3-attempt threshold
 
