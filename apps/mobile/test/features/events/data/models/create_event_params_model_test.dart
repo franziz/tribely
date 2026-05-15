@@ -39,13 +39,11 @@ void main() {
   // venue.category serialisation (TRI-33 Brief 8)
   // ---------------------------------------------------------------------------
   group('CreateEventParamsModel.toJson — venue.category serialisation', () {
-    test('venueCategory is serialised as venue.category in the request body',
-        () {
-      final json =
-          _modelFrom(
-            startsAt: DateTime.utc(2030, 6, 1, 8),
-            endsAt: DateTime.utc(2030, 6, 1, 11),
-          ).toJson();
+    test('venueCategory is serialised as venue.category in the request body', () {
+      final json = _modelFrom(
+        startsAt: DateTime.utc(2030, 6, 1, 8),
+        endsAt: DateTime.utc(2030, 6, 1, 11),
+      ).toJson();
 
       final venue = json['venue'] as Map<String, dynamic>;
       expect(

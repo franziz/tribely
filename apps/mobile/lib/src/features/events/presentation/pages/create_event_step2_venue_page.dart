@@ -109,7 +109,7 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
     final warningMessage = switch (state.privateVenueWarning) {
       PrivateVenueWarningFirstTimeHost() =>
         'Tribely events meet in public. Your first event must be at a public '
-        'spot like a cafe, park, or hawker centre.',
+            'spot like a cafe, park, or hawker centre.',
       PrivateVenueWarningEstablishedHost() =>
         'Public spots get more joiners. Private venues are allowed but discouraged.',
       PrivateVenueWarningNone() => '',
@@ -127,10 +127,9 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
           // ---------------------------------------------------------------
           Text(
             'Public places in Singapore',
-            style: TribelyType.caption(inkSecondary).copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
+            style: TribelyType.caption(
+              inkSecondary,
+            ).copyWith(fontWeight: FontWeight.w600, letterSpacing: 0.3),
           ),
           const SizedBox(height: 10),
 
@@ -265,4 +264,3 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
     );
   }
 }
-

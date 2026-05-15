@@ -291,36 +291,33 @@ void main() {
       },
     );
 
-    test(
-      'ServerException(422) without FIRST_EVENT_MUST_BE_PUBLIC subcode '
-      '→ Left(ServerFailure) with status 422',
-      () async {
-        // A 422 with a different subcode (e.g. generic validation) must fall
-        // through to ServerFailure, not FirstEventMustBePublicFailure.
-        final ex = const ServerException(
-          'Unprocessable entity',
-          statusCode: 422,
-          code: 'UNPROCESSABLE',
-        );
-        final responseBody = {
-          'error': {
-            'message': 'Unprocessable entity',
-            'code': 'UNPROCESSABLE',
-            'details': {'subcode': 'SOME_OTHER_SUBCODE'},
-          },
-        };
-        when(
-          () => remote.createEvent(any()),
-        ).thenThrow(_dioWithResponse(ex, responseBody));
+    test('ServerException(422) without FIRST_EVENT_MUST_BE_PUBLIC subcode '
+        '→ Left(ServerFailure) with status 422', () async {
+      // A 422 with a different subcode (e.g. generic validation) must fall
+      // through to ServerFailure, not FirstEventMustBePublicFailure.
+      final ex = const ServerException(
+        'Unprocessable entity',
+        statusCode: 422,
+        code: 'UNPROCESSABLE',
+      );
+      final responseBody = {
+        'error': {
+          'message': 'Unprocessable entity',
+          'code': 'UNPROCESSABLE',
+          'details': {'subcode': 'SOME_OTHER_SUBCODE'},
+        },
+      };
+      when(
+        () => remote.createEvent(any()),
+      ).thenThrow(_dioWithResponse(ex, responseBody));
 
-        final result = await repo.createEvent(_stubParams);
+      final result = await repo.createEvent(_stubParams);
 
-        expect(result.isLeft(), isTrue);
-        final failure = (result as Left).value;
-        expect(failure, isA<ServerFailure>());
-        expect((failure as ServerFailure).statusCode, 422);
-      },
-    );
+      expect(result.isLeft(), isTrue);
+      final failure = (result as Left).value;
+      expect(failure, isA<ServerFailure>());
+      expect((failure as ServerFailure).statusCode, 422);
+    });
 
     test(
       'ServerException(500) → Left(ServerFailure) with status 500',

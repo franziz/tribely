@@ -19,9 +19,7 @@ class UserCapabilitiesRepositoryImpl implements UserCapabilitiesRepository {
     try {
       final data = await _remote.getMyCapabilities();
       final canPostPrivateVenue = data['canPostPrivateVenue'] as bool? ?? false;
-      return Right(
-        UserCapabilities(canPostPrivateVenue: canPostPrivateVenue),
-      );
+      return Right(UserCapabilities(canPostPrivateVenue: canPostPrivateVenue));
     } on DioException catch (e) {
       return Left(_mapDioError(e));
     } catch (e) {

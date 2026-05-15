@@ -78,13 +78,8 @@ class ConflictFailure extends Failure {
 ///
 /// The UI uses [reason] to render context-specific recovery copy (Brief 11).
 class FirstEventMustBePublicFailure extends Failure {
-  const FirstEventMustBePublicFailure({
-    required this.reason,
-    String? message,
-  }) : super(
-         message ??
-             'Your first event must be held at a public venue.',
-       );
+  const FirstEventMustBePublicFailure({required this.reason, String? message})
+    : super(message ?? 'Your first event must be held at a public venue.');
 
   /// 'category_not_public' | 'keyword_match'
   final String reason;

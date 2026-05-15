@@ -40,7 +40,9 @@ class VenueTypeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
     final border = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;

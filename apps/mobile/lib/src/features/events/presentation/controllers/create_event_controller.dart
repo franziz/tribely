@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
@@ -277,10 +278,7 @@ class CreateEventController extends Notifier<CreateEventState> {
     // Recompute warning after the state has been updated by updateField.
     final current = state;
     if (current is! CreateEventEditing) return;
-    final warning = _computeWarning(
-      current.selectedVenueCategory,
-      text,
-    );
+    final warning = _computeWarning(current.selectedVenueCategory, text);
     state = current.copyWith(privateVenueWarning: warning);
   }
 
@@ -288,10 +286,7 @@ class CreateEventController extends Notifier<CreateEventState> {
   ///
   /// Reads [myCapabilitiesProvider] synchronously (AsyncValue — does not trigger
   /// a network call; the provider is a FutureProvider that caches its result).
-  PrivateVenueWarning _computeWarning(
-    String? categoryValue,
-    String venueName,
-  ) {
+  PrivateVenueWarning _computeWarning(String? categoryValue, String venueName) {
     final detection = detectPrivateVenue(
       categoryValue: categoryValue,
       venueName: venueName,

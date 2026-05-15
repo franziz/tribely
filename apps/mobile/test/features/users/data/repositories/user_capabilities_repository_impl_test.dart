@@ -85,49 +85,41 @@ void main() {
       },
     );
 
-    test(
-      'canPostPrivateVenue absent from response body → Right(false) '
-      '(defensive default — safer than throwing)',
-      () async {
-        // Server omits the field (forward-compat scenario for future flags).
-        when(
-          () => remote.getMyCapabilities(),
-        ).thenAnswer((_) async => <String, dynamic>{});
+    test('canPostPrivateVenue absent from response body → Right(false) '
+        '(defensive default — safer than throwing)', () async {
+      // Server omits the field (forward-compat scenario for future flags).
+      when(
+        () => remote.getMyCapabilities(),
+      ).thenAnswer((_) async => <String, dynamic>{});
 
-        final result = await repo.getMyCapabilities();
+      final result = await repo.getMyCapabilities();
 
-        expect(result.isRight(), isTrue);
-        final caps = (result as Right<Failure, UserCapabilities>).value;
-        expect(
-          caps.canPostPrivateVenue,
-          isFalse,
-          reason:
-              'absent field must default to false (safer: show restriction '
-              'warnings rather than silently grant private-venue access)',
-        );
-      },
-    );
+      expect(result.isRight(), isTrue);
+      final caps = (result as Right<Failure, UserCapabilities>).value;
+      expect(
+        caps.canPostPrivateVenue,
+        isFalse,
+        reason:
+            'absent field must default to false (safer: show restriction '
+            'warnings rather than silently grant private-venue access)',
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
   // getMyCapabilities — error paths
   // ---------------------------------------------------------------------------
   group('getMyCapabilities — error mapping', () {
-    test(
-      'NetworkException → Left(NetworkFailure) — '
-      'provider must fold this to UserCapabilities.restricted()',
-      () async {
-        final ex = const NetworkException('No connection');
-        when(
-          () => remote.getMyCapabilities(),
-        ).thenThrow(_dioWith(ex));
+    test('NetworkException → Left(NetworkFailure) — '
+        'provider must fold this to UserCapabilities.restricted()', () async {
+      final ex = const NetworkException('No connection');
+      when(() => remote.getMyCapabilities()).thenThrow(_dioWith(ex));
 
-        final result = await repo.getMyCapabilities();
+      final result = await repo.getMyCapabilities();
 
-        expect(result.isLeft(), isTrue);
-        expect((result as Left).value, isA<NetworkFailure>());
-      },
-    );
+      expect(result.isLeft(), isTrue);
+      expect((result as Left).value, isA<NetworkFailure>());
+    });
 
     test('ServerException(401) → Left(AuthFailure)', () async {
       final ex = const ServerException('Unauthorized', statusCode: 401);

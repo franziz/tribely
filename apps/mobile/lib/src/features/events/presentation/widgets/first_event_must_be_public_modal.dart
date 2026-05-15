@@ -55,7 +55,10 @@ class FirstEventMustBePublicModal extends StatelessWidget {
     return AlertDialog(
       backgroundColor: surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('First event must be public', style: TribelyType.headline(ink)),
+      title: Text(
+        'First event must be public',
+        style: TribelyType.headline(ink),
+      ),
       content: Text(
         'Tribely events meet in public spots so others feel safe joining. '
         'Pick a cafe, park, or hawker centre to publish your first event.',
@@ -66,15 +69,15 @@ class FirstEventMustBePublicModal extends StatelessWidget {
       actions: [
         PrimaryButton(
           label: 'Pick a public place',
-          onPressed: () => Navigator.of(context).pop(
-            FirstEventMustBePublicModalResult.pickPublicPlace,
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(FirstEventMustBePublicModalResult.pickPublicPlace),
         ),
         const SizedBox(height: 12),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(
-            FirstEventMustBePublicModalResult.cancel,
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(FirstEventMustBePublicModalResult.cancel),
           style: TextButton.styleFrom(foregroundColor: accent),
           child: Text('Cancel', style: TribelyType.button(accent)),
         ),

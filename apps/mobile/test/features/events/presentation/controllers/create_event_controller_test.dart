@@ -896,9 +896,7 @@ void main() {
     _MockSaveEventDraftUseCase save,
     _MockClearEventDraftUseCase clear,
   })
-  makeContainerWithCaps({
-    required UserCapabilities caps,
-  }) {
+  makeContainerWithCaps({required UserCapabilities caps}) {
     final create = _MockCreateEventUseCase();
     final load = _MockLoadEventDraftUseCase();
     final save = _MockSaveEventDraftUseCase();
@@ -934,12 +932,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
 
         container.read(createEventControllerProvider);
         await Future<void>.value();
@@ -997,7 +995,10 @@ void main() {
 
         final state =
             container.read(createEventControllerProvider) as CreateEventEditing;
-        expect(state.privateVenueWarning, isA<PrivateVenueWarningFirstTimeHost>());
+        expect(
+          state.privateVenueWarning,
+          isA<PrivateVenueWarningFirstTimeHost>(),
+        );
       },
     );
 
@@ -1011,12 +1012,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
 
         // Let the caps provider settle before initialising the controller so
         // that ref.read(myCapabilitiesProvider) returns AsyncData on first call.
@@ -1032,7 +1033,10 @@ void main() {
 
         final state =
             container.read(createEventControllerProvider) as CreateEventEditing;
-        expect(state.privateVenueWarning, isA<PrivateVenueWarningEstablishedHost>());
+        expect(
+          state.privateVenueWarning,
+          isA<PrivateVenueWarningEstablishedHost>(),
+        );
       },
     );
 
@@ -1046,12 +1050,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
 
         // Let the caps provider settle (restricted = canPostPrivateVenue: false)
         // so ref.read(myCapabilitiesProvider) returns AsyncData on first call.
@@ -1068,7 +1072,10 @@ void main() {
 
         final state =
             container.read(createEventControllerProvider) as CreateEventEditing;
-        expect(state.privateVenueWarning, isA<PrivateVenueWarningFirstTimeHost>());
+        expect(
+          state.privateVenueWarning,
+          isA<PrivateVenueWarningFirstTimeHost>(),
+        );
       },
     );
 
@@ -1082,12 +1089,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
 
         container.read(createEventControllerProvider);
         await Future<void>.value();
@@ -1121,12 +1128,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
 
         container.read(createEventControllerProvider);
         await Future<void>.value();
@@ -1209,12 +1216,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
         when(() => result.create(any())).thenAnswer(
           (_) async => const Left(
             FirstEventMustBePublicFailure(reason: 'category_not_public'),
@@ -1247,78 +1254,69 @@ void main() {
   });
 
   group('onPublishRejectionAcknowledged — pickPublicPlace (Brief 11)', () {
-    test(
-      'pickPublicPlace: clears venue fields, navigates to Step 2, '
-      'preserves all other fields, clears publishRejection',
-      () async {
-        final result = makeContainerWithCaps(
-          caps: const UserCapabilities.restricted(),
-        );
-        final container = result.container;
-        addTearDown(container.dispose);
+    test('pickPublicPlace: clears venue fields, navigates to Step 2, '
+        'preserves all other fields, clears publishRejection', () async {
+      final result = makeContainerWithCaps(
+        caps: const UserCapabilities.restricted(),
+      );
+      final container = result.container;
+      addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.create(any())).thenAnswer(
-          (_) async => const Left(
-            FirstEventMustBePublicFailure(reason: 'category_not_public'),
-          ),
-        );
+      when(() => result.load(any())).thenAnswer((_) async => const Right(null));
+      when(() => result.save(any())).thenAnswer((_) async => const Right(null));
+      when(() => result.create(any())).thenAnswer(
+        (_) async => const Left(
+          FirstEventMustBePublicFailure(reason: 'category_not_public'),
+        ),
+      );
 
-        container.read(createEventControllerProvider);
-        await Future<void>.value();
+      container.read(createEventControllerProvider);
+      await Future<void>.value();
 
-        final draft = validDraftWithPrivateVenue();
-        await seedControllerWithDraft(container, draft);
+      final draft = validDraftWithPrivateVenue();
+      await seedControllerWithDraft(container, draft);
 
-        final controller = container.read(
-          createEventControllerProvider.notifier,
-        );
-        await controller.submit();
+      final controller = container.read(createEventControllerProvider.notifier);
+      await controller.submit();
 
-        // Confirm rejection was set.
-        final rejectedState =
-            container.read(createEventControllerProvider) as CreateEventEditing;
-        expect(
-          rejectedState.publishRejection,
-          isA<PublishRejectionFirstEventMustBePublic>(),
-        );
+      // Confirm rejection was set.
+      final rejectedState =
+          container.read(createEventControllerProvider) as CreateEventEditing;
+      expect(
+        rejectedState.publishRejection,
+        isA<PublishRejectionFirstEventMustBePublic>(),
+      );
 
-        // Acknowledge with pickPublicPlace.
-        controller.onPublishRejectionAcknowledged(
-          FirstEventMustBePublicModalResult.pickPublicPlace,
-        );
+      // Acknowledge with pickPublicPlace.
+      controller.onPublishRejectionAcknowledged(
+        FirstEventMustBePublicModalResult.pickPublicPlace,
+      );
 
-        final afterState =
-            container.read(createEventControllerProvider) as CreateEventEditing;
+      final afterState =
+          container.read(createEventControllerProvider) as CreateEventEditing;
 
-        // publishRejection must be cleared.
-        expect(afterState.publishRejection, isNull);
+      // publishRejection must be cleared.
+      expect(afterState.publishRejection, isNull);
 
-        // Step must be 2 (venue step, index 1).
-        expect(afterState.currentStep, 1);
+      // Step must be 2 (venue step, index 1).
+      expect(afterState.currentStep, 1);
 
-        // Venue fields must be cleared.
-        expect(afterState.formData.venueName, isNull);
-        expect(afterState.formData.venueCategory, isNull);
-        expect(afterState.selectedVenueCategory, isNull);
+      // Venue fields must be cleared.
+      expect(afterState.formData.venueName, isNull);
+      expect(afterState.formData.venueCategory, isNull);
+      expect(afterState.selectedVenueCategory, isNull);
 
-        // All other fields must be preserved.
-        expect(afterState.formData.title, draft.title);
-        expect(afterState.formData.category, draft.category);
-        expect(afterState.formData.latitude, draft.latitude);
-        expect(afterState.formData.longitude, draft.longitude);
-        expect(afterState.formData.startsAt, draft.startsAt);
-        expect(afterState.formData.endsAt, draft.endsAt);
-        expect(afterState.formData.capacity, draft.capacity);
-        expect(afterState.formData.approvalMode, draft.approvalMode);
-        expect(afterState.formData.description, draft.description);
-      },
-    );
+      // All other fields must be preserved.
+      expect(afterState.formData.title, draft.title);
+      expect(afterState.formData.category, draft.category);
+      expect(afterState.formData.latitude, draft.latitude);
+      expect(afterState.formData.longitude, draft.longitude);
+      expect(afterState.formData.startsAt, draft.startsAt);
+      expect(afterState.formData.endsAt, draft.endsAt);
+      expect(afterState.formData.capacity, draft.capacity);
+      expect(afterState.formData.approvalMode, draft.approvalMode);
+      expect(afterState.formData.description, draft.description);
+    });
   });
 
   group('onPublishRejectionAcknowledged — cancel (Brief 11)', () {
@@ -1331,12 +1329,12 @@ void main() {
         final container = result.container;
         addTearDown(container.dispose);
 
-        when(() => result.load(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
-        when(() => result.save(any())).thenAnswer(
-          (_) async => const Right(null),
-        );
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
         when(() => result.create(any())).thenAnswer(
           (_) async => const Left(
             FirstEventMustBePublicFailure(reason: 'category_not_public'),

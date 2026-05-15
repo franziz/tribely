@@ -222,7 +222,6 @@ final class CreateEventEditing extends CreateEventState {
   ];
 }
 
-
 /// The form is being submitted to the server. The UI should disable all
 /// inputs and show a loading indicator.
 final class CreateEventSubmitting extends CreateEventState {

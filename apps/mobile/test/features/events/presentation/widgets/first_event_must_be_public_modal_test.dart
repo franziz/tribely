@@ -64,22 +64,18 @@ void main() {
     // -------------------------------------------------------------------------
     // 2. "Pick a public place" → pickPublicPlace result
     // -------------------------------------------------------------------------
-    testWidgets(
-      'tapping "Pick a public place" returns pickPublicPlace',
-      (tester) async {
-        FirstEventMustBePublicModalResult? captured;
+    testWidgets('tapping "Pick a public place" returns pickPublicPlace', (
+      tester,
+    ) async {
+      FirstEventMustBePublicModalResult? captured;
 
-        await _pumpModal(tester, onResult: (r) => captured = r);
+      await _pumpModal(tester, onResult: (r) => captured = r);
 
-        await tester.tap(find.text('Pick a public place'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Pick a public place'));
+      await tester.pumpAndSettle();
 
-        expect(
-          captured,
-          FirstEventMustBePublicModalResult.pickPublicPlace,
-        );
-      },
-    );
+      expect(captured, FirstEventMustBePublicModalResult.pickPublicPlace);
+    });
 
     // -------------------------------------------------------------------------
     // 3. "Cancel" → cancel result
@@ -98,19 +94,18 @@ void main() {
     // -------------------------------------------------------------------------
     // 4. barrierDismissible=false — tapping outside does not dismiss
     // -------------------------------------------------------------------------
-    testWidgets(
-      'tapping outside the dialog does not dismiss it',
-      (tester) async {
-        await _pumpModal(tester, onResult: (_) {});
+    testWidgets('tapping outside the dialog does not dismiss it', (
+      tester,
+    ) async {
+      await _pumpModal(tester, onResult: (_) {});
 
-        // Tap well outside the dialog bounds.
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+      // Tap well outside the dialog bounds.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
-        // The dialog should still be present.
-        expect(find.text('Pick a public place'), findsOneWidget);
-      },
-    );
+      // The dialog should still be present.
+      expect(find.text('Pick a public place'), findsOneWidget);
+    });
 
     // -------------------------------------------------------------------------
     // 5. Golden — skipped on Linux (macOS-baseline)

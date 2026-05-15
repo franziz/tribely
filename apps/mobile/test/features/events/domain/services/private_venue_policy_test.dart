@@ -108,10 +108,7 @@ void main() {
 
     for (final (keyword, name) in keywordCases) {
       test('"$keyword" detected in "$name"', () {
-        final result = detectPrivateVenue(
-          categoryValue: null,
-          venueName: name,
-        );
+        final result = detectPrivateVenue(categoryValue: null, venueName: name);
         expect(result.isPrivate, isTrue);
         expect(result.reason, PrivateVenueReason.keywordMatch);
         expect(result.matchedKeyword, keyword);

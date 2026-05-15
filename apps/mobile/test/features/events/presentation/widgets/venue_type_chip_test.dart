@@ -114,24 +114,23 @@ void main() {
     // -------------------------------------------------------------------------
     // 3. Semantics — selected state
     // -------------------------------------------------------------------------
-    testWidgets(
-      'selected chip has semantics label containing "selected"',
-      (tester) async {
-        await _pumpChip(
-          tester,
-          value: 'cafe',
-          label: 'Cafe',
-          isSelected: true,
-          onTap: () {},
-        );
+    testWidgets('selected chip has semantics label containing "selected"', (
+      tester,
+    ) async {
+      await _pumpChip(
+        tester,
+        value: 'cafe',
+        label: 'Cafe',
+        isSelected: true,
+        onTap: () {},
+      );
 
-        expect(
-          find.bySemanticsLabel(RegExp('Cafe venue type.*selected')),
-          findsOneWidget,
-          reason: 'Selected chip must have "selected" in its semantics label',
-        );
-      },
-    );
+      expect(
+        find.bySemanticsLabel(RegExp('Cafe venue type.*selected')),
+        findsOneWidget,
+        reason: 'Selected chip must have "selected" in its semantics label',
+      );
+    });
 
     testWidgets(
       'unselected chip has semantics label containing "not selected"',
@@ -176,42 +175,38 @@ void main() {
     // -------------------------------------------------------------------------
     // 5. Golden — skipped on Linux (macOS-baseline)
     // -------------------------------------------------------------------------
-    testWidgets(
-      'VenueTypeChip — unselected golden',
-      skip: Platform.isLinux,
-      (tester) async {
-        await _pumpChip(
-          tester,
-          value: 'cafe',
-          label: 'Cafe',
-          isSelected: false,
-          onTap: () {},
-        );
+    testWidgets('VenueTypeChip — unselected golden', skip: Platform.isLinux, (
+      tester,
+    ) async {
+      await _pumpChip(
+        tester,
+        value: 'cafe',
+        label: 'Cafe',
+        isSelected: false,
+        onTap: () {},
+      );
 
-        await expectLater(
-          find.byType(VenueTypeChip),
-          matchesGoldenFile('goldens/venue_type_chip_unselected.png'),
-        );
-      },
-    );
+      await expectLater(
+        find.byType(VenueTypeChip),
+        matchesGoldenFile('goldens/venue_type_chip_unselected.png'),
+      );
+    });
 
-    testWidgets(
-      'VenueTypeChip — selected golden',
-      skip: Platform.isLinux,
-      (tester) async {
-        await _pumpChip(
-          tester,
-          value: 'cafe',
-          label: 'Cafe',
-          isSelected: true,
-          onTap: () {},
-        );
+    testWidgets('VenueTypeChip — selected golden', skip: Platform.isLinux, (
+      tester,
+    ) async {
+      await _pumpChip(
+        tester,
+        value: 'cafe',
+        label: 'Cafe',
+        isSelected: true,
+        onTap: () {},
+      );
 
-        await expectLater(
-          find.byType(VenueTypeChip),
-          matchesGoldenFile('goldens/venue_type_chip_selected.png'),
-        );
-      },
-    );
+      await expectLater(
+        find.byType(VenueTypeChip),
+        matchesGoldenFile('goldens/venue_type_chip_selected.png'),
+      );
+    });
   });
 }
