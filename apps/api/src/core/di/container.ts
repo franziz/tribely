@@ -320,18 +320,32 @@ export const buildContainer = (): Container => {
 
   // --- Events ---
   const eventRepository = new EventPrismaRepository(db);
-  const createEventUseCase = new CreateEventUseCase(unitOfWork, eventRepository, publisher, clock);
-  const listEventsUseCase = new ListEventsUseCase(eventRepository, clock);
-  const getEventUseCase = new GetEventUseCase(eventRepository, userRepository);
-  const updateEventUseCase = new UpdateEventUseCase(unitOfWork, eventRepository, publisher, clock);
-  const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
 
-  // --- User Capabilities (depends on eventRepository — wired after Events) ---
+  // User capabilities depend on eventRepository — wired here so createEvent / updateEvent
+  // can receive it as a constructor dep without a forward-reference.
   const stubHostRatingsReadModel = new StubHostRatingsReadModel();
   const getUserCapabilitiesUseCase = new GetUserCapabilitiesUseCase(
     eventRepository,
     stubHostRatingsReadModel,
   );
+
+  const createEventUseCase = new CreateEventUseCase(
+    unitOfWork,
+    eventRepository,
+    publisher,
+    clock,
+    getUserCapabilitiesUseCase,
+  );
+  const listEventsUseCase = new ListEventsUseCase(eventRepository, clock);
+  const getEventUseCase = new GetEventUseCase(eventRepository, userRepository);
+  const updateEventUseCase = new UpdateEventUseCase(
+    unitOfWork,
+    eventRepository,
+    publisher,
+    clock,
+    getUserCapabilitiesUseCase,
+  );
+  const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
 
   // --- Join Requests ---
   const joinRequestRepository = new JoinRequestPrismaRepository(db);

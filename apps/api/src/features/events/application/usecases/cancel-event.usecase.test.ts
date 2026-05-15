@@ -4,6 +4,7 @@ import { Event } from '../../domain/entities/event.js';
 import { EVENT_CANCELLED } from '../../domain/events/event-cancelled.event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
+import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 import { CancelEventUseCase } from './cancel-event.usecase.js';
 import {
@@ -35,6 +36,7 @@ const seedDraft = (repo: FakeEventRepository): Event => {
     endsAt: new Date(NOW.getTime() + 25 * 60 * 60 * 1000),
     capacity: Capacity.create(4),
     category: EventCategory.create('food'),
+    venueCategory: VenueCategory.create('cafe'),
     costSplit: 'own',
     approvalMode: 'auto',
     now: NOW,

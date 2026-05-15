@@ -67,6 +67,16 @@ export class FakeUserRepository implements UserRepository {
   }
 }
 
+export class FakeGetUserCapabilitiesUseCase {
+  private _canPostPrivateVenue = false;
+  setCanPostPrivateVenue(v: boolean): void {
+    this._canPostPrivateVenue = v;
+  }
+  execute(_input: { userId: string }): Promise<{ canPostPrivateVenue: boolean }> {
+    return Promise.resolve({ canPostPrivateVenue: this._canPostPrivateVenue });
+  }
+}
+
 /**
  * In-memory EventRepository. `findManyForListing` reimplements the same
  * predicates the Prisma adapter uses (status=published, endsAt>now, optional

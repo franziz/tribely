@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Event } from '../../domain/entities/event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
+import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 import { ListEventsUseCase } from './list-events.usecase.js';
 import { FakeEventRepository, FixedClock } from './__test__/fakes.js';
@@ -31,6 +32,7 @@ const buildPublished = (overrides: {
     endsAt: new Date(overrides.startsAt.getTime() + 60 * 60 * 1000),
     capacity: Capacity.create(4),
     category: EventCategory.create(overrides.category ?? 'food'),
+    venueCategory: VenueCategory.create('cafe'),
     costSplit: 'own',
     approvalMode: 'auto',
     now: creationNow,
