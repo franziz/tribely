@@ -3,15 +3,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
-import type {
-  GetUserCapabilitiesUseCase,
-  GetUserCapabilitiesResult,
-} from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
-
-/** Structural slice used for DI — allows fakes in tests without concrete-class private-field issues. */
-type CapabilitiesPort = Pick<GetUserCapabilitiesUseCase, 'execute'> & {
-  execute(input: { userId: string }): Promise<GetUserCapabilitiesResult>;
-};
+import type { UserCapabilitiesPort } from '@/features/users/application/ports/user-capabilities.port.js';
 import { Event, type ApprovalMode, type CostSplit } from '../../domain/entities/event.js';
 import { privateVenueAttempted } from '../../domain/events/private-venue-attempted.event.js';
 import type { EventRepository } from '../../domain/repositories/event.repository.js';
@@ -57,7 +49,7 @@ export class CreateEventUseCase {
     private readonly events: EventRepository,
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
-    private readonly getUserCapabilities: CapabilitiesPort,
+    private readonly getUserCapabilities: UserCapabilitiesPort,
   ) {}
 
   async execute(input: CreateEventInput): Promise<Event> {

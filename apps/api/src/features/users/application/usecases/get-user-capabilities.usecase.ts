@@ -1,9 +1,6 @@
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 import type { HostRatingsReadModel } from '../../domain/ports/host-ratings-read-model.port.js';
-
-export interface GetUserCapabilitiesResult {
-  canPostPrivateVenue: boolean;
-}
+import type { UserCapabilitiesResult } from '../dto/user-capabilities-result.dto.js';
 
 /**
  * Determines what privileged actions the given user is currently authorized to
@@ -18,7 +15,7 @@ export class GetUserCapabilitiesUseCase {
     private readonly hostRatings: HostRatingsReadModel,
   ) {}
 
-  async execute(input: { userId: string }): Promise<GetUserCapabilitiesResult> {
+  async execute(input: { userId: string }): Promise<UserCapabilitiesResult> {
     const completedCount = await this.eventRepo.countCompletedByHost(input.userId);
     if (completedCount === 0) return { canPostPrivateVenue: false };
 
