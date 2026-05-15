@@ -12,6 +12,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
 import 'package:tribely/src/features/events/presentation/widgets/first_event_must_be_public_modal.dart';
 
 // ---------------------------------------------------------------------------

@@ -3,13 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
-
-/// Result returned by [FirstEventMustBePublicModal.show].
-///
-/// The caller branches on this value to route the user:
-///   - [pickPublicPlace]: navigate back to Step 2, clear venue fields.
-///   - [cancel]: stay on Step 5; host can retry publish without re-entering data.
-enum FirstEventMustBePublicModalResult { pickPublicPlace, cancel }
+import '../state/create_event_state.dart';
 
 /// Modal shown when the server rejects a create-event call with
 /// `FIRST_EVENT_MUST_BE_PUBLIC` (422). Explains why the event was rejected and

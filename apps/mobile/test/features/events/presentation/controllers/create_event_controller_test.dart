@@ -15,7 +15,6 @@ import 'package:tribely/src/features/events/domain/usecases/load_event_draft_use
 import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
-import 'package:tribely/src/features/events/presentation/widgets/first_event_must_be_public_modal.dart';
 import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
 import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
 

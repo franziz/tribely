@@ -43,6 +43,23 @@ final class PrivateVenueWarningEstablishedHost extends PrivateVenueWarning {
 // not form an independent bounded concept that warrants its own file.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// FirstEventMustBePublicModalResult — result enum for the publish-rejection
+// modal. Declared here (alongside PublishRejection) so the controller can
+// reference it without importing a widget file. The widget imports it from
+// this location too, keeping the dependency direction clean:
+//   state/ ← controller ← widget
+// (widget imports state, not the other way around).
+// ---------------------------------------------------------------------------
+
+/// The user's choice after the "First event must be public" rejection modal.
+///
+/// Passed to [CreateEventController.onPublishRejectionAcknowledged] so the
+/// controller can branch without knowing anything about the widget tree.
+///   - [pickPublicPlace]: controller navigates back to Step 2, clears venue.
+///   - [cancel]: controller stays on Step 5; host can retry without re-entry.
+enum FirstEventMustBePublicModalResult { pickPublicPlace, cancel }
+
 /// Signals that the most recent [CreateEventController.submit] call was
 /// rejected by the server with a domain-specific failure that requires a
 /// modal acknowledgment before the user can retry.

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
@@ -13,7 +12,6 @@ import '../../domain/services/private_venue_policy.dart';
 import '../../domain/validators/event_validators.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
-import '../widgets/first_event_must_be_public_modal.dart';
 
 /// Owns the multi-step create-event state machine.
 ///
@@ -405,9 +403,6 @@ class CreateEventController extends Notifier<CreateEventState> {
   }
 
   void nextStep() {
-    // Dismiss keyboard before any state mutation so focus is always released
-    // regardless of the call site (nav bar, test code, etc.).
-    FocusManager.instance.primaryFocus?.unfocus();
     final current = state;
     if (current is! CreateEventEditing) return;
     if (current.currentStep < 4) {
@@ -419,9 +414,6 @@ class CreateEventController extends Notifier<CreateEventState> {
   }
 
   void previousStep() {
-    // Dismiss keyboard before any state mutation so focus is always released
-    // regardless of the call site (nav bar, test code, etc.).
-    FocusManager.instance.primaryFocus?.unfocus();
     final current = state;
     if (current is! CreateEventEditing) return;
     if (current.currentStep > 0) {

@@ -63,6 +63,17 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
     super.dispose();
   }
 
+  /// Dismisses the software keyboard, then invokes [action].
+  ///
+  /// Called by the Next and Previous button wrappers so focus is always
+  /// released before the controller advances or retreats the step. The
+  /// controller itself is pure Dart and must not import Flutter widget-tree
+  /// APIs (architecture rule — no `flutter/widgets.dart` in Notifier classes).
+  void _dismissFocusAndCall(VoidCallback action) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    action();
+  }
+
   void _animateToStep(int step) {
     if (!_pageController.hasClients) return;
     final currentPage = _pageController.page?.round() ?? 0;
@@ -245,9 +256,9 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
             current: currentStep,
             total: _totalSteps,
             canAdvance: canAdvance,
-            onBack: controller.previousStep,
+            onBack: () => _dismissFocusAndCall(controller.previousStep),
             onNextOrPublish: currentStep < _lastStepIndex
-                ? controller.nextStep
+                ? () => _dismissFocusAndCall(controller.nextStep)
                 : controller.submit,
           ),
         ],
