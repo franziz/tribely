@@ -305,6 +305,7 @@ void main() {
       // today = right now; row 0 (12:00 AM) will almost certainly be in the
       // past unless this test runs at midnight — safe assumption.
       final today = DateTime.now();
+      debugPrint('[TRI-88 cycle-12 instrument] wall-clock at test start: $today (UTC: ${today.toUtc()})');
       await _pumpInline(
         tester,
         pickedDate: today,
@@ -315,17 +316,41 @@ void main() {
       // to row 0 (12:00 AM) is deterministic. The assertion's correctness — row 0
       // must be a past time — still depends on wall-clock (12:00 AM is past at
       // noon, which is the run-time the pinned anchor enforces).
+      final frame1CheckCount = find.byIcon(Icons.check).evaluate().length;
+      debugPrint('[TRI-88 cycle-12 instrument] frame-1 Icons.check count: $frame1CheckCount');
+      final frame1Row0Count = find.text(_rowLabel(0)).evaluate().length;
+      debugPrint('[TRI-88 cycle-12 instrument] frame-1 find.text("${_rowLabel(0)}") count: $frame1Row0Count');
       final row0Label = _rowLabel(0); // "12:00 AM"
-      await tester.scrollUntilVisible(
-        find.text(row0Label),
-        -50.0,
-        scrollable: find
+      try {
+        await tester.scrollUntilVisible(
+          find.text(row0Label),
+          -50.0,
+          scrollable: find
+              .descendant(
+                of: find.byType(TimePickerSheet),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+      } catch (e, st) {
+        final postCheckCount = find.byIcon(Icons.check).evaluate().length;
+        final postRow0Count = find.text(_rowLabel(0)).evaluate().length;
+        final postScrollableCount = find
             .descendant(
               of: find.byType(TimePickerSheet),
               matching: find.byType(Scrollable),
             )
-            .first,
-      );
+            .evaluate()
+            .length;
+        debugPrint(
+          '[TRI-88 cycle-12 instrument] post-scroll failure caught:\n'
+          '  exception: $e\n'
+          '  Icons.check count: $postCheckCount\n'
+          '  find.text("${_rowLabel(0)}") count: $postRow0Count\n'
+          '  Scrollable descendant count: $postScrollableCount',
+        );
+        rethrow; // preserve the failure for qa to see
+      }
 
       await tester.tap(find.text(row0Label), warnIfMissed: false);
       await tester.pump();
