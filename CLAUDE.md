@@ -197,7 +197,10 @@ features/<snake_name>/
   domain/                              # Pure Dart — no Flutter, no Dio, no Riverpod
     entities/                          # Equatable classes
     repositories/                      # Abstract interfaces returning Either<Failure, T>
+    services/                          # Pure-Dart domain services — stateless ops, no Flutter/Riverpod imports.
+                                       # Use sparingly; most logic belongs on entities or in use cases.
     usecases/                          # Implements UseCase<T, Params>; Future<Either<Failure, T>>
+    validators/                        # Per-field input validation — pure functions returning ValidationResult
   data/
     models/                            # JSON serialization + toEntity()
     datasources/                       # RemoteDataSource (interface + impl colocated)
