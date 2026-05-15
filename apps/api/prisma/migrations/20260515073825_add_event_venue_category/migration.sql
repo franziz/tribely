@@ -13,10 +13,6 @@
 -- AlterTable
 ALTER TABLE "events" ADD COLUMN     "venueCategory" TEXT NOT NULL DEFAULT 'other';
 
--- AlterTable
-ALTER TABLE "users" ALTER COLUMN "interests" DROP DEFAULT,
-ALTER COLUMN "languages" DROP DEFAULT;
-
 -- Enforce closed set of venue categories. Matches VenueCategory.VALUES in
 -- apps/api/src/features/events/domain/value-objects/venue-category.ts.
 ALTER TABLE "events" ADD CONSTRAINT "events_venueCategory_check"
