@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -773,104 +772,15 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // nextStep / previousStep keyboard dismissal (Bug 1 regression lock)
+  // nextStep / previousStep keyboard dismissal — REMOVED (arch review Q2)
   // ---------------------------------------------------------------------------
-  // These use testWidgets (not test) because focus changes in Flutter are
-  // microtask-based (_markNeedsUpdate → scheduleMicrotask(applyFocusChanges)).
-  // Only tester.pump() drains the microtask queue reliably, making the
-  // primaryFocus assertion accurate. Using test() with attach(null) leaves
-  // focus changes pending as unsettled microtasks.
-  //
-  // The widget tree is a minimal Directionality+Focus purely to anchor the
-  // focus node in the live focus tree; providers are read directly from the
-  // ProviderContainer, independent of ProviderScope.
-  group('nextStep / previousStep keyboard dismissal', () {
-    testWidgets('previousStep() unfocuses primary focus before mutating state', (
-      tester,
-    ) async {
-      final result = _makeContainer();
-      final container = result.container;
-      when(() => result.load(any())).thenAnswer((_) async => const Right(null));
-      when(() => result.save(any())).thenAnswer((_) async => const Right(null));
-
-      // Pump a minimal widget tree to anchor the focus node in the live
-      // focus tree. This is independent of the ProviderContainer.
-      final focusNode = FocusNode();
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Focus(focusNode: focusNode, child: const SizedBox()),
-        ),
-      );
-
-      // Request focus and drain the microtask so primaryFocus is settled.
-      focusNode.requestFocus();
-      await tester.pump();
-      expect(FocusManager.instance.primaryFocus, isNotNull);
-
-      container.read(createEventControllerProvider);
-      await Future<void>.value();
-
-      final controller = container.read(createEventControllerProvider.notifier);
-      // Navigate to step 1 first so previousStep() has somewhere to go.
-      controller.goToStep(1);
-
-      controller.previousStep();
-      // Drain microtask so unfocus() settles.
-      await tester.pump();
-
-      // unfocus() with UnfocusDisposition.scope moves focus up to the
-      // enclosing FocusScopeNode rather than setting primaryFocus to null.
-      // A FocusScopeNode as primary focus is equivalent to keyboard dismissal —
-      // no EditableText/TextInputClient is active. Both null and FocusScopeNode
-      // are correct post-unfocus states in the test harness.
-      expect(
-        FocusManager.instance.primaryFocus,
-        anyOf(isNull, isA<FocusScopeNode>()),
-      );
-
-      focusNode.dispose();
-      container.dispose();
-    });
-
-    testWidgets('nextStep() unfocuses primary focus before mutating state', (
-      tester,
-    ) async {
-      final result = _makeContainer();
-      final container = result.container;
-      when(() => result.load(any())).thenAnswer((_) async => const Right(null));
-      when(() => result.save(any())).thenAnswer((_) async => const Right(null));
-
-      final focusNode = FocusNode();
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Focus(focusNode: focusNode, child: const SizedBox()),
-        ),
-      );
-
-      focusNode.requestFocus();
-      await tester.pump();
-      expect(FocusManager.instance.primaryFocus, isNotNull);
-
-      container.read(createEventControllerProvider);
-      await Future<void>.value();
-
-      final controller = container.read(createEventControllerProvider.notifier);
-      controller.nextStep();
-      await tester.pump();
-
-      // See note in previousStep test: FocusScopeNode as primary focus is
-      // equivalent to keyboard dismissal in the test harness.
-      expect(
-        FocusManager.instance.primaryFocus,
-        anyOf(isNull, isA<FocusScopeNode>()),
-      );
-
-      focusNode.dispose();
-      container.dispose();
-    });
-  });
+  // Focus dismissal was previously a controller concern but moved to the page
+  // in commit 883e0b9 (architecture review Q2, 2026-05-15) — Notifier controllers
+  // are pure-Dart with no Flutter widget-tree imports. The contract is now
+  // exercised by the page widget's `_dismissFocusAndCall` helper around
+  // `controller.nextStep()` / `controller.previousStep()`. Page-level widget
+  // test coverage is a follow-up.
+  // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
   // Brief 9: selectVenueCategory + onVenueNameChanged — private-venue warnings
