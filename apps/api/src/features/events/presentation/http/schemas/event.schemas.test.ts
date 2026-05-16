@@ -14,6 +14,7 @@ const baseCreate = {
     city: 'Singapore',
     latitude: 1.28,
     longitude: 103.85,
+    category: 'cafe',
   },
   startsAt: '2026-06-01T18:00:00Z',
   endsAt: '2026-06-01T22:00:00Z',
