@@ -17,15 +17,15 @@ enum PrivateVenueReason {
 
 /// Result of [detectPrivateVenue].
 class PrivateVenueDetection extends Equatable {
-  final bool isPrivate;
-  final PrivateVenueReason? reason;
-  final String? matchedKeyword;
-
   const PrivateVenueDetection({
     required this.isPrivate,
     this.reason,
     this.matchedKeyword,
   });
+
+  final bool isPrivate;
+  final PrivateVenueReason? reason;
+  final String? matchedKeyword;
 
   @override
   List<Object?> get props => [isPrivate, reason, matchedKeyword];

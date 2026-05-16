@@ -302,7 +302,7 @@ class CreateEventController extends Notifier<CreateEventState> {
           : const PrivateVenueWarningFirstTimeHost(),
       // Loading or error → first-time-host warning (safer default).
       loading: () => const PrivateVenueWarningFirstTimeHost(),
-      error: (_, __) => const PrivateVenueWarningFirstTimeHost(),
+      error: (_, _) => const PrivateVenueWarningFirstTimeHost(),
     );
   }
 
