@@ -38,6 +38,7 @@ import { RequestPasswordResetUseCase } from '@/features/auth/application/usecase
 import { ResendEmailVerificationUseCase } from '@/features/auth/application/usecases/resend-email-verification.usecase.js';
 import { ResetPasswordUseCase } from '@/features/auth/application/usecases/reset-password.usecase.js';
 import { SignInUseCase } from '@/features/auth/application/usecases/sign-in.usecase.js';
+import { StartPhoneVerificationUseCase } from '@/features/auth/application/usecases/start-phone-verification.usecase.js';
 import { SignOutAllUseCase } from '@/features/auth/application/usecases/sign-out-all.usecase.js';
 import { SignOutUseCase } from '@/features/auth/application/usecases/sign-out.usecase.js';
 import { SignUpUseCase } from '@/features/auth/application/usecases/sign-up.usecase.js';
@@ -190,6 +191,7 @@ export interface Container {
   resendEmailVerificationUseCase: ResendEmailVerificationUseCase;
   requestPasswordResetUseCase: RequestPasswordResetUseCase;
   resetPasswordUseCase: ResetPasswordUseCase;
+  startPhoneVerificationUseCase: StartPhoneVerificationUseCase;
 
   // Audit
   httpAuditLogRepository: HttpAuditLogRepository;
@@ -348,6 +350,13 @@ export const buildContainer = (): Container => {
     publisher,
     clock,
   );
+  const startPhoneVerificationUseCase = new StartPhoneVerificationUseCase({
+    users: userRepository,
+    phoneVerifier,
+    events: publisher,
+    unitOfWork,
+    clock,
+  });
 
   // --- Audit ---
   const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
@@ -483,6 +492,7 @@ export const buildContainer = (): Container => {
     resendEmailVerificationUseCase,
     requestPasswordResetUseCase,
     resetPasswordUseCase,
+    startPhoneVerificationUseCase,
     httpAuditLogRepository,
     eventAuditLogRepository,
     recordHttpCallUseCase,
