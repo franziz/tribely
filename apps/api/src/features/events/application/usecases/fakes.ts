@@ -1,4 +1,5 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
+import type { PhoneNumber } from '@/core/sms/phone-number.js';
 import type { User } from '@/features/users/domain/entities/user.js';
 import type { Email } from '@/features/users/domain/value-objects/email.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
@@ -28,6 +29,15 @@ export class FakeUserRepository implements UserRepository {
   findByEmail(email: Email): Promise<User | null> {
     for (const user of this.byId.values()) {
       if (user.email.equals(email)) return Promise.resolve(user);
+    }
+    return Promise.resolve(null);
+  }
+
+  findByVerifiedPhone(phone: PhoneNumber): Promise<User | null> {
+    for (const user of this.byId.values()) {
+      if (user.phone?.value === phone.value && user.phoneVerifiedAt !== null) {
+        return Promise.resolve(user);
+      }
     }
     return Promise.resolve(null);
   }

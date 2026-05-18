@@ -6,12 +6,7 @@ import { Email } from '@/features/users/domain/value-objects/email.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { PHONE_VERIFICATION_STARTED } from '../../../domain/events/phone-verification-started.event.js';
 import { StartPhoneVerificationUseCase } from '../start-phone-verification.usecase.js';
-import {
-  FakeEventPublisher,
-  FakeUnitOfWork,
-  FakeUserRepository,
-  FixedClock,
-} from './fakes.js';
+import { FakeEventPublisher, FakeUnitOfWork, FakeUserRepository, FixedClock } from './fakes.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,10 +15,12 @@ import {
 const FIXED_NOW = new Date('2026-05-01T10:00:00Z');
 const VALID_PHONE = '+6591234567';
 
-const buildUser = (overrides: {
-  phone?: PhoneNumber | null;
-  phoneVerifiedAt?: Date | null;
-} = {}): User =>
+const buildUser = (
+  overrides: {
+    phone?: PhoneNumber | null;
+    phoneVerifiedAt?: Date | null;
+  } = {},
+): User =>
   User.rehydrate({
     id: 'user_1',
     email: Email.create('alice@example.com'),
@@ -158,7 +155,9 @@ describe('StartPhoneVerificationUseCase', () => {
 
   it('re-start with a different phone while existing phone is verified → calls verifier', async () => {
     const existingPhone = PhoneNumber.create('+6591111111');
-    users.put(buildUser({ phone: existingPhone, phoneVerifiedAt: new Date('2026-04-01T00:00:00Z') }));
+    users.put(
+      buildUser({ phone: existingPhone, phoneVerifiedAt: new Date('2026-04-01T00:00:00Z') }),
+    );
 
     const verifier = makeFakeVerifier({ status: 'sent' });
     const useCase = makeUseCase(verifier);
@@ -175,9 +174,9 @@ describe('StartPhoneVerificationUseCase', () => {
   it('user not found → throws AppError 404', async () => {
     const useCase = makeUseCase(makeFakeVerifier({ status: 'sent' }));
 
-    await expect(
-      useCase.execute({ userId: 'ghost', rawPhone: VALID_PHONE }),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+    await expect(useCase.execute({ userId: 'ghost', rawPhone: VALID_PHONE })).rejects.toMatchObject(
+      { code: 'NOT_FOUND', status: 404 },
+    );
 
     expect(events.published).toHaveLength(0);
   });
