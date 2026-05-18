@@ -77,6 +77,19 @@ Before introducing a new top-level folder, port, adapter abstraction, or convent
 
 The cost of over-engineering is silent: it ships, passes review, and only becomes visible when the next contributor (or you, six weeks later) re-litigates "why is there an `app/wiring/` with one file in it?"
 
+### Briefs must be self-contained for relay
+
+Every brief, ruling, adjudication, or recap you emit must be a **single self-contained message the orchestrator can paste verbatim to the next agent (SWE, reviewer, PM)**. The orchestrator does NOT see your prior turn content — only your final task-result text. References like "see above", "in the section titled X", "per my earlier brief", or "memory updated" are dead pointers to the orchestrator: they trigger a SendMessage round-trip asking you to re-package the content, costing a full cycle of latency.
+
+**Why:** Across TRI-4 alone this pattern fired three times — initial brief, mid-flight Option B ruling, OOR adjudication — each requiring a SendMessage to extract a packaged version. The cost is real: every round-trip is a cache miss, a re-load of your context, and a delay before SWE can start work.
+
+**How to apply:**
+- When you compose a brief in your reasoning, the final message you emit MUST inline the brief's full content — not a summary of where it lives.
+- Assume the reader has zero context from your session.
+- If you also save the content to agent memory, that's fine — but the message body still carries the full payload.
+- Same rule for adjudications (fix-now / followup / accept-with-rationale with PR-description text inline) and per-SWE sub-task briefs (each as a complete instruction-set, not "see Commit 2 brief above").
+- The only acceptable "see external" reference is to **existing repo files** (`/Users/.../core/email/...` as a structural template) — those the reader CAN open. Never to your own prior reasoning.
+
 ## Your Methodology for Product→Technical Translation
 
 When given a product requirement (acceptance criteria + non-goals from PM, or an equivalent product-framed ask from the user), work through this structure (output it explicitly):
