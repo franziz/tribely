@@ -299,47 +299,46 @@ void main() {
     // -------------------------------------------------------------------------
     // 4. Past/unavailable row on today is a no-op
     // -------------------------------------------------------------------------
-    testWidgets(
-      'tapping a past row on today does not select it',
-      (tester) async {
-        // today = right now; row 0 (12:00 AM) will almost certainly be in the
-        // past unless this test runs at midnight — safe assumption.
-        final today = DateTime.now();
-        await _pumpInline(tester, pickedDate: today);
+    // Skipped: pre-existing flake, see TRI-100. Wall-clock-dependent test;
+    // needs deterministic anchor (TRI-91) to fix properly.
+    testWidgets('tapping a past row on today does not select it', (
+      tester,
+    ) async {
+      // today = right now; row 0 (12:00 AM) will almost certainly be in the
+      // past unless this test runs at midnight — safe assumption.
+      final today = DateTime.now();
+      await _pumpInline(tester, pickedDate: today);
 
-        // Row 0 is 12:00 AM — unavailable unless it's currently before 12:05 AM. Scroll
-        // upward (negative delta = toward earlier rows) to bring it into the viewport.
-        //
-        // Wall-clock dependency: _bestGuessIndex anchors at the current time-of-day's
-        // 15-min bucket. If CI runs late in the UTC day (anchor > ~43), the distance
-        // from anchor to row 0 exceeds scrollUntilVisible's default budget and the
-        // test fails with a degenerate-frame "Bad state: No element". Pinning via
-        // initialValue is NOT a viable workaround here because pre-selection injects
-        // a check icon at the anchor row, breaking the findsNothing assertion below.
-        // Clean fix: add an initialScrollIndex prop to TimePickerSheet (separate from
-        // initialValue) so tests can pin scroll anchor without pre-selecting. Tracked
-        // as post-launch tech debt (PM will file a follow-up ticket).
-        final row0Label = _rowLabel(0); // "12:00 AM"
-        await tester.scrollUntilVisible(
-          find.text(row0Label),
-          -50.0,
-          scrollable: find
-              .descendant(
-                of: find.byType(TimePickerSheet),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        );
+      // Row 0 is 12:00 AM — unavailable unless it's currently before 12:05 AM. Scroll
+      // upward (negative delta = toward earlier rows) to bring it into the viewport.
+      //
+      // Wall-clock dependency: _bestGuessIndex anchors at the current time-of-day's
+      // 15-min bucket. If CI runs late in the UTC day (anchor > ~43), the distance
+      // from anchor to row 0 exceeds scrollUntilVisible's default budget and the
+      // test fails with a degenerate-frame "Bad state: No element". Pinning via
+      // initialValue is NOT a viable workaround here because pre-selection injects
+      // a check icon at the anchor row, breaking the findsNothing assertion below.
+      // Clean fix: add an initialScrollIndex prop to TimePickerSheet (separate from
+      // initialValue) so tests can pin scroll anchor without pre-selecting. Tracked
+      // as post-launch tech debt (PM will file a follow-up ticket).
+      final row0Label = _rowLabel(0); // "12:00 AM"
+      await tester.scrollUntilVisible(
+        find.text(row0Label),
+        -50.0,
+        scrollable: find
+            .descendant(
+              of: find.byType(TimePickerSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
 
-        await tester.tap(find.text(row0Label), warnIfMissed: false);
-        await tester.pump();
+      await tester.tap(find.text(row0Label), warnIfMissed: false);
+      await tester.pump();
 
-        // No check icon should appear — the tap was a no-op (past row).
-        expect(find.byIcon(Icons.check), findsNothing);
-      },
-      skip:
-          'Pre-existing flake, see TRI-100. Wall-clock-dependent test; needs deterministic anchor (TRI-91) to fix properly.',
-    );
+      // No check icon should appear — the tap was a no-op (past row).
+      expect(find.byIcon(Icons.check), findsNothing);
+    }, skip: true);
 
     // -------------------------------------------------------------------------
     // 5. "Confirm time" pops with correct combined DateTime
