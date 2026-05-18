@@ -74,6 +74,9 @@ class DiscoverRepositoryImpl implements DiscoverRepository {
           if (inner.code == 'EMAIL_NOT_VERIFIED') {
             return EmailNotVerifiedFailure(inner.message, code: inner.code);
           }
+          if (inner.code == 'PHONE_NOT_VERIFIED') {
+            return PhoneNotVerifiedFailure(inner.message, code: inner.code);
+          }
           return ServerFailure(
             inner.message,
             statusCode: 403,

@@ -73,6 +73,13 @@ class ConflictFailure extends Failure {
   List<Object?> get props => [...super.props, subcode];
 }
 
+/// 422 UNPROCESSABLE with subcode `sms_rate_limited`. The user has exceeded
+/// the SMS send-rate cap (5/hr per number). Distinct from the generic 429
+/// [ServerFailure] so the UI can show the hourly-cap copy.
+class SmsRateLimitedFailure extends Failure {
+  const SmsRateLimitedFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event

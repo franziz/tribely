@@ -8,17 +8,22 @@ class UserModel {
     required this.createdAt,
     required this.updatedAt,
     this.emailVerifiedAt,
+    this.phoneVerifiedAt,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    final verified = json['emailVerifiedAt'];
+    final emailVerified = json['emailVerifiedAt'];
+    final phoneVerified = json['phoneVerifiedAt'];
     return UserModel(
       id: json['id'] as String,
       email: json['email'] as String,
       displayName: json['displayName'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
-      emailVerifiedAt: verified is String ? DateTime.parse(verified) : null,
+      emailVerifiedAt:
+          emailVerified is String ? DateTime.parse(emailVerified) : null,
+      phoneVerifiedAt:
+          phoneVerified is String ? DateTime.parse(phoneVerified) : null,
     );
   }
 
@@ -28,6 +33,7 @@ class UserModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? emailVerifiedAt;
+  final DateTime? phoneVerifiedAt;
 
   User toEntity() => User(
     id: id,
@@ -36,5 +42,6 @@ class UserModel {
     createdAt: createdAt,
     updatedAt: updatedAt,
     emailVerifiedAt: emailVerifiedAt,
+    phoneVerifiedAt: phoneVerifiedAt,
   );
 }

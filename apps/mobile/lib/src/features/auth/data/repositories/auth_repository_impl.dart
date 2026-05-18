@@ -8,17 +8,21 @@ import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../datasources/phone_verification_remote_datasource.dart';
 import '../models/auth_response_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required AuthRemoteDatasource remote,
     required TokenStorage tokenStorage,
+    required PhoneVerificationRemoteDatasource phoneRemote,
   }) : _remote = remote,
-       _tokenStorage = tokenStorage;
+       _tokenStorage = tokenStorage,
+       _phoneRemote = phoneRemote;
 
   final AuthRemoteDatasource _remote;
   final TokenStorage _tokenStorage;
+  final PhoneVerificationRemoteDatasource _phoneRemote;
 
   @override
   Future<Either<Failure, AuthSession>> signIn({
@@ -152,6 +156,35 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> startPhoneVerification({
+    required String phone,
+  }) async {
+    try {
+      await _phoneRemote.startVerification(phone: phone);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, User>> verifyPhone({
+    required String phone,
+    required String code,
+  }) async {
+    try {
+      final model = await _phoneRemote.verify(phone: phone, code: code);
+      return Right(model.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
   /// Centralized auth-flow error mapping. Persists tokens on success.
   /// Strongly typed — the duck-typed `(model as dynamic).toEntity()` of the
   /// previous version silently broke when the API response shape changed.
@@ -181,9 +214,14 @@ class AuthRepositoryImpl implements AuthRepository {
       switch (inner.statusCode) {
         case 401:
           return AuthFailure(inner.message, code: inner.code);
+        case 400:
+          return ValidationFailure(inner.message, code: inner.code);
         case 403:
           if (inner.code == 'EMAIL_NOT_VERIFIED') {
             return EmailNotVerifiedFailure(inner.message, code: inner.code);
+          }
+          if (inner.code == 'PHONE_NOT_VERIFIED') {
+            return PhoneNotVerifiedFailure(inner.message, code: inner.code);
           }
           return ServerFailure(
             inner.message,
@@ -192,14 +230,22 @@ class AuthRepositoryImpl implements AuthRepository {
           );
         case 409:
           return ValidationFailure(inner.message, code: inner.code);
+        case 422:
+          final subcode = _extractSubcode(e);
+          if (subcode == 'sms_rate_limited') {
+            return SmsRateLimitedFailure(inner.message, code: inner.code);
+          }
+          return ServerFailure(
+            inner.message,
+            statusCode: 422,
+            code: inner.code,
+          );
         case 429:
           return ServerFailure(
             inner.message,
             statusCode: 429,
             code: inner.code,
           );
-        case 400:
-          return ValidationFailure(inner.message, code: inner.code);
         default:
           return ServerFailure(
             inner.message,
@@ -212,5 +258,16 @@ class AuthRepositoryImpl implements AuthRepository {
       return NetworkFailure(inner.message);
     }
     return UnknownFailure(e.message ?? 'Unknown error');
+  }
+
+  /// Extracts `error.details.subcode` from the raw Dio response body.
+  static String? _extractSubcode(DioException e) {
+    final data = e.response?.data;
+    if (data is! Map<String, dynamic>) return null;
+    final errorMap = data['error'];
+    if (errorMap is! Map<String, dynamic>) return null;
+    final details = errorMap['details'];
+    if (details is! Map<String, dynamic>) return null;
+    return details['subcode'] as String?;
   }
 }
