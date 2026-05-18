@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { rateLimit } from '@/core/middleware/rate-limit.js';
+import { rateLimitByPhone } from '@/core/middleware/rate-limit-by-phone.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
@@ -13,10 +14,14 @@ import type { SignOutAllUseCase } from '../../../application/usecases/sign-out-a
 import type { SignOutUseCase } from '../../../application/usecases/sign-out.usecase.js';
 import type { SignUpUseCase } from '../../../application/usecases/sign-up.usecase.js';
 import type { VerifyEmailUseCase } from '../../../application/usecases/verify-email.usecase.js';
+import type { StartPhoneVerificationUseCase } from '../../../application/usecases/start-phone-verification.usecase.js';
+import type { VerifyPhoneUseCase } from '../../../application/usecases/verify-phone.usecase.js';
 import type { AccessTokenIssuer } from '../../../domain/ports/access-token-issuer.port.js';
 import { AuthController } from '../controllers/auth.controller.js';
 import {
   forgotPasswordBodySchema,
+  phoneStartBodySchema,
+  phoneVerifyBodySchema,
   refreshBodySchema,
   resetPasswordBodySchema,
   signInBodySchema,
@@ -36,6 +41,8 @@ export interface AuthRouteDeps {
   resendVerification: ResendEmailVerificationUseCase;
   requestPasswordReset: RequestPasswordResetUseCase;
   resetPassword: ResetPasswordUseCase;
+  startPhoneVerification: StartPhoneVerificationUseCase;
+  verifyPhone: VerifyPhoneUseCase;
   accessTokens: AccessTokenIssuer;
   rateLimiter: RateLimiter;
 }
@@ -52,6 +59,8 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     deps.resendVerification,
     deps.requestPasswordReset,
     deps.resetPassword,
+    deps.startPhoneVerification,
+    deps.verifyPhone,
   );
   const auth = requireAuth(deps.accessTokens);
 
@@ -121,6 +130,20 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     limit: 10,
     windowSeconds: 60,
   });
+  // phone-start: 3/hour per phone — sends an SMS; tight limit to avoid
+  //   Twilio charges and SMS spam from a single phone number.
+  // phone-verify: 5/hour per phone — accommodates OTP retries; hard cap
+  //   complements Twilio's own rate limiting on the check path.
+  const limitPhoneStart = rateLimitByPhone(deps.rateLimiter, {
+    bucket: 'phone-start',
+    limit: 3,
+    windowSeconds: 3600,
+  });
+  const limitPhoneVerify = rateLimitByPhone(deps.rateLimiter, {
+    bucket: 'phone-verify',
+    limit: 5,
+    windowSeconds: 3600,
+  });
 
   return new Hono<{ Variables: AuthVariables }>()
     .post('/sign-up', limitSignUp, zValidator('json', signUpBodySchema), (c) =>
@@ -152,5 +175,19 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     )
     .post('/reset-password', limitResetPassword, zValidator('json', resetPasswordBodySchema), (c) =>
       controller.resetPasswordAction(c, c.req.valid('json')),
+    )
+    .post(
+      '/phone/start',
+      auth,
+      limitPhoneStart,
+      zValidator('json', phoneStartBodySchema),
+      (c) => controller.startPhoneVerificationAction(c, c.req.valid('json')),
+    )
+    .post(
+      '/phone/verify',
+      auth,
+      limitPhoneVerify,
+      zValidator('json', phoneVerifyBodySchema),
+      (c) => controller.verifyPhoneAction(c, c.req.valid('json')),
     );
 };
