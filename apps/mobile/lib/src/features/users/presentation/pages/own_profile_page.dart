@@ -28,8 +28,8 @@ class OwnProfilePage extends ConsumerWidget {
 
     final state = ref.watch(myProfileControllerProvider);
     final session = ref.watch(sessionControllerProvider);
-    final phoneRevoked = session is SessionAuthenticated &&
-        session.phoneRevokedSinceLastSeen;
+    final phoneRevoked =
+        session is SessionAuthenticated && session.phoneRevokedSinceLastSeen;
 
     return Scaffold(
       appBar: AppBar(

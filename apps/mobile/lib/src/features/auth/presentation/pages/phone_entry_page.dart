@@ -57,8 +57,7 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
 
   /// Returns null if valid, or an error message if not.
   String? _validate(String localNumber) {
-    final stripped =
-        localNumber.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    final stripped = localNumber.replaceAll(RegExp(r'[\s\-\(\)]'), '');
     if (stripped.isEmpty) return 'Please enter your phone number.';
     if (!RegExp(r'^\d{4,15}$').hasMatch(stripped)) {
       return 'Please enter a valid phone number.';
@@ -168,11 +167,7 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Icon(
-                        Icons.expand_more,
-                        size: 18,
-                        color: inkSecondary,
-                      ),
+                      Icon(Icons.expand_more, size: 18, color: inkSecondary),
                     ],
                   ),
                 ),
@@ -182,7 +177,8 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
               TribelyTextField(
                 controller: _phoneController,
                 label: 'Phone number',
-                helper: _localValidationError ??
+                helper:
+                    _localValidationError ??
                     'Enter your local number — we add the country code.',
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,

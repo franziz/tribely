@@ -19,8 +19,7 @@ class StartPhoneParams extends Equatable {
 ///
 /// Returns [Right(null)] on success. On the server-side rate cap (5/hr per
 /// number), returns [Left(SmsRateLimitedFailure)].
-class StartPhoneVerificationUseCase
-    implements UseCase<void, StartPhoneParams> {
+class StartPhoneVerificationUseCase implements UseCase<void, StartPhoneParams> {
   const StartPhoneVerificationUseCase(this._repository);
   final AuthRepository _repository;
 

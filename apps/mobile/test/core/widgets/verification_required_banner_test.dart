@@ -90,10 +90,7 @@ void main() {
           session,
         ),
       );
-      expect(
-        find.textContaining('Verify your email'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Verify your email'), findsOneWidget);
       expect(find.text('Verify now →'), findsOneWidget);
     });
 
@@ -124,10 +121,7 @@ void main() {
           session,
         ),
       );
-      expect(
-        find.textContaining('Verify your phone'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Verify your phone'), findsOneWidget);
       expect(find.text('Verify now →'), findsOneWidget);
     });
 
@@ -174,9 +168,7 @@ void main() {
   group('VerificationRequiredBanner — stacked (both banners)', () {
     testWidgets('email above phone when both unverified', (tester) async {
       final session = SessionAuthenticated(
-        _makeSession(
-          _makeUser(emailVerified: false, phoneVerified: false),
-        ),
+        _makeSession(_makeUser(emailVerified: false, phoneVerified: false)),
       );
       await tester.pumpWidget(
         _wrap(
@@ -194,14 +186,10 @@ void main() {
 
       // Verify ordering: email banner's text appears before phone banner's text.
       final emailOffset = tester
-          .getTopLeft(
-            find.textContaining('Verify your email'),
-          )
+          .getTopLeft(find.textContaining('Verify your email'))
           .dy;
       final phoneOffset = tester
-          .getTopLeft(
-            find.textContaining('Verify your phone'),
-          )
+          .getTopLeft(find.textContaining('Verify your phone'))
           .dy;
       expect(emailOffset, lessThan(phoneOffset));
     });
@@ -210,9 +198,7 @@ void main() {
       tester,
     ) async {
       final session = SessionAuthenticated(
-        _makeSession(
-          _makeUser(emailVerified: true, phoneVerified: false),
-        ),
+        _makeSession(_makeUser(emailVerified: true, phoneVerified: false)),
       );
       await tester.pumpWidget(
         _wrap(

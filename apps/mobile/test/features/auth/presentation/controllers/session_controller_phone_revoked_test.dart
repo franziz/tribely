@@ -25,7 +25,8 @@ import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
 // Mocks
 // ---------------------------------------------------------------------------
 
-class _MockRefreshSessionUseCase extends Mock implements RefreshSessionUseCase {}
+class _MockRefreshSessionUseCase extends Mock
+    implements RefreshSessionUseCase {}
 
 class _FakeNoParams extends Fake implements NoParams {}
 
@@ -62,9 +63,7 @@ ProviderContainer _makeContainer(
   SessionState? initialAuthState,
 }) {
   final container = ProviderContainer(
-    overrides: [
-      refreshSessionUseCaseProvider.overrideWithValue(mockRefresh),
-    ],
+    overrides: [refreshSessionUseCaseProvider.overrideWithValue(mockRefresh)],
   );
   addTearDown(container.dispose);
 
@@ -73,9 +72,9 @@ ProviderContainer _makeContainer(
 
   // If we want an authenticated starting state, set it directly.
   if (initialAuthState != null) {
-    container.read(sessionControllerProvider.notifier).setAuthenticated(
-      (initialAuthState as SessionAuthenticated).session,
-    );
+    container
+        .read(sessionControllerProvider.notifier)
+        .setAuthenticated((initialAuthState as SessionAuthenticated).session);
   }
 
   return container;
@@ -108,7 +107,10 @@ void main() {
         // Flush the microtasks (refresh result resolves immediately).
         clock.flushMicrotasks();
         // State is still SessionRestoring — minSplashHold (1s) hasn't elapsed yet.
-        expect(container.read(sessionControllerProvider), isA<SessionRestoring>());
+        expect(
+          container.read(sessionControllerProvider),
+          isA<SessionRestoring>(),
+        );
         // Advance past the splash hold.
         clock.elapse(const Duration(seconds: 2));
         final state = container.read(sessionControllerProvider);
@@ -126,9 +128,9 @@ void main() {
         await Future<void>.microtask(() {});
 
         final user = _makeUser(phoneVerifiedAt: _now);
-        container.read(sessionControllerProvider.notifier).setAuthenticated(
-          _makeSession(user),
-        );
+        container
+            .read(sessionControllerProvider.notifier)
+            .setAuthenticated(_makeSession(user));
 
         final state = container.read(sessionControllerProvider);
         expect(state, isA<SessionAuthenticated>());
@@ -147,9 +149,9 @@ void main() {
 
         // Start with phone already null (unverified from the start).
         final user = _makeUser(phoneVerifiedAt: null);
-        container.read(sessionControllerProvider.notifier).setAuthenticated(
-          _makeSession(user),
-        );
+        container
+            .read(sessionControllerProvider.notifier)
+            .setAuthenticated(_makeSession(user));
 
         // Update with another user where phone is still null.
         final updatedUser = _makeUser(phoneVerifiedAt: null);
@@ -172,9 +174,9 @@ void main() {
 
         // Start with phone verified.
         final user = _makeUser(phoneVerifiedAt: _now);
-        container.read(sessionControllerProvider.notifier).setAuthenticated(
-          _makeSession(user),
-        );
+        container
+            .read(sessionControllerProvider.notifier)
+            .setAuthenticated(_makeSession(user));
 
         // Server revokes the phone — phoneVerifiedAt becomes null.
         final revokedUser = _makeUser(phoneVerifiedAt: null);
@@ -197,13 +199,15 @@ void main() {
 
         // Start with phone unverified.
         final user = _makeUser(phoneVerifiedAt: null);
-        container.read(sessionControllerProvider.notifier).setAuthenticated(
-          _makeSession(user),
-        );
+        container
+            .read(sessionControllerProvider.notifier)
+            .setAuthenticated(_makeSession(user));
 
         // User verifies their phone.
         final verifiedUser = _makeUser(phoneVerifiedAt: _now);
-        container.read(sessionControllerProvider.notifier).setUser(verifiedUser);
+        container
+            .read(sessionControllerProvider.notifier)
+            .setUser(verifiedUser);
 
         final state = container.read(sessionControllerProvider);
         expect(state, isA<SessionAuthenticated>());
@@ -220,12 +224,12 @@ void main() {
 
       // Set up revoked state.
       final user = _makeUser(phoneVerifiedAt: _now);
-      container.read(sessionControllerProvider.notifier).setAuthenticated(
-        _makeSession(user),
-      );
-      container.read(sessionControllerProvider.notifier).setUser(
-        _makeUser(phoneVerifiedAt: null),
-      );
+      container
+          .read(sessionControllerProvider.notifier)
+          .setAuthenticated(_makeSession(user));
+      container
+          .read(sessionControllerProvider.notifier)
+          .setUser(_makeUser(phoneVerifiedAt: null));
 
       // Verify flag is set.
       final stateBefore = container.read(sessionControllerProvider);
@@ -235,7 +239,9 @@ void main() {
       );
 
       // Dismiss.
-      container.read(sessionControllerProvider.notifier).dismissPhoneRevokedBanner();
+      container
+          .read(sessionControllerProvider.notifier)
+          .dismissPhoneRevokedBanner();
 
       final stateAfter = container.read(sessionControllerProvider);
       expect(
@@ -251,9 +257,9 @@ void main() {
         await Future<void>.microtask(() {});
 
         final user = _makeUser(phoneVerifiedAt: _now);
-        container.read(sessionControllerProvider.notifier).setAuthenticated(
-          _makeSession(user),
-        );
+        container
+            .read(sessionControllerProvider.notifier)
+            .setAuthenticated(_makeSession(user));
 
         // Flag is false — dismiss should not throw or change state.
         container
@@ -268,31 +274,36 @@ void main() {
       },
     );
 
-    test('app cold-start: flag resets to false (transient — not persisted)', () {
-      // Cold-start = brand new container / provider. Since the flag is in
-      // transient in-memory state (not SecureStorage or SharedPreferences),
-      // a new ProviderContainer produces fresh state with flag = false.
-      // We call setAuthenticated directly to bypass the async restore path.
-      final container2 = ProviderContainer(
-        overrides: [refreshSessionUseCaseProvider.overrideWithValue(mockRefresh)],
-      );
-      addTearDown(container2.dispose);
+    test(
+      'app cold-start: flag resets to false (transient — not persisted)',
+      () {
+        // Cold-start = brand new container / provider. Since the flag is in
+        // transient in-memory state (not SecureStorage or SharedPreferences),
+        // a new ProviderContainer produces fresh state with flag = false.
+        // We call setAuthenticated directly to bypass the async restore path.
+        final container2 = ProviderContainer(
+          overrides: [
+            refreshSessionUseCaseProvider.overrideWithValue(mockRefresh),
+          ],
+        );
+        addTearDown(container2.dispose);
 
-      // Trigger build first (synchronous read).
-      container2.read(sessionControllerProvider);
+        // Trigger build first (synchronous read).
+        container2.read(sessionControllerProvider);
 
-      // Override with a direct authenticated state — this bypasses the
-      // 1-second splash hold timer.
-      container2.read(sessionControllerProvider.notifier).setAuthenticated(
-        _makeSession(_makeUser(phoneVerifiedAt: _now)),
-      );
+        // Override with a direct authenticated state — this bypasses the
+        // 1-second splash hold timer.
+        container2
+            .read(sessionControllerProvider.notifier)
+            .setAuthenticated(_makeSession(_makeUser(phoneVerifiedAt: _now)));
 
-      // The flag has never been set in this container.
-      final state = container2.read(sessionControllerProvider);
-      expect(
-        (state as SessionAuthenticated).phoneRevokedSinceLastSeen,
-        isFalse,
-      );
-    });
+        // The flag has never been set in this container.
+        final state = container2.read(sessionControllerProvider);
+        expect(
+          (state as SessionAuthenticated).phoneRevokedSinceLastSeen,
+          isFalse,
+        );
+      },
+    );
   });
 }

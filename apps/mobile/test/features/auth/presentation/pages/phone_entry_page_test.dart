@@ -53,10 +53,7 @@ AuthSession _makeSession() => AuthSession(
   refreshTokenExpiresAt: DateTime.utc(2099),
 );
 
-Widget _wrap(
-  Widget page,
-  _MockStartPhoneVerificationUseCase mockUseCase,
-) {
+Widget _wrap(Widget page, _MockStartPhoneVerificationUseCase mockUseCase) {
   final routes = [
     GoRoute(path: '/auth/phone/entry', builder: (context, state) => page),
     GoRoute(
@@ -95,28 +92,29 @@ void main() {
     mockUseCase = _MockStartPhoneVerificationUseCase();
   });
 
-  testWidgets('empty number: Send code button is disabled, backend not called', (
-    tester,
-  ) async {
-    // Use a tall surface so all content (country chip, field, PDPA text, CTA)
-    // fits within the viewport without scrolling.
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3.0;
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'empty number: Send code button is disabled, backend not called',
+    (tester) async {
+      // Use a tall surface so all content (country chip, field, PDPA text, CTA)
+      // fits within the viewport without scrolling.
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
-    await tester.pump();
+      await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
+      await tester.pump();
 
-    // The "Send code" button is disabled (onPressed: null) when the field is
-    // empty — ListenableBuilder guards it with `hasText ? _sendCode : null`.
-    // Verify the button exists in the tree and that tapping it does nothing.
-    final sendCodeFinder = find.text('Send code');
-    expect(sendCodeFinder, findsOneWidget);
-    await tester.tap(sendCodeFinder, warnIfMissed: false);
-    await tester.pump();
+      // The "Send code" button is disabled (onPressed: null) when the field is
+      // empty — ListenableBuilder guards it with `hasText ? _sendCode : null`.
+      // Verify the button exists in the tree and that tapping it does nothing.
+      final sendCodeFinder = find.text('Send code');
+      expect(sendCodeFinder, findsOneWidget);
+      await tester.tap(sendCodeFinder, warnIfMissed: false);
+      await tester.pump();
 
-    verifyNever(() => mockUseCase(any()));
-  });
+      verifyNever(() => mockUseCase(any()));
+    },
+  );
 
   testWidgets('invalid number (letters) shows validation error', (
     tester,
@@ -148,9 +146,9 @@ void main() {
 
     // Stub the use case to return Left(NetworkFailure) — we're just testing
     // that it was called, not the success navigation path.
-    when(() => mockUseCase(any())).thenAnswer(
-      (_) async => const Left(NetworkFailure('test')),
-    );
+    when(
+      () => mockUseCase(any()),
+    ).thenAnswer((_) async => const Left(NetworkFailure('test')));
 
     await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
     await tester.pump();

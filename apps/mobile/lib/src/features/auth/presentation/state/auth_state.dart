@@ -24,7 +24,10 @@ class SessionUnauthenticated extends SessionState {
 }
 
 class SessionAuthenticated extends SessionState {
-  const SessionAuthenticated(this.session, {this.phoneRevokedSinceLastSeen = false});
+  const SessionAuthenticated(
+    this.session, {
+    this.phoneRevokedSinceLastSeen = false,
+  });
   final AuthSession session;
 
   /// True when a session refresh / GET /me reveals that [User.phoneVerifiedAt]
@@ -192,12 +195,7 @@ class PhoneVerificationError extends PhoneVerificationState {
   final String? phone;
 
   @override
-  List<Object?> get props => [
-    ...super.props,
-    failure,
-    bannerMessage,
-    phone,
-  ];
+  List<Object?> get props => [...super.props, failure, bannerMessage, phone];
 }
 
 /// ForgotPasswordState — drives the email-entry sheet on the sign-in page.

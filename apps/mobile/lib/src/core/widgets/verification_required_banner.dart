@@ -25,10 +25,7 @@ enum VerificationType { email, phone }
 /// ])
 /// ```
 class VerificationRequiredBanner extends ConsumerWidget {
-  const VerificationRequiredBanner({
-    super.key,
-    required this.type,
-  });
+  const VerificationRequiredBanner({super.key, required this.type});
 
   final VerificationType type;
 

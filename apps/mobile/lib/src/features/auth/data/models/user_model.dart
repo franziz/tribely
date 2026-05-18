@@ -20,10 +20,12 @@ class UserModel {
       displayName: json['displayName'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
-      emailVerifiedAt:
-          emailVerified is String ? DateTime.parse(emailVerified) : null,
-      phoneVerifiedAt:
-          phoneVerified is String ? DateTime.parse(phoneVerified) : null,
+      emailVerifiedAt: emailVerified is String
+          ? DateTime.parse(emailVerified)
+          : null,
+      phoneVerifiedAt: phoneVerified is String
+          ? DateTime.parse(phoneVerified)
+          : null,
     );
   }
 

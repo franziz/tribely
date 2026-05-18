@@ -76,10 +76,7 @@ Widget _wrap(
         path: '/auth/phone/entry',
         builder: (context, state) => const SizedBox(),
       ),
-      GoRoute(
-        path: '/auth/phone/verify',
-        builder: (context, state) => page,
-      ),
+      GoRoute(path: '/auth/phone/verify', builder: (context, state) => page),
       GoRoute(path: '/profile', builder: (context, state) => const SizedBox()),
     ],
   );
@@ -204,10 +201,7 @@ void main() {
     await tester.enterText(textField, '000000');
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('5 codes per hour'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('5 codes per hour'), findsOneWidget);
   });
 
   test('cooldown countdown decrements every second', () {
@@ -234,9 +228,9 @@ void main() {
       // Trigger the timer via a direct start mock.
       when(() => mockStart(any())).thenAnswer((_) async => const Right(null));
 
-      container.read(phoneVerificationControllerProvider.notifier).start(
-        '+6591234567',
-      );
+      container
+          .read(phoneVerificationControllerProvider.notifier)
+          .start('+6591234567');
       clock.flushMicrotasks();
 
       // After start the controller should be in CodeSent(cooldown=60).

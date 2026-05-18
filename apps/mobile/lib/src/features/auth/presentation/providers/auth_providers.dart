@@ -84,5 +84,7 @@ final resetPasswordControllerProvider =
     );
 
 final phoneVerificationControllerProvider =
-    NotifierProvider.autoDispose<PhoneVerificationController,
-        PhoneVerificationState>(PhoneVerificationController.new);
+    NotifierProvider.autoDispose<
+      PhoneVerificationController,
+      PhoneVerificationState
+    >(PhoneVerificationController.new);

@@ -25,8 +25,7 @@ import '../state/auth_state.dart';
 ///
 /// Cooldown: 60-second countdown after a successful send, mirroring the
 /// server's 1/min/number rate limit. Pattern identical to VerifyEmailController.
-class PhoneVerificationController
-    extends Notifier<PhoneVerificationState> {
+class PhoneVerificationController extends Notifier<PhoneVerificationState> {
   Timer? _cooldownTimer;
 
   @override
@@ -143,7 +142,10 @@ class PhoneVerificationController
         timer.cancel();
         // Only reset cooldown, preserve the CodeSent state (user stays on the
         // verify-phone page).
-        state = PhoneVerificationCodeSent(phone: phone, resendCooldownSeconds: 0);
+        state = PhoneVerificationCodeSent(
+          phone: phone,
+          resendCooldownSeconds: 0,
+        );
         return;
       }
       state = switch (state) {

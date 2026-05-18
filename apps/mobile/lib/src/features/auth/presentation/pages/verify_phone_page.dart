@@ -103,9 +103,8 @@ class _VerifyPhonePageState extends ConsumerState<VerifyPhonePage> {
                   padding: const EdgeInsets.only(bottom: 20),
                   child: BannerMessage(
                     message: bannerMessage,
-                    onDismiss: () => setState(
-                      () => _dismissedBannerMessage = bannerMessage,
-                    ),
+                    onDismiss: () =>
+                        setState(() => _dismissedBannerMessage = bannerMessage),
                   ),
                 ),
               Center(
@@ -145,9 +144,9 @@ class _VerifyPhonePageState extends ConsumerState<VerifyPhonePage> {
                     child: Text(
                       kSenderIdBridgeCopy,
                       textAlign: TextAlign.center,
-                      style: TribelyType.caption(inkSecondary).copyWith(
-                        fontWeight: FontWeight.w400,
-                      ),
+                      style: TribelyType.caption(
+                        inkSecondary,
+                      ).copyWith(fontWeight: FontWeight.w400),
                     ),
                   ),
                 ),
