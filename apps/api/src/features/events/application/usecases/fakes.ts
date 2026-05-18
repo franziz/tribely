@@ -12,12 +12,7 @@ import type {
 
 // Core-port fakes — shared across features. Re-exported here for convenience
 // so existing events test imports remain at `./fakes.js`.
-export {
-  FakeEventPublisher,
-  FakeUnitOfWork,
-  FixedClock,
-  TEST_TX,
-} from '@/core/testing/fakes.js';
+export { FakeEventPublisher, FakeUnitOfWork, FixedClock, TEST_TX } from '@/core/testing/fakes.js';
 
 export class FakeUserRepository implements UserRepository {
   private readonly byId = new Map<string, User>();
