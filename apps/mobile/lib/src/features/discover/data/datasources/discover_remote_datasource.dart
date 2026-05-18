@@ -61,11 +61,11 @@ class DiscoverRemoteDatasourceImpl implements DiscoverRemoteDatasource {
   @override
   Future<EventModel> getEventDetail(String eventId) async {
     final response = await _dio.get<Map<String, dynamic>>('/events/$eventId');
-    // GET /events/:id returns a WRAPPER: { event: {...inner shape...}, host: { id, displayName } }
+    // GET /events/:id returns a WRAPPER: { event: {...inner shape...}, host: { id, displayName, isVerified } }
     // (see apps/api/src/features/events/presentation/http/schemas/event.schemas.ts:91-94,
     // eventWithHostResponseSchema). EventModel is no longer a 1:1 mirror of eventResponseSchema —
-    // it also carries a synthesised `hostDisplayName` flattened from the wrapper's `host` sibling.
-    // host.avatarUrl + goingCount remain deferred to TRI-19.
+    // it carries synthesised `hostDisplayName` AND `hostIsVerified` flattened from the wrapper's
+    // `host` sibling. host.avatarUrl + goingCount remain deferred to TRI-19.
     final wrapper = response.data!;
     final inner = wrapper['event'] as Map<String, dynamic>;
     final host = wrapper['host'] as Map<String, dynamic>?;
@@ -73,6 +73,11 @@ class DiscoverRemoteDatasourceImpl implements DiscoverRemoteDatasource {
     final synthesized = <String, dynamic>{
       ...inner,
       'hostDisplayName': hostDisplayName,
+      // Flatten host.isVerified from the wrapper into the synthesised map.
+      // Defensive `?? false` per TRI-86 §2: absent/null wire field resolves
+      // to false, never throws. This is correct for browseEvents / listing
+      // paths too (they hit json['hostIsVerified'] = null → ?? false).
+      'hostIsVerified': (host?['isVerified'] as bool?) ?? false,
     };
     return EventModel.fromJson(synthesized);
   }

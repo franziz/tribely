@@ -37,6 +37,7 @@ final _stubEvent = Event(
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime(2030, 7, 1),
+  hostIsVerified: false,
 );
 
 void main() {

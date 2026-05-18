@@ -84,6 +84,7 @@ final _stubModel = EventModel(
   approvalMode: 'auto',
   status: 'published',
   createdAt: DateTime(2030, 1, 1),
+  hostIsVerified: false,
 );
 
 /// Minimal [CreateEventParams] for triggering the createEvent path.

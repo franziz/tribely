@@ -53,6 +53,7 @@ final _stubModel = EventModel(
   approvalMode: 'auto',
   status: 'published',
   createdAt: DateTime(2030, 6, 1),
+  hostIsVerified: false,
 );
 
 final _stubPageResponse = EventPageResponse(

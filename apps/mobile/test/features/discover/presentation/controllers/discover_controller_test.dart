@@ -73,6 +73,7 @@ Event _makeEvent(String id) => Event(
   approvalMode: 'auto',
   status: 'published',
   createdAt: DateTime(2026, 5, 1),
+  hostIsVerified: false,
 );
 
 /// Builds a [ProviderContainer] with [DiscoverController] wired up, using

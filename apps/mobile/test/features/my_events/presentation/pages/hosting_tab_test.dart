@@ -62,6 +62,7 @@ Event _event({
     approvalMode: 'manual',
     status: 'published',
     createdAt: DateTime.utc(2026, 5, 1),
+    hostIsVerified: false,
   );
 }
 

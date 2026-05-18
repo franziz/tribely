@@ -117,6 +117,7 @@ Event _makeEvent(String id, {double lat = 1.2789, double lng = 103.8536}) =>
       approvalMode: 'manual',
       status: 'published',
       createdAt: DateTime.utc(2026, 5, 1),
+      hostIsVerified: false,
     );
 
 // ---------------------------------------------------------------------------
