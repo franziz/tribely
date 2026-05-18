@@ -79,7 +79,10 @@ export const phoneStartBodySchema = z
 export const phoneVerifyBodySchema = z
   .object({
     phone: z.string().min(1).max(20),
-    code: z.string().length(6).regex(/^\d{6}$/),
+    code: z
+      .string()
+      .length(6)
+      .regex(/^\d{6}$/),
   })
   .strict();
 

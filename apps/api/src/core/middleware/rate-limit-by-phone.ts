@@ -31,10 +31,7 @@ export interface RateLimitByPhoneOptions {
  * reuses the same in-memory / Redis bucket store as all other rate limits.
  */
 export const rateLimitByPhone =
-  (
-    limiter: RateLimiter,
-    options: RateLimitByPhoneOptions,
-  ): MiddlewareHandler =>
+  (limiter: RateLimiter, options: RateLimitByPhoneOptions): MiddlewareHandler =>
   async (c, next) => {
     // Attempt to parse the body. On failure (not JSON, empty body, etc.)
     // fall through with a sentinel key so zValidator handles the error.

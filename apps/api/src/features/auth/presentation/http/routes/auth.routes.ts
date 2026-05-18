@@ -176,18 +176,10 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     .post('/reset-password', limitResetPassword, zValidator('json', resetPasswordBodySchema), (c) =>
       controller.resetPasswordAction(c, c.req.valid('json')),
     )
-    .post(
-      '/phone/start',
-      auth,
-      limitPhoneStart,
-      zValidator('json', phoneStartBodySchema),
-      (c) => controller.startPhoneVerificationAction(c, c.req.valid('json')),
+    .post('/phone/start', auth, limitPhoneStart, zValidator('json', phoneStartBodySchema), (c) =>
+      controller.startPhoneVerificationAction(c, c.req.valid('json')),
     )
-    .post(
-      '/phone/verify',
-      auth,
-      limitPhoneVerify,
-      zValidator('json', phoneVerifyBodySchema),
-      (c) => controller.verifyPhoneAction(c, c.req.valid('json')),
+    .post('/phone/verify', auth, limitPhoneVerify, zValidator('json', phoneVerifyBodySchema), (c) =>
+      controller.verifyPhoneAction(c, c.req.valid('json')),
     );
 };

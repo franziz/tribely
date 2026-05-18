@@ -13,7 +13,10 @@ import { requestContext } from '@/core/middleware/request-context.js';
 import { errorHandler } from '@/core/middleware/error-handler.js';
 import { InMemoryRateLimiter } from '@/core/security/in-memory-rate-limiter.js';
 import type { PhoneVerifier } from '@/core/sms/phone-verifier.port.js';
-import type { StartVerificationResult, CheckVerificationResult } from '@/core/sms/phone-verifier.port.js';
+import type {
+  StartVerificationResult,
+  CheckVerificationResult,
+} from '@/core/sms/phone-verifier.port.js';
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
 import { SystemClock } from '@/features/auth/infrastructure/adapters/system-clock.js';
 import { StartPhoneVerificationUseCase } from '@/features/auth/application/usecases/start-phone-verification.usecase.js';
