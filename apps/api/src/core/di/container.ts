@@ -7,6 +7,7 @@ import { LoggingEmailSender } from '../email/logging-email-sender.js';
 import { ResendEmailSender } from '../email/resend-email-sender.js';
 import type { PhoneVerifier } from '../sms/phone-verifier.port.js';
 import { LoggingPhoneVerifier } from '../sms/logging-phone-verifier.js';
+import { TwilioPhoneVerifier } from '../sms/twilio-phone-verifier.js';
 import {
   ConsumerRegistry,
   OutboxDispatcher,
@@ -98,11 +99,20 @@ const buildEmailSender = (): EmailSender => {
 
 const buildPhoneVerifier = (): PhoneVerifier => {
   if (env.SMS_TRANSPORT === 'twilio') {
-    // TwilioPhoneVerifier not yet wired — see TRI-4 commit 2.
-    // Zod's superRefine guarantees the three Twilio vars are set when
-    // SMS_TRANSPORT=twilio, so this path only fires if someone manually
-    // sets the transport before the adapter ships.
-    throw new Error('TwilioPhoneVerifier not yet wired — see TRI-4 commit 2');
+    // Zod's superRefine on env guarantees the three Twilio vars are set here,
+    // but explicit checks keep type narrowing local and avoid non-null
+    // assertions (banned by strictTypeChecked).
+    if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_VERIFY_SERVICE_SID) {
+      throw new Error(
+        'SMS_TRANSPORT=twilio requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID',
+      );
+    }
+    return new TwilioPhoneVerifier({
+      accountSid: env.TWILIO_ACCOUNT_SID,
+      authToken: env.TWILIO_AUTH_TOKEN,
+      serviceSid: env.TWILIO_VERIFY_SERVICE_SID,
+      allowedCountryCodes: env.SMS_ALLOWED_COUNTRY_CODES,
+    });
   }
   return new LoggingPhoneVerifier();
 };
