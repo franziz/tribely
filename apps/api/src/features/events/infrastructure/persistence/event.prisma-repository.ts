@@ -54,6 +54,7 @@ export class EventPrismaRepository implements EventRepository {
         endsAt: event.endsAt,
         capacity: event.capacity.value,
         category: event.category.value,
+        venueCategory: event.venueCategory.value,
         costSplit: event.costSplit,
         approvalMode: event.approvalMode,
         status: event.status,
@@ -109,5 +110,10 @@ export class EventPrismaRepository implements EventRepository {
       hasMore && last ? { lastStartsAt: last.startsAt, lastEventId: last.id } : null;
 
     return { events, nextCursor };
+  }
+
+  async countCompletedByHost(hostUserId: string, ctx?: TxContext): Promise<number> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    return client.event.count({ where: { hostUserId, status: 'completed' } });
   }
 }

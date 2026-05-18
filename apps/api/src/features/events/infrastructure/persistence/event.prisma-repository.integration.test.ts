@@ -18,6 +18,7 @@ import { EVENT_CREATED } from '../../domain/events/event-created.event.js';
 import { EVENT_PUBLISHED } from '../../domain/events/event-published.event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
+import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 import { EventPrismaRepository } from './event.prisma-repository.js';
 
@@ -68,6 +69,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
       capacity: Capacity.create(6),
       category: EventCategory.create('food'),
+      venueCategory: VenueCategory.create('cafe'),
       costSplit: 'own',
       approvalMode: 'manual',
       now,
@@ -193,6 +195,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
       capacity: Capacity.create(2),
       category: EventCategory.create('other'),
+      venueCategory: VenueCategory.create('cafe'),
       costSplit: 'own',
       approvalMode: 'auto',
       now: new Date(),
@@ -225,6 +228,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
         endsAt: new Date(overrides.startsAt.getTime() + 2 * 60 * 60 * 1000),
         capacity: Capacity.create(6),
         category: EventCategory.create(overrides.category ?? 'food'),
+        venueCategory: VenueCategory.create('cafe'),
         costSplit: 'own',
         approvalMode: 'manual',
         now,

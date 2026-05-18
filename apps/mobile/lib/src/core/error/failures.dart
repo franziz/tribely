@@ -65,3 +65,25 @@ class ConflictFailure extends Failure {
   @override
   List<Object?> get props => [...super.props, subcode];
 }
+
+/// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
+///
+/// The server rejects the create/update call because the user's first event
+/// must use a public venue category. [reason] carries the machine-readable
+/// explanation:
+///   - 'category_not_public' — the selected venue category is not in the
+///     public allowlist (e.g. 'apartment', 'condo').
+///   - 'keyword_match' — the venue name contains a private-venue keyword
+///     (e.g. 'my place', 'airbnb') even though no category was set.
+///
+/// The UI uses [reason] to render context-specific recovery copy (Brief 11).
+class FirstEventMustBePublicFailure extends Failure {
+  const FirstEventMustBePublicFailure({required this.reason, String? message})
+    : super(message ?? 'Your first event must be held at a public venue.');
+
+  /// 'category_not_public' | 'keyword_match'
+  final String reason;
+
+  @override
+  List<Object?> get props => [reason, message];
+}

@@ -12,6 +12,7 @@ class EventDraftModel {
     this.title,
     this.category,
     this.venueName,
+    this.venueCategory,
     this.latitude,
     this.longitude,
     this.startsAt,
@@ -30,6 +31,7 @@ class EventDraftModel {
       title: entity.title,
       category: entity.category?.wireValue,
       venueName: entity.venueName,
+      venueCategory: entity.venueCategory,
       latitude: entity.latitude,
       longitude: entity.longitude,
       startsAt: entity.startsAt?.toIso8601String(),
@@ -62,6 +64,9 @@ class EventDraftModel {
       title: json['title'] as String?,
       category: json['category'] as String?,
       venueName: json['venueName'] as String?,
+      // venueCategory added in TRI-33 Brief 8; absent in drafts saved before
+      // the update — reads as null, which the domain handles gracefully.
+      venueCategory: json['venueCategory'] as String?,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       startsAt: json['startsAt'] as String?,
@@ -81,6 +86,7 @@ class EventDraftModel {
   final String? title;
   final String? category;
   final String? venueName;
+  final String? venueCategory;
   final double? latitude;
   final double? longitude;
   final String? startsAt;
@@ -97,6 +103,7 @@ class EventDraftModel {
       title: title,
       category: category != null ? EventCategory.fromWire(category!) : null,
       venueName: venueName,
+      venueCategory: venueCategory,
       latitude: latitude,
       longitude: longitude,
       startsAt: startsAt != null ? DateTime.tryParse(startsAt!) : null,
@@ -116,6 +123,7 @@ class EventDraftModel {
       if (title != null) 'title': title,
       if (category != null) 'category': category,
       if (venueName != null) 'venueName': venueName,
+      if (venueCategory != null) 'venueCategory': venueCategory,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
       if (startsAt != null) 'startsAt': startsAt,

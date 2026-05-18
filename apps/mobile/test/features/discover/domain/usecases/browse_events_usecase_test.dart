@@ -31,6 +31,7 @@ Event _makeEvent(String id) => Event(
     city: 'Singapore',
     latitude: 1.28,
     longitude: 103.85,
+    category: 'restaurant',
   ),
   startsAt: DateTime(2030, 6, 15, 18),
   endsAt: DateTime(2030, 6, 15, 21),

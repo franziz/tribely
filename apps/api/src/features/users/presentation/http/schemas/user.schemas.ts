@@ -54,3 +54,15 @@ export const updateUserProfileSchema = z.object({
 });
 
 export type UpdateUserProfileBody = z.infer<typeof updateUserProfileSchema>;
+
+// ---------------------------------------------------------------------------
+// GET /users/me/capabilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Single-field object (NOT a bare boolean) so future capabilities can be
+ * appended without versioning the endpoint.
+ */
+export const userCapabilitiesResponseSchema = z.object({
+  canPostPrivateVenue: z.boolean(),
+});

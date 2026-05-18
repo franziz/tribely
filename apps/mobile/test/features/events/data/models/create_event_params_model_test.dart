@@ -22,6 +22,7 @@ CreateEventParamsModel _modelFrom({
     title: 'Sunday Morning Hike',
     category: EventCategory.hike,
     venueName: '1 Marina Blvd, Marina Bay',
+    venueCategory: 'park',
     latitude: 1.28,
     longitude: 103.85,
     startsAt: startsAt,
@@ -34,6 +35,26 @@ CreateEventParamsModel _modelFrom({
 }
 
 void main() {
+  // ---------------------------------------------------------------------------
+  // venue.category serialisation (TRI-33 Brief 8)
+  // ---------------------------------------------------------------------------
+  group('CreateEventParamsModel.toJson — venue.category serialisation', () {
+    test('venueCategory is serialised as venue.category in the request body', () {
+      final json = _modelFrom(
+        startsAt: DateTime.utc(2030, 6, 1, 8),
+        endsAt: DateTime.utc(2030, 6, 1, 11),
+      ).toJson();
+
+      final venue = json['venue'] as Map<String, dynamic>;
+      expect(
+        venue['category'],
+        'park',
+        reason:
+            'venueCategory must be included in the POST body as venue.category',
+      );
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // startsAt / endsAt UTC serialisation (Fix #1 — TRI-26)
   // ---------------------------------------------------------------------------

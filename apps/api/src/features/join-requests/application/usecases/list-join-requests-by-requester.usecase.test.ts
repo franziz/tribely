@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Event } from '@/features/events/domain/entities/event.js';
 import { Capacity } from '@/features/events/domain/value-objects/capacity.js';
 import { EventCategory } from '@/features/events/domain/value-objects/event-category.js';
+import { VenueCategory } from '@/features/events/domain/value-objects/venue-category.js';
 import { Venue } from '@/features/events/domain/value-objects/venue.js';
 import { JoinRequest } from '../../domain/entities/join-request.js';
 import { ListJoinRequestsByRequesterUseCase } from './list-join-requests-by-requester.usecase.js';
@@ -29,6 +30,7 @@ const seedEvent = (repo: FakeEventRepository, id: string, hostUserId = 'host_1')
     endsAt: ENDS,
     capacity: Capacity.create(6),
     category: EventCategory.create('food'),
+    venueCategory: VenueCategory.create('cafe'),
     costSplit: 'own',
     approvalMode: 'manual',
     now: NOW,

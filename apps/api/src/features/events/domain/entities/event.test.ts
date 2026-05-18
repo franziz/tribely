@@ -7,6 +7,7 @@ import { EVENT_PUBLISHED } from '../events/event-published.event.js';
 import { EVENT_UPDATED } from '../events/event-updated.event.js';
 import { Capacity } from '../value-objects/capacity.js';
 import { EventCategory } from '../value-objects/event-category.js';
+import { VenueCategory } from '../value-objects/venue-category.js';
 import { Venue } from '../value-objects/venue.js';
 import { Event } from './event.js';
 
@@ -30,6 +31,7 @@ const draftEvent = (overrides: Partial<Parameters<typeof Event.create>[0]> = {})
     endsAt: ENDS,
     capacity: Capacity.create(6),
     category: EventCategory.create('food'),
+    venueCategory: VenueCategory.create('hawker_centre'),
     costSplit: 'own' as const,
     approvalMode: 'manual' as const,
     now: NOW,
@@ -60,10 +62,40 @@ describe('Event', () => {
         title: 'Hawker tour at Lau Pa Sat',
         capacity: 6,
         category: 'food',
+        venueCategory: 'hawker_centre',
         costSplit: 'own',
         approvalMode: 'manual',
       });
     });
+
+    it.each(VenueCategory.PUBLIC_VALUES)(
+      'create with public venueCategory "%s" succeeds and carries the value in the payload',
+      (vc) => {
+        const e = draftEvent({ venueCategory: VenueCategory.create(vc) });
+        const events = e.pullEvents();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload).toMatchObject({ venueCategory: vc });
+        expect(e.venueCategory.value).toBe(vc);
+      },
+    );
+
+    it.each(
+      VenueCategory.VALUES.filter(
+        (v): v is (typeof VenueCategory.VALUES)[number] =>
+          !(VenueCategory.PUBLIC_VALUES as readonly string[]).includes(v),
+      ),
+    )(
+      'create with private venueCategory "%s" succeeds — no policy enforcement at aggregate level',
+      (vc) => {
+        // Brief 6 (use-case layer) enforces the public-venue policy.
+        // The aggregate just carries the field regardless of category.
+        const e = draftEvent({ venueCategory: VenueCategory.create(vc) });
+        const events = e.pullEvents();
+        expect(events).toHaveLength(1);
+        expect(events[0]?.payload).toMatchObject({ venueCategory: vc });
+        expect(e.venueCategory.value).toBe(vc);
+      },
+    );
 
     it('trims the title', () => {
       const e = draftEvent({ title: '   Sunset hike   ' });
@@ -343,6 +375,26 @@ describe('Event', () => {
         e.edit({ description: 'd'.repeat(2001) }, editNow);
       }).toThrowError(/description/);
     });
+
+    it('changing venueCategory emits eventUpdated with the new value', () => {
+      const e = draftEvent({ venueCategory: VenueCategory.create('hawker_centre') });
+      e.pullEvents();
+      e.edit({ venueCategory: VenueCategory.create('park') }, editNow);
+      expect(e.venueCategory.value).toBe('park');
+      expect(e.updatedAt).toEqual(editNow);
+      const events = e.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(EVENT_UPDATED);
+      expect(events[0]?.payload).toMatchObject({ venueCategory: 'park' });
+    });
+
+    it('edit with same venueCategory is a no-op — no event, updatedAt untouched', () => {
+      const e = draftEvent({ venueCategory: VenueCategory.create('hawker_centre') });
+      e.pullEvents();
+      e.edit({ venueCategory: VenueCategory.create('hawker_centre') }, editNow);
+      expect(e.pullEvents()).toHaveLength(0);
+      expect(e.updatedAt).toEqual(NOW);
+    });
   });
 
   describe('rehydrate', () => {
@@ -362,6 +414,7 @@ describe('Event', () => {
         endsAt: ENDS,
         capacity: Capacity.create(6),
         category: EventCategory.create('food'),
+        venueCategory: VenueCategory.create('hawker_centre'),
         costSplit: 'own',
         approvalMode: 'manual',
         status: 'published',
@@ -371,6 +424,34 @@ describe('Event', () => {
       });
       expect(e.pullEvents()).toHaveLength(0);
       expect(e.status).toBe('published');
+    });
+
+    it('round-trips venueCategory through rehydrate', () => {
+      const e = Event.rehydrate({
+        id: 'evt_1',
+        hostUserId: 'user_1',
+        title: 'Hawker tour',
+        description: null,
+        venue: Venue.create({
+          address: 'Lau Pa Sat',
+          city: 'Singapore',
+          latitude: 1.28,
+          longitude: 103.85,
+        }),
+        startsAt: STARTS,
+        endsAt: ENDS,
+        capacity: Capacity.create(6),
+        category: EventCategory.create('food'),
+        venueCategory: VenueCategory.create('museum'),
+        costSplit: 'own',
+        approvalMode: 'manual',
+        status: 'draft',
+        cancellationReason: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      expect(e.venueCategory.value).toBe('museum');
+      expect(e.pullEvents()).toHaveLength(0);
     });
   });
 });

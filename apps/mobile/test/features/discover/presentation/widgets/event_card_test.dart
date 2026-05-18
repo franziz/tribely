@@ -29,6 +29,7 @@ final _testVenue = const EventVenue(
   city: 'Singapore',
   latitude: 1.2789,
   longitude: 103.8536,
+  category: 'restaurant',
 );
 
 Event _makeEvent({

@@ -5,6 +5,7 @@ export type AppErrorCode =
   | 'EMAIL_NOT_VERIFIED'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'UNPROCESSABLE'
   | 'INTERNAL';
 
 export class AppError extends Error {
@@ -42,6 +43,10 @@ export class AppError extends Error {
 
   static conflict(message: string, details?: unknown): AppError {
     return new AppError('CONFLICT', message, 409, details);
+  }
+
+  static unprocessable(message: string, details?: unknown): AppError {
+    return new AppError('UNPROCESSABLE', message, 422, details);
   }
 
   static internal(message = 'Internal server error'): AppError {

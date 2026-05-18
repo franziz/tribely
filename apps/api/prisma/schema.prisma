@@ -27,8 +27,8 @@ model User {
   emailVerifiedAt DateTime?
   bio             String?
   avatarUrl       String?
-  languages       String[]
-  interests       String[]
+  languages       String[] @default([])
+  interests       String[] @default([])
   currentCity     String?
   travelerType    String?
   createdAt       DateTime  @default(now())
@@ -168,6 +168,7 @@ model Event {
   endsAt             DateTime
   capacity           Int
   category           String // drinks | food | hike | museum | sports | nightlife | other
+  venueCategory      String @default("other") // hawker_centre | park | museum | ... | other (CHECK enforced by migration)
   costSplit          String // own | host_paid | split
   approvalMode       String // auto | manual
   status             String // draft | published | cancelled | completed

@@ -47,8 +47,10 @@ import type { PasswordResetTokenRepository } from '@/features/auth/domain/reposi
 import type { RefreshTokenRepository } from '@/features/auth/domain/repositories/refresh-token.repository.js';
 
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
+import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
+import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapters/stub-host-ratings-read-model.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
@@ -125,6 +127,7 @@ export interface Container {
   userRepository: UserRepository;
   getUserUseCase: GetUserUseCase;
   updateUserProfileUseCase: UpdateUserProfileUseCase;
+  getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -317,10 +320,31 @@ export const buildContainer = (): Container => {
 
   // --- Events ---
   const eventRepository = new EventPrismaRepository(db);
-  const createEventUseCase = new CreateEventUseCase(unitOfWork, eventRepository, publisher, clock);
+
+  // User capabilities depend on eventRepository — wired here so createEvent / updateEvent
+  // can receive it as a constructor dep without a forward-reference.
+  const stubHostRatingsReadModel = new StubHostRatingsReadModel();
+  const getUserCapabilitiesUseCase = new GetUserCapabilitiesUseCase(
+    eventRepository,
+    stubHostRatingsReadModel,
+  );
+
+  const createEventUseCase = new CreateEventUseCase(
+    unitOfWork,
+    eventRepository,
+    publisher,
+    clock,
+    getUserCapabilitiesUseCase,
+  );
   const listEventsUseCase = new ListEventsUseCase(eventRepository, clock);
   const getEventUseCase = new GetEventUseCase(eventRepository, userRepository);
-  const updateEventUseCase = new UpdateEventUseCase(unitOfWork, eventRepository, publisher, clock);
+  const updateEventUseCase = new UpdateEventUseCase(
+    unitOfWork,
+    eventRepository,
+    publisher,
+    clock,
+    getUserCapabilitiesUseCase,
+  );
   const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
 
   // --- Join Requests ---
@@ -383,6 +407,7 @@ export const buildContainer = (): Container => {
     userRepository,
     getUserUseCase,
     updateUserProfileUseCase,
+    getUserCapabilitiesUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,

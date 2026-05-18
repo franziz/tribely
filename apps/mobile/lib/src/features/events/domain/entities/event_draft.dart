@@ -11,6 +11,7 @@ class EventDraft extends Equatable {
     this.title,
     this.category,
     this.venueName,
+    this.venueCategory,
     this.latitude,
     this.longitude,
     this.startsAt,
@@ -33,6 +34,12 @@ class EventDraft extends Equatable {
 
   /// Human-readable venue label. Maps to server `venue.address` on submit.
   final String? venueName;
+
+  /// Raw snake_case venue category string (see [VenueCategory]).
+  /// Maps to server `venue.category` on submit. Set by Step 2 (venue picker)
+  /// when the user selects a venue category. Nullable until the user selects.
+  final String? venueCategory;
+
   final double? latitude;
   final double? longitude;
 
@@ -58,6 +65,7 @@ class EventDraft extends Equatable {
     String? title,
     EventCategory? category,
     String? venueName,
+    String? venueCategory,
     double? latitude,
     double? longitude,
     DateTime? startsAt,
@@ -72,6 +80,7 @@ class EventDraft extends Equatable {
     title: title ?? this.title,
     category: category ?? this.category,
     venueName: venueName ?? this.venueName,
+    venueCategory: venueCategory ?? this.venueCategory,
     latitude: latitude ?? this.latitude,
     longitude: longitude ?? this.longitude,
     startsAt: startsAt ?? this.startsAt,
@@ -89,6 +98,7 @@ class EventDraft extends Equatable {
     title,
     category,
     venueName,
+    venueCategory,
     latitude,
     longitude,
     startsAt,

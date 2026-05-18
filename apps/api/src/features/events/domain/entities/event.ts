@@ -7,6 +7,7 @@ import { eventPublished } from '../events/event-published.event.js';
 import { eventUpdated } from '../events/event-updated.event.js';
 import type { Capacity } from '../value-objects/capacity.js';
 import type { EventCategory } from '../value-objects/event-category.js';
+import type { VenueCategory } from '../value-objects/venue-category.js';
 import type { Venue } from '../value-objects/venue.js';
 
 export type EventStatus = 'draft' | 'published' | 'cancelled' | 'completed';
@@ -49,6 +50,7 @@ export class Event extends AggregateRoot {
     private _endsAt: Date,
     private _capacity: Capacity,
     private _category: EventCategory,
+    private _venueCategory: VenueCategory,
     private _costSplit: CostSplit,
     private _approvalMode: ApprovalMode,
     private _status: EventStatus,
@@ -69,6 +71,7 @@ export class Event extends AggregateRoot {
     endsAt: Date;
     capacity: Capacity;
     category: EventCategory;
+    venueCategory: VenueCategory;
     costSplit: CostSplit;
     approvalMode: ApprovalMode;
     now: Date;
@@ -102,6 +105,7 @@ export class Event extends AggregateRoot {
       input.endsAt,
       input.capacity,
       input.category,
+      input.venueCategory,
       input.costSplit,
       input.approvalMode,
       'draft',
@@ -125,6 +129,7 @@ export class Event extends AggregateRoot {
         endsAt: input.endsAt.toISOString(),
         capacity: input.capacity.value,
         category: input.category.value,
+        venueCategory: input.venueCategory.value,
         costSplit: input.costSplit,
         approvalMode: input.approvalMode,
         createdAt: input.now.toISOString(),
@@ -143,6 +148,7 @@ export class Event extends AggregateRoot {
     endsAt: Date;
     capacity: Capacity;
     category: EventCategory;
+    venueCategory: VenueCategory;
     costSplit: CostSplit;
     approvalMode: ApprovalMode;
     status: EventStatus;
@@ -160,6 +166,7 @@ export class Event extends AggregateRoot {
       state.endsAt,
       state.capacity,
       state.category,
+      state.venueCategory,
       state.costSplit,
       state.approvalMode,
       state.status,
@@ -189,6 +196,9 @@ export class Event extends AggregateRoot {
   }
   get category(): EventCategory {
     return this._category;
+  }
+  get venueCategory(): VenueCategory {
+    return this._venueCategory;
   }
   get costSplit(): CostSplit {
     return this._costSplit;
@@ -225,6 +235,7 @@ export class Event extends AggregateRoot {
       endsAt?: Date;
       capacity?: Capacity;
       category?: EventCategory;
+      venueCategory?: VenueCategory;
       costSplit?: CostSplit;
       approvalMode?: ApprovalMode;
     },
@@ -258,6 +269,7 @@ export class Event extends AggregateRoot {
     }
     const nextCapacity = patch.capacity ?? this._capacity;
     const nextCategory = patch.category ?? this._category;
+    const nextVenueCategory = patch.venueCategory ?? this._venueCategory;
     const nextCostSplit = patch.costSplit ?? this._costSplit;
     const nextApprovalMode = patch.approvalMode ?? this._approvalMode;
 
@@ -269,6 +281,7 @@ export class Event extends AggregateRoot {
       nextEndsAt.getTime() === this._endsAt.getTime() &&
       nextCapacity.equals(this._capacity) &&
       nextCategory.equals(this._category) &&
+      nextVenueCategory.equals(this._venueCategory) &&
       nextCostSplit === this._costSplit &&
       nextApprovalMode === this._approvalMode;
     if (unchanged) return;
@@ -280,6 +293,7 @@ export class Event extends AggregateRoot {
     this._endsAt = nextEndsAt;
     this._capacity = nextCapacity;
     this._category = nextCategory;
+    this._venueCategory = nextVenueCategory;
     this._costSplit = nextCostSplit;
     this._approvalMode = nextApprovalMode;
     this._updatedAt = now;
@@ -300,6 +314,7 @@ export class Event extends AggregateRoot {
         endsAt: this._endsAt.toISOString(),
         capacity: this._capacity.value,
         category: this._category.value,
+        venueCategory: this._venueCategory.value,
         costSplit: this._costSplit,
         approvalMode: this._approvalMode,
         updatedAt: now.toISOString(),

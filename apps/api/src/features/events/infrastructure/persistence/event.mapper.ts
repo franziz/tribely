@@ -8,6 +8,7 @@ import {
 } from '../../domain/entities/event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
+import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 
 const STATUSES = ['draft', 'published', 'cancelled', 'completed'] as const;
@@ -51,6 +52,7 @@ export const toEvent = (row: EventRow): Event => {
     endsAt: row.endsAt,
     capacity: Capacity.create(row.capacity),
     category: EventCategory.create(row.category),
+    venueCategory: VenueCategory.create(row.venueCategory),
     costSplit: row.costSplit,
     approvalMode: row.approvalMode,
     status: row.status,
@@ -79,6 +81,7 @@ export const toRow = (event: Event): Prisma.EventUncheckedCreateInput => ({
   endsAt: event.endsAt,
   capacity: event.capacity.value,
   category: event.category.value,
+  venueCategory: event.venueCategory.value,
   costSplit: event.costSplit,
   approvalMode: event.approvalMode,
   status: event.status,

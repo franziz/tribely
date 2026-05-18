@@ -182,7 +182,13 @@ Each rule has: **Targets** (which layers), **Check**, optional **Exceptions**, *
 
 **Targets:** all files under `apps/api/src/features/<X>/...`.
 
-**Check:** No imports from `apps/api/src/features/<Y>/infrastructure/...` or `apps/api/src/features/<Y>/presentation/...` for `X ≠ Y`. Cross-feature imports are restricted to `domain/` (interfaces) and `application/usecases/` (when explicitly composed via DI).
+**Check:** No imports from `apps/api/src/features/<Y>/infrastructure/...` or `apps/api/src/features/<Y>/presentation/...` for `X ≠ Y`. Cross-feature imports are restricted to:
+- `domain/` (interfaces — repository ports, domain services, value-object types)
+- `application/dto/` (result/input DTOs)
+- `application/ports/` (structural ports that abstract over a sibling-feature application service — e.g., `UserCapabilitiesPort` consumed by `events/`)
+- `application/usecases/` (when explicitly composed via DI)
+
+`application/ports/` differs from `domain/ports/`: domain ports describe outbound dependencies the domain itself needs (Clock, Mailer, PasswordHasher); application ports describe the *structural shape* of another feature's application service that the consuming feature treats as a dependency. Both layers can host ports legitimately — domain for infra-shaped collaborators, application for use-case-shaped ones.
 
 **Severity:** error.
 

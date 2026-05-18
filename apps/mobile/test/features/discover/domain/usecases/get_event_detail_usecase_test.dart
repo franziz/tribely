@@ -27,6 +27,7 @@ final _stubEvent = Event(
     city: 'Singapore',
     latitude: 1.28,
     longitude: 103.86,
+    category: 'park',
   ),
   startsAt: DateTime(2030, 8, 10, 7),
   endsAt: DateTime(2030, 8, 10, 9),

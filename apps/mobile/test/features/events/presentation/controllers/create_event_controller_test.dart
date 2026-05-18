@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -15,6 +14,8 @@ import 'package:tribely/src/features/events/domain/usecases/load_event_draft_use
 import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Mock use cases
@@ -57,6 +58,7 @@ Event _stubEvent({String id = 'evt-1'}) {
       city: 'Singapore',
       latitude: 1.28,
       longitude: 103.85,
+      category: 'restaurant',
     ),
     startsAt: DateTime(2030, 1, 1, 18),
     endsAt: DateTime(2030, 1, 1, 21),
@@ -770,102 +772,514 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // nextStep / previousStep keyboard dismissal (Bug 1 regression lock)
+  // nextStep / previousStep keyboard dismissal — REMOVED (arch review Q2)
   // ---------------------------------------------------------------------------
-  // These use testWidgets (not test) because focus changes in Flutter are
-  // microtask-based (_markNeedsUpdate → scheduleMicrotask(applyFocusChanges)).
-  // Only tester.pump() drains the microtask queue reliably, making the
-  // primaryFocus assertion accurate. Using test() with attach(null) leaves
-  // focus changes pending as unsettled microtasks.
+  // Focus dismissal was previously a controller concern but moved to the page
+  // in commit 883e0b9 (architecture review Q2, 2026-05-15) — Notifier controllers
+  // are pure-Dart with no Flutter widget-tree imports. The contract is now
+  // exercised by the page widget's `_dismissFocusAndCall` helper around
+  // `controller.nextStep()` / `controller.previousStep()`. Page-level widget
+  // test coverage is a follow-up.
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Brief 9: selectVenueCategory + onVenueNameChanged — private-venue warnings
+  // ---------------------------------------------------------------------------
   //
-  // The widget tree is a minimal Directionality+Focus purely to anchor the
-  // focus node in the live focus tree; providers are read directly from the
-  // ProviderContainer, independent of ProviderScope.
-  group('nextStep / previousStep keyboard dismissal', () {
-    testWidgets('previousStep() unfocuses primary focus before mutating state', (
-      tester,
-    ) async {
-      final result = _makeContainer();
+  // The controller reads [myCapabilitiesProvider] synchronously (AsyncValue).
+  // Tests override [myCapabilitiesProvider] directly via ProviderContainer
+  // overrides to control the loading/data/error states without a network call.
+  //
+  // Warning invariants:
+  //   A. Public category + clean name → PrivateVenueWarningNone
+  //   B. Private category (e.g. 'apartment') + no caps loaded → FirstTimeHost
+  //   C. Private category + caps(canPostPrivateVenue: true) → EstablishedHost
+  //   D. Keyword match in venue name + no category → FirstTimeHost
+  // ---------------------------------------------------------------------------
+
+  /// Build a container that also overrides [myCapabilitiesProvider] with a
+  /// resolved [UserCapabilities] value.
+  ({
+    ProviderContainer container,
+    _MockCreateEventUseCase create,
+    _MockLoadEventDraftUseCase load,
+    _MockSaveEventDraftUseCase save,
+    _MockClearEventDraftUseCase clear,
+  })
+  makeContainerWithCaps({required UserCapabilities caps}) {
+    final create = _MockCreateEventUseCase();
+    final load = _MockLoadEventDraftUseCase();
+    final save = _MockSaveEventDraftUseCase();
+    final clear = _MockClearEventDraftUseCase();
+
+    final container = ProviderContainer(
+      overrides: [
+        createEventUseCaseProvider.overrideWithValue(create),
+        loadEventDraftUseCaseProvider.overrideWithValue(load),
+        saveEventDraftUseCaseProvider.overrideWithValue(save),
+        clearEventDraftUseCaseProvider.overrideWithValue(clear),
+        myCapabilitiesProvider.overrideWith((_) async => caps),
+      ],
+    );
+
+    return (
+      container: container,
+      create: create,
+      load: load,
+      save: save,
+      clear: clear,
+    );
+  }
+
+  group('selectVenueCategory — private-venue warning (Brief 9)', () {
+    // A. Public category + clean name → no warning
+    test(
+      'A: selecting a public category with a clean venue name → PrivateVenueWarningNone',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        // Set a clean venue name first.
+        controller.updateField(field: 'venueName', value: 'Gardens by the Bay');
+        // Select a public category.
+        controller.selectVenueCategory('park');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.selectedVenueCategory, 'park');
+        expect(state.privateVenueWarning, isA<PrivateVenueWarningNone>());
+      },
+    );
+
+    // B. Private category + no caps loaded → FirstTimeHost warning
+    test(
+      'B: selecting a private category ("apartment") with caps not yet loaded → PrivateVenueWarningFirstTimeHost',
+      () async {
+        // Override myCapabilitiesProvider to stay in loading state indefinitely
+        // by using a completer that never completes within the test.
+        final create = _MockCreateEventUseCase();
+        final load = _MockLoadEventDraftUseCase();
+        final save = _MockSaveEventDraftUseCase();
+        final clear = _MockClearEventDraftUseCase();
+
+        final container = ProviderContainer(
+          overrides: [
+            createEventUseCaseProvider.overrideWithValue(create),
+            loadEventDraftUseCaseProvider.overrideWithValue(load),
+            saveEventDraftUseCaseProvider.overrideWithValue(save),
+            clearEventDraftUseCaseProvider.overrideWithValue(clear),
+            // Caps stay in loading state — never resolves.
+            myCapabilitiesProvider.overrideWith(
+              (_) => Future.delayed(const Duration(days: 1)),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        when(() => load(any())).thenAnswer((_) async => const Right(null));
+        when(() => save(any())).thenAnswer((_) async => const Right(null));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('apartment');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(
+          state.privateVenueWarning,
+          isA<PrivateVenueWarningFirstTimeHost>(),
+        );
+      },
+    );
+
+    // C. Private category + caps(canPostPrivateVenue: true) → EstablishedHost
+    test(
+      'C: selecting a private category with canPostPrivateVenue=true → PrivateVenueWarningEstablishedHost',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities(canPostPrivateVenue: true),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+
+        // Let the caps provider settle before initialising the controller so
+        // that ref.read(myCapabilitiesProvider) returns AsyncData on first call.
+        await container.read(myCapabilitiesProvider.future);
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('apartment');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(
+          state.privateVenueWarning,
+          isA<PrivateVenueWarningEstablishedHost>(),
+        );
+      },
+    );
+
+    // D. Keyword in venue name with no category → FirstTimeHost warning (Brief 9)
+    test(
+      'D: typing "my apartment" in venue name with no category selected → PrivateVenueWarningFirstTimeHost',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+
+        // Let the caps provider settle (restricted = canPostPrivateVenue: false)
+        // so ref.read(myCapabilitiesProvider) returns AsyncData on first call.
+        await container.read(myCapabilitiesProvider.future);
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        // No category selected — null.
+        controller.onVenueNameChanged('my apartment');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(
+          state.privateVenueWarning,
+          isA<PrivateVenueWarningFirstTimeHost>(),
+        );
+      },
+    );
+
+    // E. Selecting the same chip twice is a no-op (Brief 9)
+    test(
+      'E: selectVenueCategory called twice with the same value is a no-op on state',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('cafe');
+
+        final stateAfterFirst =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // Second tap on the same chip.
+        controller.selectVenueCategory('cafe');
+
+        final stateAfterSecond =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // State should remain identical (the controller guards against no-op mutations).
+        expect(stateAfterSecond, equals(stateAfterFirst));
+      },
+    );
+
+    // F. selectedVenueCategory mirrors EventDraft.venueCategory (Brief 9)
+    test(
+      'F: selectVenueCategory updates both selectedVenueCategory and draft.venueCategory',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.selectVenueCategory('museum');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.selectedVenueCategory, 'museum');
+        expect(state.formData.venueCategory, 'museum');
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Brief 11: FirstEventMustBePublicFailure — recovery flow
+  //
+  // Tests the two branches of [onPublishRejectionAcknowledged]:
+  //   1. pickPublicPlace: clears venue fields, navigates to Step 2, all other
+  //      fields preserved, publishRejection cleared.
+  //   2. cancel: stays on Step 5, publishRejection cleared, venue fields intact.
+  //
+  // Uses makeContainerWithCaps with restricted caps (canPostPrivateVenue=false)
+  // so the private-venue warning machinery also exercises the right path.
+  // ---------------------------------------------------------------------------
+
+  /// A fully-valid draft where venueCategory is a private category. This
+  /// triggers [FirstEventMustBePublicFailure] on the server side.
+  EventDraft validDraftWithPrivateVenue() {
+    return EventDraft(
+      title: 'Sunday Morning Hike',
+      category: EventCategory.hike,
+      venueName: 'My Apartment Block',
+      venueCategory: 'apartment',
+      latitude: 1.28,
+      longitude: 103.85,
+      startsAt: DateTime(2030, 6, 1, 8),
+      endsAt: DateTime(2030, 6, 1, 11),
+      capacity: 10,
+      approvalMode: 'auto',
+      description: 'A lovely hike for solo travellers exploring Singapore.',
+      currentStep: 4,
+    );
+  }
+
+  /// Seeds the controller with all fields from [draft] via [updateField] and
+  /// [selectVenueCategory], then navigates to step 4 (Step 5).
+  Future<void> seedControllerWithDraft(
+    ProviderContainer container,
+    EventDraft draft,
+  ) async {
+    final controller = container.read(createEventControllerProvider.notifier);
+    controller.updateField(field: 'title', value: draft.title!);
+    controller.updateField(field: 'category', value: draft.category!);
+    controller.updateField(field: 'venueName', value: draft.venueName!);
+    if (draft.venueCategory != null) {
+      controller.selectVenueCategory(draft.venueCategory!);
+    }
+    controller.updateField(field: 'latitude', value: draft.latitude!);
+    controller.updateField(field: 'longitude', value: draft.longitude!);
+    controller.updateField(field: 'startsAt', value: draft.startsAt!);
+    controller.updateField(field: 'endsAt', value: draft.endsAt!);
+    controller.updateField(field: 'capacity', value: draft.capacity!);
+    controller.updateField(field: 'approvalMode', value: draft.approvalMode!);
+    controller.updateField(field: 'description', value: draft.description!);
+    controller.goToStep(4);
+  }
+
+  group('submit — FirstEventMustBePublicFailure (Brief 11)', () {
+    test(
+      'server returns FirstEventMustBePublicFailure → '
+      'state is CreateEventEditing on Step 5 with publishRejection set',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(() => result.create(any())).thenAnswer(
+          (_) async => const Left(
+            FirstEventMustBePublicFailure(reason: 'category_not_public'),
+          ),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final draft = validDraftWithPrivateVenue();
+        await seedControllerWithDraft(container, draft);
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
+
+        final state = container.read(createEventControllerProvider);
+        expect(state, isA<CreateEventEditing>());
+        final editing = state as CreateEventEditing;
+        // publishRejection must be set.
+        expect(
+          editing.publishRejection,
+          isA<PublishRejectionFirstEventMustBePublic>(),
+        );
+        // Must remain on Step 5.
+        expect(editing.currentStep, 4);
+      },
+    );
+  });
+
+  group('onPublishRejectionAcknowledged — pickPublicPlace (Brief 11)', () {
+    test('pickPublicPlace: clears venue fields, navigates to Step 2, '
+        'preserves all other fields, clears publishRejection', () async {
+      final result = makeContainerWithCaps(
+        caps: const UserCapabilities.restricted(),
+      );
       final container = result.container;
+      addTearDown(container.dispose);
+
       when(() => result.load(any())).thenAnswer((_) async => const Right(null));
       when(() => result.save(any())).thenAnswer((_) async => const Right(null));
-
-      // Pump a minimal widget tree to anchor the focus node in the live
-      // focus tree. This is independent of the ProviderContainer.
-      final focusNode = FocusNode();
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Focus(focusNode: focusNode, child: const SizedBox()),
+      when(() => result.create(any())).thenAnswer(
+        (_) async => const Left(
+          FirstEventMustBePublicFailure(reason: 'category_not_public'),
         ),
       );
-
-      // Request focus and drain the microtask so primaryFocus is settled.
-      focusNode.requestFocus();
-      await tester.pump();
-      expect(FocusManager.instance.primaryFocus, isNotNull);
 
       container.read(createEventControllerProvider);
       await Future<void>.value();
 
-      final controller = container.read(createEventControllerProvider.notifier);
-      // Navigate to step 1 first so previousStep() has somewhere to go.
-      controller.goToStep(1);
-
-      controller.previousStep();
-      // Drain microtask so unfocus() settles.
-      await tester.pump();
-
-      // unfocus() with UnfocusDisposition.scope moves focus up to the
-      // enclosing FocusScopeNode rather than setting primaryFocus to null.
-      // A FocusScopeNode as primary focus is equivalent to keyboard dismissal —
-      // no EditableText/TextInputClient is active. Both null and FocusScopeNode
-      // are correct post-unfocus states in the test harness.
-      expect(
-        FocusManager.instance.primaryFocus,
-        anyOf(isNull, isA<FocusScopeNode>()),
-      );
-
-      focusNode.dispose();
-      container.dispose();
-    });
-
-    testWidgets('nextStep() unfocuses primary focus before mutating state', (
-      tester,
-    ) async {
-      final result = _makeContainer();
-      final container = result.container;
-      when(() => result.load(any())).thenAnswer((_) async => const Right(null));
-      when(() => result.save(any())).thenAnswer((_) async => const Right(null));
-
-      final focusNode = FocusNode();
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Focus(focusNode: focusNode, child: const SizedBox()),
-        ),
-      );
-
-      focusNode.requestFocus();
-      await tester.pump();
-      expect(FocusManager.instance.primaryFocus, isNotNull);
-
-      container.read(createEventControllerProvider);
-      await Future<void>.value();
+      final draft = validDraftWithPrivateVenue();
+      await seedControllerWithDraft(container, draft);
 
       final controller = container.read(createEventControllerProvider.notifier);
-      controller.nextStep();
-      await tester.pump();
+      await controller.submit();
 
-      // See note in previousStep test: FocusScopeNode as primary focus is
-      // equivalent to keyboard dismissal in the test harness.
+      // Confirm rejection was set.
+      final rejectedState =
+          container.read(createEventControllerProvider) as CreateEventEditing;
       expect(
-        FocusManager.instance.primaryFocus,
-        anyOf(isNull, isA<FocusScopeNode>()),
+        rejectedState.publishRejection,
+        isA<PublishRejectionFirstEventMustBePublic>(),
       );
 
-      focusNode.dispose();
-      container.dispose();
+      // Acknowledge with pickPublicPlace.
+      controller.onPublishRejectionAcknowledged(
+        FirstEventMustBePublicModalResult.pickPublicPlace,
+      );
+
+      final afterState =
+          container.read(createEventControllerProvider) as CreateEventEditing;
+
+      // publishRejection must be cleared.
+      expect(afterState.publishRejection, isNull);
+
+      // Step must be 2 (venue step, index 1).
+      expect(afterState.currentStep, 1);
+
+      // Venue fields must be cleared.
+      expect(afterState.formData.venueName, isNull);
+      expect(afterState.formData.venueCategory, isNull);
+      expect(afterState.selectedVenueCategory, isNull);
+
+      // All other fields must be preserved.
+      expect(afterState.formData.title, draft.title);
+      expect(afterState.formData.category, draft.category);
+      expect(afterState.formData.latitude, draft.latitude);
+      expect(afterState.formData.longitude, draft.longitude);
+      expect(afterState.formData.startsAt, draft.startsAt);
+      expect(afterState.formData.endsAt, draft.endsAt);
+      expect(afterState.formData.capacity, draft.capacity);
+      expect(afterState.formData.approvalMode, draft.approvalMode);
+      expect(afterState.formData.description, draft.description);
     });
+  });
+
+  group('onPublishRejectionAcknowledged — cancel (Brief 11)', () {
+    test(
+      'cancel: stays on Step 5, clears publishRejection, venue fields intact',
+      () async {
+        final result = makeContainerWithCaps(
+          caps: const UserCapabilities.restricted(),
+        );
+        final container = result.container;
+        addTearDown(container.dispose);
+
+        when(
+          () => result.load(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(
+          () => result.save(any()),
+        ).thenAnswer((_) async => const Right(null));
+        when(() => result.create(any())).thenAnswer(
+          (_) async => const Left(
+            FirstEventMustBePublicFailure(reason: 'category_not_public'),
+          ),
+        );
+
+        container.read(createEventControllerProvider);
+        await Future<void>.value();
+
+        final draft = validDraftWithPrivateVenue();
+        await seedControllerWithDraft(container, draft);
+
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        await controller.submit();
+
+        // Acknowledge with cancel.
+        controller.onPublishRejectionAcknowledged(
+          FirstEventMustBePublicModalResult.cancel,
+        );
+
+        final afterState =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+
+        // publishRejection must be cleared.
+        expect(afterState.publishRejection, isNull);
+
+        // Must still be on Step 5.
+        expect(afterState.currentStep, 4);
+
+        // Venue fields must be intact — host can retry or edit manually.
+        expect(afterState.formData.venueName, draft.venueName);
+        expect(afterState.formData.venueCategory, draft.venueCategory);
+      },
+    );
   });
 }

@@ -11,6 +11,14 @@ import '../datasources/event_remote_datasource.dart';
 import '../models/create_event_params_model.dart';
 import '../models/event_draft_model.dart';
 
+// ---------------------------------------------------------------------------
+// Subcode constants
+// ---------------------------------------------------------------------------
+
+/// Value of `error.details.subcode` returned by the server when a
+/// 422 UNPROCESSABLE error is due to the first-event-must-be-public policy.
+const _kFirstEventMustBePublic = 'FIRST_EVENT_MUST_BE_PUBLIC';
+
 class EventRepositoryImpl implements EventRepository {
   const EventRepositoryImpl({
     required EventRemoteDatasource remote,
@@ -100,6 +108,21 @@ class EventRepositoryImpl implements EventRepository {
             statusCode: 403,
             code: inner.code,
           );
+        case 422:
+          // TRI-33: 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC
+          // means the user's first event must use a public venue category.
+          // Read details from the raw response because the _ErrorInterceptor
+          // only extracts top-level `error.code`, not `error.details.subcode`.
+          final subcode = _extractSubcode(e);
+          if (subcode == _kFirstEventMustBePublic) {
+            final reason = _extractReason(e) ?? 'category_not_public';
+            return FirstEventMustBePublicFailure(reason: reason);
+          }
+          return ServerFailure(
+            inner.message,
+            statusCode: 422,
+            code: inner.code,
+          );
         case 429:
           return ServerFailure(
             inner.message,
@@ -118,5 +141,29 @@ class EventRepositoryImpl implements EventRepository {
       return NetworkFailure(inner.message);
     }
     return UnknownFailure(e.message ?? 'Unknown error');
+  }
+
+  /// Extracts `error.details.subcode` from the raw response body.
+  /// Returns null when the path is absent or the response has no body.
+  static String? _extractSubcode(DioException e) {
+    final data = e.response?.data;
+    if (data is! Map<String, dynamic>) return null;
+    final errorMap = data['error'];
+    if (errorMap is! Map<String, dynamic>) return null;
+    final details = errorMap['details'];
+    if (details is! Map<String, dynamic>) return null;
+    return details['subcode'] as String?;
+  }
+
+  /// Extracts `error.details.reason` from the raw response body.
+  /// Returns null when the path is absent.
+  static String? _extractReason(DioException e) {
+    final data = e.response?.data;
+    if (data is! Map<String, dynamic>) return null;
+    final errorMap = data['error'];
+    if (errorMap is! Map<String, dynamic>) return null;
+    final details = errorMap['details'];
+    if (details is! Map<String, dynamic>) return null;
+    return details['reason'] as String?;
   }
 }

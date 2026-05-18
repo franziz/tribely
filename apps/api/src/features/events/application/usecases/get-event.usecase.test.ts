@@ -6,6 +6,7 @@ import { Email } from '@/features/users/domain/value-objects/email.js';
 import { Event } from '../../domain/entities/event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
+import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 import { GetEventUseCase } from './get-event.usecase.js';
 import { FakeEventRepository, FakeUserRepository } from './__test__/fakes.js';
@@ -30,6 +31,7 @@ const buildEvent = (id: string, hostUserId: string): Event => {
     endsAt: new Date(NOW.getTime() + 25 * 60 * 60 * 1000),
     capacity: Capacity.create(4),
     category: EventCategory.create('food'),
+    venueCategory: VenueCategory.create('cafe'),
     costSplit: 'own',
     approvalMode: 'auto',
     now: NOW,

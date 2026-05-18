@@ -18,6 +18,7 @@ class CreateEventParams extends Equatable {
     required this.title,
     required this.category,
     required this.venueName,
+    required this.venueCategory,
     required this.latitude,
     required this.longitude,
     required this.startsAt,
@@ -33,6 +34,11 @@ class CreateEventParams extends Equatable {
   /// Maps to server `venue.address`. City is resolved by the data layer
   /// (hardcoded to 'Singapore' for MVP; extended when multi-city lands).
   final String venueName;
+
+  /// Raw snake_case venue category string (see [VenueCategory]).
+  /// Maps to server `venue.category`.
+  final String venueCategory;
+
   final double latitude;
   final double longitude;
   final DateTime startsAt;
@@ -48,6 +54,7 @@ class CreateEventParams extends Equatable {
     title,
     category,
     venueName,
+    venueCategory,
     latitude,
     longitude,
     startsAt,

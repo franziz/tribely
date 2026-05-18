@@ -27,6 +27,7 @@ const toEventResponse = (event: Event): EventResponse => ({
     city: event.venue.city,
     latitude: event.venue.latitude,
     longitude: event.venue.longitude,
+    category: event.venueCategory.value,
   },
   startsAt: event.startsAt.toISOString(),
   endsAt: event.endsAt.toISOString(),
@@ -91,15 +92,17 @@ export class EventController {
   ) {}
 
   createAction = async (c: Context, hostUserId: string, body: CreateEventBody) => {
+    const { category: venueCategory, ...venueFields } = body.venue;
     const event = await this.createEvent.execute({
       hostUserId,
       title: body.title,
       description: body.description ?? null,
-      venue: body.venue,
+      venue: venueFields,
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
       capacity: body.capacity,
       category: body.category,
+      venueCategory,
       costSplit: body.costSplit,
       approvalMode: body.approvalMode,
     });
@@ -158,17 +161,31 @@ export class EventController {
   };
 
   updateAction = async (c: Context, id: string, actorUserId: string, body: UpdateEventBody) => {
+    // When `body.venue` is supplied, extract `category` (→ venueCategory in use case)
+    // and pass the remaining fields as the venue location shape.
+    const venueFields =
+      body.venue !== undefined
+        ? {
+            address: body.venue.address,
+            city: body.venue.city,
+            latitude: body.venue.latitude,
+            longitude: body.venue.longitude,
+          }
+        : undefined;
+    const venueCategoryFromVenue = body.venue !== undefined ? body.venue.category : undefined;
+
     const event = await this.updateEvent.execute({
       eventId: id,
       actorUserId,
       patch: {
         ...(body.title !== undefined && { title: body.title }),
         ...(body.description !== undefined && { description: body.description }),
-        ...(body.venue !== undefined && { venue: body.venue }),
+        ...(venueFields !== undefined && { venue: venueFields }),
         ...(body.startsAt !== undefined && { startsAt: new Date(body.startsAt) }),
         ...(body.endsAt !== undefined && { endsAt: new Date(body.endsAt) }),
         ...(body.capacity !== undefined && { capacity: body.capacity }),
         ...(body.category !== undefined && { category: body.category }),
+        ...(venueCategoryFromVenue !== undefined && { venueCategory: venueCategoryFromVenue }),
         ...(body.costSplit !== undefined && { costSplit: body.costSplit }),
         ...(body.approvalMode !== undefined && { approvalMode: body.approvalMode }),
       },

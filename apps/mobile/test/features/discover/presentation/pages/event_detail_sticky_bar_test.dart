@@ -48,6 +48,7 @@ final _testEvent = Event(
     city: 'Singapore',
     latitude: 1.3,
     longitude: 103.8,
+    category: 'restaurant',
   ),
   startsAt: DateTime.utc(2099, 6, 1, 18, 0),
   endsAt: DateTime.utc(2099, 6, 1, 21, 0),
