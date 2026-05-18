@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
@@ -7,7 +6,8 @@ import '../../../../core/design/typography.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/domain/entities/event_category.dart';
 
-/// Bottom sheet card displayed when the user taps a single event pin.
+/// Bottom sheet card displayed when the user taps a single event pin on the
+/// Discover map.
 ///
 /// Spec §D Map bottom-sheet card:
 ///   - Drag handle bar: 36 × 4dp, [TribelyColors.paperBorderSubtle].
@@ -17,18 +17,25 @@ import '../../../events/domain/entities/event_category.dart';
 ///   - "View details →" row (bodyM, [TribelyColors.paperPrimary]).
 ///   - Background: [TribelyColors.paperSurfaceHigh], top-corner radius 20.
 ///   - Fixed peek height ~140dp; NOT expandable.
-///   - "View details" routes to `/events/:id`.
-///   - Sheet dismisses on outside tap or upward drag.
-///   - Appear animation: slide up 200ms easeOut.
+///   - "View details" routes to `/events/:id` via [onViewDetails] callback.
+///   - Appear animation: slide up 200ms easeOut (owned by [DiscoverMapTab]).
 ///
-/// Usage:
-///   ```dart
-///   showMapEventBottomSheet(context, event);
-///   ```
+/// This widget is rendered in-tree inside [DiscoverMapTab]'s `Stack` — it is
+/// NOT a modal route. Card lifecycle is controlled by [selectedMapEventProvider].
 class MapEventBottomSheet extends StatelessWidget {
-  const MapEventBottomSheet({required this.event, super.key});
+  const MapEventBottomSheet({
+    required this.event,
+    required this.onViewDetails,
+    super.key,
+  });
 
   final Event event;
+
+  /// Called when the user taps "View details →".
+  ///
+  /// The parent ([DiscoverMapTab]) is responsible for clearing the selected
+  /// event state BEFORE pushing the detail route. Order: clear → push.
+  final VoidCallback onViewDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +67,7 @@ class MapEventBottomSheet extends StatelessWidget {
                 const SizedBox(height: 6),
                 _DatetimeRow(startsAt: event.startsAt, endsAt: event.endsAt),
                 const SizedBox(height: 10),
-                _ViewDetailsRow(eventId: event.id),
+                _ViewDetailsRow(onViewDetails: onViewDetails),
               ],
             ),
           ),
@@ -70,44 +77,6 @@ class MapEventBottomSheet extends StatelessWidget {
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Public show-helper
-// ---------------------------------------------------------------------------
-
-/// Shows [MapEventBottomSheet] for [event] using [showModalBottomSheet].
-///
-/// Spec §D: slide-up 200ms easeOut appear animation. Flutter's default modal
-/// bottom sheet uses a 250ms ease-in-out curve; the 200ms easeOut variant is
-/// achieved by passing a custom [transitionAnimationController].
-///
-/// [vsync] must be provided by the caller (a [TickerProvider] from the
-/// enclosing [State]) so the controller is tied to a live vsync source.
-///
-/// Returns the result of [showModalBottomSheet].
-Future<void> showMapEventBottomSheet(
-  BuildContext context,
-  Event event, {
-  required TickerProvider vsync,
-}) {
-  final controller = AnimationController(
-    vsync: vsync,
-    duration: const Duration(milliseconds: 200),
-  );
-
-  return showModalBottomSheet<void>(
-    context: context,
-    // Fixed peek — do not set isScrollControlled=true (that enables expansion).
-    backgroundColor: Colors.transparent,
-    // Dismiss on outside tap (default behaviour).
-    isDismissible: true,
-    // Upward drag to dismiss.
-    enableDrag: true,
-    // Slide-up 200ms easeOut per spec §D.
-    transitionAnimationController: controller,
-    builder: (_) => MapEventBottomSheet(event: event),
-  ).whenComplete(controller.dispose);
 }
 
 // ---------------------------------------------------------------------------
@@ -231,20 +200,20 @@ class _DatetimeRow extends StatelessWidget {
 }
 
 /// "View details →" row (bodyM, [TribelyColors.paperPrimary], right-aligned
-/// chevron). Tapping routes to `/events/:id`.
+/// chevron). Tapping invokes [onViewDetails] supplied by the parent.
+///
+/// The parent is responsible for the full dismiss-then-navigate sequence
+/// (clear [selectedMapEventProvider] FIRST, then push `/events/:id`).
 class _ViewDetailsRow extends StatelessWidget {
-  const _ViewDetailsRow({required this.eventId});
+  const _ViewDetailsRow({required this.onViewDetails});
 
-  final String eventId;
+  final VoidCallback onViewDetails;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        context.push('/events/$eventId');
-        Navigator.of(context).maybePop(); // dismiss sheet after push
-      },
+      onTap: onViewDetails,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
