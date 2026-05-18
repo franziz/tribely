@@ -3,11 +3,15 @@
 // Covers:
 //   1. Renders event title, category, datetime.
 //   2. "View details →" row is present.
-//   3. Tapping "View details" routes to /events/:id (mocked GoRouter).
+//   3. Tapping "View details" invokes the injected [onViewDetails] callback.
+//
+// Note: modal-route behaviour (showMapEventBottomSheet helper) is no longer
+// tested here — that helper was deleted as part of TRI-103. The card is now
+// an in-tree widget driven by [selectedMapEventProvider]; lifecycle tests live
+// in discover_map_tab_test.dart.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:tribely/src/features/discover/presentation/widgets/map_event_bottom_sheet.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
@@ -44,12 +48,23 @@ final _testEvent = Event(
 // Pump helpers
 // ---------------------------------------------------------------------------
 
-/// Pumps [MapEventBottomSheet] inside a plain [MaterialApp] (no router needed
-/// for rendering tests — routing is covered separately below).
-Future<void> _pumpSheet(WidgetTester tester, Event event) async {
+/// Pumps [MapEventBottomSheet] inside a plain [MaterialApp].
+///
+/// [onViewDetails] defaults to a no-op callback. Pass a real callback to
+/// assert invocation in routing tests.
+Future<void> _pumpSheet(
+  WidgetTester tester,
+  Event event, {
+  VoidCallback? onViewDetails,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
-      home: Scaffold(body: MapEventBottomSheet(event: event)),
+      home: Scaffold(
+        body: MapEventBottomSheet(
+          event: event,
+          onViewDetails: onViewDetails ?? () {},
+        ),
+      ),
     ),
   );
 }
@@ -94,90 +109,29 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 3. "View details" routes to /events/:id
+    // 3. "View details" tap invokes the injected callback
     //
-    // Strategy: wrap in InheritedGoRouter and verify context.push is called
-    // with the correct path. GoRouter's InheritedGoRouter approach lets us
-    // intercept push calls without a real navigation stack.
+    // The callback is injected by the parent ([DiscoverMapTab]) which is
+    // responsible for clearing [selectedMapEventProvider] then pushing the
+    // detail route. Here we verify the callback fires on tap — the
+    // clear-then-push sequence is tested in discover_map_tab_test.dart.
     // -----------------------------------------------------------------------
-    testWidgets('"View details" tap routes to /events/:id', (tester) async {
-      // Record observed route pushes.
-      final pushedRoutes = <String>[];
+    testWidgets('"View details" tap invokes onViewDetails callback', (
+      tester,
+    ) async {
+      var callbackFired = false;
 
-      await tester.pumpWidget(
-        _RouterTestHarness(
-          eventId: _testEvent.id,
-          onPushed: pushedRoutes.add,
-          child: Scaffold(body: MapEventBottomSheet(event: _testEvent)),
-        ),
+      await _pumpSheet(
+        tester,
+        _testEvent,
+        onViewDetails: () => callbackFired = true,
       );
 
       await tester.pump();
-
-      // The sheet is rendered directly (not via showModalBottomSheet here) so
-      // Navigator.pop() inside _ViewDetailsRow is a no-op (nothing to pop).
-      // context.push('/events/evt-test-001') is still called and captured.
       await tester.tap(find.text('View details'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      expect(pushedRoutes, contains('/events/${_testEvent.id}'));
+      expect(callbackFired, isTrue);
     });
   });
-}
-
-// ---------------------------------------------------------------------------
-// Router test harness
-// ---------------------------------------------------------------------------
-
-/// Wraps [child] in a [GoRouter] that intercepts [push] calls and notifies
-/// [onPushed] instead of actually navigating. Lets us assert routing intent
-/// without a full navigation stack.
-class _RouterTestHarness extends StatefulWidget {
-  const _RouterTestHarness({
-    required this.eventId,
-    required this.onPushed,
-    required this.child,
-  });
-
-  final String eventId;
-  final void Function(String) onPushed;
-  final Widget child;
-
-  @override
-  State<_RouterTestHarness> createState() => _RouterTestHarnessState();
-}
-
-class _RouterTestHarnessState extends State<_RouterTestHarness> {
-  late final GoRouter _router;
-
-  @override
-  void initState() {
-    super.initState();
-    final capturedPushes = widget.onPushed;
-    _router = GoRouter(
-      initialLocation: '/sheet-test',
-      routes: [
-        GoRoute(path: '/sheet-test', builder: (context, state) => widget.child),
-        GoRoute(
-          path: '/events/:id',
-          builder: (context, state) {
-            final id = state.pathParameters['id']!;
-            capturedPushes('/events/$id');
-            return const Scaffold(body: Text('detail-stub'));
-          },
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _router.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp.router(routerConfig: _router);
-  }
 }
