@@ -2,7 +2,7 @@
 
 **Status:** v1.0 — locked for launch
 **Owner:** Legal & Compliance (internal advisor) with CEO sign-off
-**Last reviewed:** 2026-05-14
+**Last reviewed:** 2026-05-18
 **Linear:** TRI-23 (feature), TRI-69 (this policy)
 **Jurisdiction:** Singapore (Personal Data Protection Act 2012, with 2020 amendments)
 **External counsel review:** REQUIRED before public launch on items flagged in Section 11.
@@ -73,13 +73,18 @@ Any proposed future use (e.g., dispute-system surfacing, recovery-via-selfie, bi
 
 ## 5. Storage location and architecture
 
-- **Storage region:** Singapore-resident object storage. *Provider and bucket identifier pending selection (tracked separately); the SG-resident constraint is non-negotiable per Section 4 and Section 11. No data will be collected via the selfie flow until this is resolved.*
+- **Provider (v1):** AWS S3 (or any S3-compatible bucket configured via `STORAGE_ENDPOINT`). See `docs/runbooks/sg-selfie-storage-provisioning.md` for one-time provisioning steps.
+- **Region:** AWS `ap-southeast-1` (Singapore). Bucket: `tribely-selfies-prod-sg-ap-southeast-1`. Bucket naming convention going forward: `tribely-<purpose>-<env>-sg-<region-id>` — event-photo and avatar buckets will follow the same pattern when provisioned.
 - **Cross-border transfer (PDPA s26):** Not engaged. Data does not leave Singapore.
-- **Encryption at rest:** Provider-managed AES-256 (minimum).
+- **Encryption at rest:** SSE-S3 (AES-256, provider-managed keys) — default for v1. Applied atomically at bucket creation; no upload window exists with unencrypted objects.
 - **Encryption in transit:** TLS 1.2+ on all client-to-storage and server-to-storage paths.
-- **Access path:** Signed, short-lived URLs only. No public-readable objects under any circumstance.
+- **Access path:** Signed, short-lived URLs only, via the `FileStorage` port. No public-readable objects under any circumstance. Public Access Block enforced bucket-side (all four flags set to `true`).
+
+> **PDPA jurisdictional warning.** The v1 provider selection is a legal decision, not only a technical one. `STORAGE_ENDPOINT` exists to allow a swap to any S3-compatible provider (Cloudflare R2, Backblaze B2, MinIO, DigitalOcean Spaces, etc.), but doing so is **NOT a config-only change**. Any swap that moves the data-at-rest location outside Singapore requires a fresh PDPA s26 cross-border transfer review before the new configuration is deployed to production. "The endpoint variable accepts any URL" does not imply "any destination is pre-approved." Operators must not treat this as a tactical knob without legal sign-off.
 
 If engineering determines that a Singapore-region bucket is operationally infeasible at launch, this triggers a CEO re-decision — it does NOT default to a US/EU region. There is no pre-approved transfer basis under s26 for this data class.
+
+**Downstream:** TRI-5 (concrete `S3FileStorage` adapter) and TRI-23 (selfie capture flow) are the downstream consumers of this decision. The selfie flow is blocked until both TRI-5 and provisioning per the runbook above are complete.
 
 ---
 
