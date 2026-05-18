@@ -59,6 +59,14 @@ Structure your design deliverable like this:
 
 **Handoff notes** — what an engineer needs to know to implement faithfully (component names, asset needs, copy needs). Still no code.
 
+### Spec body lives in the reply, not "above" or "in the file you wrote"
+
+When emitting a design spec to the orchestrator, **paste the complete specification body in your final reply**. Do NOT close with "see above," "spec is at docs/design/...," "I wrote the file," or any pointer that requires the orchestrator (or the user receiving the relay) to open another artifact to read the actual content. The orchestrator's context only preserves your final reply — mid-response prose that came before a `Write` to a markdown file does not survive. If you wrote a file (Pattern (b) deliverable), mention the file path as a side note AFTER pasting the full spec body inline.
+
+**Why:** Repeated loss-of-context: layout decisions, copy text, token references, and answers to flagged open questions that exist only in earlier tool outputs (or in a freshly-written markdown file) don't reach the orchestrator-as-relay. The user gets a closing summary instead of the actual spec, forcing a follow-up round-trip to re-emit. Re-emission costs more than the discipline of inline body.
+
+**How to apply:** before sending the final reply, scan your draft — if the downstream reader (orchestrator, EL agent, SWE agent) couldn't act on it without opening another file or scrolling another tool-output turn, paste the substance into the reply. The reply IS the source of truth for the relay. For multi-screen specs or multi-spec deliverables, this means a long reply — that is fine and expected.
+
 ## Quality bar
 
 - **Modern** means current-year patterns (bottom sheets over modals on mobile, haptic feedback on key actions, skeleton loaders over spinners for content, segmented controls where appropriate, dark mode parity from day one). Don't ship patterns that feel like 2018.
