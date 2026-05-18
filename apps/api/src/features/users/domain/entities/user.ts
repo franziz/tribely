@@ -1,7 +1,7 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
-import { phoneVerificationRevoked } from '@/features/auth/domain/events/phone-verification-revoked.event.js';
-import { phoneVerified } from '@/features/auth/domain/events/phone-verified.event.js';
+import { userPhoneVerificationRevoked } from '../events/user-phone-verification-revoked.event.js';
+import { userPhoneVerified } from '../events/user-phone-verified.event.js';
 import { userEmailVerified } from '../events/user-email-verified.event.js';
 import { userUpdated } from '../events/user-updated.event.js';
 import { userRegistered } from '../events/user-registered.event.js';
@@ -216,7 +216,7 @@ export class User extends AggregateRoot {
    * Marks the user's phone number as verified. Idempotent — if the same phone
    * is already verified, this is a no-op (no events emitted). On a real change
    * (first verification or re-verification with a different number), mutates
-   * state and records `users.userUpdated` + `auth.phoneVerified`.
+   * state and records `users.userUpdated` + `users.userPhoneVerified`.
    */
   verifyPhone(phone: PhoneNumber, now: Date): void {
     if (this._phoneVerifiedAt !== null && this._phone?.value === phone.value) return;
@@ -241,7 +241,7 @@ export class User extends AggregateRoot {
       }),
     );
     this.record(
-      phoneVerified({
+      userPhoneVerified({
         userId: this.id,
         phoneE164: phone.value,
         verifiedAt: now.toISOString(),
@@ -252,7 +252,7 @@ export class User extends AggregateRoot {
   /**
    * Revokes phone verification when the same phone number is claimed and
    * verified by a different user (takeover scenario). Clears `_phoneVerifiedAt`
-   * but RETAINS `_phone` for audit. Records `users.userUpdated` + `auth.phoneVerificationRevoked`.
+   * but RETAINS `_phone` for audit. Records `users.userUpdated` + `users.userPhoneVerificationRevoked`.
    *
    * @param newUserId   The user who is taking over ownership of this phone number.
    * @param phoneE164Hash SHA-256 hash of the phone in E.164 — hashed by the use case
@@ -280,7 +280,7 @@ export class User extends AggregateRoot {
       }),
     );
     this.record(
-      phoneVerificationRevoked({
+      userPhoneVerificationRevoked({
         oldUserId: this.id,
         newUserId,
         phoneE164Hash,

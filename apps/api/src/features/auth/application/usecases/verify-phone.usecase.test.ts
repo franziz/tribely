@@ -5,8 +5,8 @@ import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { User } from '@/features/users/domain/entities/user.js';
 import { DisplayName } from '@/features/users/domain/value-objects/display-name.js';
 import { Email } from '@/features/users/domain/value-objects/email.js';
-import { PHONE_VERIFIED } from '../../../domain/events/phone-verified.event.js';
-import { PHONE_VERIFICATION_REVOKED } from '../../../domain/events/phone-verification-revoked.event.js';
+import { USER_PHONE_VERIFIED } from '../../../../users/domain/events/user-phone-verified.event.js';
+import { USER_PHONE_VERIFICATION_REVOKED } from '../../../../users/domain/events/user-phone-verification-revoked.event.js';
 import { USER_UPDATED } from '../../../../users/domain/events/user-updated.event.js';
 import { VerifyPhoneUseCase } from '../verify-phone.usecase.js';
 import { FakeEventPublisher, FakeUnitOfWork, FakeUserRepository, FixedClock } from './fakes.js';
@@ -100,7 +100,7 @@ describe('VerifyPhoneUseCase', () => {
 
   // --- Happy path (no prior holder) ---
 
-  it('happy path — no prior holder: B verified, events published in order [users.userUpdated, auth.phoneVerified]', async () => {
+  it('happy path — no prior holder: B verified, events published in order [users.userUpdated, users.userPhoneVerified]', async () => {
     const userB = buildUser();
     users.put(userB);
 
@@ -119,7 +119,7 @@ describe('VerifyPhoneUseCase', () => {
     // Exactly 2 events, correct types and order
     expect(events.published).toHaveLength(2);
     expect(events.published[0]?.type).toBe(USER_UPDATED);
-    expect(events.published[1]?.type).toBe(PHONE_VERIFIED);
+    expect(events.published[1]?.type).toBe(USER_PHONE_VERIFIED);
 
     // phoneVerified payload
     expect(events.published[1]?.payload).toMatchObject({
@@ -174,15 +174,15 @@ describe('VerifyPhoneUseCase', () => {
     const savedB = await users.findById('user_b');
     expect(savedB?.phoneVerifiedAt).not.toBeNull();
 
-    // 4 events in correct causal order: A.userUpdated, A.phoneVerificationRevoked, B.userUpdated, B.phoneVerified
+    // 4 events in correct causal order: A.userUpdated, A.userPhoneVerificationRevoked, B.userUpdated, B.userPhoneVerified
     expect(events.published).toHaveLength(4);
     expect(events.published[0]?.type).toBe(USER_UPDATED);
     expect(events.published[0]?.aggregateId).toBe('user_a');
-    expect(events.published[1]?.type).toBe(PHONE_VERIFICATION_REVOKED);
+    expect(events.published[1]?.type).toBe(USER_PHONE_VERIFICATION_REVOKED);
     expect(events.published[1]?.aggregateId).toBe('user_a');
     expect(events.published[2]?.type).toBe(USER_UPDATED);
     expect(events.published[2]?.aggregateId).toBe('user_b');
-    expect(events.published[3]?.type).toBe(PHONE_VERIFIED);
+    expect(events.published[3]?.type).toBe(USER_PHONE_VERIFIED);
     expect(events.published[3]?.aggregateId).toBe('user_b');
 
     // phoneHasher called exactly once with phone.value

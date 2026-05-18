@@ -1,7 +1,7 @@
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { describe, expect, it } from 'vitest';
-import { PHONE_VERIFICATION_REVOKED } from '@/features/auth/domain/events/phone-verification-revoked.event.js';
-import { PHONE_VERIFIED } from '@/features/auth/domain/events/phone-verified.event.js';
+import { USER_PHONE_VERIFICATION_REVOKED } from '../events/user-phone-verification-revoked.event.js';
+import { USER_PHONE_VERIFIED } from '../events/user-phone-verified.event.js';
 import { USER_EMAIL_VERIFIED } from '../events/user-email-verified.event.js';
 import { USER_UPDATED } from '../events/user-updated.event.js';
 import { DisplayName } from '../value-objects/display-name.js';
@@ -111,7 +111,7 @@ describe('User aggregate', () => {
   });
 
   describe('verifyPhone', () => {
-    it('records users.userUpdated + auth.phoneVerified on first verification', () => {
+    it('records users.userUpdated + users.userPhoneVerified on first verification', () => {
       const user = buildUser();
       user.pullEvents();
       const now = new Date('2026-03-01T10:00:00Z');
@@ -125,7 +125,7 @@ describe('User aggregate', () => {
       const events = user.pullEvents();
       expect(events).toHaveLength(2);
       expect(events[0]?.type).toBe(USER_UPDATED);
-      expect(events[1]?.type).toBe(PHONE_VERIFIED);
+      expect(events[1]?.type).toBe(USER_PHONE_VERIFIED);
     });
 
     it('snapshot includes phone + phoneVerifiedAt fields', () => {
@@ -144,7 +144,7 @@ describe('User aggregate', () => {
       });
     });
 
-    it('auth.phoneVerified payload has correct fields', () => {
+    it('users.userPhoneVerified payload has correct fields', () => {
       const user = buildUser();
       user.pullEvents();
       const now = new Date('2026-03-01T10:00:00Z');
@@ -189,7 +189,7 @@ describe('User aggregate', () => {
       const events = user.pullEvents();
       expect(events).toHaveLength(2);
       expect(events[0]?.type).toBe(USER_UPDATED);
-      expect(events[1]?.type).toBe(PHONE_VERIFIED);
+      expect(events[1]?.type).toBe(USER_PHONE_VERIFIED);
       expect(user.phone?.value).toBe('+6599887766');
     });
   });
@@ -203,7 +203,7 @@ describe('User aggregate', () => {
       return user;
     };
 
-    it('records users.userUpdated + auth.phoneVerificationRevoked', () => {
+    it('records users.userUpdated + users.userPhoneVerificationRevoked', () => {
       const user = buildVerifiedUser();
       const now = new Date('2026-04-01T00:00:00Z');
 
@@ -212,10 +212,10 @@ describe('User aggregate', () => {
       const events = user.pullEvents();
       expect(events).toHaveLength(2);
       expect(events[0]?.type).toBe(USER_UPDATED);
-      expect(events[1]?.type).toBe(PHONE_VERIFICATION_REVOKED);
+      expect(events[1]?.type).toBe(USER_PHONE_VERIFICATION_REVOKED);
     });
 
-    it('auth.phoneVerificationRevoked payload has correct fields', () => {
+    it('users.userPhoneVerificationRevoked payload has correct fields', () => {
       const user = buildVerifiedUser();
       const now = new Date('2026-04-01T00:00:00Z');
 

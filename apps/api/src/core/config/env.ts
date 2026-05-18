@@ -78,7 +78,7 @@ export const envSchema = z
       .default(false),
 
     // Salt for one-way hashing of phone numbers before they appear in
-    // long-lived outbox events (e.g. phoneVerificationRevoked). Must be at
+    // long-lived outbox events (e.g. userPhoneVerificationRevoked). Must be at
     // least 32 characters. Generate with: openssl rand -hex 32
     // Boot refuses an empty/missing value when NODE_ENV=production.
     PHONE_HASH_SALT: z.string().min(32).optional(),
