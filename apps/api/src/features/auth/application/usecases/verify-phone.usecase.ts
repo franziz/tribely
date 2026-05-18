@@ -5,18 +5,8 @@ import { PhoneNumber } from '@/core/sms/phone-number.js';
 import type { PhoneHasher } from '@/core/sms/phone-hasher.port.js';
 import type { PhoneVerifier } from '@/core/sms/phone-verifier.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
-import type { User } from '@/features/users/domain/entities/user.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
-
-export interface VerifyPhoneInput {
-  userId: string;
-  rawPhone: string;
-  code: string;
-}
-
-export interface VerifyPhoneResult {
-  user: User;
-}
+import type { VerifyPhoneInput, VerifyPhoneResult } from '../dto/verify-phone.dto.js';
 
 /**
  * Confirms a phone OTP code and marks the user's phone as verified.
