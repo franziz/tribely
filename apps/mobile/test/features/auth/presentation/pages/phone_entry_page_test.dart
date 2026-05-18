@@ -93,25 +93,28 @@ void main() {
     mockUseCase = _MockStartPhoneVerificationUseCase();
   });
 
-  testWidgets(
-    'empty number: Send code button is disabled, backend not called',
-    (tester) async {
-      // AuthPageScaffold uses SingleChildScrollView; scroll the CTA into view before tapping.
-      await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
-      await tester.pump();
+  testWidgets('empty number: Send code button is disabled, backend not called', (
+    tester,
+  ) async {
+    // AuthPageScaffold uses SingleChildScrollView; scroll the CTA into view before tapping.
+    await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
+    await tester.pump();
 
-      // The "Send code" button is disabled (onPressed: null) when the field is
-      // empty — ListenableBuilder guards it with `hasText ? _sendCode : null`.
-      // Verify the button exists in the tree and that tapping it does nothing.
-      final sendCodeFinder = find.text('Send code');
-      expect(sendCodeFinder, findsOneWidget);
-      await tester.scrollUntilVisible(find.byType(PrimaryButton), 200, scrollable: find.byType(Scrollable).first);
-      await tester.tap(sendCodeFinder, warnIfMissed: false);
-      await tester.pump();
+    // The "Send code" button is disabled (onPressed: null) when the field is
+    // empty — ListenableBuilder guards it with `hasText ? _sendCode : null`.
+    // Verify the button exists in the tree and that tapping it does nothing.
+    final sendCodeFinder = find.text('Send code');
+    expect(sendCodeFinder, findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byType(PrimaryButton),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(sendCodeFinder, warnIfMissed: false);
+    await tester.pump();
 
-      verifyNever(() => mockUseCase(any()));
-    },
-  );
+    verifyNever(() => mockUseCase(any()));
+  });
 
   testWidgets('invalid number (letters) shows validation error', (
     tester,
@@ -123,7 +126,11 @@ void main() {
     // active (hasText = true) but validation will fail on submit.
     await tester.enterText(find.byType(TextField).first, 'abcdef');
     await tester.pump();
-    await tester.scrollUntilVisible(find.byType(PrimaryButton), 200, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.byType(PrimaryButton),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Send code'));
     await tester.pump();
 
@@ -146,7 +153,11 @@ void main() {
     // Default country is SG (+65). Enter local number.
     await tester.enterText(find.byType(TextField).first, '91234567');
     await tester.pump();
-    await tester.scrollUntilVisible(find.byType(PrimaryButton), 200, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.byType(PrimaryButton),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Send code'));
     await tester.pumpAndSettle();
 
@@ -160,7 +171,11 @@ void main() {
     await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
     await tester.pump();
 
-    await tester.scrollUntilVisible(find.byType(TextButton), 200, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.byType(TextButton),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Skip for now →'));
     await tester.pumpAndSettle();
 
