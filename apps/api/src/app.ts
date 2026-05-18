@@ -74,6 +74,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
       controller: eventController,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
+      userRepository: container.userRepository,
     }),
   );
   // GET /me/events — authenticated user's own hosted events.
