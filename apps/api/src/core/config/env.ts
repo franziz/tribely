@@ -92,6 +92,32 @@ const envSchema = z
         });
       }
     }
+
+    // Production transport safety guards. Both log adapters are dev-only:
+    // - SMS_TRANSPORT=log accepts the magic bypass code '000000' for any phone.
+    // - EMAIL_TRANSPORT=log writes OTP codes to stdout, which leaks them to
+    //   log aggregators in any environment with centralised logging.
+    if (data.NODE_ENV === 'production' && data.SMS_TRANSPORT === 'log') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMS_TRANSPORT'],
+        message:
+          'SMS_TRANSPORT=log is not allowed when NODE_ENV=production — ' +
+          'set SMS_TRANSPORT=twilio with real Twilio credentials. The log ' +
+          "transport accepts a known bypass code ('000000') and is dev-only.",
+      });
+    }
+    if (data.NODE_ENV === 'production' && data.EMAIL_TRANSPORT === 'log') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['EMAIL_TRANSPORT'],
+        message:
+          'EMAIL_TRANSPORT=log is not allowed when NODE_ENV=production — ' +
+          'set EMAIL_TRANSPORT=resend with a real RESEND_API_KEY. The log ' +
+          'transport writes verification codes to stdout, which leaks to ' +
+          'log aggregators in production.',
+      });
+    }
   });
 
 export type Env = z.infer<typeof envSchema>;

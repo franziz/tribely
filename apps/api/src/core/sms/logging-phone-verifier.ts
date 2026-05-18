@@ -1,11 +1,12 @@
 /**
- * Dev/test adapter — logs the SMS verification request instead of sending it.
- * Used when `SMS_TRANSPORT=log` (default in development), so engineers can
- * see the phone + outcome in their console without burning Twilio quota or
- * needing real Twilio credentials.
+ * Dev-only PhoneVerifier implementation. Logs verification attempts to the
+ * structured logger and accepts the magic code "000000" as verification for
+ * any phone, so `npm run api:dev` works without Twilio credentials.
  *
- * Production MUST set `SMS_TRANSPORT=twilio` (env validation enforces this
- * combined with real Twilio credentials when selected).
+ * SAFETY: This adapter is rejected at boot when NODE_ENV=production — see
+ * the superRefine in core/config/env.ts. The "000000" bypass is a deliberate
+ * dev affordance, safe in this codebase because the prod gate exists. Do
+ * NOT relax that gate without removing the magic-code behavior here first.
  *
  * NOTE: This adapter does NOT enforce the SMS_ALLOWED_COUNTRY_CODES allow-list.
  * Fail-closed enforcement is only meaningful where real money is being spent
@@ -14,8 +15,7 @@
  *
  * Code-acceptance logic: always returns { status: 'sent' } for startVerification.
  * For checkVerification, returns { status: 'verified' } when code is '000000',
- * else { status: 'invalid' }. This lets local integration flows complete the
- * happy path without a real OTP delivery.
+ * else { status: 'invalid' }.
  */
 import { logger } from '../middleware/logger.js';
 import type { PhoneVerifier } from './phone-verifier.port.js';

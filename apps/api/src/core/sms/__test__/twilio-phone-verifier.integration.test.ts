@@ -54,8 +54,11 @@ describe('TwilioPhoneVerifier (integration — real Twilio Verify API)', () => {
         allowedCountryCodes: ['+1'],
       });
 
-      const result = await adapter.startVerification({ phone: MAGIC_PHONE });
-      expect(result).toStrictEqual({ status: 'sent' });
+      const startResult = await adapter.startVerification({ phone: MAGIC_PHONE });
+      expect(
+        startResult.status,
+        'Magic Number +15005550006 was rejected by Twilio Verify — see TRI-4 PR for deferred tech-debt note on integration testing strategy',
+      ).toBe('sent');
     },
     15_000,
   );
