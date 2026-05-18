@@ -14,6 +14,7 @@ class UserProfileModel {
     this.interests = const [],
     this.currentCity,
     this.travelerType,
+    this.isVerified = false,
   });
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +32,7 @@ class UserProfileModel {
       interests: (json['interests'] as List<dynamic>? ?? []).cast<String>(),
       currentCity: json['currentCity'] as String?,
       travelerType: json['travelerType'] as String?,
+      isVerified: json['isVerified'] as bool? ?? false,
     );
   }
 
@@ -46,6 +48,7 @@ class UserProfileModel {
   final List<String> interests;
   final String? currentCity;
   final String? travelerType;
+  final bool isVerified;
 
   UserProfile toEntity() => UserProfile(
     id: id,
@@ -60,5 +63,6 @@ class UserProfileModel {
     interests: interests,
     currentCity: currentCity,
     travelerType: travelerType,
+    isVerified: isVerified,
   );
 }

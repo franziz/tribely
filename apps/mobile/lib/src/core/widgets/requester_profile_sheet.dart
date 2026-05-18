@@ -8,6 +8,7 @@ import '../error/failures.dart';
 import '../providers/get_user_profile_usecase_provider.dart';
 import 'banner_message.dart';
 import 'skeleton_loader.dart';
+import 'verified_pill.dart';
 import '../../features/users/domain/entities/user_profile.dart';
 
 /// Minimal profile bottom sheet shown when a host taps a requester's
@@ -89,6 +90,7 @@ class RequesterProfileSheet extends ConsumerWidget {
               data: (profile) => _LoadedBody(
                 displayName: profile.displayName,
                 createdAt: profile.createdAt,
+                isVerified: profile.isVerified,
               ),
             ),
           ),
@@ -164,10 +166,15 @@ class _ErrorBody extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _LoadedBody extends StatelessWidget {
-  const _LoadedBody({required this.displayName, required this.createdAt});
+  const _LoadedBody({
+    required this.displayName,
+    required this.createdAt,
+    required this.isVerified,
+  });
 
   final String displayName;
   final DateTime createdAt;
+  final bool isVerified;
 
   @override
   Widget build(BuildContext context) {
@@ -191,11 +198,21 @@ class _LoadedBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Display name.
-        Text(
-          displayName,
-          style: TribelyType.headline(TribelyColors.paperInkPrimary),
-          textAlign: TextAlign.center,
+        // Display name + verified pill. Wrap collapses SizedBox.shrink()
+        // (isVerified=false) with zero whitespace gap.
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            Text(
+              displayName,
+              style: TribelyType.headline(TribelyColors.paperInkPrimary),
+              textAlign: TextAlign.center,
+            ),
+            VerifiedPill(isVerified: isVerified),
+          ],
         ),
         const SizedBox(height: 6),
         // Member since copy.
