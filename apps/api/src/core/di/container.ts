@@ -188,7 +188,7 @@ export const buildContainer = (): Container => {
 
   // --- Users ---
   const userRepository = new UserPrismaRepository(db);
-  const getUserUseCase = new GetUserUseCase(userRepository);
+  const getUserUseCase = new GetUserUseCase(userRepository, env.VERIFIED_SIGNAL_SET);
   const updateUserProfileUseCase = new UpdateUserProfileUseCase(
     unitOfWork,
     userRepository,

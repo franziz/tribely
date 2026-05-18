@@ -21,6 +21,7 @@ export const userResponseSchema = z.object({
   email: z.string().email(),
   displayName: z.string(),
   emailVerifiedAt: z.string().nullable(),
+  isVerified: z.boolean(),
   bio: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   languages: z.array(z.enum(LANGUAGE_CODES)),

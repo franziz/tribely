@@ -29,6 +29,17 @@ const envSchema = z
     // verified sender (e.g. `Tribely <noreply@gotribely.com>`).
     EMAIL_FROM: z.string().min(1).default('onboarding@resend.dev'),
     APP_BASE_URL: z.string().url().default('http://localhost:3000'),
+
+    VERIFIED_SIGNAL_SET: z
+      .string()
+      .default('email,phone,selfie')
+      .transform((s) =>
+        s
+          .split(',')
+          .map((p) => p.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.enum(['email', 'phone', 'selfie']))),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
