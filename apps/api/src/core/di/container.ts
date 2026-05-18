@@ -5,6 +5,9 @@ import type { UnitOfWork } from '../db/unit-of-work.port.js';
 import type { EmailSender } from '../email/email-sender.port.js';
 import { LoggingEmailSender } from '../email/logging-email-sender.js';
 import { ResendEmailSender } from '../email/resend-email-sender.js';
+import type { PhoneVerifier } from '../sms/phone-verifier.port.js';
+import { LoggingPhoneVerifier } from '../sms/logging-phone-verifier.js';
+import { TwilioPhoneVerifier } from '../sms/twilio-phone-verifier.js';
 import {
   ConsumerRegistry,
   OutboxDispatcher,
@@ -94,6 +97,26 @@ const buildEmailSender = (): EmailSender => {
   return new LoggingEmailSender();
 };
 
+const buildPhoneVerifier = (): PhoneVerifier => {
+  if (env.SMS_TRANSPORT === 'twilio') {
+    // Zod's superRefine on env guarantees the three Twilio vars are set here,
+    // but explicit checks keep type narrowing local and avoid non-null
+    // assertions (banned by strictTypeChecked).
+    if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_VERIFY_SERVICE_SID) {
+      throw new Error(
+        'SMS_TRANSPORT=twilio requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID',
+      );
+    }
+    return new TwilioPhoneVerifier({
+      accountSid: env.TWILIO_ACCOUNT_SID,
+      authToken: env.TWILIO_AUTH_TOKEN,
+      serviceSid: env.TWILIO_VERIFY_SERVICE_SID,
+      allowedCountryCodes: env.SMS_ALLOWED_COUNTRY_CODES,
+    });
+  }
+  return new LoggingPhoneVerifier();
+};
+
 const parseDurationSeconds = (value: string): number => {
   const match = /^(\d+)([smhd])$/.exec(value);
   if (!match) throw new Error(`Invalid TTL: ${value}`);
@@ -121,6 +144,7 @@ export interface Container {
   dispatcher: OutboxDispatcher;
   rateLimiter: RateLimiter;
   emailSender: EmailSender;
+  phoneVerifier: PhoneVerifier;
   logger: Logger;
 
   // Users
@@ -184,6 +208,7 @@ export const buildContainer = (): Container => {
   const dispatcher = new OutboxDispatcher(db, consumerRegistry);
   const rateLimiter = new InMemoryRateLimiter();
   const emailSender = buildEmailSender();
+  const phoneVerifier = buildPhoneVerifier();
   const logger: Logger = new PinoLogger();
 
   // --- Users ---
@@ -407,6 +432,7 @@ export const buildContainer = (): Container => {
     dispatcher,
     rateLimiter,
     emailSender,
+    phoneVerifier,
     logger,
     userRepository,
     getUserUseCase,
