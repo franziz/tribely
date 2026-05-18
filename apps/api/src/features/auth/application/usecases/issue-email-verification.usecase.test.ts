@@ -33,6 +33,8 @@ const buildUser = (overrides: { verifiedAt?: Date | null } = {}): User => {
     interests: [],
     currentCity: null,
     travelerType: null,
+    phone: null,
+    phoneVerifiedAt: null,
   });
 };
 

@@ -1,4 +1,5 @@
 import type { User as UserRow } from '@prisma/client';
+import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { User } from '../../domain/entities/user.js';
 import { AvatarUrl } from '../../domain/value-objects/avatar-url.js';
 import { Bio } from '../../domain/value-objects/bio.js';
@@ -32,6 +33,10 @@ export const toUser = (row: UserRow): User =>
       row.travelerType != null && isTravelerTypeValue(row.travelerType)
         ? TravelerType.create(row.travelerType)
         : null,
+    // Loud failure: if a persisted phone string fails E.164 validation, the data
+    // integrity issue should surface immediately rather than silently drop the value.
+    phone: row.phone != null ? PhoneNumber.create(row.phone) : null,
+    phoneVerifiedAt: row.phoneVerifiedAt,
   });
 
 export const toRow = (user: User): UserRow => ({
@@ -47,4 +52,6 @@ export const toRow = (user: User): UserRow => ({
   interests: user.interests.map((i) => i.value),
   currentCity: user.currentCity?.value ?? null,
   travelerType: user.travelerType?.value ?? null,
+  phone: user.phone?.value ?? null,
+  phoneVerifiedAt: user.phoneVerifiedAt,
 });

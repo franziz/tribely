@@ -13,6 +13,8 @@ export interface UserUpdatedPayload {
   currentCity: string | null;
   travelerType: 'local' | 'traveling' | 'expat' | null;
   emailVerifiedAt: string | null;
+  phone: string | null;
+  phoneVerifiedAt: string | null;
   updatedAt: string;
 }
 
