@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Consumer } from '../consumer.port.js';
-import { ConsumerRegistry } from '../consumer-registry.js';
+import type { Consumer } from './consumer.port.js';
+import { ConsumerRegistry } from './consumer-registry.js';
 
 const fakeConsumer = (
   overrides: Partial<Consumer> & Pick<Consumer, 'name' | 'topic'>,

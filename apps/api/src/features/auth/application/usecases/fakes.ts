@@ -5,23 +5,23 @@ import type { Logger } from '@/core/observability/logger.port.js';
 import type { User } from '@/features/users/domain/entities/user.js';
 import type { Email } from '@/features/users/domain/value-objects/email.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
-import type { Credential } from '../../../domain/entities/credential.js';
-import type { EmailVerificationToken } from '../../../domain/entities/email-verification-token.js';
-import type { PasswordResetToken } from '../../../domain/entities/password-reset-token.js';
-import type { RefreshToken } from '../../../domain/entities/refresh-token.js';
-import type { Clock } from '../../../domain/ports/clock.port.js';
-import type { PasswordHasher } from '../../../domain/ports/password-hasher.port.js';
+import type { Credential } from '../../domain/entities/credential.js';
+import type { EmailVerificationToken } from '../../domain/entities/email-verification-token.js';
+import type { PasswordResetToken } from '../../domain/entities/password-reset-token.js';
+import type { RefreshToken } from '../../domain/entities/refresh-token.js';
+import type { Clock } from '../../domain/ports/clock.port.js';
+import type { PasswordHasher } from '../../domain/ports/password-hasher.port.js';
 import type {
   GeneratedVerificationCode,
   VerificationCodeHasher,
-} from '../../../domain/ports/verification-code-hasher.port.js';
-import type { CredentialRepository } from '../../../domain/repositories/credential.repository.js';
-import type { EmailVerificationTokenRepository } from '../../../domain/repositories/email-verification-token.repository.js';
-import type { PasswordResetTokenRepository } from '../../../domain/repositories/password-reset-token.repository.js';
-import type { RefreshTokenRepository } from '../../../domain/repositories/refresh-token.repository.js';
-import type { RefreshTokenRevokedReason } from '../../../domain/events/refresh-token-revoked.event.js';
-import { HashedPassword } from '../../../domain/value-objects/hashed-password.js';
-import type { Password } from '../../../domain/value-objects/password.js';
+} from '../../domain/ports/verification-code-hasher.port.js';
+import type { CredentialRepository } from '../../domain/repositories/credential.repository.js';
+import type { EmailVerificationTokenRepository } from '../../domain/repositories/email-verification-token.repository.js';
+import type { PasswordResetTokenRepository } from '../../domain/repositories/password-reset-token.repository.js';
+import type { RefreshTokenRepository } from '../../domain/repositories/refresh-token.repository.js';
+import type { RefreshTokenRevokedReason } from '../../domain/events/refresh-token-revoked.event.js';
+import { HashedPassword } from '../../domain/value-objects/hashed-password.js';
+import type { Password } from '../../domain/value-objects/password.js';
 
 /** Marker used by the fake UoW; domain code treats TxContext as opaque. */
 const TEST_TX: TxContext = { __brand: 'TxContext' };

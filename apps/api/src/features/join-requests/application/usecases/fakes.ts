@@ -1,11 +1,11 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
-import type { JoinRequest } from '../../../domain/entities/join-request.js';
+import type { JoinRequest } from '../../domain/entities/join-request.js';
 import type {
   JoinRequestRepository,
   ListByRequesterPage,
   ListJoinRequestsByRequesterCursor,
   ListJoinRequestsFilters,
-} from '../../../domain/repositories/join-request.repository.js';
+} from '../../domain/repositories/join-request.repository.js';
 
 // Re-export the cross-feature fakes from events so use case tests have a
 // single import surface. These are pure infrastructure-free fakes — sharing
@@ -18,7 +18,7 @@ export {
   FakeUserRepository,
   FixedClock,
   TEST_TX,
-} from '../../../../events/application/usecases/__test__/fakes.js';
+} from '../../../events/application/usecases/fakes.js';
 
 /**
  * In-memory JoinRequestRepository.

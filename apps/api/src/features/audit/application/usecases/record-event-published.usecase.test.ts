@@ -3,8 +3,8 @@ import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type {
   EventAuditLogRecord,
   EventAuditLogRepository,
-} from '../../../domain/repositories/event-audit-log.repository.js';
-import { RecordEventPublishedUseCase } from '../record-event-published.usecase.js';
+} from '../../domain/repositories/event-audit-log.repository.js';
+import { RecordEventPublishedUseCase } from './record-event-published.usecase.js';
 
 const TEST_TX: TxContext = { __brand: 'TxContext' };
 

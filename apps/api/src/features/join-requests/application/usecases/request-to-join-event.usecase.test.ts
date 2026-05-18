@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { DomainEvent } from '@/core/events/domain-event.js';
 import { AppError } from '@/core/errors/app-error.js';
 import { Event, type ApprovalMode } from '@/features/events/domain/entities/event.js';
 import { Capacity } from '@/features/events/domain/value-objects/capacity.js';
@@ -15,7 +16,7 @@ import {
   FakeJoinRequestRepository,
   FakeUnitOfWork,
   FixedClock,
-} from './__test__/fakes.js';
+} from './fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
 const STARTS = new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -77,7 +78,7 @@ describe('RequestToJoinEventUseCase', () => {
       expect(jr.eventId).toBe('evt_1');
       expect(jr.requesterUserId).toBe('requester_1');
       expect(joinRequests.all()).toHaveLength(1);
-      expect(publisher.published.map((e) => e.type)).toEqual([JOIN_REQUEST_REQUESTED]);
+      expect(publisher.published.map((e: DomainEvent) => e.type)).toEqual([JOIN_REQUEST_REQUESTED]);
     });
   });
 
@@ -90,7 +91,7 @@ describe('RequestToJoinEventUseCase', () => {
 
       expect(jr.status).toBe('approved');
       expect(jr.decidedByUserId).toBe('host_42');
-      expect(publisher.published.map((e) => e.type)).toEqual([
+      expect(publisher.published.map((e: DomainEvent) => e.type)).toEqual([
         JOIN_REQUEST_REQUESTED,
         JOIN_REQUEST_APPROVED,
       ]);

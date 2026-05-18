@@ -5,13 +5,13 @@ import type { User } from '@/features/users/domain/entities/user.js';
 import type { Email } from '@/features/users/domain/value-objects/email.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
-import type { Event } from '../../../domain/entities/event.js';
+import type { Event } from '../../domain/entities/event.js';
 import type {
   EventRepository,
   ListEventsCursor,
   ListEventsFilters,
   ListEventsPage,
-} from '../../../domain/repositories/event.repository.js';
+} from '../../domain/repositories/event.repository.js';
 
 /** Marker used by the fake UoW; domain code treats TxContext as opaque. */
 export const TEST_TX: TxContext = { __brand: 'TxContext' };

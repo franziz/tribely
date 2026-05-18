@@ -6,7 +6,7 @@ import { VenueCategory } from '@/features/events/domain/value-objects/venue-cate
 import { Venue } from '@/features/events/domain/value-objects/venue.js';
 import { JoinRequest } from '../../domain/entities/join-request.js';
 import { ListJoinRequestsByRequesterUseCase } from './list-join-requests-by-requester.usecase.js';
-import { FakeEventRepository, FakeJoinRequestRepository } from './__test__/fakes.js';
+import { FakeEventRepository, FakeJoinRequestRepository } from './fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
 const STARTS = new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000);

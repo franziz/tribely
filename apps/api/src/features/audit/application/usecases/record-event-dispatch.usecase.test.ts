@@ -3,8 +3,8 @@ import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type {
   EventAuditLogRecord,
   EventAuditLogRepository,
-} from '../../../domain/repositories/event-audit-log.repository.js';
-import { RecordEventDispatchUseCase } from '../record-event-dispatch.usecase.js';
+} from '../../domain/repositories/event-audit-log.repository.js';
+import { RecordEventDispatchUseCase } from './record-event-dispatch.usecase.js';
 
 class FakeEventAuditLogRepository implements EventAuditLogRepository {
   readonly recorded: EventAuditLogRecord[] = [];

@@ -12,7 +12,7 @@
  * JWT_SECRET), which both local .env and CI _api.yml do.
  */
 import { describe, expect, it } from 'vitest';
-import { envSchema } from '../env.js';
+import { envSchema } from './env.js';
 
 // Minimal valid env fixture — all required fields with the smallest legal values.
 const validBaseEnv: Record<string, string> = {

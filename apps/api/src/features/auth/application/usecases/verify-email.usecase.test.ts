@@ -15,7 +15,7 @@ import {
   FakeUserRepository,
   FakeVerificationCodeHasher,
   FixedClock,
-} from './__test__/fakes.js';
+} from './fakes.js';
 
 const buildUser = (verifiedAt: Date | null = null): User =>
   User.rehydrate({

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { logger } from '../../middleware/logger.js';
-import { LoggingFileStorage } from '../logging-file-storage.js';
+import { logger } from '../middleware/logger.js';
+import { LoggingFileStorage } from './logging-file-storage.js';
 
 describe('LoggingFileStorage', () => {
   let infoSpy: ReturnType<typeof vi.spyOn>;

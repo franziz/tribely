@@ -13,7 +13,7 @@ import {
   FakeGetUserCapabilitiesUseCase,
   FakeUnitOfWork,
   FixedClock,
-} from './__test__/fakes.js';
+} from './fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
 
