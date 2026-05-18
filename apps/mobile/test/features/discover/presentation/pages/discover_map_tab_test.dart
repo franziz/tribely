@@ -195,7 +195,6 @@ Future<void> _pumpMapTab(
 Future<ProviderContainer> _pumpMapTabWithRouter(
   WidgetTester tester, {
   required DiscoverState discoverState,
-  List<String> pushedRoutes = const [],
 }) async {
   tester.view.physicalSize = const Size(414 * 3.0, 896 * 3.0);
   tester.view.devicePixelRatio = 3.0;
