@@ -7,7 +7,6 @@
 //   4. type:phone, verified phone → SizedBox.shrink (no banner).
 //   5. Unauthenticated session → no banner for either type.
 //   6. Both unverified → both banners stackable (email above phone).
-//   7. EmailNotVerifiedBanner (deprecated shim) delegates to VerificationRequiredBanner.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +18,6 @@ import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
-import 'package:tribely/src/features/auth/presentation/widgets/email_not_verified_banner.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -213,25 +211,6 @@ void main() {
       );
       expect(find.textContaining('Verify your email'), findsNothing);
       expect(find.textContaining('Verify your phone'), findsOneWidget);
-    });
-  });
-
-  group('EmailNotVerifiedBanner — deprecated shim', () {
-    testWidgets('shim delegates to VerificationRequiredBanner email type', (
-      tester,
-    ) async {
-      final session = SessionAuthenticated(
-        _makeSession(_makeUser(emailVerified: false)),
-      );
-      await tester.pumpWidget(
-        _wrap(
-          // ignore: deprecated_member_use_from_same_package
-          const EmailNotVerifiedBanner(),
-          session,
-        ),
-      );
-      // Should render the email banner via the delegate.
-      expect(find.textContaining('Verify your email'), findsOneWidget);
     });
   });
 }
