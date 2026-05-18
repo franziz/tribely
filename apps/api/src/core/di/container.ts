@@ -5,6 +5,8 @@ import type { UnitOfWork } from '../db/unit-of-work.port.js';
 import type { EmailSender } from '../email/email-sender.port.js';
 import { LoggingEmailSender } from '../email/logging-email-sender.js';
 import { ResendEmailSender } from '../email/resend-email-sender.js';
+import type { PhoneHasher } from '../sms/phone-hasher.port.js';
+import { Sha256PhoneHasher } from '../sms/sha256-phone-hasher.js';
 import type { PhoneVerifier } from '../sms/phone-verifier.port.js';
 import { LoggingPhoneVerifier } from '../sms/logging-phone-verifier.js';
 import { TwilioPhoneVerifier } from '../sms/twilio-phone-verifier.js';
@@ -159,6 +161,7 @@ export interface Container {
   emailSender: EmailSender;
   phoneVerifier: PhoneVerifier;
   fileStorage: FileStorage;
+  phoneHasher: PhoneHasher;
   logger: Logger;
 
   // Users
@@ -224,6 +227,12 @@ export const buildContainer = (): Container => {
   const emailSender = buildEmailSender();
   const phoneVerifier = buildPhoneVerifier();
   const fileStorage = buildFileStorage();
+  // Zod's superRefine on env guarantees PHONE_HASH_SALT is set when
+  // NODE_ENV=production. In development/test it defaults to a fixed 32-char
+  // sentinel so local dev works without manual env editing.
+  const phoneHasher: PhoneHasher = new Sha256PhoneHasher(
+    env.PHONE_HASH_SALT ?? 'dev-sentinel-phone-hash-salt-00000',
+  );
   const logger: Logger = new PinoLogger();
 
   // --- Users ---
@@ -449,6 +458,7 @@ export const buildContainer = (): Container => {
     emailSender,
     phoneVerifier,
     fileStorage,
+    phoneHasher,
     logger,
     userRepository,
     getUserUseCase,

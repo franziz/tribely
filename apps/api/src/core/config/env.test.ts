@@ -64,6 +64,8 @@ describe('env schema', () => {
           STORAGE_REGION: 'ap-southeast-1',
           STORAGE_ACCESS_KEY_ID: 'AKIATEST',
           STORAGE_SECRET_ACCESS_KEY: 'secrettest',
+          // Must also provide PHONE_HASH_SALT to avoid the phone-hasher guard.
+          PHONE_HASH_SALT: 'production-phone-hash-salt-00000000',
         }),
       ).not.toThrow();
     });
@@ -94,6 +96,29 @@ describe('env schema', () => {
           TWILIO_VERIFY_SERVICE_SID: 'VAtest',
         }),
       ).toThrow(/EMAIL_TRANSPORT=log is not allowed when NODE_ENV=production/);
+    });
+  });
+
+  describe('phone hasher production guard', () => {
+    it('refuses a missing PHONE_HASH_SALT when NODE_ENV=production', () => {
+      expect(() =>
+        parseEnv({
+          NODE_ENV: 'production',
+          SMS_TRANSPORT: 'twilio',
+          TWILIO_ACCOUNT_SID: 'ACtest',
+          TWILIO_AUTH_TOKEN: 'authtest',
+          TWILIO_VERIFY_SERVICE_SID: 'VAtest',
+          EMAIL_TRANSPORT: 'resend',
+          RESEND_API_KEY: 'retest',
+          // No PHONE_HASH_SALT provided.
+        }),
+      ).toThrow(/PHONE_HASH_SALT is required when NODE_ENV=production/);
+    });
+
+    it('accepts PHONE_HASH_SALT in development without a value', () => {
+      // In dev/test, PHONE_HASH_SALT is optional — the container falls back to a
+      // sentinel so local dev works without manual env editing.
+      expect(() => parseEnv({ NODE_ENV: 'development' })).not.toThrow();
     });
   });
 
