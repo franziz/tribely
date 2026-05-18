@@ -54,4 +54,31 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-call': 'off',
     },
   },
+  // Enforce the Twilio SDK import boundary. The `twilio` package must only be
+  // imported from the adapter and its opt-in integration test. The unit test
+  // file is intentionally NOT in the allowlist — it uses plain object stubs
+  // (duck-typed wire shape) and must not re-introduce a real SDK import.
+  // Any violation is caught at lint time, before CI tests run.
+  {
+    files: ['src/**/*.ts'],
+    ignores: [
+      'src/core/sms/twilio-phone-verifier.ts',
+      'src/core/sms/__test__/twilio-phone-verifier.integration.test.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'twilio',
+              message:
+                "Import the 'twilio' SDK only from core/sms/twilio-phone-verifier.ts. " +
+                'Consume the PhoneVerifier port (core/sms/phone-verifier.port.ts) elsewhere.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
