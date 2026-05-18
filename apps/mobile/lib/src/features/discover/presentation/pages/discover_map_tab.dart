@@ -229,8 +229,7 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
       width: EventMapMarker.kSingleDiameter,
       height: EventMapMarker.kSingleDiameter,
       child: GestureDetector(
-        onTap: () =>
-            ref.read(selectedMapEventProvider.notifier).select(event),
+        onTap: () => ref.read(selectedMapEventProvider.notifier).select(event),
         child: EventMapMarker(category: event.category),
       ),
     );
@@ -310,8 +309,7 @@ class _DiscoverMapTabState extends ConsumerState<DiscoverMapTab>
                 // [widget.tileProvider] is null in production (uses NetworkTileProvider
                 // default) and overridden with a no-op provider in widget tests.
                 TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.tribely',
                   tileProvider: widget.tileProvider,
                 ),
@@ -425,9 +423,7 @@ class _CardOverlayState extends State<_CardOverlay>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     // Animate in immediately.
     _controller.forward();
   }

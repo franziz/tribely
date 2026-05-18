@@ -216,9 +216,7 @@ Future<ProviderContainer> _pumpMapTabWithRouter(
         () => _FixedDiscoverController(discoverState),
       ),
       locationServiceProvider.overrideWithValue(mockLocationService),
-      locationPromptShownProvider.overrideWith(
-        _PromptAlreadyShownNotifier.new,
-      ),
+      locationPromptShownProvider.overrideWith(_PromptAlreadyShownNotifier.new),
     ],
   );
   addTearDown(container.dispose);
@@ -407,70 +405,69 @@ void main() {
     // Simulates: open card via selectedMapEventProvider, then trigger
     // MapOptions.onTap to verify the card is dismissed.
     // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping the map after a card is open dismisses the card',
-      (tester) async {
-        final event = _makeEvent('e1');
-        late ProviderContainer container;
+    testWidgets('tapping the map after a card is open dismisses the card', (
+      tester,
+    ) async {
+      final event = _makeEvent('e1');
+      late ProviderContainer container;
 
-        tester.view.physicalSize = const Size(414 * 3.0, 896 * 3.0);
-        tester.view.devicePixelRatio = 3.0;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(414 * 3.0, 896 * 3.0);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-        final mockLocationService = MockLocationService();
-        when(
-          () => mockLocationService.currentPermissionStatus(),
-        ).thenAnswer((_) async => LocationPermissionStatus.denied);
-        when(
-          () => mockLocationService.currentPosition(),
-        ).thenAnswer((_) async => null);
+      final mockLocationService = MockLocationService();
+      when(
+        () => mockLocationService.currentPermissionStatus(),
+      ).thenAnswer((_) async => LocationPermissionStatus.denied);
+      when(
+        () => mockLocationService.currentPosition(),
+      ).thenAnswer((_) async => null);
 
-        container = ProviderContainer(
-          overrides: [
-            discoverControllerProvider.overrideWith(
-              () => _FixedDiscoverController(
-                DiscoverLoaded(events: [event], nextCursor: null),
-              ),
-            ),
-            locationServiceProvider.overrideWithValue(mockLocationService),
-            locationPromptShownProvider.overrideWith(
-              _PromptAlreadyShownNotifier.new,
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
-
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              home: Scaffold(
-                body: DiscoverMapTab(tileProvider: _NoopTileProvider()),
-              ),
+      container = ProviderContainer(
+        overrides: [
+          discoverControllerProvider.overrideWith(
+            () => _FixedDiscoverController(
+              DiscoverLoaded(events: [event], nextCursor: null),
             ),
           ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
+          locationServiceProvider.overrideWithValue(mockLocationService),
+          locationPromptShownProvider.overrideWith(
+            _PromptAlreadyShownNotifier.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
 
-        // Step 1: Programmatically open the card via the provider.
-        container.read(selectedMapEventProvider.notifier).select(event);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: DiscoverMapTab(tileProvider: _NoopTileProvider()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
 
-        // Card must now be visible.
-        expect(find.byType(MapEventBottomSheet), findsOneWidget);
+      // Step 1: Programmatically open the card via the provider.
+      container.read(selectedMapEventProvider.notifier).select(event);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
-        // Step 2: Programmatically clear the provider (simulating map onTap).
-        container.read(selectedMapEventProvider.notifier).clear();
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 200));
+      // Card must now be visible.
+      expect(find.byType(MapEventBottomSheet), findsOneWidget);
 
-        // Card must now be gone.
-        expect(find.byType(MapEventBottomSheet), findsNothing);
-      },
-    );
+      // Step 2: Programmatically clear the provider (simulating map onTap).
+      container.read(selectedMapEventProvider.notifier).clear();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Card must now be gone.
+      expect(find.byType(MapEventBottomSheet), findsNothing);
+    });
 
     // -----------------------------------------------------------------------
     // 6. Tapping "View details" clears provider state before push (TRI-103)
