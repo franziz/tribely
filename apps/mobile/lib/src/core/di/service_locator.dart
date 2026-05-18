@@ -6,6 +6,7 @@ import '../config/app_config.dart';
 import '../network/api_client.dart';
 import '../storage/token_storage.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
+import '../../features/auth/data/datasources/phone_verification_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/get_me_usecase.dart';
@@ -16,7 +17,9 @@ import '../../features/auth/domain/usecases/reset_password_usecase.dart';
 import '../../features/auth/domain/usecases/sign_in_usecase.dart';
 import '../../features/auth/domain/usecases/sign_out_usecase.dart';
 import '../../features/auth/domain/usecases/sign_up_usecase.dart';
+import '../../features/auth/domain/usecases/start_phone_verification_usecase.dart';
 import '../../features/auth/domain/usecases/verify_email_usecase.dart';
+import '../../features/auth/domain/usecases/verify_phone_usecase.dart';
 import '../../features/events/data/datasources/event_draft_local_datasource.dart';
 import '../../features/events/data/datasources/event_remote_datasource.dart';
 import '../../features/events/data/repositories/event_repository_impl.dart';
@@ -65,12 +68,16 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<AuthRemoteDatasource>(
     () => AuthRemoteDatasourceImpl(sl<ApiClient>().dio),
   );
+  sl.registerLazySingleton<PhoneVerificationRemoteDatasource>(
+    () => PhoneVerificationRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
 
   // Auth — repositories
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remote: sl<AuthRemoteDatasource>(),
       tokenStorage: sl<TokenStorage>(),
+      phoneRemote: sl<PhoneVerificationRemoteDatasource>(),
     ),
   );
 
@@ -88,6 +95,10 @@ Future<void> configureDependencies() async {
     () => RequestPasswordResetUseCase(sl<AuthRepository>()),
   );
   sl.registerLazySingleton(() => ResetPasswordUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton(
+    () => StartPhoneVerificationUseCase(sl<AuthRepository>()),
+  );
+  sl.registerLazySingleton(() => VerifyPhoneUseCase(sl<AuthRepository>()));
 
   // Users — datasources
   sl.registerLazySingleton<UserProfileRemoteDatasource>(

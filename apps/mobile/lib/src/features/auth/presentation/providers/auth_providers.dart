@@ -9,8 +9,11 @@ import '../../domain/usecases/reset_password_usecase.dart';
 import '../../domain/usecases/sign_in_usecase.dart';
 import '../../domain/usecases/sign_out_usecase.dart';
 import '../../domain/usecases/sign_up_usecase.dart';
+import '../../domain/usecases/start_phone_verification_usecase.dart';
 import '../../domain/usecases/verify_email_usecase.dart';
+import '../../domain/usecases/verify_phone_usecase.dart';
 import '../controllers/forgot_password_controller.dart';
+import '../controllers/phone_verification_controller.dart';
 import '../controllers/reset_password_controller.dart';
 import '../controllers/session_controller.dart';
 import '../controllers/sign_in_controller.dart';
@@ -46,6 +49,13 @@ final requestPasswordResetUseCaseProvider =
 final resetPasswordUseCaseProvider = Provider<ResetPasswordUseCase>(
   (_) => sl<ResetPasswordUseCase>(),
 );
+final startPhoneVerificationUseCaseProvider =
+    Provider<StartPhoneVerificationUseCase>(
+      (_) => sl<StartPhoneVerificationUseCase>(),
+    );
+final verifyPhoneUseCaseProvider = Provider<VerifyPhoneUseCase>(
+  (_) => sl<VerifyPhoneUseCase>(),
+);
 
 // --- Controllers (Riverpod 3.x Notifier API) ---
 
@@ -72,3 +82,7 @@ final resetPasswordControllerProvider =
     NotifierProvider<ResetPasswordController, ResetPasswordState>(
       ResetPasswordController.new,
     );
+
+final phoneVerificationControllerProvider =
+    NotifierProvider.autoDispose<PhoneVerificationController,
+        PhoneVerificationState>(PhoneVerificationController.new);
