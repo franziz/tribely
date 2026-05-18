@@ -3,13 +3,19 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/event.dart';
 import '../../domain/entities/event_category.dart';
 
-/// JSON model mirroring the server's EventResponse shape PLUS a flattened
-/// [hostDisplayName] projection synthesised by the datasource layer from the
-/// [eventWithHostResponseSchema] wrapper (`{ event: {...}, host: { displayName } }`).
+/// JSON model mirroring the server's EventResponse shape PLUS two synthesised
+/// fields projected from the [eventWithHostResponseSchema] wrapper's `host`
+/// sibling by the datasource layer:
 ///
-/// This model is no longer a 1:1 mirror of eventResponseSchema — it also carries
-/// the [hostDisplayName] pulled from the wrapper's `host` sibling. The datasource
-/// synthesises this via a spread so [fromJson] remains a single-map parse.
+///   - [hostDisplayName] — from `host.displayName` (first synthesised field,
+///     added when the wrapper was introduced).
+///   - [hostIsVerified] — from `host.isVerified` (second synthesised field,
+///     added in TRI-66). Defaults to `false` when absent or null per the
+///     TRI-86 §2 defensive rule.
+///
+/// The datasource synthesises both via a spread into the inner event map so
+/// [fromJson] remains a single-map parse. This model is no longer a 1:1 mirror
+/// of eventResponseSchema.
 ///
 /// See apps/api/src/features/events/presentation/http/schemas/event.schemas.ts
 /// (eventResponseSchema + eventWithHostResponseSchema) and the controller's
@@ -34,6 +40,7 @@ class EventModel extends Equatable {
     required this.approvalMode,
     required this.status,
     required this.createdAt,
+    required this.hostIsVerified,
     this.hostDisplayName,
   });
 
@@ -57,6 +64,11 @@ class EventModel extends Equatable {
       approvalMode: json['approvalMode'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+      // Defensive default per TRI-86 §2: transient backend failure resolves to
+      // `false`, never field-absent and never `null`. On GET /events (listing)
+      // this field is absent → `?? false` is intentional; the pill is event-
+      // detail only (TRI-66 scope is /events/:id).
+      hostIsVerified: (json['hostIsVerified'] as bool?) ?? false,
       hostDisplayName: json['hostDisplayName'] as String?,
     );
   }
@@ -74,6 +86,12 @@ class EventModel extends Equatable {
   final String approvalMode;
   final String status;
   final DateTime createdAt;
+
+  /// Projected from the [eventWithHostResponseSchema] wrapper's `host.isVerified`
+  /// field by the datasource. Non-nullable — defaults to `false` when the field
+  /// is absent or null (defensive per TRI-86 §2). On GET /events (listing) the
+  /// field is always absent; the pill is event-detail only (TRI-66 scope).
+  final bool hostIsVerified;
 
   /// Projected from the [eventWithHostResponseSchema] wrapper's `host.displayName`
   /// field by the datasource. Nullable — server contract says non-null, but the
@@ -98,6 +116,7 @@ class EventModel extends Equatable {
     approvalMode: approvalMode,
     status: status,
     createdAt: createdAt,
+    hostIsVerified: hostIsVerified,
     hostDisplayName: hostDisplayName,
   );
 
@@ -116,6 +135,7 @@ class EventModel extends Equatable {
     approvalMode,
     status,
     createdAt,
+    hostIsVerified,
     hostDisplayName,
   ];
 }

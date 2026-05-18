@@ -27,6 +27,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mocktail/mocktail.dart';
 import 'package:tribely/src/core/router/app_shell.dart';
+import 'package:tribely/src/core/widgets/verified_pill.dart';
 import 'package:tribely/src/core/services/location_service.dart';
 import 'package:tribely/src/core/services/location_service_providers.dart';
 import 'package:tribely/src/core/widgets/primary_button.dart';
@@ -83,6 +84,7 @@ final _testEvent = Event(
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
+  hostIsVerified: false,
 );
 
 const _testEventId = 'evt-abc123';
@@ -632,6 +634,54 @@ void main() {
         );
 
         expect(find.text('Hosted by Host'), findsOneWidget);
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 8. VerifiedPill rendering in host row (TRI-66)
+    // -----------------------------------------------------------------------
+
+    testWidgets(
+      'event.hostIsVerified = true → VerifiedPill renders + semantics label present',
+      (tester) async {
+        final verifiedEvent = _testEvent.copyWith(
+          hostIsVerified: true,
+          hostDisplayName: 'Alice',
+        );
+
+        await _pumpPage(
+          tester,
+          eventId: _testEventId,
+          initialState: EventDetailLoaded(verifiedEvent),
+        );
+
+        // VerifiedPill widget is present in the tree.
+        expect(find.byType(VerifiedPill), findsOneWidget);
+        // Semantics label 'Verified' is exposed (VerifiedPill wraps in Semantics).
+        expect(find.bySemanticsLabel('Verified'), findsOneWidget);
+        // Host display name text still renders.
+        expect(find.text('Hosted by Alice'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'event.hostIsVerified = false → VerifiedPill present but collapses (no semantics label)',
+      (tester) async {
+        // _testEvent has hostIsVerified: false and no hostDisplayName.
+        final unverifiedEvent = _testEvent.copyWith(hostDisplayName: 'Alice');
+
+        await _pumpPage(
+          tester,
+          eventId: _testEventId,
+          initialState: EventDetailLoaded(unverifiedEvent),
+        );
+
+        // VerifiedPill always renders in the tree; it collapses to SizedBox.shrink().
+        expect(find.byType(VerifiedPill), findsOneWidget);
+        // No semantics label when isVerified=false.
+        expect(find.bySemanticsLabel('Verified'), findsNothing);
+        // Host row text still renders.
+        expect(find.text('Hosted by Alice'), findsOneWidget);
       },
     );
   });

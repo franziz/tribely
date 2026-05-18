@@ -27,6 +27,7 @@ import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
 import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
 import '../../../join_requests/presentation/widgets/pending_request_row.dart';
 import '../../../../core/widgets/requester_profile_sheet.dart';
+import '../../../../core/widgets/verified_pill.dart';
 import '../providers/event_detail_providers.dart';
 import '../state/event_detail_state.dart';
 
@@ -421,12 +422,34 @@ class _MetaRows extends StatelessWidget {
           label: '${event.venue.address}, ${event.venue.city}',
         ),
         const SizedBox(height: 10),
-        _MetaRow(
-          icon: Icons.person_outline,
-          // host.displayName is now wired from the eventWithHostResponseSchema
-          // wrapper. Falls back to 'Host' if absent (defensive parse).
-          // Avatar deferred to TRI-19 (API doesn't ship avatarUrl in v1).
-          label: 'Hosted by ${event.hostDisplayName ?? 'Host'}',
+        // Host row: icon + "Hosted by <name>" + optional VerifiedPill (TRI-66).
+        // Uses a Wrap so the pill collapses to zero width when isVerified=false
+        // (VerifiedPill returns SizedBox.shrink()), producing no whitespace gap.
+        // Mirrors the TRI-65 placement template (requester_profile_sheet.dart:201-216).
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.person_outline,
+              size: 20,
+              color: TribelyColors.paperInkSecondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Hosted by ${event.hostDisplayName ?? 'Host'}',
+                    style: TribelyType.bodyM(TribelyColors.paperInkSecondary),
+                  ),
+                  VerifiedPill(isVerified: event.hostIsVerified),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

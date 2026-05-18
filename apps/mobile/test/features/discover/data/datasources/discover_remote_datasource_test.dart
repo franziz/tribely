@@ -38,8 +38,11 @@ Map<String, dynamic> _innerEventJson({String id = 'evt-42'}) => {
 };
 
 /// The WRAPPER shape that GET /events/:id actually returns:
-/// { event: {...inner...}, host: { id, displayName } }
+/// { event: {...inner...}, host: { id, displayName, isVerified? } }
 /// Defined in eventWithHostResponseSchema (event.schemas.ts:91-94).
+///
+/// [host] defaults to { id, displayName } without isVerified — parser will
+/// default hostIsVerified to false via the ?? false fallback.
 Map<String, dynamic> _wrapperJson({
   String id = 'evt-42',
   Map<String, dynamic>? host = const {'id': 'usr-1', 'displayName': 'Alice'},
@@ -92,10 +95,35 @@ void main() {
       },
     );
 
+    test('host.displayName is synthesised onto the model as hostDisplayName, '
+        'absent isVerified defaults to false', () async {
+      // Arrange: wrapper with host.displayName present but no isVerified field.
+      when(
+        () => dio.get<Map<String, dynamic>>(
+          '/events/evt-42',
+          queryParameters: any(named: 'queryParameters'),
+          options: any(named: 'options'),
+          cancelToken: any(named: 'cancelToken'),
+          onReceiveProgress: any(named: 'onReceiveProgress'),
+        ),
+      ).thenAnswer(
+        (_) async => _dioResponse(
+          _wrapperJson(host: {'id': 'usr-1', 'displayName': 'Alice'}),
+        ),
+      );
+
+      // Act.
+      final model = await datasource.getEventDetail('evt-42');
+
+      // Assert: host display name and isVerified (defaults false) flow through.
+      expect(model.hostDisplayName, 'Alice');
+      expect(model.hostIsVerified, false);
+    });
+
     test(
-      'host.displayName is synthesised onto the model as hostDisplayName',
+      'host.isVerified = true in wrapper → model.hostIsVerified == true',
       () async {
-        // Arrange: wrapper with host.displayName present.
+        // Arrange: wrapper carries host.isVerified: true.
         when(
           () => dio.get<Map<String, dynamic>>(
             '/events/evt-42',
@@ -106,20 +134,23 @@ void main() {
           ),
         ).thenAnswer(
           (_) async => _dioResponse(
-            _wrapperJson(host: {'id': 'usr-1', 'displayName': 'Alice'}),
+            _wrapperJson(
+              host: {'id': 'usr-1', 'displayName': 'Alice', 'isVerified': true},
+            ),
           ),
         );
 
         // Act.
         final model = await datasource.getEventDetail('evt-42');
 
-        // Assert: host display name flows through.
+        // Assert: verified flag flows through.
+        expect(model.hostIsVerified, true);
         expect(model.hostDisplayName, 'Alice');
       },
     );
 
     test(
-      'absent host sibling → hostDisplayName is null (graceful fallback)',
+      'absent host sibling → hostDisplayName is null and hostIsVerified is false (graceful fallback)',
       () async {
         // Arrange: wrapper with no host key.
         when(
@@ -135,8 +166,9 @@ void main() {
         // Act.
         final model = await datasource.getEventDetail('evt-42');
 
-        // Assert: graceful null — no throw.
+        // Assert: graceful null for displayName; false for isVerified — no throw.
         expect(model.hostDisplayName, isNull);
+        expect(model.hostIsVerified, false);
       },
     );
 

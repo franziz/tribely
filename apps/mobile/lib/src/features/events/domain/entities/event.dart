@@ -19,6 +19,7 @@ class Event extends Equatable {
     required this.approvalMode,
     required this.status,
     required this.createdAt,
+    required this.hostIsVerified,
     this.hostDisplayName,
   });
 
@@ -26,6 +27,11 @@ class Event extends Equatable {
   final String hostId;
   final String title;
   final String? description;
+
+  /// True iff host satisfies TRI-86's active verification signal set. Always
+  /// present (non-nullable). At launch, every host is `false` until upstream
+  /// signals ship — see docs/specs/user-is-verified-projection.md.
+  final bool hostIsVerified;
 
   /// Display name of the host, projected from the eventWithHostResponseSchema
   /// wrapper by the data layer. Nullable — graceful fallback to 'Host' in the
@@ -67,6 +73,7 @@ class Event extends Equatable {
     String? approvalMode,
     String? status,
     DateTime? createdAt,
+    bool? hostIsVerified,
     String? hostDisplayName,
   }) => Event(
     id: id ?? this.id,
@@ -82,6 +89,7 @@ class Event extends Equatable {
     approvalMode: approvalMode ?? this.approvalMode,
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
+    hostIsVerified: hostIsVerified ?? this.hostIsVerified,
     hostDisplayName: hostDisplayName ?? this.hostDisplayName,
   );
 
@@ -100,6 +108,7 @@ class Event extends Equatable {
     approvalMode,
     status,
     createdAt,
+    hostIsVerified,
     hostDisplayName,
   ];
 }

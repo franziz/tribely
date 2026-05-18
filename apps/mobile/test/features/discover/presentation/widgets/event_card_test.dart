@@ -53,6 +53,7 @@ Event _makeEvent({
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
+  hostIsVerified: false,
 );
 
 // ---------------------------------------------------------------------------

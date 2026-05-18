@@ -59,6 +59,7 @@ Event _makeEvent(String id) => Event(
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
+  hostIsVerified: false,
 );
 
 final _twoEvents = [_makeEvent('e1'), _makeEvent('e2')];

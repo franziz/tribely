@@ -58,6 +58,7 @@ final _testEvent = Event(
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 1, 1),
+  hostIsVerified: false,
   hostDisplayName: 'Kai',
 );
 

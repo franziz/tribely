@@ -68,6 +68,7 @@ Event _stubEvent({String id = 'evt-1'}) {
     approvalMode: 'auto',
     status: 'published',
     createdAt: DateTime(2030, 1, 1),
+    hostIsVerified: false,
   );
 }
 
