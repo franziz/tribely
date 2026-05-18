@@ -58,6 +58,12 @@ describe('env schema', () => {
           // Must also provide a real email transport to avoid the email guard.
           EMAIL_TRANSPORT: 'resend',
           RESEND_API_KEY: 'retest',
+          // Must also provide a real storage transport to avoid the storage guard.
+          STORAGE_TRANSPORT: 's3',
+          STORAGE_BUCKET: 'tribely-prod',
+          STORAGE_REGION: 'ap-southeast-1',
+          AWS_ACCESS_KEY_ID: 'AKIATEST',
+          AWS_SECRET_ACCESS_KEY: 'secrettest',
         }),
       ).not.toThrow();
     });
