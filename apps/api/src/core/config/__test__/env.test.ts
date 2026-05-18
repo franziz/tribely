@@ -62,8 +62,8 @@ describe('env schema', () => {
           STORAGE_TRANSPORT: 's3',
           STORAGE_BUCKET: 'tribely-prod',
           STORAGE_REGION: 'ap-southeast-1',
-          AWS_ACCESS_KEY_ID: 'AKIATEST',
-          AWS_SECRET_ACCESS_KEY: 'secrettest',
+          STORAGE_ACCESS_KEY_ID: 'AKIATEST',
+          STORAGE_SECRET_ACCESS_KEY: 'secrettest',
         }),
       ).not.toThrow();
     });

@@ -69,8 +69,13 @@ export const envSchema = z
     STORAGE_TRANSPORT: z.enum(['log', 's3']).default('log'),
     STORAGE_BUCKET: z.string().min(1).optional(),
     STORAGE_REGION: z.string().min(1).optional(),
-    AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
-    AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_ENDPOINT: z.string().url().optional(),
+    STORAGE_FORCE_PATH_STYLE: z
+      .union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')])
+      .optional()
+      .default(false),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
@@ -146,18 +151,18 @@ export const envSchema = z
           message: 'STORAGE_REGION is required when STORAGE_TRANSPORT=s3',
         });
       }
-      if (!data.AWS_ACCESS_KEY_ID) {
+      if (!data.STORAGE_ACCESS_KEY_ID) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['AWS_ACCESS_KEY_ID'],
-          message: 'AWS_ACCESS_KEY_ID is required when STORAGE_TRANSPORT=s3',
+          path: ['STORAGE_ACCESS_KEY_ID'],
+          message: 'STORAGE_ACCESS_KEY_ID is required when STORAGE_TRANSPORT=s3',
         });
       }
-      if (!data.AWS_SECRET_ACCESS_KEY) {
+      if (!data.STORAGE_SECRET_ACCESS_KEY) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['AWS_SECRET_ACCESS_KEY'],
-          message: 'AWS_SECRET_ACCESS_KEY is required when STORAGE_TRANSPORT=s3',
+          path: ['STORAGE_SECRET_ACCESS_KEY'],
+          message: 'STORAGE_SECRET_ACCESS_KEY is required when STORAGE_TRANSPORT=s3',
         });
       }
     }
