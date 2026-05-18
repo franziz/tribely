@@ -5,6 +5,8 @@ import type { UnitOfWork } from '../db/unit-of-work.port.js';
 import type { EmailSender } from '../email/email-sender.port.js';
 import { LoggingEmailSender } from '../email/logging-email-sender.js';
 import { ResendEmailSender } from '../email/resend-email-sender.js';
+import type { PhoneVerifier } from '../sms/phone-verifier.port.js';
+import { LoggingPhoneVerifier } from '../sms/logging-phone-verifier.js';
 import {
   ConsumerRegistry,
   OutboxDispatcher,
@@ -94,6 +96,17 @@ const buildEmailSender = (): EmailSender => {
   return new LoggingEmailSender();
 };
 
+const buildPhoneVerifier = (): PhoneVerifier => {
+  if (env.SMS_TRANSPORT === 'twilio') {
+    // TwilioPhoneVerifier not yet wired — see TRI-4 commit 2.
+    // Zod's superRefine guarantees the three Twilio vars are set when
+    // SMS_TRANSPORT=twilio, so this path only fires if someone manually
+    // sets the transport before the adapter ships.
+    throw new Error('TwilioPhoneVerifier not yet wired — see TRI-4 commit 2');
+  }
+  return new LoggingPhoneVerifier();
+};
+
 const parseDurationSeconds = (value: string): number => {
   const match = /^(\d+)([smhd])$/.exec(value);
   if (!match) throw new Error(`Invalid TTL: ${value}`);
@@ -121,6 +134,7 @@ export interface Container {
   dispatcher: OutboxDispatcher;
   rateLimiter: RateLimiter;
   emailSender: EmailSender;
+  phoneVerifier: PhoneVerifier;
   logger: Logger;
 
   // Users
@@ -184,6 +198,7 @@ export const buildContainer = (): Container => {
   const dispatcher = new OutboxDispatcher(db, consumerRegistry);
   const rateLimiter = new InMemoryRateLimiter();
   const emailSender = buildEmailSender();
+  const phoneVerifier = buildPhoneVerifier();
   const logger: Logger = new PinoLogger();
 
   // --- Users ---
@@ -407,6 +422,7 @@ export const buildContainer = (): Container => {
     dispatcher,
     rateLimiter,
     emailSender,
+    phoneVerifier,
     logger,
     userRepository,
     getUserUseCase,

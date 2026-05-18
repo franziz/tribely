@@ -40,6 +40,25 @@ const envSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(z.enum(['email', 'phone', 'selfie']))),
+
+    // SMS / phone verification — `log` writes to the logger (dev default,
+    // no real sends), `twilio` hits the real Twilio Verify API. Selection
+    // is explicit (not inferred from key presence) so a missing credential
+    // in staging fails loudly at boot rather than silently skipping sends.
+    SMS_TRANSPORT: z.enum(['log', 'twilio']).default('log'),
+    TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
+    TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+    TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
+    // Comma-separated list of E.164 country code prefixes to allow. Requests
+    // from numbers NOT matching any prefix are rejected before a Twilio call
+    // is made (returns { status: 'invalid' } to the caller, logs WARN for ops).
+    // Default '+65' = Singapore-only for v1 launch. Add markets by changing
+    // this env var — no code change required.
+    SMS_ALLOWED_COUNTRY_CODES: z
+      .string()
+      .default('+65')
+      .transform((s) => s.split(',').map((c) => c.trim()))
+      .pipe(z.array(z.string().regex(/^\+[1-9]\d{0,3}$/)).min(1)),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
@@ -48,6 +67,30 @@ const envSchema = z
         path: ['RESEND_API_KEY'],
         message: 'RESEND_API_KEY is required when EMAIL_TRANSPORT=resend',
       });
+    }
+
+    if (data.SMS_TRANSPORT === 'twilio') {
+      if (!data.TWILIO_ACCOUNT_SID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['TWILIO_ACCOUNT_SID'],
+          message: 'TWILIO_ACCOUNT_SID is required when SMS_TRANSPORT=twilio',
+        });
+      }
+      if (!data.TWILIO_AUTH_TOKEN) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['TWILIO_AUTH_TOKEN'],
+          message: 'TWILIO_AUTH_TOKEN is required when SMS_TRANSPORT=twilio',
+        });
+      }
+      if (!data.TWILIO_VERIFY_SERVICE_SID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['TWILIO_VERIFY_SERVICE_SID'],
+          message: 'TWILIO_VERIFY_SERVICE_SID is required when SMS_TRANSPORT=twilio',
+        });
+      }
     }
   });
 
