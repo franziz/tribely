@@ -337,7 +337,11 @@ export const buildContainer = (): Container => {
     getUserCapabilitiesUseCase,
   );
   const listEventsUseCase = new ListEventsUseCase(eventRepository, clock);
-  const getEventUseCase = new GetEventUseCase(eventRepository, userRepository);
+  const getEventUseCase = new GetEventUseCase(
+    eventRepository,
+    userRepository,
+    env.VERIFIED_SIGNAL_SET,
+  );
   const updateEventUseCase = new UpdateEventUseCase(
     unitOfWork,
     eventRepository,

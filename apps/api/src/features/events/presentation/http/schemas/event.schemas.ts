@@ -98,7 +98,7 @@ const eventResponseSchema = z.object({
 
 export const eventWithHostResponseSchema = z.object({
   event: eventResponseSchema,
-  host: z.object({ id: z.string(), displayName: z.string() }),
+  host: z.object({ id: z.string(), displayName: z.string(), isVerified: z.boolean() }),
 });
 
 export const eventListingResponseSchema = z.object({
