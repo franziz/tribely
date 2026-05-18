@@ -14,6 +14,7 @@ class UserProfile extends Equatable {
     this.interests = const [],
     this.currentCity,
     this.travelerType,
+    this.isVerified = false,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class UserProfile extends Equatable {
   final List<String> interests;
   final String? currentCity;
   final String? travelerType;
+  final bool isVerified;
 
   UserProfile copyWith({
     String? bio,
@@ -65,5 +67,6 @@ class UserProfile extends Equatable {
     interests,
     currentCity,
     travelerType,
+    isVerified,
   ];
 }

@@ -100,7 +100,7 @@ export class AuthController {
   };
 
   meAction = async (c: Context, userId: string) => {
-    const user = await this.getUser.execute({ id: userId });
+    const { user } = await this.getUser.execute({ id: userId });
     return c.json(toAuthUserDto(user), 200);
   };
 

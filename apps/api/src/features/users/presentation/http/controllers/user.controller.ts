@@ -8,11 +8,12 @@ import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { AuthVariables } from '@/core/middleware/require-auth.js';
 import type { UpdateUserProfileBody, UserResponse } from '../schemas/user.schemas.js';
 
-const toResponse = (user: User): UserResponse => ({
+const toResponse = (user: User, isVerified: boolean): UserResponse => ({
   id: user.id,
   email: user.email.value,
   displayName: user.displayName.value,
   emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+  isVerified,
   bio: user.bio?.value ?? null,
   avatarUrl: user.avatarUrl?.value ?? null,
   languages: user.languages.map((l) => l.value),
@@ -56,8 +57,8 @@ export class UserController {
   ) {}
 
   get = async (c: Context, id: string) => {
-    const user = await this.getUser.execute({ id });
-    return c.json(toResponse(user), 200);
+    const { user, isVerified } = await this.getUser.execute({ id });
+    return c.json(toResponse(user, isVerified), 200);
   };
 
   getMyCapabilities = async (c: Context<{ Variables: AuthVariables }>) => {
@@ -72,7 +73,7 @@ export class UserController {
 
     await this.updateProfile.execute(input);
 
-    const user = await this.getUser.execute({ id: userId });
-    return c.json(toResponse(user), 200);
+    const { user, isVerified } = await this.getUser.execute({ id: userId });
+    return c.json(toResponse(user, isVerified), 200);
   };
 }

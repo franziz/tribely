@@ -100,6 +100,8 @@ features/<name>/
   application/                         # Application business rules — orchestration only
     usecases/                          # One class per user intent. Constructor injection.
                                        # Wraps state-changing work in unitOfWork.run(...)
+    projections/                       # Pure read-model derivations from domain state (e.g., is-verified.projection.ts).
+                                       # Canonical example + placement rationale: docs/specs/user-is-verified-projection.md §6.
   infrastructure/                      # Driven adapters
     persistence/                       # <aggregate>.prisma-repository.ts + <aggregate>.mapper.ts
     adapters/                          # Concrete impls of domain ports — JWT, argon2, mailer, clock
