@@ -41,6 +41,13 @@ class EmailNotVerifiedFailure extends Failure {
   const EmailNotVerifiedFailure(super.message, {super.code});
 }
 
+/// 403 with code PHONE_NOT_VERIFIED. Distinct from AuthFailure (401) so the
+/// UI can route the user to the verify-phone screen instead of treating it
+/// as a hard sign-out.
+class PhoneNotVerifiedFailure extends Failure {
+  const PhoneNotVerifiedFailure(super.message, {super.code});
+}
+
 class NotFoundFailure extends Failure {
   const NotFoundFailure(super.message, {super.code});
 }
