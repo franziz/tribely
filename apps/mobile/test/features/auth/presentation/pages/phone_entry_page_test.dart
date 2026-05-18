@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:tribely/src/core/error/failures.dart';
+import 'package:tribely/src/core/widgets/primary_button.dart';
 import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
 import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/domain/usecases/start_phone_verification_usecase.dart';
@@ -95,12 +96,7 @@ void main() {
   testWidgets(
     'empty number: Send code button is disabled, backend not called',
     (tester) async {
-      // Use a tall surface so all content (country chip, field, PDPA text, CTA)
-      // fits within the viewport without scrolling.
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 3.0;
-      addTearDown(tester.view.reset);
-
+      // AuthPageScaffold uses SingleChildScrollView; scroll the CTA into view before tapping.
       await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
       await tester.pump();
 
@@ -109,6 +105,7 @@ void main() {
       // Verify the button exists in the tree and that tapping it does nothing.
       final sendCodeFinder = find.text('Send code');
       expect(sendCodeFinder, findsOneWidget);
+      await tester.scrollUntilVisible(find.byType(PrimaryButton), 200, scrollable: find.byType(Scrollable).first);
       await tester.tap(sendCodeFinder, warnIfMissed: false);
       await tester.pump();
 
@@ -119,10 +116,6 @@ void main() {
   testWidgets('invalid number (letters) shows validation error', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3.0;
-    addTearDown(tester.view.reset);
-
     await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
     await tester.pump();
 
@@ -130,6 +123,7 @@ void main() {
     // active (hasText = true) but validation will fail on submit.
     await tester.enterText(find.byType(TextField).first, 'abcdef');
     await tester.pump();
+    await tester.scrollUntilVisible(find.byType(PrimaryButton), 200, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Send code'));
     await tester.pump();
 
@@ -140,10 +134,6 @@ void main() {
   testWidgets('valid number calls controller start with E.164 phone', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3.0;
-    addTearDown(tester.view.reset);
-
     // Stub the use case to return Left(NetworkFailure) — we're just testing
     // that it was called, not the success navigation path.
     when(
@@ -156,6 +146,7 @@ void main() {
     // Default country is SG (+65). Enter local number.
     await tester.enterText(find.byType(TextField).first, '91234567');
     await tester.pump();
+    await tester.scrollUntilVisible(find.byType(PrimaryButton), 200, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Send code'));
     await tester.pumpAndSettle();
 
@@ -166,13 +157,10 @@ void main() {
   });
 
   testWidgets('skip navigates without calling backend', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 3.0;
-    addTearDown(tester.view.reset);
-
     await tester.pumpWidget(_wrap(const PhoneEntryPage(), mockUseCase));
     await tester.pump();
 
+    await tester.scrollUntilVisible(find.byType(TextButton), 200, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Skip for now →'));
     await tester.pumpAndSettle();
 
