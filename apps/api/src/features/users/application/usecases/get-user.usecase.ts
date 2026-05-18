@@ -1,10 +1,10 @@
 import { AppError } from '@/core/errors/app-error.js';
-import type { User } from '../../domain/entities/user.js';
 import type { UserRepository } from '../../domain/repositories/user.repository.js';
 import {
   computeIsVerified,
   type VerificationSignalId,
 } from '../projections/is-verified.projection.js';
+import type { GetUserResult } from '../dto/get-user-result.dto.js';
 
 export interface GetUserInput {
   id: string;
@@ -16,7 +16,7 @@ export class GetUserUseCase {
     private readonly signalSet: VerificationSignalId[],
   ) {}
 
-  async execute(input: GetUserInput): Promise<{ user: User; isVerified: boolean }> {
+  async execute(input: GetUserInput): Promise<GetUserResult> {
     const user = await this.users.findById(input.id);
     if (!user) throw AppError.notFound(`User ${input.id} not found`);
 
