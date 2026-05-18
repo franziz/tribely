@@ -65,10 +65,16 @@ describe.skipIf(!dbUrl)('GET /me/join-requests (integration)', () => {
       ],
     });
 
-    // Mark requester's email verified (requireVerifiedEmail gate)
+    // Mark requester's email + phone verified (requireVerifiedEmail + requireVerifiedPhone gates).
+    // phone column has UNIQUE constraint + E.164 validation on mapper read-back.
+    const ts8 = String(Date.now()).slice(-8);
     await db.user.update({
       where: { id: requesterUserId },
-      data: { emailVerifiedAt: new Date() },
+      data: {
+        emailVerifiedAt: new Date(),
+        phone: `+65${ts8}`,
+        phoneVerifiedAt: new Date(),
+      },
     });
 
     const issued = await tokens.issue({

@@ -42,6 +42,11 @@ describe.skipIf(!dbUrl)('POST /events/:id/join-requests (integration)', () => {
     requesterUserId = createId();
     hostUserId = createId();
 
+    // Derive a unique E.164 phone from a timestamp suffix.
+    // `phone` column has UNIQUE constraint + E.164 validation on mapper read-back.
+    const ts8 = String(Date.now()).slice(-8);
+    const requesterPhone = `+65${ts8}`;
+
     await db.user.createMany({
       data: [
         {
@@ -49,6 +54,8 @@ describe.skipIf(!dbUrl)('POST /events/:id/join-requests (integration)', () => {
           email: `req-${requesterUserId}@es-jr.test`,
           displayName: 'Requester',
           emailVerifiedAt: new Date(),
+          phone: requesterPhone,
+          phoneVerifiedAt: new Date(),
         },
         {
           id: hostUserId,

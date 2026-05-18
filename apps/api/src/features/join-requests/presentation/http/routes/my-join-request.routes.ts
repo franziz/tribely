@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
+import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type { JoinRequestController } from '../controllers/join-request.controller.js';
@@ -22,18 +23,20 @@ export interface MyJoinRequestRouteDeps {
  * the mobile event-detail "do I have a request?" lookup.
  *
  * Auth requirements mirror every other endpoint in this feature:
- * `requireAuth + requireVerifiedEmail`.
+ * `requireAuth + requireVerifiedEmail + requireVerifiedPhone`.
  */
 export const buildMyJoinRequestsRoutes = (
   deps: MyJoinRequestRouteDeps,
 ): Hono<{ Variables: AuthVariables }> => {
   const auth = requireAuth(deps.accessTokens);
-  const verified = requireVerifiedEmail(deps.userRepository);
+  const verifiedEmail = requireVerifiedEmail(deps.userRepository);
+  const verifiedPhone = requireVerifiedPhone(deps.userRepository);
 
   return new Hono<{ Variables: AuthVariables }>().get(
     '/join-requests',
     auth,
-    verified,
+    verifiedEmail,
+    verifiedPhone,
     zValidator('query', listMyJoinRequestsQuerySchema),
     (c) => deps.controller.listMineAction(c, c.get('userId'), c.req.valid('query')),
   );
