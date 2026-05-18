@@ -63,6 +63,7 @@ String _bannerFor(Failure failure) {
     CapacityFullFailure() => failure.message,
     ConflictFailure() => failure.message,
     FirstEventMustBePublicFailure() => failure.message,
+    SmsRateLimitedFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

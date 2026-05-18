@@ -69,17 +69,41 @@ class SessionController extends Notifier<SessionState> {
   }
 
   /// Called by SignInController / SignUpController on successful auth.
+  /// Always resets [phoneRevokedSinceLastSeen] to false — a fresh sign-in
+  /// represents a clean session.
   void setAuthenticated(AuthSession session) {
     state = SessionAuthenticated(session);
   }
 
-  /// Replace the user inside the current session — e.g. after email
-  /// verification flips `emailVerifiedAt` from null to a timestamp. No-op if
-  /// not currently authenticated.
+  /// Replace the user inside the current session — e.g. after email/phone
+  /// verification flips `*VerifiedAt` from null to a timestamp, or after
+  /// a GET /me refresh. No-op if not currently authenticated.
+  ///
+  /// Detects the `phoneVerifiedAt: !null → null` transition and sets
+  /// [SessionAuthenticated.phoneRevokedSinceLastSeen] = true so the UI can
+  /// surface a neutral "contested phone" banner. The flag is purely transient
+  /// (not persisted) and resets to false on cold-start.
   void setUser(User user) {
     final current = state;
-    if (current is SessionAuthenticated) {
-      state = SessionAuthenticated(current.session.copyWith(user: user));
+    if (current is! SessionAuthenticated) return;
+
+    final previousPhoneVerifiedAt = current.session.user.phoneVerifiedAt;
+    final phoneRevoked =
+        previousPhoneVerifiedAt != null && user.phoneVerifiedAt == null;
+
+    state = SessionAuthenticated(
+      current.session.copyWith(user: user),
+      phoneRevokedSinceLastSeen:
+          current.phoneRevokedSinceLastSeen || phoneRevoked,
+    );
+  }
+
+  /// Dismisses the contested-phone neutral banner. Resets
+  /// [SessionAuthenticated.phoneRevokedSinceLastSeen] to false.
+  void dismissPhoneRevokedBanner() {
+    final current = state;
+    if (current is SessionAuthenticated && current.phoneRevokedSinceLastSeen) {
+      state = SessionAuthenticated(current.session);
     }
   }
 
