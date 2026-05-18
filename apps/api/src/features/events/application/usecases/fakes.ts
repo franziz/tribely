@@ -1,10 +1,7 @@
-import type { TxContext, UnitOfWork } from '@/core/db/unit-of-work.port.js';
-import type { DomainEvent } from '@/core/events/domain-event.js';
-import type { EventPublisher } from '@/core/events/event-publisher.port.js';
+import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { User } from '@/features/users/domain/entities/user.js';
 import type { Email } from '@/features/users/domain/value-objects/email.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
-import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { Event } from '../../domain/entities/event.js';
 import type {
   EventRepository,
@@ -13,35 +10,14 @@ import type {
   ListEventsPage,
 } from '../../domain/repositories/event.repository.js';
 
-/** Marker used by the fake UoW; domain code treats TxContext as opaque. */
-export const TEST_TX: TxContext = { __brand: 'TxContext' };
-
-export class FakeUnitOfWork implements UnitOfWork {
-  async run<T>(work: (ctx: TxContext) => Promise<T>): Promise<T> {
-    return work(TEST_TX);
-  }
-}
-
-export class FakeEventPublisher implements EventPublisher {
-  readonly published: DomainEvent[] = [];
-  publish(_ctx: TxContext, ...events: DomainEvent[]): Promise<void> {
-    this.published.push(...events);
-    return Promise.resolve();
-  }
-}
-
-export class FixedClock implements Clock {
-  constructor(private current: Date) {}
-  now(): Date {
-    return this.current;
-  }
-  advance(ms: number): void {
-    this.current = new Date(this.current.getTime() + ms);
-  }
-  set(at: Date): void {
-    this.current = at;
-  }
-}
+// Core-port fakes — shared across features. Re-exported here for convenience
+// so existing events test imports remain at `./fakes.js`.
+export {
+  FakeEventPublisher,
+  FakeUnitOfWork,
+  FixedClock,
+  TEST_TX,
+} from '@/core/testing/fakes.js';
 
 export class FakeUserRepository implements UserRepository {
   private readonly byId = new Map<string, User>();
