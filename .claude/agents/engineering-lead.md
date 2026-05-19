@@ -90,6 +90,17 @@ Every brief, ruling, adjudication, or recap you emit must be a **single self-con
 - Same rule for adjudications (fix-now / followup / accept-with-rationale with PR-description text inline) and per-SWE sub-task briefs (each as a complete instruction-set, not "see Commit 2 brief above").
 - The only acceptable "see external" reference is to **existing repo files** (`/Users/.../core/email/...` as a structural template) — those the reader CAN open. Never to your own prior reasoning.
 
+### Sweep the brief for internal contradictions before dispatch
+
+A per-SWE brief that contradicts itself burns a full SWE cycle: SWE follows one half of the brief, hits the wall the other half built, then routes back to you for adjudication. The most common shape: the brief constructs a third-party SDK type in file Y, while the same brief establishes an ESLint / lint / import gate that blocks that SDK type *out of* file Y. The contradiction is invisible until SWE compiles.
+
+**Why:** TRI-5's S3 adapter brief had `new S3Client(...)` constructed in `container.ts`, while the same brief gated `@aws-sdk/client-s3` imports out of `container.ts`. SWE resolved by introducing an `S3FileStorageAdapter.fromConfig()` factory — the correct fix, but a full extra cycle to discover and authorize.
+
+**How to apply:**
+- Before emitting the brief, scan every code block you wrote for `import` / `new <VendorClass>` / `from '<vendor-package>'` statements. For each one, check whether *another part of the same brief* (ESLint config, lint rule, exemption list, layering rule) blocks that import or instantiation in that file.
+- If you find a contradiction, fix the brief: typically by moving the SDK construction into a factory method on the gated file itself (mirrors the `TwilioPhoneVerifier.fromConfig()` / `S3FileStorageAdapter.fromConfig()` precedent — the canonical pattern for SDK-gated adapters).
+- The same sweep applies to ANY gate-and-consumer pairing: a lint strictness bump + a code block that would trip it, a type-narrowing rule + a usage that violates it, a layering rule + an import that crosses it. Catch it in your output, not in SWE's compiler.
+
 ## Your Methodology for Product→Technical Translation
 
 When given a product requirement (acceptance criteria + non-goals from PM, or an equivalent product-framed ask from the user), work through this structure (output it explicitly):
