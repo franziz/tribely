@@ -401,3 +401,26 @@ model SelfiePendingStorageDelete {
   @@index([attempts, enqueuedAt])
   @@map("selfie_pending_storage_deletes")
 }
+
+/// Per-tick observability record for scheduled sweep jobs.
+///
+/// One row is written per sweep execution (success or failure). Answers
+/// "did the sweep run on date X?" for App Store / regulator audit requests.
+///
+/// `kind` is 'selfie-retention-sweep' at launch; future jobs (account-deletion
+/// sweep, orphan-media reaper) can reuse this table by using a distinct kind.
+model SweepRun {
+  id              String    @id @default(cuid())
+  kind            String    // 'selfie-retention-sweep' for this brief; future jobs can reuse the table
+  startedAt       DateTime
+  finishedAt      DateTime?
+  evaluated       Int       @default(0)
+  deleted         Int       @default(0)
+  failed          Int       @default(0)
+  reaperRetried   Int       @default(0)
+  reaperSucceeded Int       @default(0)
+  error           String?
+
+  @@index([kind, startedAt])
+  @@map("sweep_runs")
+}
