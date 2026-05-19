@@ -95,6 +95,7 @@ import { SweepRunPrismaRepository } from '@/features/selfies/infrastructure/pers
 import type { PendingStorageDeleteRepository } from '@/features/selfies/domain/repositories/pending-storage-delete.repository.js';
 import type { SelfieRepository } from '@/features/selfies/domain/repositories/selfie.repository.js';
 import type { SweepRunRepository } from '@/features/selfies/domain/repositories/sweep-run.repository.js';
+import { registerSelfiesConsumers } from '@/features/selfies/presentation/events/index.js';
 
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
@@ -558,6 +559,7 @@ export const buildContainer = (): Container => {
   });
   registerEventsConsumers(consumerRegistry);
   registerJoinRequestsConsumers(consumerRegistry);
+  registerSelfiesConsumers(consumerRegistry);
 
   return {
     db,
