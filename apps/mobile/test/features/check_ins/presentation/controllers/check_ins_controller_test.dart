@@ -72,7 +72,7 @@ ProviderContainer _makeContainer({
   // Keep the autoDispose provider alive for the full test lifetime.
   container.listen<CheckInsState>(
     checkInsControllerProvider,
-    (_, __) {},
+    (_, _) {},
     fireImmediately: true,
   );
   return container;
