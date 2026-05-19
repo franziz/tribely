@@ -4,8 +4,9 @@ import 'package:tribely/src/core/lifecycle/app_lifecycle_listener.dart';
 
 void main() {
   group('OnResumedListener', () {
-    testWidgets('calls onResumed when AppLifecycleState.resumed is signalled',
-        (tester) async {
+    testWidgets('calls onResumed when AppLifecycleState.resumed is signalled', (
+      tester,
+    ) async {
       var callCount = 0;
 
       await tester.pumpWidget(
@@ -15,8 +16,7 @@ void main() {
         ),
       );
 
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 
       expect(callCount, 1);
     });
@@ -31,8 +31,7 @@ void main() {
         ),
       );
 
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
 
       expect(callCount, 0);
     });
@@ -47,8 +46,7 @@ void main() {
         ),
       );
 
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
 
       expect(callCount, 0);
     });
@@ -63,14 +61,14 @@ void main() {
         ),
       );
 
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
 
       expect(callCount, 0);
     });
 
-    testWidgets('calls onResumed on every paused→resumed transition',
-        (tester) async {
+    testWidgets('calls onResumed on every paused→resumed transition', (
+      tester,
+    ) async {
       var callCount = 0;
 
       await tester.pumpWidget(
@@ -81,29 +79,24 @@ void main() {
       );
 
       // First cycle.
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(callCount, 1);
 
       // Second cycle.
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(callCount, 2);
 
       // Third cycle.
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(callCount, 3);
     });
 
-    testWidgets('does NOT call onResumed after widget is disposed',
-        (tester) async {
+    testWidgets('does NOT call onResumed after widget is disposed', (
+      tester,
+    ) async {
       var callCount = 0;
 
       await tester.pumpWidget(
@@ -117,8 +110,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
 
       // Signal resumed after disposal — should be a no-op.
-      tester.binding
-          .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 
       expect(callCount, 0);
     });
