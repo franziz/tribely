@@ -162,6 +162,63 @@ This policy is an internal compliance artefact. It is NOT a legal opinion and is
 
 ---
 
+## 7A. Verification failure & appeal metadata (TRI-70)
+
+This subsection extends Section 7 to cover the abuse-prevention metadata introduced by the verification-failure flow. It is NOT a separate policy; it is part of this policy.
+
+### 7A.1 Scope
+
+Three fields on the `User` aggregate:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `selfieAttemptCount` | integer (0–3+) | Rate-limit gate — enforces the 3-attempt budget before appeal lockout. |
+| `selfieLastFailureCategory` | enum (`lighting` / `face_not_visible` / `quality` / `other`) | Powers in-app failure copy and pre-populated support context. |
+| `selfieAppealLockedAt` | timestamp, nullable | Enforces the 24h lockout window; triggers appeal routing. |
+
+These fields contain NO image data and NO biometric data. They are personal data under PDPA s2(1) only by virtue of being attached to an identifiable user record.
+
+### 7A.2 Lawful basis and purpose (PDPA s13–14, s18)
+
+Collection relies on the same express consent obtained at selfie capture (Section 3), extended in the layered notice to cover "we keep a record of your verification attempts to prevent abuse." Use is restricted to:
+
+1. Enforcing the 3-attempt-budget rate limit.
+2. Enforcing the 24h lockout window.
+3. Pre-populating the support context for an appeal (subject to user override — see Section 7A.5).
+4. Internal Trust & Safety review of appeal patterns.
+
+The fields are **not** used for marketing, profiling, shadow-banning beyond the disclosed lockout, sharing with third parties, or training any model.
+
+### 7A.3 Retention (PDPA s25)
+
+| State | Retention window | Trigger to delete |
+|---|---|---|
+| Account active | Lifetime of account | None — retained for abuse-prevention purpose throughout account lifetime |
+| Account deleted | 0 (immediate cascade) | Account-deletion cascade per Section 8 |
+| Appeal resolved as approved | Fields are NOT cleared on appeal approval | See Section 7A.4 |
+
+**Why lifetime-of-account is defensible under s25:** The abuse-prevention purpose persists for the lifetime of the account. Clearing on appeal-approval would defeat the rate-limit's purpose — a bad-faith actor could reset their attempt count by appealing. The fields are minimal (one int, one enum, one timestamp), contain no sensitive content, and are deleted on account deletion. This is consistent with how login-attempt counters and account-lockout timestamps are treated industry-wide.
+
+### 7A.4 Behavior on appeal approval
+
+On reviewer approval of an appeal, `selfieAppealLockedAt` is cleared (the user regains access). `selfieAttemptCount` and `selfieLastFailureCategory` are **preserved** as historical record — they form part of the reviewer-audit trail and the future-abuse-detection signal. This is intentional and aligned with the lifetime-of-account retention basis in 7A.3.
+
+### 7A.5 Pre-populated support context
+
+When the user taps "Contact support" after lockout, the device's default mail client is opened with a pre-populated subject and body. The body includes the values of these three fields, plus userId, app version, and OS. The user is shown a disclosure screen (see `docs/policies/verification-appeal-disclosure.in-app-excerpt.md`) BEFORE the mail client opens, and can edit or delete any of this content before sending. The user's ability to edit/delete preserves PDPA s14(1)(a) deliberate-consent semantics for the onward transmission.
+
+### 7A.6 User rights (PDPA s21–22)
+
+- **Access (s21):** A user may request a copy of these three field values. They are returned alongside the selfie decision metadata per Section 9. Response within 30 calendar days.
+- **Correction (s22):** These fields are operational counters and timestamps; correction is not user-facing. A successful appeal effectively "corrects" `selfieAppealLockedAt` by clearing it.
+- **Withdrawal of consent (s16):** Effected via account deletion (cascade per Section 8).
+
+### 7A.7 Access controls
+
+These fields are part of the `User` aggregate and follow the same access pattern as other user record fields. Reviewer access during appeals is logged per Section 6.
+
+---
+
 ## 12. Change log
 
 | Date | Version | Change | Approver |

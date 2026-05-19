@@ -59,6 +59,8 @@ import type { RefreshTokenRepository } from '@/features/auth/domain/repositories
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
+import { RejectSelfieUseCase } from '@/features/users/application/usecases/reject-selfie.usecase.js';
+import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
 import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapters/stub-host-ratings-read-model.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
@@ -199,6 +201,8 @@ export interface Container {
   getUserUseCase: GetUserUseCase;
   updateUserProfileUseCase: UpdateUserProfileUseCase;
   getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
+  rejectSelfieUseCase: RejectSelfieUseCase;
+  approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -400,6 +404,15 @@ export const buildContainer = (): Container => {
     clock,
   });
 
+  // --- Users (selfie moderation — depends on clock from auth section) ---
+  const rejectSelfieUseCase = new RejectSelfieUseCase(unitOfWork, userRepository, publisher, clock);
+  const approveSelfieAppealUseCase = new ApproveSelfieAppealUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+    clock,
+  );
+
   // --- Audit ---
   const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
   const eventAuditLogRepository = new EventAuditLogPrismaRepository(db);
@@ -441,6 +454,7 @@ export const buildContainer = (): Container => {
   const getUserCapabilitiesUseCase = new GetUserCapabilitiesUseCase(
     eventRepository,
     stubHostRatingsReadModel,
+    userRepository,
   );
 
   const createEventUseCase = new CreateEventUseCase(
@@ -529,6 +543,8 @@ export const buildContainer = (): Container => {
     getUserUseCase,
     updateUserProfileUseCase,
     getUserCapabilitiesUseCase,
+    rejectSelfieUseCase,
+    approveSelfieAppealUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,

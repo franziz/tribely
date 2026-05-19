@@ -33,6 +33,10 @@ const buildUser = (verifiedAt: Date | null = null): User =>
     travelerType: null,
     phone: null,
     phoneVerifiedAt: null,
+    selfieStatus: null,
+    selfieAttemptCount: 0,
+    selfieLastFailureCategory: null,
+    selfieAppealLockedAt: null,
   });
 
 const buildToken = (

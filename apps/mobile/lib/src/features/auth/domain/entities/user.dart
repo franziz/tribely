@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../users/domain/value_objects/selfie_failure_category.dart';
+
 class User extends Equatable {
   const User({
     required this.id,
@@ -9,6 +11,10 @@ class User extends Equatable {
     required this.updatedAt,
     this.emailVerifiedAt,
     this.phoneVerifiedAt,
+    this.selfieStatus = 'notStarted',
+    this.selfieAttemptCount = 0,
+    this.selfieLastFailureCategory,
+    this.selfieAppealLockedAt,
   });
 
   final String id;
@@ -25,6 +31,20 @@ class User extends Equatable {
   /// `isPhoneVerified` is the convenient predicate for UI gating.
   final DateTime? phoneVerifiedAt;
 
+  /// Selfie verification lifecycle status.
+  /// One of: 'notStarted' | 'pending' | 'rejected' | 'approved'.
+  final String selfieStatus;
+
+  /// How many times the user has attempted selfie verification.
+  final int selfieAttemptCount;
+
+  /// The reason the most recent selfie was rejected, if any.
+  final SelfieFailureCategory? selfieLastFailureCategory;
+
+  /// When set, the user is in the appeal-locked window and cannot re-submit
+  /// until this timestamp has passed.
+  final DateTime? selfieAppealLockedAt;
+
   bool get isEmailVerified => emailVerifiedAt != null;
   bool get isPhoneVerified => phoneVerifiedAt != null;
 
@@ -33,6 +53,10 @@ class User extends Equatable {
     DateTime? updatedAt,
     // Use Object? sentinel to distinguish "set to null" from "leave unchanged".
     Object? phoneVerifiedAt = _sentinel,
+    String? selfieStatus,
+    int? selfieAttemptCount,
+    Object? selfieLastFailureCategory = _sentinel,
+    Object? selfieAppealLockedAt = _sentinel,
   }) => User(
     id: id,
     email: email,
@@ -43,6 +67,14 @@ class User extends Equatable {
     phoneVerifiedAt: phoneVerifiedAt == _sentinel
         ? this.phoneVerifiedAt
         : phoneVerifiedAt as DateTime?,
+    selfieStatus: selfieStatus ?? this.selfieStatus,
+    selfieAttemptCount: selfieAttemptCount ?? this.selfieAttemptCount,
+    selfieLastFailureCategory: selfieLastFailureCategory == _sentinel
+        ? this.selfieLastFailureCategory
+        : selfieLastFailureCategory as SelfieFailureCategory?,
+    selfieAppealLockedAt: selfieAppealLockedAt == _sentinel
+        ? this.selfieAppealLockedAt
+        : selfieAppealLockedAt as DateTime?,
   );
 
   @override
@@ -54,9 +86,13 @@ class User extends Equatable {
     updatedAt,
     emailVerifiedAt,
     phoneVerifiedAt,
+    selfieStatus,
+    selfieAttemptCount,
+    selfieLastFailureCategory,
+    selfieAppealLockedAt,
   ];
 }
 
 /// Sentinel used in [User.copyWith] to distinguish "leave unchanged" from
-/// "explicitly set to null" for nullable [phoneVerifiedAt].
+/// "explicitly set to null" for nullable fields.
 const Object _sentinel = Object();

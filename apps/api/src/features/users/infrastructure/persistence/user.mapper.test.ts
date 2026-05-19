@@ -1,6 +1,6 @@
 import type { User as UserRow } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { toRow, toUser } from '../user.mapper.js';
+import { toRow, toUser } from './user.mapper.js';
 
 const BASE_DATE = new Date('2026-01-01T00:00:00Z');
 
@@ -19,6 +19,10 @@ const BASE_ROW: UserRow = {
   travelerType: null,
   phone: null,
   phoneVerifiedAt: null,
+  selfieStatus: null,
+  selfieAttemptCount: 0,
+  selfieLastFailureCategory: null,
+  selfieAppealLockedAt: null,
 };
 
 describe('user mapper', () => {
@@ -43,6 +47,40 @@ describe('user mapper', () => {
       const row: UserRow = { ...BASE_ROW, phone: 'not-a-phone' };
       expect(() => toUser(row)).toThrow();
     });
+
+    it('round-trips selfie fields — locked state', () => {
+      const lockedAt = new Date('2026-05-03T08:00:00Z');
+      const row: UserRow = {
+        ...BASE_ROW,
+        selfieStatus: 'rejected',
+        selfieAttemptCount: 3,
+        selfieLastFailureCategory: 'poor_lighting',
+        selfieAppealLockedAt: lockedAt,
+      };
+      const user = toUser(row);
+      expect(user.selfieStatus).toBe('rejected');
+      expect(user.selfieAttemptCount).toBe(3);
+      expect(user.selfieLastFailureCategory).toBe('poor_lighting');
+      expect(user.selfieAppealLockedAt).toEqual(lockedAt);
+    });
+
+    it('coerces unknown selfieLastFailureCategory to null (DB drift guard)', () => {
+      const row: UserRow = {
+        ...BASE_ROW,
+        selfieLastFailureCategory: 'unknown_value_from_future',
+      };
+      const user = toUser(row);
+      expect(user.selfieLastFailureCategory).toBeNull();
+    });
+
+    it('coerces unknown selfieStatus to null (DB drift guard)', () => {
+      const row: UserRow = {
+        ...BASE_ROW,
+        selfieStatus: 'unknown_status',
+      };
+      const user = toUser(row);
+      expect(user.selfieStatus).toBeNull();
+    });
   });
 
   describe('toRow (domain → DB)', () => {
@@ -66,6 +104,30 @@ describe('user mapper', () => {
       const row = toRow(toUser(input));
       expect(row.phone).toBe('+6591234567');
       expect(row.phoneVerifiedAt).toBeNull();
+    });
+
+    it('round-trips selfie locked state through toUser → toRow', () => {
+      const lockedAt = new Date('2026-05-03T08:00:00Z');
+      const input: UserRow = {
+        ...BASE_ROW,
+        selfieStatus: 'rejected',
+        selfieAttemptCount: 3,
+        selfieLastFailureCategory: 'quality_too_low',
+        selfieAppealLockedAt: lockedAt,
+      };
+      const row = toRow(toUser(input));
+      expect(row.selfieStatus).toBe('rejected');
+      expect(row.selfieAttemptCount).toBe(3);
+      expect(row.selfieLastFailureCategory).toBe('quality_too_low');
+      expect(row.selfieAppealLockedAt).toEqual(lockedAt);
+    });
+
+    it('round-trips null selfie fields through toUser → toRow', () => {
+      const row = toRow(toUser(BASE_ROW));
+      expect(row.selfieStatus).toBeNull();
+      expect(row.selfieAttemptCount).toBe(0);
+      expect(row.selfieLastFailureCategory).toBeNull();
+      expect(row.selfieAppealLockedAt).toBeNull();
     });
   });
 });

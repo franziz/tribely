@@ -34,6 +34,13 @@ model User {
   phone           String?
   phoneVerifiedAt DateTime?
   // Partial unique on `phone WHERE phoneVerifiedAt IS NOT NULL` — see migration 20260518131307_add_user_phone/migration.sql
+  // Selfie verification (TRI-70). selfieStatus / selfieLastFailureCategory are TEXT + CHECK constraint
+  // (not Postgres enum) per codebase convention. selfieAttemptCount is NOT NULL DEFAULT 0.
+  // selfieAppealLockedAt is set when attemptCount >= 3 after a rejection; cleared by appeal approval.
+  selfieStatus              String?   // pending | approved | rejected — CHECK enforced by migration
+  selfieAttemptCount        Int       @default(0)
+  selfieLastFailureCategory String?   // SelfieFailureCategory — CHECK enforced by migration
+  selfieAppealLockedAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

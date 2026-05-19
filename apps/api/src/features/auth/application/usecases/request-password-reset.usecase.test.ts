@@ -36,6 +36,10 @@ const buildUser = (overrides: { verifiedAt?: Date | null } = {}): User => {
     travelerType: null,
     phone: null,
     phoneVerifiedAt: null,
+    selfieStatus: null,
+    selfieAttemptCount: 0,
+    selfieLastFailureCategory: null,
+    selfieAppealLockedAt: null,
   });
 };
 

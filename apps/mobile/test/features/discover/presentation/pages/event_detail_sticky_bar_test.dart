@@ -30,6 +30,8 @@ import 'package:tribely/src/features/join_requests/domain/entities/join_request.
 import 'package:tribely/src/features/join_requests/presentation/controllers/request_to_join_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -159,6 +161,9 @@ Future<_FixedRequestToJoinController> _pumpPage(
   required Event event,
   required RequestToJoinState ctaState,
   SessionState sessionState = const SessionUnauthenticated(),
+  // Default to Approved so existing tests are unaffected by selfie gating.
+  // Pass a different value to exercise gating behaviour in dedicated tests.
+  SelfieGatingState selfieGatingState = const SelfieGatingApproved(),
   VoidCallback? onWithdrawCalled,
   VoidCallback? onSubmitCalled,
 }) async {
@@ -180,6 +185,8 @@ Future<_FixedRequestToJoinController> _pumpPage(
         requestToJoinControllerProvider(
           _testEventId,
         ).overrideWith(() => controller),
+        // Selfie gating is approved by default so non-selfie tests are unaffected.
+        selfieGatingStateProvider.overrideWithValue(selfieGatingState),
       ],
       child: const MaterialApp(home: EventDetailPage(eventId: _testEventId)),
     ),
