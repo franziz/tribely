@@ -111,6 +111,20 @@ export class JoinRequestPrismaRepository implements JoinRequestRepository {
     return rows.map(toJoinRequest);
   }
 
+  async pseudonymiseAuthorForUser(
+    userId: string,
+    pseudonymAuthorId: string,
+    ctx: TxContext,
+  ): Promise<number> {
+    const client = unwrapTx(ctx);
+    // "Author" (domain term) maps to the `requesterUserId` schema column.
+    const result = await client.joinRequest.updateMany({
+      where: { requesterUserId: userId },
+      data: { requesterUserId: pseudonymAuthorId },
+    });
+    return result.count;
+  }
+
   async listByRequester(
     requesterUserId: string,
     eventId: string | undefined,

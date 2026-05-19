@@ -491,4 +491,58 @@ describe.skipIf(!dbUrl)('JoinRequestPrismaRepository (integration)', () => {
 
     await expect(persist(second, requesterId)).rejects.toBeInstanceOf(AppError);
   });
+
+  describe('pseudonymiseAuthorForUser', () => {
+    it('rewrites requesterUserId for matched rows, leaves other users untouched, returns correct count', async () => {
+      // Seed: 3 requesters × varying row counts per requester. Pseudonymise
+      // requester A only. Asserts: A rows rewritten, B and C rows untouched,
+      // returned count matches A's row count.
+      const requesterA = await buildRequester();
+      const requesterB = await buildRequester();
+      const requesterC = await buildRequester();
+
+      const jrA1 = buildJoinRequest(requesterA);
+      const jrA2 = buildJoinRequest(requesterA, { eventId: parentEventId });
+      // A has 2 rows BUT partial unique index prevents two active rows on the
+      // same (eventId, requesterUserId). We reject jrA2 first so both can coexist.
+      await persist(jrA1, requesterA);
+      // Reject jrA1 so the index slot is freed, then create jrA2.
+      const loadedA1 = await repo.findById(jrA1.id);
+      loadedA1?.reject({ by: hostUserId, reason: 'Test pseudonymise', now: new Date() });
+      if (loadedA1) await persist(loadedA1, hostUserId);
+      await persist(jrA2, requesterA);
+
+      const jrB = buildJoinRequest(requesterB);
+      const jrC = buildJoinRequest(requesterC);
+      await persist(jrB, requesterB);
+      await persist(jrC, requesterC);
+
+      const pseudonym = createId();
+      const count = await runWithContext({ requestId: createId(), actorUserId: requesterA }, () =>
+        unitOfWork.run(async (ctx) => repo.pseudonymiseAuthorForUser(requesterA, pseudonym, ctx)),
+      );
+
+      // 2 rows for requester A.
+      expect(count).toBe(2);
+
+      // Requester A rows rewritten to pseudonym.
+      const aRows = await db.joinRequest.findMany({
+        where: { id: { in: [jrA1.id, jrA2.id] } },
+      });
+      expect(aRows.every((r) => r.requesterUserId === pseudonym)).toBe(true);
+
+      // Requester B and C rows untouched.
+      const bRow = await db.joinRequest.findUnique({ where: { id: jrB.id } });
+      expect(bRow?.requesterUserId).toBe(requesterB);
+      const cRow = await db.joinRequest.findUnique({ where: { id: jrC.id } });
+      expect(cRow?.requesterUserId).toBe(requesterC);
+    });
+
+    it('returns 0 when no rows match the userId', async () => {
+      const count = await runWithContext({ requestId: createId(), actorUserId: createId() }, () =>
+        unitOfWork.run(async (ctx) => repo.pseudonymiseAuthorForUser(createId(), createId(), ctx)),
+      );
+      expect(count).toBe(0);
+    });
+  });
 });

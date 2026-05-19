@@ -110,6 +110,27 @@ export class FakeJoinRequestRepository implements JoinRequestRepository {
     return Promise.resolve(rows);
   }
 
+  pseudonymiseAuthorForUser(
+    userId: string,
+    pseudonymAuthorId: string,
+    _ctx: TxContext,
+  ): Promise<number> {
+    let count = 0;
+    for (const jr of this.byId.values()) {
+      if (jr.requesterUserId === userId) {
+        // Mutate the readonly field via Object.defineProperty — acceptable in
+        // a test double where no domain invariants need enforcement.
+        Object.defineProperty(jr, 'requesterUserId', {
+          value: pseudonymAuthorId,
+          writable: true,
+          configurable: true,
+        });
+        count += 1;
+      }
+    }
+    return Promise.resolve(count);
+  }
+
   listByRequester(
     requesterUserId: string,
     eventId: string | undefined,
