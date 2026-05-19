@@ -142,7 +142,9 @@ describe.skipIf(!dbUrl)('PostEventCheckInPrismaRepository (integration)', () => 
     }
     // Delete provisioned attendee users.
     if (provisioned.userIds.size > 0) {
-      await db.user.deleteMany({ where: { id: { in: [...provisioned.userIds] } } }).catch(() => null);
+      await db.user
+        .deleteMany({ where: { id: { in: [...provisioned.userIds] } } })
+        .catch(() => null);
     }
     // Delete host last (cascade would have handled owned events, but we already
     // deleted them explicitly above).
@@ -322,15 +324,10 @@ describe.skipIf(!dbUrl)('PostEventCheckInPrismaRepository (integration)', () => 
 
       const pseudoId = await makeUser('pseudo-dest');
 
-      const count = await runWithContext(
-        { requestId: createId(), actorUserId: hostUserId },
-        () =>
-          unitOfWork.run(async (ctx) =>
-            repo.pseudonymiseForUser(
-              { userId, pseudonymUserId: pseudoId, role: 'attendee' },
-              ctx,
-            ),
-          ),
+      const count = await runWithContext({ requestId: createId(), actorUserId: hostUserId }, () =>
+        unitOfWork.run(async (ctx) =>
+          repo.pseudonymiseForUser({ userId, pseudonymUserId: pseudoId, role: 'attendee' }, ctx),
+        ),
       );
       expect(count).toBeGreaterThanOrEqual(1);
       const row = await db.postEventCheckIn.findUnique({ where: { id: chk.id } });

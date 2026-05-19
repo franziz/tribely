@@ -82,7 +82,9 @@ describe('PostEventCheckIn', () => {
     it('throws CONFLICT when status is already ok', () => {
       const chk = created();
       chk.acknowledge({ now: NOW });
-      expect(() => chk.acknowledge({ now: NOW })).toThrow(AppError);
+      expect(() => {
+        chk.acknowledge({ now: NOW });
+      }).toThrow(AppError);
       try {
         chk.acknowledge({ now: NOW });
         expect.fail('expected throw');
@@ -95,7 +97,9 @@ describe('PostEventCheckIn', () => {
     it('throws CONFLICT when status is flagged', () => {
       const chk = created();
       chk.flag({ reportBody: 'Bad experience', now: NOW });
-      expect(() => chk.acknowledge({ now: NOW })).toThrow(AppError);
+      expect(() => {
+        chk.acknowledge({ now: NOW });
+      }).toThrow(AppError);
       try {
         chk.acknowledge({ now: NOW });
         expect.fail('expected throw');
@@ -174,7 +178,9 @@ describe('PostEventCheckIn', () => {
 
     it('accepts reportBody of exactly 2000 chars', () => {
       const chk = created();
-      expect(() => chk.flag({ reportBody: 'x'.repeat(2000), now: NOW })).not.toThrow();
+      expect(() => {
+        chk.flag({ reportBody: 'x'.repeat(2000), now: NOW });
+      }).not.toThrow();
       expect(chk.status).toBe('flagged');
     });
 

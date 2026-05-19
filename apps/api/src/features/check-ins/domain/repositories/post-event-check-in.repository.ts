@@ -36,10 +36,7 @@ export interface PostEventCheckInRepository {
    *   - + hasResolvedAt=true (resolved only)
    *   - + hasResolvedAt=false (unresolved only)
    */
-  listForRetentionSweep(
-    filter: RetentionSweepFilter,
-    ctx?: TxContext,
-  ): Promise<PostEventCheckIn[]>;
+  listForRetentionSweep(filter: RetentionSweepFilter, ctx?: TxContext): Promise<PostEventCheckIn[]>;
 
   deleteById(id: string, ctx: TxContext): Promise<void>;
 

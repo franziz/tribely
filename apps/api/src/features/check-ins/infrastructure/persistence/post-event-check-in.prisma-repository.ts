@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { unwrapTx } from '@/core/db/prisma-unit-of-work.js';
 import type { Db } from '@/core/db/prisma.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
@@ -59,7 +60,7 @@ export class PostEventCheckInPrismaRepository implements PostEventCheckInReposit
     ctx?: TxContext,
   ): Promise<PostEventCheckIn[]> {
     const client = ctx ? unwrapTx(ctx) : this.db;
-    const where: Parameters<typeof client.postEventCheckIn.findMany>[0]['where'] = {
+    const where: Prisma.PostEventCheckInWhereInput = {
       status: filter.status,
       createdAt: { lt: filter.olderThan },
     };

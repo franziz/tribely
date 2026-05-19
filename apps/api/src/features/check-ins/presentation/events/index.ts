@@ -6,6 +6,6 @@ import type { ConsumerRegistry } from '@/core/events/consumer-registry.js';
  * check-ins' events register their consumers from their own
  * presentation/events/index.ts — not here.
  */
-export const registerCheckInsConsumers = (registry: ConsumerRegistry): void => {
-  // registry.register(somethingOnUserRegistered({ /* deps */ }));
+export const registerCheckInsConsumers = (_registry: ConsumerRegistry): void => {
+  // _registry.register(somethingOnUserRegistered({ /* deps */ }));
 };

@@ -122,9 +122,7 @@ export class PostEventCheckIn extends AggregateRoot {
    */
   acknowledge(input: { now: Date }): void {
     if (this._status !== 'pending') {
-      throw AppError.conflict(
-        `Cannot acknowledge check-in in status: ${this._status}`,
-      );
+      throw AppError.conflict(`Cannot acknowledge check-in in status: ${this._status}`);
     }
     this._status = 'ok';
     this._acknowledgedAt = input.now;
@@ -156,9 +154,7 @@ export class PostEventCheckIn extends AggregateRoot {
       );
     }
     if (this._status !== 'pending') {
-      throw AppError.conflict(
-        `Cannot flag check-in in status: ${this._status}`,
-      );
+      throw AppError.conflict(`Cannot flag check-in in status: ${this._status}`);
     }
     this._status = 'flagged';
     this._flaggedAt = input.now;
