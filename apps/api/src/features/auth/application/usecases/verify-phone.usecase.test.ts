@@ -5,10 +5,10 @@ import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { User } from '@/features/users/domain/entities/user.js';
 import { DisplayName } from '@/features/users/domain/value-objects/display-name.js';
 import { Email } from '@/features/users/domain/value-objects/email.js';
-import { USER_PHONE_VERIFIED } from '../../../../users/domain/events/user-phone-verified.event.js';
-import { USER_PHONE_VERIFICATION_REVOKED } from '../../../../users/domain/events/user-phone-verification-revoked.event.js';
-import { USER_UPDATED } from '../../../../users/domain/events/user-updated.event.js';
-import { VerifyPhoneUseCase } from '../verify-phone.usecase.js';
+import { USER_PHONE_VERIFIED } from '../../../users/domain/events/user-phone-verified.event.js';
+import { USER_PHONE_VERIFICATION_REVOKED } from '../../../users/domain/events/user-phone-verification-revoked.event.js';
+import { USER_UPDATED } from '../../../users/domain/events/user-updated.event.js';
+import { VerifyPhoneUseCase } from './verify-phone.usecase.js';
 import { FakeEventPublisher, FakeUnitOfWork, FakeUserRepository, FixedClock } from './fakes.js';
 
 // ---------------------------------------------------------------------------

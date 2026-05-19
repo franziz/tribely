@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PhoneNumber } from '../phone-number.js';
-import { Sha256PhoneHasher } from '../sha256-phone-hasher.js';
+import { PhoneNumber } from './phone-number.js';
+import { Sha256PhoneHasher } from './sha256-phone-hasher.js';
 
 const SALT_A = 'a'.repeat(32);
 const SALT_B = 'b'.repeat(32);

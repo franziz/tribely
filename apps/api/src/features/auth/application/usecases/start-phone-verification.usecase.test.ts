@@ -4,8 +4,8 @@ import { User } from '@/features/users/domain/entities/user.js';
 import { DisplayName } from '@/features/users/domain/value-objects/display-name.js';
 import { Email } from '@/features/users/domain/value-objects/email.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
-import { PHONE_VERIFICATION_STARTED } from '../../../domain/events/phone-verification-started.event.js';
-import { StartPhoneVerificationUseCase } from '../start-phone-verification.usecase.js';
+import { PHONE_VERIFICATION_STARTED } from '../../domain/events/phone-verification-started.event.js';
+import { StartPhoneVerificationUseCase } from './start-phone-verification.usecase.js';
 import { FakeEventPublisher, FakeUnitOfWork, FakeUserRepository, FixedClock } from './fakes.js';
 
 // ---------------------------------------------------------------------------
