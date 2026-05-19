@@ -89,9 +89,8 @@ export class SurfacePendingCheckInsUseCase {
     });
 
     // Re-query after creation to return the full pending set.
-    const pending = await this.unitOfWork.run(async (ctx) => {
-      return this.checkIns.listPendingForUser(input.userId, ctx);
-    });
+    // Read-only — no transaction context needed.
+    const pending = await this.checkIns.listPendingForUser(input.userId);
 
     // Enrich each pending check-in with event + host data.
     const items: PendingCheckIn[] = await Promise.all(

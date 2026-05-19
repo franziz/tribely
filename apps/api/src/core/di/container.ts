@@ -498,7 +498,7 @@ export const buildContainer = (): Container => {
   );
   const prunePostEventCheckInEventsJob = new PrunePostEventCheckInEventsJob({
     pruneUseCase: prunePostEventCheckInEventsUseCase,
-    intervalMs: env.SELFIE_DELETION_SWEEP_INTERVAL_MS,
+    intervalMs: env.POST_EVENT_CHECK_IN_AUDIT_SWEEP_INTERVAL_MS,
     logger,
   });
 

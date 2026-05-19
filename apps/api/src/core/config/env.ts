@@ -143,6 +143,18 @@ export const envSchema = z
       .min(60_000, 'POST_EVENT_CHECK_IN_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
       .optional()
       .default(86_400_000),
+
+    // TRI-29 — How often the post-event check-in audit table is swept for rows
+    // older than the PDPA retention window. Semantically distinct from the
+    // check-in record sweep (POST_EVENT_CHECK_IN_SWEEP_INTERVAL_MS) — two
+    // independently schedulable jobs must not share a misnamed env var.
+    // Default 86400000 ms = 24h. Reject anything below 60000 ms (1 min).
+    POST_EVENT_CHECK_IN_AUDIT_SWEEP_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000, 'POST_EVENT_CHECK_IN_AUDIT_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
+      .optional()
+      .default(86_400_000),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
