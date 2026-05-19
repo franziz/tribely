@@ -1,5 +1,5 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
-import type { PostEventCheckIn } from '../../domain/entities/post-event-check-in.js';
+import { PostEventCheckIn } from '../../domain/entities/post-event-check-in.js';
 import type { PostEventCheckInAuditPort } from '../ports/post-event-check-in-audit.port.js';
 import type {
   ApprovedAttendanceWithoutCheckIn,
@@ -89,10 +89,51 @@ export class FakePostEventCheckInRepository implements PostEventCheckInRepositor
   }
 
   pseudonymiseForUser(
-    _input: { userId: string; pseudonymUserId: string; role: 'attendee' | 'host' },
+    input: { userId: string; pseudonymUserId: string; role: 'attendee' | 'host' },
     _ctx: TxContext,
   ): Promise<number> {
-    return Promise.resolve(0);
+    let count = 0;
+    for (const checkIn of Array.from(this.byId.values())) {
+      if (checkIn.status !== 'flagged') continue;
+      if (input.role === 'attendee' && checkIn.userId === input.userId) {
+        // Replace with a rehydrated copy carrying the pseudonym in userId.
+        this.byId.set(
+          checkIn.id,
+          PostEventCheckIn.rehydrate({
+            id: checkIn.id,
+            userId: input.pseudonymUserId,
+            eventId: checkIn.eventId,
+            hostUserId: checkIn.hostUserId,
+            status: checkIn.status,
+            createdAt: checkIn.createdAt,
+            acknowledgedAt: checkIn.acknowledgedAt,
+            flaggedAt: checkIn.flaggedAt,
+            reportBody: checkIn.reportBody,
+            resolvedAt: checkIn.resolvedAt,
+          }),
+        );
+        count++;
+      } else if (input.role === 'host' && checkIn.hostUserId === input.userId) {
+        // Replace with a rehydrated copy carrying the pseudonym in hostUserId.
+        this.byId.set(
+          checkIn.id,
+          PostEventCheckIn.rehydrate({
+            id: checkIn.id,
+            userId: checkIn.userId,
+            eventId: checkIn.eventId,
+            hostUserId: input.pseudonymUserId,
+            status: checkIn.status,
+            createdAt: checkIn.createdAt,
+            acknowledgedAt: checkIn.acknowledgedAt,
+            flaggedAt: checkIn.flaggedAt,
+            reportBody: checkIn.reportBody,
+            resolvedAt: checkIn.resolvedAt,
+          }),
+        );
+        count++;
+      }
+    }
+    return Promise.resolve(count);
   }
 
   findApprovedAttendancesWithoutCheckIn(
