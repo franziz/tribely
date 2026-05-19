@@ -68,7 +68,7 @@ class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
 
   void _onNeedHelp() {
     Navigator.of(context).pop();
-    context.push('/check-ins/safety-report', extra: widget.checkInId);
+    context.push('/check-ins/safety-report');
   }
 
   @override

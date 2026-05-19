@@ -187,7 +187,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       // Full-screen safety report form — reached from "I need help" in the
-      // check-in prompt sheet. The check-in id is passed via extra.
+      // check-in prompt sheet. The active check-in id is read from
+      // `checkInsControllerProvider`'s `CheckInsShowing` state — the page is
+      // only reached while a check-in is being prompted.
       GoRoute(
         path: '/check-ins/safety-report',
         name: 'safetyReport',

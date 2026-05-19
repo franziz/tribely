@@ -14,7 +14,7 @@ import '../state/check_ins_state.dart';
 ///
 /// Lifecycle:
 ///   - [refresh()] is called on every app-foreground event (app_router.dart wires
-///     this via AppLifecycleListener.onResumed).
+///     this via OnResumedListener.onResumed).
 ///   - [acknowledged()] / [flagged()] call the API and then re-surface to pick
 ///     up the next pending item (or transition to Empty).
 ///   - [dismissShown()] is a client-only dismiss — the record stays `pending`
