@@ -59,6 +59,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
       getUser: container.getUserUseCase,
       updateUserProfile: container.updateUserProfileUseCase,
       getUserCapabilities: container.getUserCapabilitiesUseCase,
+      deleteAccount: container.deleteAccountUseCase,
       accessTokens: container.accessTokens,
       clock: container.clock,
       userRepository: container.userRepository,
