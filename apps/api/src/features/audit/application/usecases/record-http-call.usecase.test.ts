@@ -12,8 +12,8 @@ class FakeHttpAuditLogRepository implements HttpAuditLogRepository {
     this.recorded.push(entry);
     return Promise.resolve();
   }
-  async hashActorForUser(_userId: string, _actorHash: string, _ctx: TxContext): Promise<number> {
-    return 0;
+  hashActorForUser(_userId: string, _actorHash: string, _ctx: TxContext): Promise<number> {
+    return Promise.resolve(0);
   }
 }
 

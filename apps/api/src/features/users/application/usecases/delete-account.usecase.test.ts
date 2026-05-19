@@ -36,35 +36,37 @@ class FakeUserRepository implements UserRepository {
     this.users.set(user.id, user);
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.users.get(id) ?? null;
+  findById(id: string): Promise<User | null> {
+    return Promise.resolve(this.users.get(id) ?? null);
   }
 
-  async findByEmail(): Promise<User | null> {
-    return null;
+  findByEmail(): Promise<User | null> {
+    return Promise.resolve(null);
   }
 
-  async findByVerifiedPhone(): Promise<User | null> {
-    return null;
+  findByVerifiedPhone(): Promise<User | null> {
+    return Promise.resolve(null);
   }
 
-  async save(user: User): Promise<void> {
+  save(user: User): Promise<void> {
     this.users.set(user.id, user);
+    return Promise.resolve();
   }
 }
 
 class FakeCredentialRepository implements Pick<CredentialRepository, 'deleteForUser'> {
   calls: string[] = [];
-  async deleteForUser(userId: string, _ctx: TxContext): Promise<void> {
+  deleteForUser(userId: string, _ctx: TxContext): Promise<void> {
     this.calls.push(userId);
+    return Promise.resolve();
   }
 }
 
 class FakeRefreshTokenRepository implements Pick<RefreshTokenRepository, 'deleteAllForUser'> {
   calls: string[] = [];
-  async deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
+  deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
     this.calls.push(userId);
-    return 0;
+    return Promise.resolve(0);
   }
 }
 
@@ -73,9 +75,9 @@ class FakeEmailVerificationTokenRepository implements Pick<
   'deleteAllForUser'
 > {
   calls: string[] = [];
-  async deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
+  deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
     this.calls.push(userId);
-    return 0;
+    return Promise.resolve(0);
   }
 }
 
@@ -84,16 +86,17 @@ class FakePasswordResetTokenRepository implements Pick<
   'deleteAllForUser'
 > {
   calls: string[] = [];
-  async deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
+  deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
     this.calls.push(userId);
-    return 0;
+    return Promise.resolve(0);
   }
 }
 
 class FakeDeleteSelfieForUser implements Pick<DeleteSelfieForUserUseCase, 'execute'> {
   calls: Array<{ userId: string; reason: string }> = [];
-  async execute(input: { userId: string; reason: string }, _ctx: TxContext): Promise<void> {
+  execute(input: { userId: string; reason: string }, _ctx: TxContext): Promise<void> {
     this.calls.push(input);
+    return Promise.resolve();
   }
 }
 
@@ -102,61 +105,62 @@ class FakePseudonymiseCheckInsForUser implements Pick<
   'execute'
 > {
   calls: string[] = [];
-  async execute(
+  execute(
     input: { userId: string },
     _ctx: TxContext,
   ): Promise<{ pseudonymisedReports: number; deletedReports: number }> {
     this.calls.push(input.userId);
-    return { pseudonymisedReports: 0, deletedReports: 0 };
+    return Promise.resolve({ pseudonymisedReports: 0, deletedReports: 0 });
   }
 }
 
 class FakeEventHostPseudonymisation implements EventHostPseudonymisationPort {
   calls: Array<{ userId: string; pseudonymHostId: string }> = [];
-  async execute(
+  execute(
     input: { userId: string; pseudonymHostId: string },
     _ctx: TxContext,
   ): Promise<{ updatedCount: number }> {
     this.calls.push(input);
-    return { updatedCount: 0 };
+    return Promise.resolve({ updatedCount: 0 });
   }
 }
 
 class FakeJoinRequestAuthorPseudonymisation implements JoinRequestAuthorPseudonymisationPort {
   calls: Array<{ userId: string; pseudonymAuthorId: string }> = [];
-  async execute(
+  execute(
     input: { userId: string; pseudonymAuthorId: string },
     _ctx: TxContext,
   ): Promise<{ updatedCount: number }> {
     this.calls.push(input);
-    return { updatedCount: 0 };
+    return Promise.resolve({ updatedCount: 0 });
   }
 }
 
 class FakeOutboxEventRepository implements OutboxEventRepository {
   calls: string[] = [];
-  async pseudonymiseUndispatchedPayloadsForUser(
+  pseudonymiseUndispatchedPayloadsForUser(
     userId: string,
     _pseudonym: string,
     _ctx: TxContext,
   ): Promise<number> {
     this.calls.push(userId);
-    return 0;
+    return Promise.resolve(0);
   }
 }
 
 class FakeHttpAuditLogRepository implements Pick<HttpAuditLogRepository, 'hashActorForUser'> {
   calls: Array<{ userId: string; actorHash: string }> = [];
-  async hashActorForUser(userId: string, actorHash: string, _ctx: TxContext): Promise<number> {
+  hashActorForUser(userId: string, actorHash: string, _ctx: TxContext): Promise<number> {
     this.calls.push({ userId, actorHash });
-    return 0;
+    return Promise.resolve(0);
   }
 }
 
 class FakeRecordAccountDeletion {
   readonly calls: Array<{ input: RecordAccountDeletionInput; ctx: TxContext }> = [];
-  async execute(input: RecordAccountDeletionInput, ctx: TxContext): Promise<void> {
+  execute(input: RecordAccountDeletionInput, ctx: TxContext): Promise<void> {
     this.calls.push({ input, ctx });
+    return Promise.resolve();
   }
 }
 
@@ -228,7 +232,7 @@ describe('DeleteAccountUseCase', () => {
 
     useCase = new DeleteAccountUseCase(
       uow,
-      userRepo as unknown as UserRepository,
+      userRepo,
       credentialRepo as unknown as CredentialRepository,
       refreshTokenRepo as unknown as RefreshTokenRepository,
       emailVerificationTokenRepo as unknown as EmailVerificationTokenRepository,

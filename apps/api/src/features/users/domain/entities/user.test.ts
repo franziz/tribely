@@ -544,7 +544,7 @@ describe('User aggregate', () => {
       user.tombstone(now);
       user.pullEvents();
 
-      expect(() => user.tombstone(now)).toThrow();
+      expect(() => { user.tombstone(now); }).toThrow();
     });
 
     it('preserves id and createdAt (non-PII identity anchor)', () => {

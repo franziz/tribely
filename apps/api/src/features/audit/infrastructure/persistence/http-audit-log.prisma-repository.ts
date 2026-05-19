@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { unwrapTx } from '@/core/db/prisma-unit-of-work.js';
 import type { Db } from '@/core/db/prisma.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';

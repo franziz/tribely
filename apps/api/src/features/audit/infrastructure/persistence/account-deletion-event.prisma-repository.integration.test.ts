@@ -149,7 +149,7 @@ describe.skipIf(!dbUrl)('AccountDeletionEventPrismaRepository (integration)', ()
     expect(typeof repo.record).toBe('function');
     // @ts-expect-error — intentionally checking that update doesn't exist
     expect(typeof repo.update).toBe('undefined');
-    // @ts-expect-error
+    // @ts-expect-error: testing append-only invariant — pruneOlderThan must not exist on this repo
     expect(typeof repo.pruneOlderThan).toBe('undefined');
   });
 });

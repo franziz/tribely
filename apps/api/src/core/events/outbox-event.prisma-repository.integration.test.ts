@@ -61,6 +61,7 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
         type: opts.type ?? 'test.eventType',
         aggregateType: 'TestAggregate',
         aggregateId: createId(),
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Prisma's InputJsonValue excludes `unknown`; cast bridges Record<string,unknown> → object
         payload: opts.payload as object,
         actorUserId: opts.actorUserId ?? null,
         requestId: null,
@@ -190,18 +191,18 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
       // (a) Un-dispatched row referencing X: payload.userId → hash.
       const redactedRow = await db.outboxEvent.findUnique({ where: { id: undispatchedX.id } });
       const redactedPayload = redactedRow?.payload as Record<string, unknown>;
-      expect(redactedPayload?.['userId']).toBe(pseudonymX);
-      expect(redactedPayload?.['other']).toBe('data'); // other fields preserved
+      expect(redactedPayload['userId']).toBe(pseudonymX);
+      expect(redactedPayload['other']).toBe('data'); // other fields preserved
 
       // (b) Dispatched row: payload untouched.
       const dispatchedRow = await db.outboxEvent.findUnique({ where: { id: dispatched.id } });
       const dispatchedPayload = dispatchedRow?.payload as Record<string, unknown>;
-      expect(dispatchedPayload?.['userId']).toBe(userX); // original value retained
+      expect(dispatchedPayload['userId']).toBe(userX); // original value retained
 
       // (c) Un-dispatched row for Y: payload untouched.
       const yRow = await db.outboxEvent.findUnique({ where: { id: undispatchedY.id } });
       const yPayload = yRow?.payload as Record<string, unknown>;
-      expect(yPayload?.['userId']).toBe(userY); // Y's id unchanged
+      expect(yPayload['userId']).toBe(userY); // Y's id unchanged
     });
   });
 
@@ -221,8 +222,8 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
 
       const updated = await db.outboxEvent.findUnique({ where: { id: row.id } });
       const payload = updated?.payload as Record<string, unknown>;
-      expect(payload?.['actorUserId']).toBe(pseudonym);
-      expect(payload?.['eventId']).toBe('some-event'); // other fields preserved
+      expect(payload['actorUserId']).toBe(pseudonym);
+      expect(payload['eventId']).toBe('some-event'); // other fields preserved
     });
   });
 
@@ -289,7 +290,7 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
 
       const updated = await db.outboxEvent.findUnique({ where: { id: row.id } });
       const payload = updated?.payload as Record<string, unknown>;
-      expect(payload?.['userId']).toBe(pseudonym);
+      expect(payload['userId']).toBe(pseudonym);
     });
 
     it('preserves other payload fields when redacting', async () => {
@@ -311,10 +312,10 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
 
       const updated = await db.outboxEvent.findUnique({ where: { id: row.id } });
       const payload = updated?.payload as Record<string, unknown>;
-      expect(payload?.['userId']).toBe(pseudonym);
-      expect(payload?.['eventId']).toBe('evt-123');
-      expect(payload?.['category']).toBe('food');
-      expect(payload?.['nested']).toEqual({ keep: true });
+      expect(payload['userId']).toBe(pseudonym);
+      expect(payload['eventId']).toBe('evt-123');
+      expect(payload['category']).toBe('food');
+      expect(payload['nested']).toEqual({ keep: true });
     });
   });
 });

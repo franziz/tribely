@@ -249,11 +249,11 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
     // this seq is "dispatched" from MIN(committed_seq)'s perspective.
     await db.consumerOffset.upsert({
       where: { consumerName: 'test.deleteAccountIntegration.dispatched' },
-      update: { committedSeq: BigInt(dispatchedRow.seq) },
+      update: { committedSeq: dispatchedRow.seq },
       create: {
         consumerName: 'test.deleteAccountIntegration.dispatched',
         topic: 'users.userRegistered',
-        committedSeq: BigInt(dispatchedRow.seq),
+        committedSeq: dispatchedRow.seq,
       },
     });
 
@@ -291,7 +291,7 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
       .deleteMany({ where: { requestId: { startsWith: `req-delete-test-${userId}` } } })
       .catch(() => null);
     await db.accountDeletionEvent
-      .deleteMany({ where: { userIdHash: sha256Hex(userId ?? '') } })
+      .deleteMany({ where: { userIdHash: sha256Hex(userId) } })
       .catch(() => null);
     await db.selfiePendingStorageDelete.deleteMany({ where: { selfieId } }).catch(() => null);
     await db.selfie.deleteMany({ where: { id: selfieId } }).catch(() => null);
@@ -454,9 +454,9 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
     expect(res.status).toBe(409);
     const body = (await res.json()) as Record<string, unknown>;
     const error = body['error'] as Record<string, unknown>;
-    expect(error?.['code']).toBe('CONFLICT');
-    const details = error?.['details'] as Record<string, unknown>;
-    expect(details?.['subcode']).toBe('ACCOUNT_ALREADY_DELETED');
+    expect(error['code']).toBe('CONFLICT');
+    const details = error['details'] as Record<string, unknown>;
+    expect(details['subcode']).toBe('ACCOUNT_ALREADY_DELETED');
   });
 
   // ──────────────────────────────────────────────────────────────────────────
