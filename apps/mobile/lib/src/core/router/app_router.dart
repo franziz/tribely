@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,6 +20,7 @@ import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
+import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
 import '../lifecycle/app_lifecycle_listener.dart';
 import 'app_shell.dart';
 
@@ -188,11 +189,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // builder would miss transitions when the user is on a different tab, and
       // could fire multiple times if multiple branches are live simultaneously.
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => AppLifecycleListener(
-          // TODO(TRI-29 M1): wire to checkInsController
-          // e.g. ref.read(checkInsControllerProvider.notifier).refresh()
-          onResumed: () {},
-          child: AppShell(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => Consumer(
+          builder: (context, ref, _) => AppLifecycleListener(
+            onResumed: () {
+              // Trigger a check-in surface on every foreground resume so the
+              // controller can transition to CheckInsShowing when pending
+              // check-ins exist. M2 reacts to Showing with showModalBottomSheet.
+              ref.read(checkInsControllerProvider.notifier).refresh();
+            },
+            child: AppShell(navigationShell: navigationShell),
+          ),
         ),
         branches: [
           // Branch 0 — Discover (/events)
