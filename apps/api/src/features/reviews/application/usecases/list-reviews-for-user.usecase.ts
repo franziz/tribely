@@ -1,5 +1,5 @@
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
-import type { CheckBlockedPort } from '../ports/check-blocked.port.js';
+import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
 import type { ReviewRepository } from '../../domain/repositories/review.repository.js';
 import { reviewVisibilityProjection } from '../projections/review-visibility.projection.js';
 

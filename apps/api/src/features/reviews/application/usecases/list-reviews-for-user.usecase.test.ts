@@ -7,7 +7,7 @@ import type {
   ReviewRepository,
   ReviewWithVisibilityContext,
 } from '../../domain/repositories/review.repository.js';
-import type { CheckBlockedPort } from '../ports/check-blocked.port.js';
+import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
 import { ListReviewsForUserUseCase } from './list-reviews-for-user.usecase.js';
 
 const BLIND_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
