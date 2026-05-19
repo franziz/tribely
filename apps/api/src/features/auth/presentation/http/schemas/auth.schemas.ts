@@ -67,6 +67,25 @@ export const resetPasswordBodySchema = z.object({
   newPassword: z.string().min(8).max(128),
 });
 
+// Phone OTP — E.164 validation is intentionally deferred to the domain
+// (PhoneNumber.create). Zod-level rejection would surface as a generic 400
+// instead of the desired domain error code.
+export const phoneStartBodySchema = z
+  .object({
+    phone: z.string().min(1).max(20),
+  })
+  .strict();
+
+export const phoneVerifyBodySchema = z
+  .object({
+    phone: z.string().min(1).max(20),
+    code: z
+      .string()
+      .length(6)
+      .regex(/^\d{6}$/),
+  })
+  .strict();
+
 // ---- Responses ----
 
 const issuedTokenSchema = z.object({
@@ -93,5 +112,7 @@ export type SignOutBody = z.infer<typeof signOutBodySchema>;
 export type VerifyEmailBody = z.infer<typeof verifyEmailBodySchema>;
 export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
+export type PhoneStartBody = z.infer<typeof phoneStartBodySchema>;
+export type PhoneVerifyBody = z.infer<typeof phoneVerifyBodySchema>;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 export type SignOutAllResponse = z.infer<typeof signOutAllResponseSchema>;

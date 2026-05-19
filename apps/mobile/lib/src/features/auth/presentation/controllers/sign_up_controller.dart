@@ -57,11 +57,13 @@ String _bannerFor(Failure failure) {
     ServerFailure() => "Something's off on our end. Give it a moment.",
     AuthFailure() => failure.message,
     EmailNotVerifiedFailure() => failure.message,
+    PhoneNotVerifiedFailure() => failure.message,
     ValidationFailure() => failure.message,
     NotFoundFailure() => failure.message,
     CapacityFullFailure() => failure.message,
     ConflictFailure() => failure.message,
     FirstEventMustBePublicFailure() => failure.message,
+    SmsRateLimitedFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

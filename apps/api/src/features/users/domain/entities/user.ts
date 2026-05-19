@@ -1,4 +1,7 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
+import { PhoneNumber } from '@/core/sms/phone-number.js';
+import { userPhoneVerificationRevoked } from '../events/user-phone-verification-revoked.event.js';
+import { userPhoneVerified } from '../events/user-phone-verified.event.js';
 import { userEmailVerified } from '../events/user-email-verified.event.js';
 import { userUpdated } from '../events/user-updated.event.js';
 import { userRegistered } from '../events/user-registered.event.js';
@@ -59,6 +62,9 @@ export class User extends AggregateRoot {
     private _interests: Interest[],
     private _currentCity: CurrentCity | null,
     private _travelerType: TravelerType | null,
+    // Phone verification (null until verified via OTP)
+    private _phone: PhoneNumber | null,
+    private _phoneVerifiedAt: Date | null,
   ) {
     super();
   }
@@ -75,6 +81,8 @@ export class User extends AggregateRoot {
       null,
       [],
       [],
+      null,
+      null,
       null,
       null,
     );
@@ -102,6 +110,8 @@ export class User extends AggregateRoot {
     interests: Interest[];
     currentCity: CurrentCity | null;
     travelerType: TravelerType | null;
+    phone: PhoneNumber | null;
+    phoneVerifiedAt: Date | null;
   }): User {
     return new User(
       state.id,
@@ -116,6 +126,8 @@ export class User extends AggregateRoot {
       state.interests,
       state.currentCity,
       state.travelerType,
+      state.phone,
+      state.phoneVerifiedAt,
     );
   }
 
@@ -159,8 +171,20 @@ export class User extends AggregateRoot {
     return this._travelerType;
   }
 
+  get phone(): PhoneNumber | null {
+    return this._phone;
+  }
+
+  get phoneVerifiedAt(): Date | null {
+    return this._phoneVerifiedAt;
+  }
+
   isEmailVerified(): boolean {
     return this._emailVerifiedAt !== null;
+  }
+
+  isPhoneVerified(): boolean {
+    return this._phoneVerifiedAt !== null;
   }
 
   rename(newName: DisplayName, now: Date): void {
@@ -184,6 +208,83 @@ export class User extends AggregateRoot {
         userId: this.id,
         email: this._email.value,
         verifiedAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Marks the user's phone number as verified. Idempotent — if the same phone
+   * is already verified, this is a no-op (no events emitted). On a real change
+   * (first verification or re-verification with a different number), mutates
+   * state and records `users.userUpdated` + `users.userPhoneVerified`.
+   */
+  verifyPhone(phone: PhoneNumber, now: Date): void {
+    if (this._phoneVerifiedAt !== null && this._phone?.value === phone.value) return;
+    this._phone = phone;
+    this._phoneVerifiedAt = now;
+    this._updatedAt = now;
+    this.record(
+      userUpdated({
+        userId: this.id,
+        email: this._email.value,
+        displayName: this._displayName.value,
+        bio: this._bio?.value ?? null,
+        avatarUrl: this._avatarUrl?.value ?? null,
+        languages: this._languages.map((l) => l.value),
+        interests: this._interests.map((i) => i.value),
+        currentCity: this._currentCity?.value ?? null,
+        travelerType: this._travelerType?.value ?? null,
+        emailVerifiedAt: this._emailVerifiedAt?.toISOString() ?? null,
+        phone: this._phone.value,
+        phoneVerifiedAt: this._phoneVerifiedAt.toISOString(),
+        updatedAt: now.toISOString(),
+      }),
+    );
+    this.record(
+      userPhoneVerified({
+        userId: this.id,
+        phoneE164: phone.value,
+        verifiedAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Revokes phone verification when the same phone number is claimed and
+   * verified by a different user (takeover scenario). Clears `_phoneVerifiedAt`
+   * but RETAINS `_phone` for audit. Records `users.userUpdated` + `users.userPhoneVerificationRevoked`.
+   *
+   * @param newUserId   The user who is taking over ownership of this phone number.
+   * @param phoneE164Hash SHA-256 hash of the phone in E.164 — hashed by the use case
+   *                      via PhoneHasher before calling this method (never plaintext in events).
+   * @param now         Wall-clock time of revocation.
+   */
+  revokePhoneVerificationOnTakeover(newUserId: string, phoneE164Hash: string, now: Date): void {
+    this._phoneVerifiedAt = null;
+    this._updatedAt = now;
+    this.record(
+      userUpdated({
+        userId: this.id,
+        email: this._email.value,
+        displayName: this._displayName.value,
+        bio: this._bio?.value ?? null,
+        avatarUrl: this._avatarUrl?.value ?? null,
+        languages: this._languages.map((l) => l.value),
+        interests: this._interests.map((i) => i.value),
+        currentCity: this._currentCity?.value ?? null,
+        travelerType: this._travelerType?.value ?? null,
+        emailVerifiedAt: this._emailVerifiedAt?.toISOString() ?? null,
+        phone: this._phone?.value ?? null,
+        phoneVerifiedAt: null,
+        updatedAt: now.toISOString(),
+      }),
+    );
+    this.record(
+      userPhoneVerificationRevoked({
+        oldUserId: this.id,
+        newUserId,
+        phoneE164Hash,
+        revokedAt: now.toISOString(),
       }),
     );
   }
@@ -314,6 +415,8 @@ export class User extends AggregateRoot {
         currentCity: this._currentCity?.value ?? null,
         travelerType: this._travelerType?.value ?? null,
         emailVerifiedAt: this._emailVerifiedAt?.toISOString() ?? null,
+        phone: this._phone?.value ?? null,
+        phoneVerifiedAt: this._phoneVerifiedAt?.toISOString() ?? null,
         updatedAt: input.now.toISOString(),
       }),
     );

@@ -45,6 +45,7 @@ String _bannerFor(Failure failure) {
       'Too many attempts. Try again in a minute.',
     ServerFailure() => "Something's off on our end. Give it a moment.",
     EmailNotVerifiedFailure() => failure.message,
+    PhoneNotVerifiedFailure() => failure.message,
     AuthFailure() => failure.message,
     // The server collapses all reset-time errors (unknown email, bad code,
     // expired token) into a single 400 with this message — keeps the
@@ -54,6 +55,7 @@ String _bannerFor(Failure failure) {
     CapacityFullFailure() => failure.message,
     ConflictFailure() => failure.message,
     FirstEventMustBePublicFailure() => failure.message,
+    SmsRateLimitedFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

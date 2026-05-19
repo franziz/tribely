@@ -24,10 +24,22 @@ class SessionUnauthenticated extends SessionState {
 }
 
 class SessionAuthenticated extends SessionState {
-  const SessionAuthenticated(this.session);
+  const SessionAuthenticated(
+    this.session, {
+    this.phoneRevokedSinceLastSeen = false,
+  });
   final AuthSession session;
+
+  /// True when a session refresh / GET /me reveals that [User.phoneVerifiedAt]
+  /// transitioned from non-null to null since the last time we checked.
+  ///
+  /// This is a fully client-derived, transient flag — it is NOT persisted and
+  /// resets to false on app cold-start. The UI renders a dismissible neutral
+  /// banner; [SessionController.dismissPhoneRevokedBanner] resets it.
+  final bool phoneRevokedSinceLastSeen;
+
   @override
-  List<Object?> get props => [session];
+  List<Object?> get props => [session, phoneRevokedSinceLastSeen];
 }
 
 /// AuthFormState — what `SignInController` and `SignUpController` expose.
@@ -116,6 +128,74 @@ class VerifyEmailError extends VerifyEmailState {
 
 class VerifyEmailResendSent extends VerifyEmailState {
   const VerifyEmailResendSent({super.resendCooldownSeconds = 60});
+}
+
+// ---------------------------------------------------------------------------
+// PhoneVerificationState — drives the phone-OTP wizard
+// (PhoneEntryPage → VerifyPhonePage)
+// ---------------------------------------------------------------------------
+
+/// Base state for the phone OTP wizard. [resendCooldownSeconds] mirrors the
+/// server's rate limit with a local countdown, exactly like [VerifyEmailState].
+sealed class PhoneVerificationState extends Equatable {
+  const PhoneVerificationState({this.resendCooldownSeconds = 0});
+  final int resendCooldownSeconds;
+
+  @override
+  List<Object?> get props => [resendCooldownSeconds];
+}
+
+class PhoneVerificationIdle extends PhoneVerificationState {
+  const PhoneVerificationIdle({super.resendCooldownSeconds = 0});
+}
+
+/// Sending the start-OTP request to the server.
+class PhoneVerificationSending extends PhoneVerificationState {
+  const PhoneVerificationSending({super.resendCooldownSeconds = 0});
+}
+
+/// OTP sent; user is on the code-entry page.
+class PhoneVerificationCodeSent extends PhoneVerificationState {
+  const PhoneVerificationCodeSent({
+    required this.phone,
+    super.resendCooldownSeconds = 60,
+  });
+  final String phone;
+
+  @override
+  List<Object?> get props => [...super.props, phone];
+}
+
+/// Submitting the 6-digit code to the server.
+class PhoneVerificationSubmitting extends PhoneVerificationState {
+  const PhoneVerificationSubmitting({
+    required this.phone,
+    super.resendCooldownSeconds = 0,
+  });
+  final String phone;
+
+  @override
+  List<Object?> get props => [...super.props, phone];
+}
+
+class PhoneVerificationSuccess extends PhoneVerificationState {
+  const PhoneVerificationSuccess();
+}
+
+class PhoneVerificationError extends PhoneVerificationState {
+  const PhoneVerificationError({
+    required this.failure,
+    required this.bannerMessage,
+    this.phone,
+    super.resendCooldownSeconds = 0,
+  });
+
+  final Failure failure;
+  final String bannerMessage;
+  final String? phone;
+
+  @override
+  List<Object?> get props => [...super.props, failure, bannerMessage, phone];
 }
 
 /// ForgotPasswordState — drives the email-entry sheet on the sign-in page.

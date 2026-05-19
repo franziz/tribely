@@ -56,10 +56,24 @@ describe.skipIf(!dbUrl)('GET /me/events (integration)', () => {
       ],
     });
 
-    // Both users need verified email to pass requireVerifiedEmail
-    await db.user.updateMany({
-      where: { id: { in: [hostUserId, otherUserId] } },
-      data: { emailVerifiedAt: new Date() },
+    // Both users need verified email + phone to pass requireVerifiedEmail + requireVerifiedPhone.
+    // phone column has UNIQUE constraint + E.164 validation on mapper read-back.
+    const ts = Date.now();
+    await db.user.update({
+      where: { id: hostUserId },
+      data: {
+        emailVerifiedAt: new Date(),
+        phone: `+65${String(ts).slice(-8)}`,
+        phoneVerifiedAt: new Date(),
+      },
+    });
+    await db.user.update({
+      where: { id: otherUserId },
+      data: {
+        emailVerifiedAt: new Date(),
+        phone: `+65${String(ts + 1).slice(-8)}`,
+        phoneVerifiedAt: new Date(),
+      },
     });
 
     const issuedHost = await tokens.issue({
@@ -192,6 +206,9 @@ describe.skipIf(!dbUrl)('GET /me/events (integration)', () => {
         email: `noevents-${noEventsUserId}@me-events.test`,
         displayName: 'No Events User',
         emailVerifiedAt: new Date(),
+        // E.164 required — use timestamp-derived unique number
+        phone: `+65${String(Date.now() + 2).slice(-8)}`,
+        phoneVerifiedAt: new Date(),
       },
     });
     const tokens = new JwtAccessTokenIssuer();

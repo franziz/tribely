@@ -31,6 +31,9 @@ model User {
   interests       String[] @default([])
   currentCity     String?
   travelerType    String?
+  phone           String?
+  phoneVerifiedAt DateTime?
+  // Partial unique on `phone WHERE phoneVerifiedAt IS NOT NULL` — see migration 20260518131307_add_user_phone/migration.sql
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

@@ -52,4 +52,17 @@ abstract class AuthRepository {
     required String code,
     required String newPassword,
   });
+
+  /// Start the SMS OTP flow by sending a 6-digit code to [phone] (E.164 format,
+  /// e.g. "+6591234567"). The server applies a rate cap; the caller should
+  /// surface [SmsRateLimitedFailure] with a user-friendly message.
+  Future<Either<Failure, void>> startPhoneVerification({required String phone});
+
+  /// Verify the 6-digit code that arrived via SMS. On success returns the
+  /// updated [User] with [User.phoneVerifiedAt] populated so the UI can
+  /// optimistically update session state without a follow-up /auth/me call.
+  Future<Either<Failure, User>> verifyPhone({
+    required String phone,
+    required String code,
+  });
 }

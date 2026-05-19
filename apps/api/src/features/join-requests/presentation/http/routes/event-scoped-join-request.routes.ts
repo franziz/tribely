@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { rateLimit } from '@/core/middleware/rate-limit.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
+import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
@@ -35,7 +36,8 @@ export const buildEventScopedJoinRequestRoutes = (
   deps: EventScopedJoinRequestRouteDeps,
 ): Hono<{ Variables: AuthVariables }> => {
   const auth = requireAuth(deps.accessTokens);
-  const verified = requireVerifiedEmail(deps.userRepository);
+  const verifiedEmail = requireVerifiedEmail(deps.userRepository);
+  const verifiedPhone = requireVerifiedPhone(deps.userRepository);
 
   // `keyFor` runs after `requireAuth` populates `userId`. Casting the Context
   // lets us read the typed variable without a `string` assertion.
@@ -49,13 +51,14 @@ export const buildEventScopedJoinRequestRoutes = (
   });
 
   return new Hono<{ Variables: AuthVariables }>()
-    .post('/:id/join-requests', auth, verified, limitCreate, (c) =>
+    .post('/:id/join-requests', auth, verifiedEmail, verifiedPhone, limitCreate, (c) =>
       deps.controller.createAction(c, c.req.param('id'), c.get('userId')),
     )
     .get(
       '/:id/join-requests',
       auth,
-      verified,
+      verifiedEmail,
+      verifiedPhone,
       zValidator('query', listJoinRequestsByEventQuerySchema),
       (c) =>
         deps.controller.listAction(c, c.req.param('id'), c.get('userId'), c.req.valid('query')),

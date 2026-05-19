@@ -45,6 +45,8 @@ export const buildApp = (): { app: Hono; container: Container } => {
       resendVerification: container.resendEmailVerificationUseCase,
       requestPasswordReset: container.requestPasswordResetUseCase,
       resetPassword: container.resetPasswordUseCase,
+      startPhoneVerification: container.startPhoneVerificationUseCase,
+      verifyPhone: container.verifyPhoneUseCase,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
     }),
@@ -72,6 +74,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
       controller: eventController,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
+      userRepository: container.userRepository,
     }),
   );
   // GET /me/events — authenticated user's own hosted events.

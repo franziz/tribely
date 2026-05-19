@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/legal/legal_constants.dart';
+import '../../../../core/widgets/banner_message.dart';
+import '../../../../core/widgets/verification_required_banner.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
 import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
 import '../widgets/profile_body.dart';
@@ -22,6 +27,9 @@ class OwnProfilePage extends ConsumerWidget {
         : TribelyColors.paperInkSecondary;
 
     final state = ref.watch(myProfileControllerProvider);
+    final session = ref.watch(sessionControllerProvider);
+    final phoneRevoked =
+        session is SessionAuthenticated && session.phoneRevokedSinceLastSeen;
 
     return Scaffold(
       appBar: AppBar(
@@ -57,20 +65,48 @@ class OwnProfilePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: switch (state) {
-        UserProfileLoading() => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        UserProfileLoaded(:final profile) => ProfileBody(
-          profile: profile,
-          isOwn: true,
-        ),
-        UserProfileError(:final message) => _ErrorView(
-          message: message,
-          onRetry: () => ref.read(myProfileControllerProvider.notifier).retry(),
-          inkSecondary: inkSecondary,
-        ),
-      },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Contested-phone neutral banner — transient, dismissible.
+          if (phoneRevoked)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: BannerMessage(
+                variant: BannerVariant.neutral,
+                message: kContestedPhoneBannerCopy,
+                action: BannerAction(
+                  label: 'Verify now →',
+                  onTap: () => context.go('/auth/phone/entry'),
+                ),
+                onDismiss: () => ref
+                    .read(sessionControllerProvider.notifier)
+                    .dismissPhoneRevokedBanner(),
+              ),
+            ),
+          // Email verification banner (email above phone per spec).
+          const VerificationRequiredBanner(type: VerificationType.email),
+          // Phone verification banner.
+          const VerificationRequiredBanner(type: VerificationType.phone),
+          Expanded(
+            child: switch (state) {
+              UserProfileLoading() => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              UserProfileLoaded(:final profile) => ProfileBody(
+                profile: profile,
+                isOwn: true,
+              ),
+              UserProfileError(:final message) => _ErrorView(
+                message: message,
+                onRetry: () =>
+                    ref.read(myProfileControllerProvider.notifier).retry(),
+                inkSecondary: inkSecondary,
+              ),
+            },
+          ),
+        ],
+      ),
     );
   }
 }

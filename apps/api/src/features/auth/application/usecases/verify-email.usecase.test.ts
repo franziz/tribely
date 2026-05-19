@@ -31,6 +31,8 @@ const buildUser = (verifiedAt: Date | null = null): User =>
     interests: [],
     currentCity: null,
     travelerType: null,
+    phone: null,
+    phoneVerifiedAt: null,
   });
 
 const buildToken = (

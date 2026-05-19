@@ -43,7 +43,7 @@ import '../state/event_detail_state.dart';
 ///   - Declined request → StatusPill(declined) + decisionReason caption
 ///   - Withdrawn request (event not past) → PrimaryButton("Request to join") → re-request
 ///   - Event past / capacity full → disabled button + inline reason
-///   - 403 EMAIL_NOT_VERIFIED → BannerMessage above bar + "Verify now" link
+///   - 403 EMAIL_NOT_VERIFIED / PHONE_NOT_VERIFIED → BannerMessage above bar + "Verify now" link
 ///
 /// Host viewers see NO CTA (isHostViewer branch). B2 will wire the host-side
 /// management UI; leave the slot intact via [_HostBranchPlaceholder].
@@ -84,9 +84,10 @@ class EventDetailPage extends ConsumerWidget {
       _ => null,
     };
 
-    final emailNotVerifiedFailure = switch (joinState) {
+    final verificationFailure = switch (joinState) {
       RequestToJoinFailed(:final failure)
-          when failure is EmailNotVerifiedFailure =>
+          when failure is EmailNotVerifiedFailure ||
+              failure is PhoneNotVerifiedFailure =>
         failure,
       _ => null,
     };
@@ -120,7 +121,7 @@ class EventDetailPage extends ConsumerWidget {
             event: state.event,
             joinState: joinState,
             effectiveRequest: effectiveRequest,
-            emailNotVerifiedBanner: emailNotVerifiedFailure != null,
+            verificationFailure: verificationFailure,
           ),
         _ => null,
       },
@@ -935,22 +936,22 @@ class _AttendingLoadedSection extends StatelessWidget {
 ///   - Declined: StatusPill(declined) + decisionReason caption
 ///   - Withdrawn (event not past): PrimaryButton("Request to join") → re-request
 ///   - Event past or capacity full: disabled PrimaryButton + inline reason
-///   - EmailNotVerified: BannerMessage above bar + "Verify now" link
+///   - EmailNotVerified/PhoneNotVerified: inline banner above bar + "Verify now"
 ///
-/// [emailNotVerifiedBanner]: when true, shows the verify-email inline banner
-/// above the button instead of navigating the user away.
+/// [verificationFailure]: non-null when the server returned EMAIL_NOT_VERIFIED
+/// or PHONE_NOT_VERIFIED; shows the appropriate inline banner instead of the CTA.
 class _StickyJoinBar extends ConsumerWidget {
   const _StickyJoinBar({
     required this.event,
     required this.joinState,
     required this.effectiveRequest,
-    required this.emailNotVerifiedBanner,
+    required this.verificationFailure,
   });
 
   final Event event;
   final RequestToJoinState joinState;
   final JoinRequest? effectiveRequest;
-  final bool emailNotVerifiedBanner;
+  final Failure? verificationFailure;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -967,8 +968,12 @@ class _StickyJoinBar extends ConsumerWidget {
 
     Widget content;
 
-    if (emailNotVerifiedBanner) {
-      content = _VerifyEmailBanner(event: event, controller: controller);
+    if (verificationFailure != null) {
+      content = _VerificationBanner(
+        event: event,
+        controller: controller,
+        failure: verificationFailure!,
+      );
     } else if (effectiveRequest != null &&
         effectiveRequest!.status == JoinRequestStatus.withdrawn &&
         !isEventPast) {
@@ -1160,24 +1165,35 @@ class _DisabledCta extends StatelessWidget {
   }
 }
 
-/// EMAIL_NOT_VERIFIED inline banner. Shown above the (disabled) CTA when the
-/// server returns a 403 with code EMAIL_NOT_VERIFIED.
-class _VerifyEmailBanner extends StatelessWidget {
-  const _VerifyEmailBanner({required this.event, required this.controller});
+/// Inline verification banner. Shown above the (disabled) CTA when the
+/// server returns a 403 with code EMAIL_NOT_VERIFIED or PHONE_NOT_VERIFIED.
+class _VerificationBanner extends StatelessWidget {
+  const _VerificationBanner({
+    required this.event,
+    required this.controller,
+    required this.failure,
+  });
 
   final Event event;
   final RequestToJoinController controller;
+  final Failure failure;
 
   @override
   Widget build(BuildContext context) {
+    final isEmail = failure is EmailNotVerifiedFailure;
+    final message = isEmail
+        ? 'Verify your email to request events'
+        : 'Verify your phone to request events';
+    final route = isEmail ? '/verify-email' : '/auth/phone/entry';
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         BannerMessage(
-          message: 'Verify your email to request events',
+          message: message,
           action: BannerAction(
             label: 'Verify now',
-            onTap: () => context.push('/verify-email'),
+            onTap: () => context.push(route),
           ),
         ),
         const SizedBox(height: 12),

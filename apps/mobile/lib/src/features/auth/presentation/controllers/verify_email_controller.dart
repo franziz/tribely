@@ -103,12 +103,14 @@ String _bannerFor(Failure failure) {
       'Too many attempts. Try again in a minute.',
     ServerFailure() => "Something's off on our end. Give it a moment.",
     EmailNotVerifiedFailure() => failure.message,
+    PhoneNotVerifiedFailure() => failure.message,
     AuthFailure() => failure.message,
     ValidationFailure() => failure.message,
     NotFoundFailure() => failure.message,
     CapacityFullFailure() => failure.message,
     ConflictFailure() => failure.message,
     FirstEventMustBePublicFailure() => failure.message,
+    SmsRateLimitedFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

@@ -10,6 +10,24 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
 import { buildApp } from '../../../../../app.js';
 
+const validPostBody = () => ({
+  title: 'Verification Gate Test Event',
+  description: null,
+  venue: {
+    address: '18 Raffles Quay',
+    city: 'Singapore',
+    latitude: 1.2806,
+    longitude: 103.8504,
+    category: 'cafe',
+  },
+  startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000).toISOString(),
+  capacity: 6,
+  category: 'food',
+  costSplit: 'own',
+  approvalMode: 'manual',
+});
+
 const dbUrl = process.env.DATABASE_URL;
 
 /**
@@ -64,12 +82,17 @@ describe.skipIf(!dbUrl)('Event routes — venue.category integration (TRI-33)', 
     userId = createId();
     const email = `event-routes-${userId}@test.local`;
 
+    // POST /events now requires both email and phone verified (TRI-16 SWE-FIX-C).
+    // Phone column has UNIQUE constraint + E.164 validation on mapper read-back;
+    // use last-8-digits of a timestamp for a unique Singapore (+65) number.
     await db.user.create({
       data: {
         id: userId,
         email,
         displayName: 'Event Route Test User',
-        // requireAuth does not enforce emailVerified; keeping null here documents that.
+        emailVerifiedAt: new Date(),
+        phone: `+65${String(Date.now()).slice(-8)}`,
+        phoneVerifiedAt: new Date(),
       },
     });
 
@@ -253,3 +276,110 @@ describe.skipIf(!dbUrl)('Event routes — venue.category integration (TRI-33)', 
     });
   });
 });
+
+/**
+ * Verification gate tests for POST /events (TRI-16 SWE-FIX-C).
+ *
+ * Gate ordering contract: auth → verifiedEmail → verifiedPhone → rate-limit → validate → handler
+ *
+ * Cases:
+ *   1. emailVerifiedAt=null → 403 EMAIL_NOT_VERIFIED (email gate fires first)
+ *   2. emailVerifiedAt set, phoneVerifiedAt=null → 403 PHONE_NOT_VERIFIED
+ */
+describe.skipIf(!dbUrl)(
+  'POST /events — requireVerifiedEmail + requireVerifiedPhone gates (TRI-16)',
+  () => {
+    let db: PrismaClient;
+
+    // email NOT verified, phone NOT verified
+    let unverifiedEmailUserId: string;
+    let unverifiedEmailToken: string;
+
+    // email verified, phone NOT verified
+    let emailOnlyUserId: string;
+    let emailOnlyToken: string;
+
+    beforeAll(async () => {
+      if (!dbUrl) return;
+      db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+      const tokens = new JwtAccessTokenIssuer();
+
+      unverifiedEmailUserId = createId();
+      emailOnlyUserId = createId();
+
+      await db.user.createMany({
+        data: [
+          {
+            id: unverifiedEmailUserId,
+            email: `unverified-email-${unverifiedEmailUserId}@event-gate.test`,
+            displayName: 'Unverified Email User',
+            emailVerifiedAt: null,
+            phone: null,
+            phoneVerifiedAt: null,
+          },
+          {
+            id: emailOnlyUserId,
+            email: `email-only-${emailOnlyUserId}@event-gate.test`,
+            displayName: 'Email Only User',
+            emailVerifiedAt: new Date(),
+            phone: null,
+            phoneVerifiedAt: null,
+          },
+        ],
+      });
+
+      unverifiedEmailToken = (
+        await tokens.issue({
+          userId: unverifiedEmailUserId,
+          email: `unverified-email-${unverifiedEmailUserId}@event-gate.test`,
+        })
+      ).value;
+      emailOnlyToken = (
+        await tokens.issue({
+          userId: emailOnlyUserId,
+          email: `email-only-${emailOnlyUserId}@event-gate.test`,
+        })
+      ).value;
+    });
+
+    afterAll(async () => {
+      if (!dbUrl) return;
+      await db.user
+        .deleteMany({ where: { id: { in: [unverifiedEmailUserId, emailOnlyUserId] } } })
+        .catch(() => null);
+      await db.$disconnect();
+    });
+
+    it('POST /events with emailVerifiedAt=null returns 403 EMAIL_NOT_VERIFIED', async () => {
+      const { app } = buildApp();
+      const res = await app.request('/events', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${unverifiedEmailToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(validPostBody()),
+      });
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('POST /events with email verified but phoneVerifiedAt=null returns 403 PHONE_NOT_VERIFIED', async () => {
+      const { app } = buildApp();
+      const res = await app.request('/events', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${emailOnlyToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(validPostBody()),
+      });
+
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe('PHONE_NOT_VERIFIED');
+    });
+  },
+);

@@ -76,6 +76,12 @@ export const envSchema = z
       .union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')])
       .optional()
       .default(false),
+
+    // Salt for one-way hashing of phone numbers before they appear in
+    // long-lived outbox events (e.g. userPhoneVerificationRevoked). Must be at
+    // least 32 characters. Generate with: openssl rand -hex 32
+    // Boot refuses an empty/missing value when NODE_ENV=production.
+    PHONE_HASH_SALT: z.string().min(32).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
@@ -173,6 +179,17 @@ export const envSchema = z
         message:
           'STORAGE_TRANSPORT=log is not allowed when NODE_ENV=production — ' +
           'set STORAGE_TRANSPORT=s3 with real AWS credentials.',
+      });
+    }
+
+    if (data.NODE_ENV === 'production' && !data.PHONE_HASH_SALT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PHONE_HASH_SALT'],
+        message:
+          'PHONE_HASH_SALT is required when NODE_ENV=production — ' +
+          'set it to a random string of at least 32 characters. ' +
+          'Generate with: openssl rand -hex 32',
       });
     }
   });

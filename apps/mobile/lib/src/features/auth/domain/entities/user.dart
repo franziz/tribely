@@ -8,6 +8,7 @@ class User extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.emailVerifiedAt,
+    this.phoneVerifiedAt,
   });
 
   final String id;
@@ -20,15 +21,28 @@ class User extends Equatable {
   /// `isEmailVerified` is the convenient predicate for UI gating.
   final DateTime? emailVerifiedAt;
 
-  bool get isEmailVerified => emailVerifiedAt != null;
+  /// Null until the user verifies their phone number via the SMS OTP flow.
+  /// `isPhoneVerified` is the convenient predicate for UI gating.
+  final DateTime? phoneVerifiedAt;
 
-  User copyWith({DateTime? emailVerifiedAt, DateTime? updatedAt}) => User(
+  bool get isEmailVerified => emailVerifiedAt != null;
+  bool get isPhoneVerified => phoneVerifiedAt != null;
+
+  User copyWith({
+    DateTime? emailVerifiedAt,
+    DateTime? updatedAt,
+    // Use Object? sentinel to distinguish "set to null" from "leave unchanged".
+    Object? phoneVerifiedAt = _sentinel,
+  }) => User(
     id: id,
     email: email,
     displayName: displayName,
     createdAt: createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     emailVerifiedAt: emailVerifiedAt ?? this.emailVerifiedAt,
+    phoneVerifiedAt: phoneVerifiedAt == _sentinel
+        ? this.phoneVerifiedAt
+        : phoneVerifiedAt as DateTime?,
   );
 
   @override
@@ -39,5 +53,10 @@ class User extends Equatable {
     createdAt,
     updatedAt,
     emailVerifiedAt,
+    phoneVerifiedAt,
   ];
 }
+
+/// Sentinel used in [User.copyWith] to distinguish "leave unchanged" from
+/// "explicitly set to null" for nullable [phoneVerifiedAt].
+const Object _sentinel = Object();

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/pages/phone_entry_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/sign_in_page.dart';
 import '../../features/auth/presentation/pages/sign_up_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/verify_email_page.dart';
+import '../../features/auth/presentation/pages/verify_phone_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
@@ -106,6 +108,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/verify-email',
         name: 'verifyEmail',
         builder: (context, state) => const VerifyEmailPage(),
+      ),
+      // Phone OTP wizard — step 1: country picker + phone entry.
+      GoRoute(
+        path: '/auth/phone/entry',
+        name: 'phoneEntry',
+        builder: (context, state) => const PhoneEntryPage(),
+      ),
+      // Phone OTP wizard — step 2: 6-digit code entry.
+      // Declared as a sibling (not a child) so context.go('/auth/phone/verify')
+      // from PhoneEntryPage pushes a new stack frame rather than replacing the
+      // current route. The controller retains the entered phone number, so the
+      // "Wrong number? Go back" action restores entry state correctly.
+      GoRoute(
+        path: '/auth/phone/verify',
+        name: 'verifyPhone',
+        builder: (context, state) => const VerifyPhonePage(),
       ),
       GoRoute(
         path: '/reset-password',

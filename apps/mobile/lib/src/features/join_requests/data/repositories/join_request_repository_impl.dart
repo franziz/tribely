@@ -150,6 +150,9 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
           if (code == 'EMAIL_NOT_VERIFIED') {
             return EmailNotVerifiedFailure(message, code: code);
           }
+          if (code == 'PHONE_NOT_VERIFIED') {
+            return PhoneNotVerifiedFailure(message, code: code);
+          }
           return ServerFailure(message, statusCode: 403, code: code);
 
         case 409:

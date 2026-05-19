@@ -10,11 +10,15 @@ import type { SignOutAllUseCase } from '../../../application/usecases/sign-out-a
 import type { SignOutUseCase } from '../../../application/usecases/sign-out.usecase.js';
 import type { SignUpUseCase } from '../../../application/usecases/sign-up.usecase.js';
 import type { VerifyEmailUseCase } from '../../../application/usecases/verify-email.usecase.js';
+import type { StartPhoneVerificationUseCase } from '../../../application/usecases/start-phone-verification.usecase.js';
+import type { VerifyPhoneUseCase } from '../../../application/usecases/verify-phone.usecase.js';
 import type { IssuedAuthSession } from '../../../application/dto/auth-result.js';
 import type {
   AuthResponse,
   AuthUserDto,
   ForgotPasswordBody,
+  PhoneStartBody,
+  PhoneVerifyBody,
   RefreshBody,
   ResetPasswordBody,
   SignInBody,
@@ -63,6 +67,8 @@ export class AuthController {
     private readonly resendVerification: ResendEmailVerificationUseCase,
     private readonly requestPasswordReset: RequestPasswordResetUseCase,
     private readonly resetPassword: ResetPasswordUseCase,
+    private readonly startPhoneVerification: StartPhoneVerificationUseCase,
+    private readonly verifyPhone: VerifyPhoneUseCase,
   ) {}
 
   signUpAction = async (c: Context, body: SignUpBody) => {
@@ -132,5 +138,21 @@ export class AuthController {
       newPassword: body.newPassword,
     });
     return c.body(null, 204);
+  };
+
+  startPhoneVerificationAction = async (c: Context, body: PhoneStartBody) => {
+    const userId = c.get('userId') as string;
+    const result = await this.startPhoneVerification.execute({ userId, rawPhone: body.phone });
+    return c.json(result, 200);
+  };
+
+  verifyPhoneAction = async (c: Context, body: PhoneVerifyBody) => {
+    const userId = c.get('userId') as string;
+    const { user } = await this.verifyPhone.execute({
+      userId,
+      rawPhone: body.phone,
+      code: body.code,
+    });
+    return c.json(toAuthUserDto(user), 200);
   };
 }
