@@ -4,6 +4,10 @@ import 'package:flutter/widgets.dart';
 /// application transitions back into the foreground (i.e. any
 /// paused/inactive/hidden → [AppLifecycleState.resumed] transition).
 ///
+/// Named [OnResumedListener] (not `AppLifecycleListener`) to avoid collision
+/// with the identically-named built-in widget shipped in `package:flutter/widgets.dart`
+/// since Flutter 3.13.
+///
 /// Mount this widget ABOVE [StatefulShellRoute.indexedStack] in the router
 /// tree so the observer is registered once for the whole authenticated branch,
 /// rather than per-tab.  Mounting inside an indexed-stack branch would result
@@ -11,13 +15,13 @@ import 'package:flutter/widgets.dart';
 ///
 /// Usage:
 /// ```dart
-/// AppLifecycleListener(
+/// OnResumedListener(
 ///   onResumed: () { /* invalidate stale data, e.g. refetch pending check-ins */ },
 ///   child: AppShell(navigationShell: navigationShell),
 /// )
 /// ```
-class AppLifecycleListener extends StatefulWidget {
-  const AppLifecycleListener({
+class OnResumedListener extends StatefulWidget {
+  const OnResumedListener({
     required this.onResumed,
     required this.child,
     super.key,
@@ -30,10 +34,10 @@ class AppLifecycleListener extends StatefulWidget {
   final Widget child;
 
   @override
-  State<AppLifecycleListener> createState() => _AppLifecycleListenerState();
+  State<OnResumedListener> createState() => _OnResumedListenerState();
 }
 
-class _AppLifecycleListenerState extends State<AppLifecycleListener>
+class _OnResumedListenerState extends State<OnResumedListener>
     with WidgetsBindingObserver {
   @override
   void initState() {

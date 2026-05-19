@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' hide AppLifecycleListener;
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -184,13 +184,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
-      // AppLifecycleListener is mounted HERE — above the indexedStack — so a
+      // OnResumedListener is mounted HERE — above the indexedStack — so a
       // single observer covers all three branches.  Mounting inside a branch
       // builder would miss transitions when the user is on a different tab, and
       // could fire multiple times if multiple branches are live simultaneously.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => Consumer(
-          builder: (context, ref, _) => AppLifecycleListener(
+          builder: (context, ref, _) => OnResumedListener(
             onResumed: () {
               // Trigger a check-in surface on every foreground resume so the
               // controller can transition to CheckInsShowing when pending

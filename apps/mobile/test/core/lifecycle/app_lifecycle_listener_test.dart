@@ -3,19 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tribely/src/core/lifecycle/app_lifecycle_listener.dart';
 
 void main() {
-  group('AppLifecycleListener', () {
+  group('OnResumedListener', () {
     testWidgets('calls onResumed when AppLifecycleState.resumed is signalled',
         (tester) async {
       var callCount = 0;
 
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () => callCount++,
           child: const SizedBox(),
         ),
       );
 
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 
       expect(callCount, 1);
@@ -25,13 +25,13 @@ void main() {
       var callCount = 0;
 
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () => callCount++,
           child: const SizedBox(),
         ),
       );
 
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.paused);
 
       expect(callCount, 0);
@@ -41,13 +41,13 @@ void main() {
       var callCount = 0;
 
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () => callCount++,
           child: const SizedBox(),
         ),
       );
 
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
 
       expect(callCount, 0);
@@ -57,13 +57,13 @@ void main() {
       var callCount = 0;
 
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () => callCount++,
           child: const SizedBox(),
         ),
       );
 
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.hidden);
 
       expect(callCount, 0);
@@ -74,30 +74,30 @@ void main() {
       var callCount = 0;
 
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () => callCount++,
           child: const SizedBox(),
         ),
       );
 
       // First cycle.
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(callCount, 1);
 
       // Second cycle.
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(callCount, 2);
 
       // Third cycle.
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(callCount, 3);
     });
@@ -107,7 +107,7 @@ void main() {
       var callCount = 0;
 
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () => callCount++,
           child: const SizedBox(),
         ),
@@ -117,7 +117,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
 
       // Signal resumed after disposal — should be a no-op.
-      await tester.binding
+      tester.binding
           .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 
       expect(callCount, 0);
@@ -125,7 +125,7 @@ void main() {
 
     testWidgets('renders its child', (tester) async {
       await tester.pumpWidget(
-        AppLifecycleListener(
+        OnResumedListener(
           onResumed: () {},
           child: const Text('hello', textDirection: TextDirection.ltr),
         ),
