@@ -123,6 +123,17 @@ import { CheckInsController } from '@/features/check-ins/presentation/http/contr
 import { registerCheckInsConsumers } from '@/features/check-ins/presentation/events/index.js';
 import type { PostEventCheckInRepository } from '@/features/check-ins/domain/repositories/post-event-check-in.repository.js';
 
+import { ReviewPrismaRepository } from '@/features/reviews/infrastructure/persistence/review.prisma-repository.js';
+import { SubmitReviewUseCase } from '@/features/reviews/application/usecases/submit-review.usecase.js';
+import { EditReviewUseCase } from '@/features/reviews/application/usecases/edit-review.usecase.js';
+import { HideReviewUseCase } from '@/features/reviews/application/usecases/hide-review.usecase.js';
+import { ListReviewsForUserUseCase } from '@/features/reviews/application/usecases/list-reviews-for-user.usecase.js';
+import { ListReviewsWrittenByMeUseCase } from '@/features/reviews/application/usecases/list-reviews-written-by-me.usecase.js';
+import { ReviewController } from '@/features/reviews/presentation/http/controllers/review.controller.js';
+import { registerReviewsConsumers } from '@/features/reviews/presentation/events/index.js';
+import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
+import type { CheckBlockedPort } from '@/features/reviews/application/ports/check-blocked.port.js';
+
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
@@ -320,6 +331,16 @@ export interface Container {
 
   // Core — outbox (exposed for account-deletion cascade DI)
   outboxEventRepository: OutboxEventRepository;
+
+  // Reviews
+  reviewRepository: ReviewRepository;
+  checkBlockedPort: CheckBlockedPort;
+  submitReviewUseCase: SubmitReviewUseCase;
+  editReviewUseCase: EditReviewUseCase;
+  hideReviewUseCase: HideReviewUseCase;
+  listReviewsForUserUseCase: ListReviewsForUserUseCase;
+  listReviewsWrittenByMeUseCase: ListReviewsWrittenByMeUseCase;
+  reviewController: ReviewController;
 }
 
 export const buildContainer = (): Container => {
@@ -714,8 +735,45 @@ export const buildContainer = (): Container => {
     clock,
   );
 
+  // --- Reviews ---
+  const reviewRepository = new ReviewPrismaRepository(db);
+  // CheckBlockedPort: no-op stub until Brief 1C lands (user-blocks feature).
+  // The container will swap this binding when user-blocks/application/ports/
+  // check-blocked.port.ts is implemented.
+  const checkBlockedPort: CheckBlockedPort = {
+    async filterBlocked() {
+      return new Set<string>();
+    },
+    async isBlocked() {
+      return false;
+    },
+  };
+  const submitReviewUseCase = new SubmitReviewUseCase(
+    unitOfWork,
+    reviewRepository,
+    eventRepository,
+    joinRequestRepository,
+    publisher,
+    clock,
+  );
+  const editReviewUseCase = new EditReviewUseCase(unitOfWork, reviewRepository, publisher, clock);
+  const hideReviewUseCase = new HideReviewUseCase(unitOfWork, reviewRepository, publisher, clock);
+  const listReviewsForUserUseCase = new ListReviewsForUserUseCase(
+    reviewRepository,
+    checkBlockedPort,
+    clock,
+  );
+  const listReviewsWrittenByMeUseCase = new ListReviewsWrittenByMeUseCase(reviewRepository);
+  const reviewController = new ReviewController(
+    submitReviewUseCase,
+    editReviewUseCase,
+    listReviewsForUserUseCase,
+    listReviewsWrittenByMeUseCase,
+  );
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
+  registerReviewsConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
     issueEmailVerification: issueEmailVerificationUseCase,
     signOutAll: signOutAllUseCase,
@@ -813,5 +871,13 @@ export const buildContainer = (): Container => {
     prunePostEventCheckInsUseCase,
     prunePostEventCheckInsJob,
     checkInsController,
+    reviewRepository,
+    checkBlockedPort,
+    submitReviewUseCase,
+    editReviewUseCase,
+    hideReviewUseCase,
+    listReviewsForUserUseCase,
+    listReviewsWrittenByMeUseCase,
+    reviewController,
   };
 };

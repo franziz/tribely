@@ -16,6 +16,12 @@ import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
 import { buildCheckInsRoutes } from './features/check-ins/presentation/http/routes/check-ins.routes.js';
+import {
+  buildEventScopedReviewRoutes,
+  buildMyReviewRoutes,
+  buildReviewRoutes,
+  buildUserScopedReviewRoutes,
+} from './features/reviews/presentation/http/routes/review.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -132,6 +138,22 @@ export const buildApp = (): { app: Hono; container: Container } => {
       userRepository: container.userRepository,
     }),
   );
+
+  // Reviews: four routers, four mount points.
+  //   /events/:eventId/reviews     — POST: submit a review (merged with /events)
+  //   /reviews/:reviewId           — PATCH: edit a review
+  //   /users/:userId/reviews       — GET: list reviews about a user (merged with /users)
+  //   /me/reviews/written          — GET: list reviews written by me (merged with /me)
+  // All additive Hono mounts — no existing routes are overridden (CLAUDE.md gotcha).
+  const reviewDeps = {
+    controller: container.reviewController,
+    accessTokens: container.accessTokens,
+    userRepository: container.userRepository,
+  };
+  app.route('/events', buildEventScopedReviewRoutes(reviewDeps));
+  app.route('/reviews', buildReviewRoutes(reviewDeps));
+  app.route('/users', buildUserScopedReviewRoutes(reviewDeps));
+  app.route('/me', buildMyReviewRoutes(reviewDeps));
 
   // Admin routes — selfie moderation (TRI-70).
   // SECURITY NOTE: no admin-role middleware yet — network-restrict before production.
