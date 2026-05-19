@@ -59,6 +59,8 @@ model User {
   selfies                  Selfie[]
   // postEventCheckIns and hostedCheckIns back-relations removed: both FKs dropped for TRI-134
   // pseudonymisation — see migration drop_post_event_check_ins_user_fk.
+  reviewsAsRater           Review[]      @relation("ReviewsAsRater")
+  reviewsAsRated           Review[]      @relation("ReviewsAsRated")
 
   @@map("users")
 }
@@ -200,6 +202,7 @@ model Event {
   // See migration tri134_drop_event_host_and_jr_requester_fks.
   joinRequests      JoinRequest[]
   postEventCheckIns PostEventCheckIn[]
+  reviews           Review[]
 
   @@index([hostUserId])
   @@index([status, startsAt])
@@ -239,6 +242,44 @@ model JoinRequest {
   @@index([eventId, status])
   @@index([requesterUserId, status])
   @@map("join_requests")
+}
+
+/// Aggregate root in the `reviews` bounded context.
+/// Tracks a single user's post-event review of another participant in the same
+/// completed event. Lifecycle: submitted → (edited | hidden).
+///
+/// Unique constraint on (eventId, raterUserId, ratedUserId) — one review per
+/// pair per event. Both host-rates-guest and guest-rates-host are allowed.
+///
+/// `hidden` is set by moderators after a report. Hidden reviews are excluded
+/// from the rated user's profile and aggregate rating, but retained for 180
+/// days per the PDPA retention policy (docs/policies/pdpa-retention-tri30.md).
+///
+/// `rating` is validated at the domain layer (1..5) and additionally by a
+/// CHECK constraint in the migration.
+model Review {
+  id           String    @id @default(cuid())
+  eventId      String
+  raterUserId  String
+  ratedUserId  String
+  rating       Int
+  comment      String?   @db.VarChar(500)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  hidden       Boolean   @default(false)
+  hiddenAt     DateTime?
+  hiddenReason String?
+
+  rater User  @relation("ReviewsAsRater", fields: [raterUserId], references: [id], onDelete: Cascade)
+  rated User  @relation("ReviewsAsRated", fields: [ratedUserId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, raterUserId, ratedUserId])
+  @@index([ratedUserId, hidden, createdAt(sort: Desc)])
+  @@index([raterUserId, createdAt(sort: Desc)])
+  @@index([eventId])
+  @@index([hidden, hiddenAt])
+  @@map("reviews")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction
