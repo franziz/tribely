@@ -114,6 +114,17 @@ export const envSchema = z
       .min(60_000, 'SELFIE_DELETION_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
       .optional()
       .default(86_400_000),
+
+    // TRI-79 — How often the selfie retention sweep job runs to find and
+    // permanently delete selfies eligible for retention deletion (approved or
+    // rejected ≥ 30 days ago). Default 86400000 ms = 24h.
+    // Reject anything below 60000 ms (1 min) to prevent Postgres churn.
+    SELFIE_RETENTION_SWEEP_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000, 'SELFIE_RETENTION_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
+      .optional()
+      .default(86_400_000),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
