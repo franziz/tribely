@@ -26,4 +26,18 @@ export class LoggingFileStorage implements FileStorage {
       `https://storage.local/${input.key}?expires=${String(input.expiresInSeconds)}`,
     );
   }
+
+  getSignedUploadUrl(input: {
+    key: string;
+    contentType: string;
+    expiresInSeconds: number;
+  }): Promise<string> {
+    logger.info(
+      { key: input.key, contentType: input.contentType, expiresInSeconds: input.expiresInSeconds },
+      'storage.getSignedUploadUrl (DEV — fake URL)',
+    );
+    return Promise.resolve(
+      `https://storage.local/${input.key}?upload=1&expires=${String(input.expiresInSeconds)}`,
+    );
+  }
 }

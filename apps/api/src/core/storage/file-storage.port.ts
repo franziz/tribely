@@ -4,5 +4,32 @@ export interface FileStorage {
 
   deleteObject(input: { key: string }): Promise<void>;
 
+  /**
+   * Generate a presigned URL that allows an authenticated GET of the object at `key`.
+   *
+   * **Presigners do NOT verify key existence.** A presigned read URL for a missing key
+   * produces a 404 when fetched by the client — the signature is valid but the object
+   * is absent.
+   *
+   * Caller-supplied `expiresInSeconds` above the adapter cap throws.
+   */
   getSignedUrl(input: { key: string; expiresInSeconds: number }): Promise<string>;
+
+  /**
+   * Generate a presigned URL that allows an authenticated PUT upload to `key`.
+   *
+   * **Presigners do NOT verify key existence.** The URL grants write access to the
+   * specified key regardless of whether an object already exists there.
+   *
+   * **Content-Type is bound into the signature.** The client MUST send a matching
+   * `Content-Type` header when making the upload request — S3 rejects requests
+   * with a mismatched or absent `Content-Type` with a 403 SignatureDoesNotMatch error.
+   *
+   * Caller-supplied `expiresInSeconds` above the adapter cap throws.
+   */
+  getSignedUploadUrl(input: {
+    key: string;
+    contentType: string;
+    expiresInSeconds: number;
+  }): Promise<string>;
 }
