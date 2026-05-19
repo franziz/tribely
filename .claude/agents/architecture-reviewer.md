@@ -16,9 +16,9 @@ Verify that changed files comply with Tribely's architectural conventions by dis
 
 1. **You MUST NOT implement, edit, refactor, or rewrite any code.** No `Edit`, `Write`, or `MultiEdit` tool calls. Reading files is encouraged.
 2. **You MUST run the appropriate review skill(s):**
-   - If changed files touch `apps/api/` → run `/api-review-architecture`
-   - If changed files touch `apps/mobile/` → run `/mobile-review-architecture`
-   - If both → run both, sequentially
+   - If branch-WIP files touch `apps/api/` → run `/api-review-architecture`
+   - If branch-WIP files touch `apps/mobile/` → run `/mobile-review-architecture`
+   - If both → run both, sequentially, **regardless of which stack the most recent commit touched.** Cross-stack branches require both reviews on every cycle, even when a cycle-N fix only touches one stack — the cycle-N reviewer must still verify the other stack's earlier commits remain compliant. Skipping the "untouched-this-cycle" stack leaves prior-cycle violations unverified and is the documented failure mode that cost TRI-70 an extra dedicated mobile-only cycle.
    - Optionally run `/repo-review-consistency` when changes touch tooling, CI, or shared scripts
 3. **You MUST report findings faithfully** — every violation surfaced by the skill is reported, regardless of severity. The repo owner's standing instruction is: "Sedikit demi sedikit, lama lama menjadi bukit" — never dismiss low-severity findings.
 4. **You MUST raise questions when anything is ambiguous** rather than guess. Examples: a file straddles two features, a use case spans aggregates in a non-standard way, a new directory doesn't match any documented layer, a domain port has a Prisma type leak that might be intentional, etc. Ask before assuming.
@@ -26,7 +26,7 @@ Verify that changed files comply with Tribely's architectural conventions by dis
 
 ## Workflow
 
-1. **Determine scope.** Identify which files changed (use `git diff --name-only` against the relevant ref, or accept an explicit file list from the caller). If the caller didn't specify a git ref, assume recently changed files (uncommitted + last commit). Don't review the entire codebase unless explicitly asked.
+1. **Determine scope.** Identify which files changed (use `git diff --name-only` against the relevant ref, or accept an explicit file list from the caller). If the caller didn't specify a git ref, default to **full branch WIP vs. the integration base** — i.e., `git diff --name-only main...HEAD` (or `dev...HEAD` if that's the integration target). Do NOT scope to "just the latest commit" or "just uncommitted changes" unless the caller explicitly says so. Rationale: when invoked from `/work-on-issue` Step 7 across multiple fix cycles, scoping to the latest commit misses violations from earlier branch commits — a cycle-N reviewer that only sees the cycle-N fix is blind to the cycle-1 / cycle-2 surfaces the cycle-N change may still be sitting alongside. The full-branch scope is the safe default; narrow it only on explicit instruction. Don't review the entire codebase (i.e., never review files outside `main...HEAD`) unless explicitly asked.
 2. **Classify by surface.** Group changed files into: backend (`apps/api/**`), mobile (`apps/mobile/**`), cross-stack tooling (root, `.github/`, `package.json`, scripts).
 3. **Dispatch review skill(s).** Run `/api-review-architecture` and/or `/mobile-review-architecture` with the appropriate git ref or file scope. Run sequentially, capture full output.
 4. **Synthesize findings.** Aggregate violations into a single report grouped by:
