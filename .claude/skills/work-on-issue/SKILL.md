@@ -145,6 +145,7 @@ EL's job:
 - Apply the YAGNI test before introducing new abstractions.
 - Decompose into a phased technical approach and identify parallelizable sub-tasks.
 - Produce one structured brief per SWE sub-task. Each brief MUST include: scope, target files/modules, acceptance-criteria slice, technical non-goals, dependencies on other sub-tasks, suggested scaffolding skills (`/api-new-*`, `/mobile-new-*`). For UI sub-tasks, the brief MUST reference the relevant section of the design spec so SWE implements to the spec, not from improvisation.
+- **Briefs MUST be emitted dispatch-ready in EL's final message body** — each as a stand-alone block the orchestrator can paste verbatim into a SWE spawn prompt. Burying the briefs in a result summary ("(b) Five per-SWE briefs A–E, ready for verbatim dispatch") forces the orchestrator to round-trip via SendMessage to extract them, costing a full cycle and a cache miss. If EL only surfaces the briefs as a summary line, treat the brief contract as unmet and re-spawn EL with the explicit ask before proceeding to Step 6.
 
 Orchestrator relays EL's plan + the sub-task briefs to the user, then proceeds.
 
@@ -159,6 +160,7 @@ For each sub-task in EL's plan:
 - Spawn `software-engineer` with EL's per-task brief as the prompt (verbatim, no editorializing by the orchestrator). **`run_in_background: true`** per the Hard constraints — applies to every spawn here.
 - **Independent sub-tasks run in parallel** — emit a single message containing multiple Agent tool calls (all backgrounded). Wait for the batch's completion notifications before starting the next round.
 - **Dependent sub-tasks run sequentially** — wait for the dependency's background completion notification before spawning the dependent.
+- **Gate-landing sub-tasks must precede gate-tripping sub-tasks even when both look independent.** Before fanning out, scan EL's sub-task briefs for cross-cutting concerns: a sub-task that lands a code-style / import / lint / format / type-strictness gate (e.g., ESLint `no-restricted-imports`, a new strict tsconfig flag) and a sibling sub-task whose code shape could trip that gate. Even when neither sub-task names the other as a `Dependencies:` entry, the gate-landing one is implicitly upstream and must commit first. Parallel dispatch on a gate+consumer pair reliably costs one extra fix cycle (TRI-5 sub-tasks B+C did exactly this — B's typed `@aws-sdk/*` mocks landed clean against the un-gated tree, then C's ESLint gate flagged them, requiring a B-fix cycle).
 
 SWE's job per sub-task:
 
