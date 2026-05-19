@@ -18,6 +18,7 @@ import {
   OutboxDispatcher,
   OutboxEventPublisher,
   type EventPublisher,
+  type OutboxEventRepository,
 } from '../events/index.js';
 import { OutboxEventPrismaRepository } from '../events/outbox-event.prisma-repository.js';
 import type { Logger } from '../observability/logger.port.js';
@@ -318,7 +319,7 @@ export interface Container {
   pseudonymiseJoinRequestsAuthorForUserUseCase: PseudonymiseJoinRequestsAuthorForUserUseCase;
 
   // Core — outbox (exposed for account-deletion cascade DI)
-  outboxEventRepository: OutboxEventPrismaRepository;
+  outboxEventRepository: OutboxEventRepository;
 }
 
 export const buildContainer = (): Container => {
