@@ -90,7 +90,7 @@ export class DeleteAccountUseCase {
           });
         }
 
-        // ── 2. Common values computed once, reused across cascade steps ─────────
+        // ── Common values computed once, reused across cascade steps ───────────
         const requestedAt = this.clock.now();
         // Single pseudonym reused for events.hostUserId + join_requests.requesterUserId
         // so cross-table joins on the pseudonym remain possible forensically.
@@ -102,7 +102,7 @@ export class DeleteAccountUseCase {
         // The final array is written to the audit row.
         const cascadeScope: AccountDeletionCascadeScope[] = [];
 
-        // ── 3. Hard-delete auth-side tokens ────────────────────────────────────
+        // ── 2. Hard-delete auth-side tokens ────────────────────────────────────
         await this.credentialRepository.deleteForUser(userId, ctx);
         cascadeScope.push('credentials');
 
@@ -115,26 +115,26 @@ export class DeleteAccountUseCase {
         await this.passwordResetTokenRepository.deleteAllForUser(userId, ctx);
         cascadeScope.push('password_reset_tokens');
 
-        // ── 4. Delete selfie blob reference (storage deferred to reaper) ───────
+        // ── 3. Delete selfie blob reference (storage deferred to reaper) ───────
         await this.deleteSelfieForUser.execute({ userId, reason: 'account-deletion' }, ctx);
         cascadeScope.push('selfies');
 
-        // ── 5. Pseudonymise post-event check-in rows ───────────────────────────
+        // ── 4. Pseudonymise post-event check-in rows ───────────────────────────
         await this.pseudonymiseCheckInsForUser.execute({ userId }, ctx);
         cascadeScope.push('check_ins');
 
-        // ── 6. Pseudonymise hosted-event hostUserId references ─────────────────
+        // ── 5. Pseudonymise hosted-event hostUserId references ─────────────────
         await this.eventHostPseudonymisation.execute({ userId, pseudonymHostId: pseudonym }, ctx);
         cascadeScope.push('events_hosted');
 
-        // ── 7. Pseudonymise join-request requesterUserId references ────────────
+        // ── 6. Pseudonymise join-request requesterUserId references ────────────
         await this.joinRequestAuthorPseudonymisation.execute(
           { userId, pseudonymAuthorId: pseudonym },
           ctx,
         );
         cascadeScope.push('join_requests_authored');
 
-        // ── 8. Pseudonymise un-dispatched outbox-event payloads ────────────────
+        // ── 7. Pseudonymise un-dispatched outbox-event payloads ────────────────
         await this.outboxRepository.pseudonymiseUndispatchedPayloadsForUser(
           userId,
           pseudonym,
@@ -142,17 +142,18 @@ export class DeleteAccountUseCase {
         );
         cascadeScope.push('outbox_events_redacted');
 
-        // ── 9. Hash actorUserId in http_audit_logs rows ────────────────────────
+        // ── 8. Hash actorUserId in http_audit_logs rows ────────────────────────
         await this.httpAuditLogRepository.hashActorForUser(userId, actorHash, ctx);
         cascadeScope.push('http_audit_logs_actor_hashed');
 
-        // ── 10. Tombstone the User aggregate ───────────────────────────────────
+        // ── 9. Tombstone the User aggregate ────────────────────────────────────
         // Intentionally LAST: sub-steps above can still resolve the original
         // user row within this transaction if they need it.
         const completedAt = this.clock.now();
         user.tombstone(completedAt);
         cascadeScope.push('users');
 
+        // ── 10. Save User + publish domain events ──────────────────────────────
         await this.userRepository.save(user, ctx);
         await this.publisher.publish(ctx, ...user.pullEvents());
 
