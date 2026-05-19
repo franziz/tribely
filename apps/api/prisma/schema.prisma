@@ -319,6 +319,29 @@ model Report {
   @@map("reports")
 }
 
+/// Aggregate root in the `user-blocks` bounded context.
+/// Tracks a directional block relationship: `initiatorUserId` chose to block
+/// `blockedUserId`. Block visibility checks are BIDIRECTIONAL — if A blocks B,
+/// neither can see the other's content.
+///
+/// A DB-level CHECK constraint enforces no self-blocks as defense in depth
+/// (the domain layer's `UserBlock.initiate` also rejects self-blocks).
+///
+/// `@@unique([initiatorUserId, blockedUserId])` ensures only one active block
+/// per (initiator, blocked) pair. The reverse direction has its own row if B
+/// subsequently blocks A.
+model UserBlock {
+  id              String    @id @default(cuid())
+  initiatorUserId String
+  blockedUserId   String
+  createdAt       DateTime  @default(now())
+
+  @@unique([initiatorUserId, blockedUserId])
+  @@index([initiatorUserId])
+  @@index([blockedUserId])
+  @@map("user_blocks")
+}
+
 /// Transactional outbox: domain events written in the same Postgres transaction
 /// as the data change that produced them. Append-only — the dispatcher tracks
 /// progress per consumer in `consumer_offsets`, not on the event row.
