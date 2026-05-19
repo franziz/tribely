@@ -52,6 +52,7 @@ export class UserPrismaRepository implements UserRepository {
         travelerType: row.travelerType,
         phone: row.phone,
         phoneVerifiedAt: row.phoneVerifiedAt,
+        deletedAt: row.deletedAt,
       },
     });
   }
