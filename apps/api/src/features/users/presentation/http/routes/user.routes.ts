@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
+import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
+import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
+import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type { GetUserUseCase } from '../../../application/usecases/get-user.usecase.js';
 import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
 import type { UpdateUserProfileUseCase } from '../../../application/usecases/update-user-profile.usecase.js';
@@ -15,6 +18,7 @@ export interface UserRouteDeps {
   getUserCapabilities: GetUserCapabilitiesUseCase;
   accessTokens: AccessTokenIssuer;
   clock: Clock;
+  userRepository: UserRepository;
 }
 
 export const buildUserRoutes = (deps: UserRouteDeps): Hono<{ Variables: AuthVariables }> => {
@@ -25,13 +29,20 @@ export const buildUserRoutes = (deps: UserRouteDeps): Hono<{ Variables: AuthVari
     deps.getUserCapabilities,
   );
   const auth = requireAuth(deps.accessTokens);
+  const verifiedEmail = requireVerifiedEmail(deps.userRepository);
+  const verifiedPhone = requireVerifiedPhone(deps.userRepository);
 
   return (
     new Hono<{ Variables: AuthVariables }>()
       // /me/* routes MUST come before /:id — Hono v4 is first-registered-wins;
       // registering /:id first would swallow GET /me/capabilities as id="me".
-      .patch('/me', auth, zValidator('json', updateUserProfileSchema), (c) =>
-        controller.patchMe(c, c.req.valid('json')),
+      .patch(
+        '/me',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        zValidator('json', updateUserProfileSchema),
+        (c) => controller.patchMe(c, c.req.valid('json')),
       )
       .get('/me/capabilities', auth, (c) => controller.getMyCapabilities(c))
       .get('/:id', (c) => controller.get(c, c.req.param('id')))

@@ -59,6 +59,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
       getUserCapabilities: container.getUserCapabilitiesUseCase,
       accessTokens: container.accessTokens,
       clock: container.clock,
+      userRepository: container.userRepository,
     }),
   );
   const eventController = new EventController(
