@@ -13,29 +13,39 @@ describe('LoggingEmailSender', () => {
     infoSpy.mockRestore();
   });
 
-  it('sendVerification resolves and logs to/code', async () => {
+  it('send resolves and logs to/subject', async () => {
     const sender = new LoggingEmailSender();
     await expect(
-      sender.sendVerification({ to: 'user@example.com', code: '123456' }),
+      sender.send({
+        to: 'user@example.com',
+        subject: 'Your Tribely verification code',
+        html: '<p>code: 123456</p>',
+        text: 'code: 123456',
+      }),
     ).resolves.toBeUndefined();
 
     expect(infoSpy).toHaveBeenCalledTimes(1);
     expect(infoSpy).toHaveBeenCalledWith(
-      { to: 'user@example.com', code: '123456' },
-      expect.stringContaining('email.sendVerification'),
+      { to: 'user@example.com', subject: 'Your Tribely verification code' },
+      expect.stringContaining('email.send'),
     );
   });
 
-  it('sendPasswordReset resolves and logs to/code', async () => {
+  it('send resolves for any email type (password reset)', async () => {
     const sender = new LoggingEmailSender();
     await expect(
-      sender.sendPasswordReset({ to: 'user@example.com', code: '654321' }),
+      sender.send({
+        to: 'user@example.com',
+        subject: 'Reset your Tribely password',
+        html: '<p>code: 654321</p>',
+        text: 'code: 654321',
+      }),
     ).resolves.toBeUndefined();
 
     expect(infoSpy).toHaveBeenCalledTimes(1);
     expect(infoSpy).toHaveBeenCalledWith(
-      { to: 'user@example.com', code: '654321' },
-      expect.stringContaining('email.sendPasswordReset'),
+      { to: 'user@example.com', subject: 'Reset your Tribely password' },
+      expect.stringContaining('email.send'),
     );
   });
 });

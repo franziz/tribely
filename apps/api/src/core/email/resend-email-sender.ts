@@ -1,7 +1,5 @@
 import { Resend } from 'resend';
 import type { EmailSender } from './email-sender.port.js';
-import { passwordResetTemplate } from './templates/password-reset.template.js';
-import { verificationTemplate } from './templates/verification.template.js';
 
 /**
  * Production adapter backed by Resend (https://resend.com). The Resend SDK
@@ -12,6 +10,10 @@ import { verificationTemplate } from './templates/verification.template.js';
  * The `from` address must be a Resend-verified sender domain in production.
  * For first-time setup or smoke tests, `onboarding@resend.dev` works but
  * delivers only to the Resend account's verified email.
+ *
+ * This adapter is a primitive transport: it does not compose templates.
+ * Callers (feature use cases) are responsible for building subject/html/text
+ * via template functions in `core/email/templates/`.
  */
 export class ResendEmailSender implements EmailSender {
   private readonly client: Resend;
@@ -23,18 +25,14 @@ export class ResendEmailSender implements EmailSender {
     this.client = new Resend(apiKey);
   }
 
-  async sendVerification(input: { to: string; code: string }): Promise<void> {
-    const { subject, html, text } = verificationTemplate({ code: input.code });
-    await this.send(input.to, subject, html, text);
-  }
-
-  async sendPasswordReset(input: { to: string; code: string }): Promise<void> {
-    const { subject, html, text } = passwordResetTemplate({ code: input.code });
-    await this.send(input.to, subject, html, text);
-  }
-
-  private async send(to: string, subject: string, html: string, text: string): Promise<void> {
-    const result = await this.client.emails.send({ from: this.from, to, subject, html, text });
+  async send(input: { to: string; subject: string; html: string; text: string }): Promise<void> {
+    const result = await this.client.emails.send({
+      from: this.from,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+    });
     if (result.error) {
       throw new Error(`Resend send failed: ${result.error.name}: ${result.error.message}`);
     }
