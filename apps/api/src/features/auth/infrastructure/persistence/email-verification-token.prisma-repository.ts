@@ -41,4 +41,10 @@ export class EmailVerificationTokenPrismaRepository implements EmailVerification
       },
     });
   }
+
+  async deleteAllForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.emailVerificationToken.deleteMany({ where: { userId } });
+    return result.count;
+  }
 }
