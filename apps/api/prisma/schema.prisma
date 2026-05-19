@@ -314,3 +314,29 @@ model EventAuditLog {
   @@index([consumerName, phase, recordedAt])
   @@map("event_audit_logs")
 }
+
+/// Audit row per selfie deletion. Bounded context: `audit` feature.
+/// Append-only. NO application-layer UPDATE path — see repository surface.
+///
+/// PDPA s25 driver: deletion-of-personal-data evidence must survive the
+/// user record itself. `userId` is a plain String (NOT a relation/FK) so
+/// these rows persist beyond user-record deletion. Do NOT add a relation
+/// to User here, ever — it would defeat the regulatory purpose.
+///
+/// 24-month retention: rows pruned by the audit feature's scheduled job
+/// where `deletedAt < now() - 24 months`. Distinct from the 30-day
+/// selfie-image retention sweep (TRI-79).
+model SelfieDeletionEvent {
+  id        String   @id @default(cuid())
+  userId    String   // plain string, deliberately NOT a relation — see model comment
+  selfieId  String
+  reason    String   // closed enum at launch: retention-sweep | account-deletion | user-request | reviewer-rejection-aged
+  deletedAt DateTime
+  requestId String?  // joinable to http_audit_logs.requestId; nullable for non-HTTP origins (retention-sweep)
+  recordedAt DateTime @default(now())
+
+  @@index([userId, deletedAt])
+  @@index([deletedAt])
+  @@index([requestId])
+  @@map("selfie_deletion_events")
+}

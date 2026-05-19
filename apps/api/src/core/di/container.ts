@@ -64,13 +64,18 @@ import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapte
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
+import { PruneSelfieDeletionEventsUseCase } from '@/features/audit/application/usecases/prune-selfie-deletion-events.usecase.js';
 import { RecordEventDispatchUseCase } from '@/features/audit/application/usecases/record-event-dispatch.usecase.js';
 import { RecordEventPublishedUseCase } from '@/features/audit/application/usecases/record-event-published.usecase.js';
 import { RecordHttpCallUseCase } from '@/features/audit/application/usecases/record-http-call.usecase.js';
+import { RecordSelfieDeletionUseCase } from '@/features/audit/application/usecases/record-selfie-deletion.usecase.js';
 import { EventAuditLogPrismaRepository } from '@/features/audit/infrastructure/persistence/event-audit-log.prisma-repository.js';
 import { HttpAuditLogPrismaRepository } from '@/features/audit/infrastructure/persistence/http-audit-log.prisma-repository.js';
+import { SelfieDeletionEventPrismaRepository } from '@/features/audit/infrastructure/persistence/selfie-deletion-event.prisma-repository.js';
 import type { EventAuditLogRepository } from '@/features/audit/domain/repositories/event-audit-log.repository.js';
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
+import type { SelfieDeletionEventRepository } from '@/features/audit/domain/repositories/selfie-deletion-event.repository.js';
+import { PruneSelfieDeletionEventsJob } from '@/features/audit/presentation/jobs/prune-selfie-deletion-events.job.js';
 
 import { CancelEventUseCase } from '@/features/events/application/usecases/cancel-event.usecase.js';
 import { CreateEventUseCase } from '@/features/events/application/usecases/create-event.usecase.js';
@@ -221,9 +226,13 @@ export interface Container {
   // Audit
   httpAuditLogRepository: HttpAuditLogRepository;
   eventAuditLogRepository: EventAuditLogRepository;
+  selfieDeletionEventRepository: SelfieDeletionEventRepository;
   recordHttpCallUseCase: RecordHttpCallUseCase;
   recordEventPublishedUseCase: RecordEventPublishedUseCase;
   recordEventDispatchUseCase: RecordEventDispatchUseCase;
+  recordSelfieDeletionUseCase: RecordSelfieDeletionUseCase;
+  pruneSelfieDeletionEventsUseCase: PruneSelfieDeletionEventsUseCase;
+  pruneSelfieDeletionEventsJob: PruneSelfieDeletionEventsJob;
 
   // Events
   eventRepository: EventRepository;
@@ -394,9 +403,23 @@ export const buildContainer = (): Container => {
   // --- Audit ---
   const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
   const eventAuditLogRepository = new EventAuditLogPrismaRepository(db);
+  const selfieDeletionEventRepository = new SelfieDeletionEventPrismaRepository(db);
   const recordHttpCallUseCase = new RecordHttpCallUseCase(httpAuditLogRepository);
   const recordEventPublishedUseCase = new RecordEventPublishedUseCase(eventAuditLogRepository);
   const recordEventDispatchUseCase = new RecordEventDispatchUseCase(eventAuditLogRepository);
+  const recordSelfieDeletionUseCase = new RecordSelfieDeletionUseCase(
+    selfieDeletionEventRepository,
+  );
+  const pruneSelfieDeletionEventsUseCase = new PruneSelfieDeletionEventsUseCase(
+    unitOfWork,
+    selfieDeletionEventRepository,
+    clock,
+  );
+  const pruneSelfieDeletionEventsJob = new PruneSelfieDeletionEventsJob({
+    pruneUseCase: pruneSelfieDeletionEventsUseCase,
+    intervalMs: env.SELFIE_DELETION_SWEEP_INTERVAL_MS,
+    logger,
+  });
 
   // Wire audit hooks into the events core. The publisher + dispatcher have
   // no compile-time dependency on the audit feature — the binding lives
@@ -529,9 +552,13 @@ export const buildContainer = (): Container => {
     verifyPhoneUseCase,
     httpAuditLogRepository,
     eventAuditLogRepository,
+    selfieDeletionEventRepository,
     recordHttpCallUseCase,
     recordEventPublishedUseCase,
     recordEventDispatchUseCase,
+    recordSelfieDeletionUseCase,
+    pruneSelfieDeletionEventsUseCase,
+    pruneSelfieDeletionEventsJob,
     eventRepository,
     createEventUseCase,
     listEventsUseCase,
