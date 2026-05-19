@@ -41,6 +41,11 @@ model User {
   selfieAttemptCount        Int       @default(0)
   selfieLastFailureCategory String?   // SelfieFailureCategory — CHECK enforced by migration
   selfieAppealLockedAt      DateTime?
+  /// TRI-134 tombstone: set to non-null by User.tombstone(now). A tombstoned user has had all
+  /// PII columns cleared and email replaced with a placeholder. The row is retained (not hard-
+  /// deleted) so FK constraints on events/join_requests/etc. remain intact. Downstream cascade
+  /// mutations (credential revoke, token purge, etc.) are driven by the DeleteAccountUseCase.
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -165,9 +170,9 @@ model PasswordResetToken {
 /// friction when values evolve. Type guards in the mapper narrow strings
 /// back to unions when rehydrating.
 ///
-/// `onDelete: Cascade` on the host FK reflects the PDPA policy: user records
-/// are NOT casually deleted (hard delete only on a verified deletion request),
-/// at which point cascading their hosted events is the correct behaviour.
+/// TRI-134 cascade tombstones the User row; `onDelete: Cascade` remains as
+/// defence-in-depth for any future hard-delete path but is NOT exercised by
+/// the account-deletion cascade.
 model Event {
   id                 String   @id @default(cuid())
   hostUserId         String
@@ -350,6 +355,38 @@ model SelfieDeletionEvent {
   @@index([deletedAt])
   @@index([requestId])
   @@map("selfie_deletion_events")
+}
+
+/// Append-only audit log for account deletion events. Bounded context: `audit` feature.
+///
+/// PDPA s24 driver: evidence of data deletion must survive the user record itself.
+/// `userIdHash` is a SHA-256 hex hash (64 chars) — non-reversible pseudonymisation.
+/// Deliberately NOT a relation to User — rows must outlive user-record tombstoning
+/// for PDPA s24 evidence integrity. Do NOT add a relation to User here, ever.
+///
+/// `cascadeScope` records which classes of data were touched as a TEXT[] (not JSONB)
+/// for simple query and operator readability.
+///
+/// `outcome` is a plain String column; a CHECK constraint in the migration enforces
+/// the closed enum: outcome IN ('completed', 'failed_rolled_back').
+///
+/// No application-layer UPDATE or prune path — append-only by contract (legal Q3).
+/// Read access is out-of-band SQL only — no public-port read methods.
+model AccountDeletionEvent {
+  id            String   @id @default(cuid())
+  userIdHash    String   // SHA-256 hex of userId — non-reversible; plain String, NOT a relation
+  requestedAt   DateTime
+  completedAt   DateTime
+  requestId     String?  // joinable to http_audit_logs.requestId; nullable for non-HTTP origins
+  cascadeScope  String[] @default([]) // AccountDeletionCascadeScope values — TEXT[], not JSONB
+  outcome       String   // completed | failed_rolled_back — CHECK enforced by migration
+  failureReason String?
+  recordedAt    DateTime @default(now())
+
+  @@index([userIdHash, recordedAt])
+  @@index([recordedAt])
+  @@index([requestId])
+  @@map("account_deletion_events")
 }
 
 /// Aggregate root in the `selfies` bounded context.
