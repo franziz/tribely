@@ -184,11 +184,16 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
     expect(await repo.findById(createId())).toBeNull();
   });
 
-  it('rejects saving an event whose host does not exist (FK guard)', async () => {
+  it('accepts saving an event with a non-existent hostUserId (FK intentionally absent — TRI-134 pseudonymisation)', async () => {
+    // The events_hostUserId_fkey FK was dropped in migration
+    // tri134_drop_event_host_and_jr_requester_fks so pseudonymised rows can
+    // carry a cuid2 with no corresponding User row. This test verifies the FK
+    // is gone and the save succeeds (previously this test asserted rejection).
+    const pseudonymId = createId();
     const orphan = Event.create({
       id: createId(),
-      hostUserId: createId(), // non-existent user
-      title: 'Orphan event',
+      hostUserId: pseudonymId, // no User row for this id
+      title: 'Orphan event post-pseudonymisation',
       description: null,
       venue: venue(),
       startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -200,11 +205,97 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       approvalMode: 'auto',
       now: new Date(),
     });
-    // Pull events so the (failed) save doesn't leave them queued on the
-    // aggregate — keeps the test hermetic if the assertion library decides
-    // to inspect the value.
     orphan.pullEvents();
-    await expect(repo.save(orphan)).rejects.toThrow();
+    await expect(repo.save(orphan)).resolves.toBeUndefined();
+    // Clean up: delete the orphan row (no user to cascade-delete it).
+    await db.event.delete({ where: { id: orphan.id } }).catch(() => null);
+  });
+
+  describe('pseudonymiseHostForUser', () => {
+    it('rewrites hostUserId for matched rows, leaves other users untouched, returns correct count', async () => {
+      // Seed: 3 users × 2 events each. Pseudonymise user A only.
+      const userA = createId();
+      const userB = createId();
+      const userC = createId();
+      await db.user.createMany({
+        data: [
+          { id: userA, email: `pseudo-a-${userA}@tri134.test`, displayName: 'PseudoA' },
+          { id: userB, email: `pseudo-b-${userB}@tri134.test`, displayName: 'PseudoB' },
+          { id: userC, email: `pseudo-c-${userC}@tri134.test`, displayName: 'PseudoC' },
+        ],
+      });
+
+      const now = new Date();
+      const makeEventData = (id: string, hid: string) => ({
+        id,
+        hostUserId: hid,
+        title: 'Pseudonymise test',
+        description: null,
+        venueAddress: '1 Raffles Pl',
+        venueCity: 'Singapore',
+        venueLatitude: 1.28,
+        venueLongitude: 103.85,
+        startsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
+        capacity: 4,
+        category: 'food',
+        costSplit: 'own',
+        approvalMode: 'manual',
+        status: 'draft',
+        cancellationReason: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const aId1 = createId();
+      const aId2 = createId();
+      const bId1 = createId();
+      const bId2 = createId();
+      const cId1 = createId();
+      const aIds = [aId1, aId2];
+      const bIds = [bId1, bId2];
+      const cIds = [cId1];
+      await db.event.createMany({
+        data: [
+          makeEventData(aId1, userA),
+          makeEventData(aId2, userA),
+          makeEventData(bId1, userB),
+          makeEventData(bId2, userB),
+          makeEventData(cId1, userC),
+        ],
+      });
+
+      try {
+        const pseudonym = createId();
+        const count = await runWithContext({ requestId: createId(), actorUserId: userA }, () =>
+          unitOfWork.run(async (ctx) => repo.pseudonymiseHostForUser(userA, pseudonym, ctx)),
+        );
+
+        expect(count).toBe(2);
+
+        // User A rows rewritten to pseudonym.
+        const aRows = await db.event.findMany({ where: { id: { in: aIds } } });
+        expect(aRows.every((r) => r.hostUserId === pseudonym)).toBe(true);
+
+        // User B and C rows untouched.
+        const bRows = await db.event.findMany({ where: { id: { in: bIds } } });
+        expect(bRows.every((r) => r.hostUserId === userB)).toBe(true);
+        const cRows = await db.event.findMany({ where: { id: { in: cIds } } });
+        expect(cRows.every((r) => r.hostUserId === userC)).toBe(true);
+      } finally {
+        await db.event.deleteMany({
+          where: { id: { in: [...aIds, ...bIds, ...cIds] } },
+        });
+        await db.user.deleteMany({ where: { id: { in: [userA, userB, userC] } } });
+      }
+    });
+
+    it('returns 0 when no rows match the userId', async () => {
+      const count = await runWithContext({ requestId: createId(), actorUserId: createId() }, () =>
+        unitOfWork.run(async (ctx) => repo.pseudonymiseHostForUser(createId(), createId(), ctx)),
+      );
+      expect(count).toBe(0);
+    });
   });
 
   describe('findManyForListing', () => {

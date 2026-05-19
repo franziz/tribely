@@ -116,4 +116,17 @@ export class EventPrismaRepository implements EventRepository {
     const client = ctx ? unwrapTx(ctx) : this.db;
     return client.event.count({ where: { hostUserId, status: 'completed' } });
   }
+
+  async pseudonymiseHostForUser(
+    userId: string,
+    pseudonymHostId: string,
+    ctx: TxContext,
+  ): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.event.updateMany({
+      where: { hostUserId: userId },
+      data: { hostUserId: pseudonymHostId },
+    });
+    return result.count;
+  }
 }

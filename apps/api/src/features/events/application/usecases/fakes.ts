@@ -113,6 +113,27 @@ export class FakeEventRepository implements EventRepository {
     return Promise.resolve(count);
   }
 
+  pseudonymiseHostForUser(
+    userId: string,
+    pseudonymHostId: string,
+    _ctx: TxContext,
+  ): Promise<number> {
+    let count = 0;
+    for (const event of this.byId.values()) {
+      if (event.hostUserId === userId) {
+        // Mutate the readonly field via Object.defineProperty — acceptable in
+        // a test double where no domain invariants need enforcement.
+        Object.defineProperty(event, 'hostUserId', {
+          value: pseudonymHostId,
+          writable: true,
+          configurable: true,
+        });
+        count += 1;
+      }
+    }
+    return Promise.resolve(count);
+  }
+
   findManyForListing(
     filters: ListEventsFilters,
     cursor: ListEventsCursor | null,
