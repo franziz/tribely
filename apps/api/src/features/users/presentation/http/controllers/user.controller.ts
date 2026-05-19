@@ -4,6 +4,7 @@ import type { GetUserUseCase } from '../../../application/usecases/get-user.usec
 import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
 import type { UpdateUserProfileInput } from '../../../application/usecases/update-user-profile.usecase.js';
 import type { UpdateUserProfileUseCase } from '../../../application/usecases/update-user-profile.usecase.js';
+import type { DeleteAccountUseCase } from '../../../application/usecases/delete-account.usecase.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { AuthVariables } from '@/core/middleware/require-auth.js';
 import type { UpdateUserProfileBody, UserResponse } from '../schemas/user.schemas.js';
@@ -54,6 +55,7 @@ export class UserController {
     private readonly updateProfile: UpdateUserProfileUseCase,
     private readonly clock: Clock,
     private readonly getUserCapabilities: GetUserCapabilitiesUseCase,
+    private readonly deleteAccount: DeleteAccountUseCase,
   ) {}
 
   get = async (c: Context, id: string) => {
@@ -75,5 +77,23 @@ export class UserController {
 
     const { user, isVerified } = await this.getUser.execute({ id: userId });
     return c.json(toResponse(user, isVerified), 200);
+  };
+
+  /**
+   * DELETE /users/me — irreversible PDPA account-deletion cascade.
+   *
+   * Returns 204 No Content on success.
+   * Returns 409 (CONFLICT / ACCOUNT_ALREADY_DELETED) if the account is already deleted.
+   * Returns 401 if the bearer token is missing or invalid (requireAuth middleware).
+   * Returns 500 on cascade failure (rolled-back; failure audit row written in a
+   * clean second transaction for PDPA evidence trail).
+   *
+   * NOT guarded by requireVerifiedEmail — per CEO P3 ruling, an unverified
+   * user must still be able to request erasure.
+   */
+  deleteMe = async (c: Context<{ Variables: AuthVariables }>) => {
+    const userId = c.var.userId;
+    await this.deleteAccount.execute({ userId });
+    return c.body(null, 204);
   };
 }
