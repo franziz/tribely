@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/storage/intro_flag_storage.dart';
 import '../../data/datasources/check_ins_remote_datasource.dart';
 import '../../domain/repositories/check_ins_repository.dart';
 import '../../domain/usecases/acknowledge_check_in_usecase.dart';
 import '../../domain/usecases/flag_check_in_usecase.dart';
 import '../../domain/usecases/surface_pending_check_ins_usecase.dart';
 import '../controllers/check_ins_controller.dart';
+import '../controllers/safety_report_controller.dart';
 import '../state/check_ins_state.dart';
+import '../state/safety_report_state.dart';
 
 // ---------------------------------------------------------------------------
 // Datasource
@@ -54,4 +57,21 @@ final flagCheckInUseCaseProvider = Provider<FlagCheckInUseCase>(
 final checkInsControllerProvider =
     NotifierProvider.autoDispose<CheckInsController, CheckInsState>(
       CheckInsController.new,
+    );
+
+// ---------------------------------------------------------------------------
+// IntroFlagStorage — bridges GetIt singleton into Riverpod for the overlay.
+// ---------------------------------------------------------------------------
+
+final introFlagStorageProvider = Provider<IntroFlagStorage>(
+  (_) => sl<IntroFlagStorage>(),
+);
+
+// ---------------------------------------------------------------------------
+// SafetyReport page controller
+// ---------------------------------------------------------------------------
+
+final safetyReportControllerProvider =
+    NotifierProvider<SafetyReportController, SafetyReportState>(
+      SafetyReportController.new,
     );
