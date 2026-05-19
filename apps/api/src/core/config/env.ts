@@ -105,6 +105,10 @@ export const envSchema = z
     // Boot refuses an empty/missing value when NODE_ENV=production.
     PHONE_HASH_SALT: optionalString(32),
 
+    // Safety-report destination mailbox. Required. Defaults to the ops mailbox
+    // so dev "just works" without an env override.
+    SAFETY_REPORT_EMAIL: z.string().email().default('safety@gotribely.com'),
+
     // How often the selfie-deletion audit table is swept for rows older than
     // the 24-month PDPA retention window (PDPA s25). Default 86400000 ms = 24h.
     // Reject anything below 60000 ms (1 min) to prevent Postgres churn.
