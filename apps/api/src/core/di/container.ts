@@ -76,6 +76,7 @@ import type { EventAuditLogRepository } from '@/features/audit/domain/repositori
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
 import type { SelfieDeletionEventRepository } from '@/features/audit/domain/repositories/selfie-deletion-event.repository.js';
 import { PruneSelfieDeletionEventsJob } from '@/features/audit/presentation/jobs/prune-selfie-deletion-events.job.js';
+import { SweepRetainedSelfiesJob } from '@/features/selfies/presentation/jobs/sweep-retained-selfies.job.js';
 
 import { CancelEventUseCase } from '@/features/events/application/usecases/cancel-event.usecase.js';
 import { CreateEventUseCase } from '@/features/events/application/usecases/create-event.usecase.js';
@@ -248,6 +249,7 @@ export interface Container {
   pendingStorageDeleteRepository: PendingStorageDeleteRepository;
   sweepRunRepository: SweepRunRepository;
   sweepRetainedSelfiesUseCase: SweepRetainedSelfiesUseCase;
+  sweepRetainedSelfiesJob: SweepRetainedSelfiesJob;
   deleteSelfieForUserUseCase: DeleteSelfieForUserUseCase;
 
   // Events
@@ -452,6 +454,11 @@ export const buildContainer = (): Container => {
     clock,
     logger,
   );
+  const sweepRetainedSelfiesJob = new SweepRetainedSelfiesJob({
+    sweepUseCase: sweepRetainedSelfiesUseCase,
+    intervalMs: env.SELFIE_RETENTION_SWEEP_INTERVAL_MS,
+    logger,
+  });
   const deleteSelfieForUserUseCase = new DeleteSelfieForUserUseCase(
     selfieRepository,
     pendingStorageDeleteRepository,
@@ -602,6 +609,7 @@ export const buildContainer = (): Container => {
     pendingStorageDeleteRepository,
     sweepRunRepository,
     sweepRetainedSelfiesUseCase,
+    sweepRetainedSelfiesJob,
     deleteSelfieForUserUseCase,
     eventRepository,
     createEventUseCase,
