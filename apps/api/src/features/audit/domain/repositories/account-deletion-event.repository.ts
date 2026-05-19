@@ -11,6 +11,12 @@ export type AccountDeletionOutcome = 'completed' | 'failed_rolled_back';
  * Each value represents a class of data that was pseudonymised or deleted.
  *
  * Locked at TRI-134. Do NOT extend without a new ticket + legal review.
+ *
+ * NOTE: `event_audit_logs_actor_hashed` was removed in Brief E adjudication.
+ * `EventAuditLog` has no `actorUserId` column — it joins to `http_audit_logs`
+ * via `requestId`, so audit-actor hashing is fully covered by
+ * `http_audit_logs_actor_hashed` alone. The PII cascade contract doc
+ * (docs/policy/pii-cascade-contract.md) row 12 is stale; flag for correction.
  */
 export type AccountDeletionCascadeScope =
   | 'users'
@@ -23,7 +29,6 @@ export type AccountDeletionCascadeScope =
   | 'events_hosted'
   | 'join_requests_authored'
   | 'http_audit_logs_actor_hashed'
-  | 'event_audit_logs_actor_hashed'
   | 'outbox_events_redacted';
 
 export interface AccountDeletionEventRecord {

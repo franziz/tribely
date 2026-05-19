@@ -120,6 +120,8 @@ describe.skipIf(!dbUrl)('AccountDeletionEventPrismaRepository (integration)', ()
   });
 
   it('record: persists full cascadeScope array', async () => {
+    // 11 values — event_audit_logs_actor_hashed removed (Brief E adjudication):
+    // EventAuditLog has no actorUserId column; HTTP-audit hashing covers all actor PII.
     const fullScope = [
       'users',
       'credentials',
@@ -131,7 +133,6 @@ describe.skipIf(!dbUrl)('AccountDeletionEventPrismaRepository (integration)', ()
       'events_hosted',
       'join_requests_authored',
       'http_audit_logs_actor_hashed',
-      'event_audit_logs_actor_hashed',
       'outbox_events_redacted',
     ] as const;
     const entry = buildRecord({ cascadeScope: [...fullScope] });
