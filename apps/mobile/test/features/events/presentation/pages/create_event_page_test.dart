@@ -32,6 +32,8 @@ import 'package:tribely/src/features/events/presentation/providers/events_provid
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_navigation_bar.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_progress_indicator.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
 
 // ---------------------------------------------------------------------------
 // Mock use cases — used by Fix #3 widget test only
@@ -232,6 +234,10 @@ Future<void> _pumpPage(
     ProviderScope(
       overrides: [
         createEventControllerProvider.overrideWith(controllerFactory),
+        // Default to Approved so existing tests are unaffected by selfie gating.
+        selfieGatingStateProvider.overrideWithValue(
+          const SelfieGatingApproved(),
+        ),
       ],
       child: MaterialApp.router(routerConfig: _buildTestRouter()),
     ),
@@ -400,6 +406,10 @@ void main() {
               // without waiting for real async draft-load.
               createEventControllerProvider.overrideWith(
                 _ValidDraftController.new,
+              ),
+              // Default to Approved so selfie gating does not block Publish.
+              selfieGatingStateProvider.overrideWithValue(
+                const SelfieGatingApproved(),
               ),
             ],
             child: MaterialApp.router(routerConfig: _buildTestRouter()),

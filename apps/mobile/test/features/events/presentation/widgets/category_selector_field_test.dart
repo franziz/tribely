@@ -30,6 +30,8 @@ import 'package:tribely/src/features/events/presentation/state/create_event_stat
 import 'package:tribely/src/features/events/presentation/widgets/category_selector_field.dart';
 import 'package:tribely/src/features/events/presentation/widgets/category_sheet.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_navigation_bar.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
 
 // ---------------------------------------------------------------------------
 // Helper — derives blockingFields from a draft, matching the controller logic.
@@ -188,6 +190,10 @@ Future<void> _pumpPage(
         createEventControllerProvider.overrideWith(controllerFactory),
         saveEventDraftUseCaseProvider.overrideWithValue(
           const _FakeSaveEventDraftUseCase(),
+        ),
+        // Default to Approved so selfie gating does not affect these tests.
+        selfieGatingStateProvider.overrideWithValue(
+          const SelfieGatingApproved(),
         ),
       ],
       child: MaterialApp.router(routerConfig: _buildTestRouter()),

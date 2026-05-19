@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/banner_message.dart';
+import '../../../../core/widgets/disabled_cta_hint.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../users/presentation/providers/capability_providers.dart';
+import '../../../users/presentation/state/selfie_gating_state.dart';
+import '../../../users/presentation/string_assets/verification_failure_copy.dart';
 import '../providers/join_requests_providers.dart';
 import '../state/request_to_join_state.dart';
 
@@ -84,6 +89,11 @@ class ConfirmJoinSheet extends ConsumerWidget {
 
     final isSubmitting = state is RequestToJoinSubmitting;
     final failure = state is RequestToJoinFailed ? state.failure : null;
+
+    // Selfie gating — additive disable. When not approved, the CTA is blocked
+    // regardless of other conditions; hint copy takes precedence per TRI-57.
+    final selfieGatingState = ref.watch(selfieGatingStateProvider);
+    final isSelfieGated = selfieGatingState is! SelfieGatingApproved;
 
     final effectiveNow = now ?? DateTime.now();
     final showHappeningNowHint =
@@ -172,13 +182,25 @@ class ConfirmJoinSheet extends ConsumerWidget {
                   BannerMessage(message: _failureMessage(failure)),
                   const SizedBox(height: 16),
                 ],
-                // Submit button.
+                // Selfie-gating hint — shown when selfie is not approved.
+                // Takes precedence over other disable reasons per TRI-57:
+                // the selfie blocker must always be explained inline.
+                if (isSelfieGated) ...[
+                  _SelfieGatingHint(
+                    selfieGatingState: selfieGatingState,
+                    onTap: (route) => context.push(route),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                // Submit button — disabled when submitting OR selfie-gated.
                 PrimaryButton(
                   label: 'Send request',
                   state: isSubmitting
                       ? PrimaryButtonState.loading
                       : PrimaryButtonState.idle,
-                  onPressed: isSubmitting ? null : controller.submit,
+                  onPressed: isSubmitting || isSelfieGated
+                      ? null
+                      : controller.submit,
                 ),
                 const SizedBox(height: 12),
                 // Cancel text link.
@@ -215,6 +237,49 @@ class ConfirmJoinSheet extends ConsumerWidget {
       ConflictFailure() => 'You already have a pending request for this event.',
       NetworkFailure() => 'No connection. Check your network and try again.',
       _ => failure.message,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Selfie-gating hint (Request to Join)
+// ---------------------------------------------------------------------------
+
+/// Renders [DisabledCTAHint] above the submit button when the user's selfie
+/// verification is not approved.
+///
+/// [onTap] receives the target route path string so the caller can forward it
+/// via [context.push] — this widget carries no BuildContext navigation logic.
+class _SelfieGatingHint extends StatelessWidget {
+  const _SelfieGatingHint({
+    required this.selfieGatingState,
+    required this.onTap,
+  });
+
+  final SelfieGatingState selfieGatingState;
+  final void Function(String route) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (selfieGatingState) {
+      SelfieGatingFailed() || SelfieGatingLocked() => DisabledCTAHint(
+        text: kDisabledHintJoinEvents,
+        accentSpan: kDisabledHintJoinEventsAccentSpan,
+        onTap: () => onTap('/verification/failure'),
+      ),
+      SelfieGatingPending() => DisabledCTAHint(
+        text: kDisabledHintPending,
+        // Single-colour (inkSecondary) — no accentSpan.
+        // TODO(TRI-68): route to verification settings page once that route lands.
+        onTap: () => onTap('/verification/failure'),
+      ),
+      SelfieGatingNotStarted() => DisabledCTAHint(
+        text: kDisabledHintPending,
+        // Single-colour (inkSecondary) — no accentSpan.
+        // TODO(TRI-23): route to selfie capture entry point once that route lands.
+        onTap: () => onTap('/verification/failure'),
+      ),
+      SelfieGatingApproved() => const SizedBox.shrink(),
     };
   }
 }

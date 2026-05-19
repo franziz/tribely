@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
+import '../../../../core/widgets/disabled_cta_hint.dart';
+import '../../../users/presentation/providers/capability_providers.dart';
+import '../../../users/presentation/state/selfie_gating_state.dart';
+import '../../../users/presentation/string_assets/verification_failure_copy.dart';
 import '../controllers/create_event_controller.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
@@ -157,14 +161,20 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
 
     final isSubmitting = state is CreateEventSubmitting;
 
+    // Selfie gating — read once per build; only blocks the Publish step.
+    final selfieGatingState = ref.watch(selfieGatingStateProvider);
+    final isSelfieGated = selfieGatingState is! SelfieGatingApproved;
+
     // On step 4 the Publish button must require every prior step to also be
     // valid — not just step 4's own fields. canSubmit() is the full cross-step
     // check. On steps 0–3 the per-step canAdvance is sufficient.
+    // Selfie gating is additive: if selfie is not approved, Publish is blocked
+    // regardless of form validity.
     final canAdvance = switch (state) {
       CreateEventEditing() =>
         currentStep < _lastStepIndex
             ? controller.canAdvance(currentStep)
-            : controller.canSubmit(),
+            : controller.canSubmit() && !isSelfieGated,
       _ => false,
     };
 
@@ -243,9 +253,21 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Selfie-gating hint — shown above the nav bar on the Publish step
+          // when the user's selfie is not approved. Takes precedence over the
+          // form-validity _BlockingHint per TRI-57 (selfie-gating's hint copy
+          // wins when selfie is the blocker). Only rendered on the last step;
+          // navigation steps are not selfie-gated.
+          if (isSelfieGated && currentStep == _lastStepIndex)
+            _SelfieGatingHint(selfieGatingState: selfieGatingState),
+
           // Blocking hint — rendered above the nav bar when the current step
           // has a blocking field (so the user knows why Next/Publish is grey).
-          if (!canAdvance && state is CreateEventEditing)
+          // Suppressed when selfie gating is active on the last step so the
+          // two hints don't compete for the same inline space.
+          if (!canAdvance &&
+              state is CreateEventEditing &&
+              !(isSelfieGated && currentStep == _lastStepIndex))
             _BlockingHint(
               currentStep: currentStep,
               totalSteps: _totalSteps,
@@ -264,6 +286,45 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
         ],
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Selfie-gating hint (Create Event — last step only)
+// ---------------------------------------------------------------------------
+
+/// Renders [DisabledCTAHint] above the nav bar when the user's selfie
+/// verification is not approved. Routes to /verification/failure on tap for
+/// failed/locked states; falls back to /verification/failure for pending and
+/// notStarted until TRI-68 (settings page) and TRI-23 (selfie capture entry)
+/// land their respective routes.
+class _SelfieGatingHint extends StatelessWidget {
+  const _SelfieGatingHint({required this.selfieGatingState});
+
+  final SelfieGatingState selfieGatingState;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (selfieGatingState) {
+      SelfieGatingFailed() || SelfieGatingLocked() => DisabledCTAHint(
+        text: kDisabledHintCreateEvent,
+        accentSpan: kDisabledHintCreateEventAccentSpan,
+        onTap: () => context.push('/verification/failure'),
+      ),
+      SelfieGatingPending() => DisabledCTAHint(
+        text: kDisabledHintPending,
+        // Single-colour (inkSecondary) — no accentSpan.
+        // TODO(TRI-68): route to verification settings page once that route lands.
+        onTap: () => context.push('/verification/failure'),
+      ),
+      SelfieGatingNotStarted() => DisabledCTAHint(
+        text: kDisabledHintPending,
+        // Single-colour (inkSecondary) — no accentSpan.
+        // TODO(TRI-23): route to selfie capture entry point once that route lands.
+        onTap: () => context.push('/verification/failure'),
+      ),
+      SelfieGatingApproved() => const SizedBox.shrink(),
+    };
   }
 }
 

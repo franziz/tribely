@@ -33,6 +33,8 @@ import 'package:tribely/src/features/join_requests/presentation/controllers/requ
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/widgets/confirm_join_sheet.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -103,6 +105,10 @@ Future<_FixedRequestToJoinController> _pumpSheet(
         requestToJoinControllerProvider(
           _testEventId,
         ).overrideWith(() => controller),
+        // Default to Approved so existing tests are unaffected by selfie gating.
+        selfieGatingStateProvider.overrideWithValue(
+          const SelfieGatingApproved(),
+        ),
       ],
       child: MaterialApp(
         home: Scaffold(
