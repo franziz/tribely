@@ -20,7 +20,7 @@ import {
   FakeUserRepository,
   FakeVerificationCodeHasher,
   FixedClock,
-} from './__test__/fakes.js';
+} from './fakes.js';
 
 const buildUser = (verifiedAt: Date | null = new Date('2026-01-01T00:00:00Z')): User =>
   User.rehydrate({

@@ -8,6 +8,8 @@ import { ResendEmailSender } from '../email/resend-email-sender.js';
 import type { PhoneVerifier } from '../sms/phone-verifier.port.js';
 import { LoggingPhoneVerifier } from '../sms/logging-phone-verifier.js';
 import { TwilioPhoneVerifier } from '../sms/twilio-phone-verifier.js';
+import type { FileStorage } from '../storage/file-storage.port.js';
+import { LoggingFileStorage } from '../storage/logging-file-storage.js';
 import {
   ConsumerRegistry,
   OutboxDispatcher,
@@ -117,6 +119,17 @@ const buildPhoneVerifier = (): PhoneVerifier => {
   return new LoggingPhoneVerifier();
 };
 
+const buildFileStorage = (): FileStorage => {
+  if (env.STORAGE_TRANSPORT === 's3') {
+    throw new Error(
+      'S3FileStorage adapter is pending TRI-5. For local dev, set ' +
+        'STORAGE_TRANSPORT=log in apps/api/.env. Production must wait for ' +
+        'TRI-5 to land before STORAGE_TRANSPORT=s3 can boot.',
+    );
+  }
+  return new LoggingFileStorage();
+};
+
 const parseDurationSeconds = (value: string): number => {
   const match = /^(\d+)([smhd])$/.exec(value);
   if (!match) throw new Error(`Invalid TTL: ${value}`);
@@ -145,6 +158,7 @@ export interface Container {
   rateLimiter: RateLimiter;
   emailSender: EmailSender;
   phoneVerifier: PhoneVerifier;
+  fileStorage: FileStorage;
   logger: Logger;
 
   // Users
@@ -209,6 +223,7 @@ export const buildContainer = (): Container => {
   const rateLimiter = new InMemoryRateLimiter();
   const emailSender = buildEmailSender();
   const phoneVerifier = buildPhoneVerifier();
+  const fileStorage = buildFileStorage();
   const logger: Logger = new PinoLogger();
 
   // --- Users ---
@@ -433,6 +448,7 @@ export const buildContainer = (): Container => {
     rateLimiter,
     emailSender,
     phoneVerifier,
+    fileStorage,
     logger,
     userRepository,
     getUserUseCase,

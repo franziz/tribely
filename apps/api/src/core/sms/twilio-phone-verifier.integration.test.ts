@@ -4,15 +4,15 @@
 // every test silently skips.
 import 'dotenv/config';
 import { describe, expect, it } from 'vitest';
-import { TwilioPhoneVerifier } from '../twilio-phone-verifier.js';
-import { PhoneNumber } from '../phone-number.js';
+import { TwilioPhoneVerifier } from './twilio-phone-verifier.js';
+import { PhoneNumber } from './phone-number.js';
 
 /**
  * Opt-in integration test — hits the real Twilio Verify API.
  *
  * To run:
  *   TWILIO_INTEGRATION_TEST=1 npm run --workspace=@tribely/api test -- \
- *     src/core/sms/__test__/twilio-phone-verifier.integration.test.ts
+ *     src/core/sms/twilio-phone-verifier.integration.test.ts
  *
  * Required env vars (set in apps/api/.env):
  *   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID

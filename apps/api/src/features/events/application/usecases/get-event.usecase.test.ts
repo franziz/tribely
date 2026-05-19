@@ -10,7 +10,7 @@ import { EventCategory } from '../../domain/value-objects/event-category.js';
 import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 import { GetEventUseCase } from './get-event.usecase.js';
-import { FakeEventRepository, FakeUserRepository } from './__test__/fakes.js';
+import { FakeEventRepository, FakeUserRepository } from './fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
 

@@ -1,4 +1,4 @@
-import type { EmailSender } from '../email-sender.port.js';
+import type { EmailSender } from './email-sender.port.js';
 
 export interface RecordedVerification {
   kind: 'verification';

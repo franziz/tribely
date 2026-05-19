@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PhoneVerifier } from '../phone-verifier.port.js';
-import { PhoneNumber } from '../phone-number.js';
+import type { PhoneVerifier } from './phone-verifier.port.js';
+import { PhoneNumber } from './phone-number.js';
 import { runPhoneVerifierContract } from './phone-verifier.contract.js';
 
 // --- Mock the twilio module BEFORE importing the adapter ---
@@ -31,7 +31,7 @@ vi.mock('twilio', () => ({
 }));
 
 // Import adapter AFTER vi.mock so it picks up the mocked SDK.
-const { TwilioPhoneVerifier } = await import('../twilio-phone-verifier.js');
+const { TwilioPhoneVerifier } = await import('./twilio-phone-verifier.js');
 
 // --- Helpers ---
 

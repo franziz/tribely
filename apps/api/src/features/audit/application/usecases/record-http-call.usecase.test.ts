@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type {
   HttpAuditLogRecord,
   HttpAuditLogRepository,
-} from '../../../domain/repositories/http-audit-log.repository.js';
-import { RecordHttpCallUseCase } from '../record-http-call.usecase.js';
+} from '../../domain/repositories/http-audit-log.repository.js';
+import { RecordHttpCallUseCase } from './record-http-call.usecase.js';
 
 class FakeHttpAuditLogRepository implements HttpAuditLogRepository {
   readonly recorded: HttpAuditLogRecord[] = [];

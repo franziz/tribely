@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FakeEmailSender } from '@/core/email/__test__/fake-email-sender.js';
+import { FakeEmailSender } from '@/core/email/fake-email-sender.js';
 import { User } from '@/features/users/domain/entities/user.js';
 import { DisplayName } from '@/features/users/domain/value-objects/display-name.js';
 import { Email } from '@/features/users/domain/value-objects/email.js';
@@ -12,7 +12,7 @@ import {
   FakeUserRepository,
   FakeVerificationCodeHasher,
   FixedClock,
-} from './__test__/fakes.js';
+} from './fakes.js';
 
 const buildUser = (verifiedAt: Date | null = null): User =>
   User.rehydrate({

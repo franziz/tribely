@@ -59,6 +59,23 @@ export const envSchema = z
       .default('+65')
       .transform((s) => s.split(',').map((c) => c.trim()))
       .pipe(z.array(z.string().regex(/^\+[1-9]\d{0,3}$/)).min(1)),
+
+    // Object storage — `log` writes to the logger (dev default, no real
+    // uploads), `s3` hits the real AWS S3 API. Selection is explicit (not
+    // inferred from key presence) so a missing credential in staging fails
+    // loudly at boot rather than silently dropping uploads.
+    // S3 adapter pending TRI-5 — STORAGE_TRANSPORT=s3 will throw at boot
+    // until that adapter lands.
+    STORAGE_TRANSPORT: z.enum(['log', 's3']).default('log'),
+    STORAGE_BUCKET: z.string().min(1).optional(),
+    STORAGE_REGION: z.string().min(1).optional(),
+    STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_ENDPOINT: z.string().url().optional(),
+    STORAGE_FORCE_PATH_STYLE: z
+      .union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')])
+      .optional()
+      .default(false),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
@@ -116,6 +133,46 @@ export const envSchema = z
           'set EMAIL_TRANSPORT=resend with a real RESEND_API_KEY. The log ' +
           'transport writes verification codes to stdout, which leaks to ' +
           'log aggregators in production.',
+      });
+    }
+
+    if (data.STORAGE_TRANSPORT === 's3') {
+      if (!data.STORAGE_BUCKET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['STORAGE_BUCKET'],
+          message: 'STORAGE_BUCKET is required when STORAGE_TRANSPORT=s3',
+        });
+      }
+      if (!data.STORAGE_REGION) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['STORAGE_REGION'],
+          message: 'STORAGE_REGION is required when STORAGE_TRANSPORT=s3',
+        });
+      }
+      if (!data.STORAGE_ACCESS_KEY_ID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['STORAGE_ACCESS_KEY_ID'],
+          message: 'STORAGE_ACCESS_KEY_ID is required when STORAGE_TRANSPORT=s3',
+        });
+      }
+      if (!data.STORAGE_SECRET_ACCESS_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['STORAGE_SECRET_ACCESS_KEY'],
+          message: 'STORAGE_SECRET_ACCESS_KEY is required when STORAGE_TRANSPORT=s3',
+        });
+      }
+    }
+    if (data.NODE_ENV === 'production' && data.STORAGE_TRANSPORT === 'log') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_TRANSPORT'],
+        message:
+          'STORAGE_TRANSPORT=log is not allowed when NODE_ENV=production — ' +
+          'set STORAGE_TRANSPORT=s3 with real AWS credentials.',
       });
     }
   });

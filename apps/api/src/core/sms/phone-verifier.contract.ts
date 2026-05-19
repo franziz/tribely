@@ -17,8 +17,8 @@
  * enforces is the shape, not the specific status — that's the adapter's own unit tests.
  */
 import { describe, expect, it } from 'vitest';
-import type { PhoneVerifier } from '../phone-verifier.port.js';
-import { PhoneNumber } from '../phone-number.js';
+import type { PhoneVerifier } from './phone-verifier.port.js';
+import { PhoneNumber } from './phone-number.js';
 
 const VALID_SG_PHONE = PhoneNumber.create('+6591234567').value;
 

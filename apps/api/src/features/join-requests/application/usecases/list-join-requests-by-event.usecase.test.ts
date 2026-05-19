@@ -10,11 +10,7 @@ import { DisplayName } from '@/features/users/domain/value-objects/display-name.
 import { Email } from '@/features/users/domain/value-objects/email.js';
 import { JoinRequest } from '../../domain/entities/join-request.js';
 import { ListJoinRequestsByEventUseCase } from './list-join-requests-by-event.usecase.js';
-import {
-  FakeEventRepository,
-  FakeJoinRequestRepository,
-  FakeUserRepository,
-} from './__test__/fakes.js';
+import { FakeEventRepository, FakeJoinRequestRepository, FakeUserRepository } from './fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
 const STARTS = new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000);

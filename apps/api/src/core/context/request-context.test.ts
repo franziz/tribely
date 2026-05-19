@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getRequestContext, runWithContext, upgradeActorUserId } from '../request-context.js';
-import { runAsSystem } from '../system-context.js';
+import { getRequestContext, runWithContext, upgradeActorUserId } from './request-context.js';
+import { runAsSystem } from './system-context.js';
 
 describe('request-context', () => {
   describe('outside any frame', () => {

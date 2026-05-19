@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { getRequestContext } from '../../context/request-context.js';
-import { requestContext, type RequestContextVariables } from '../request-context.js';
+import { getRequestContext } from '../context/request-context.js';
+import { requestContext, type RequestContextVariables } from './request-context.js';
 
 describe('requestContext middleware', () => {
   const buildApp = () => {

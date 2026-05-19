@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Db } from '../../db/prisma.js';
-import type { Consumer } from '../consumer.port.js';
-import { ConsumerRegistry } from '../consumer-registry.js';
-import { OutboxDispatcher } from '../outbox-dispatcher.js';
+import type { Db } from '../db/prisma.js';
+import type { Consumer } from './consumer.port.js';
+import { ConsumerRegistry } from './consumer-registry.js';
+import { OutboxDispatcher } from './outbox-dispatcher.js';
 import { FakePrisma } from './fake-prisma.js';
 
 /**

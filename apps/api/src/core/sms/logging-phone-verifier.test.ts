@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { logger } from '../../middleware/logger.js';
-import { LoggingPhoneVerifier } from '../logging-phone-verifier.js';
-import { PhoneNumber } from '../phone-number.js';
+import { logger } from '../middleware/logger.js';
+import { LoggingPhoneVerifier } from './logging-phone-verifier.js';
+import { PhoneNumber } from './phone-number.js';
 import { runPhoneVerifierContract } from './phone-verifier.contract.js';
 
 // Run the shared behavioral contract first.

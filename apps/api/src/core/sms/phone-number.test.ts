@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AppError } from '../../errors/app-error.js';
-import { PhoneNumber, type E164Phone } from '../phone-number.js';
+import { AppError } from '../errors/app-error.js';
+import { PhoneNumber, type E164Phone } from './phone-number.js';
 
 describe('PhoneNumber', () => {
   describe('create — valid E.164 numbers', () => {

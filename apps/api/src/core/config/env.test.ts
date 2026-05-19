@@ -12,7 +12,7 @@
  * JWT_SECRET), which both local .env and CI _api.yml do.
  */
 import { describe, expect, it } from 'vitest';
-import { envSchema } from '../env.js';
+import { envSchema } from './env.js';
 
 // Minimal valid env fixture — all required fields with the smallest legal values.
 const validBaseEnv: Record<string, string> = {
@@ -58,6 +58,12 @@ describe('env schema', () => {
           // Must also provide a real email transport to avoid the email guard.
           EMAIL_TRANSPORT: 'resend',
           RESEND_API_KEY: 'retest',
+          // Must also provide a real storage transport to avoid the storage guard.
+          STORAGE_TRANSPORT: 's3',
+          STORAGE_BUCKET: 'tribely-prod',
+          STORAGE_REGION: 'ap-southeast-1',
+          STORAGE_ACCESS_KEY_ID: 'AKIATEST',
+          STORAGE_SECRET_ACCESS_KEY: 'secrettest',
         }),
       ).not.toThrow();
     });

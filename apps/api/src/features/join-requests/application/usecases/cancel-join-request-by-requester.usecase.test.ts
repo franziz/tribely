@@ -9,7 +9,7 @@ import {
   FakeUnitOfWork,
   FixedClock,
   TEST_TX,
-} from './__test__/fakes.js';
+} from './fakes.js';
 
 const NOW = new Date('2026-05-11T00:00:00Z');
 const STARTS = new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000);
