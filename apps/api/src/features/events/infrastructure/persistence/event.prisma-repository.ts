@@ -129,4 +129,37 @@ export class EventPrismaRepository implements EventRepository {
     });
     return result.count;
   }
+
+  async findCompletedForUserBetween(
+    input: { userId: string; completedAfter: Date; completedBefore: Date },
+    ctx?: TxContext,
+  ): Promise<Event[]> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+
+    // Single query: events the user was host of, OR events where the user has
+    // an approved join request — all completed within the time window.
+    const rows = await client.event.findMany({
+      where: {
+        status: 'completed',
+        endsAt: {
+          gt: input.completedAfter,
+          lte: input.completedBefore,
+        },
+        OR: [
+          { hostUserId: input.userId },
+          {
+            joinRequests: {
+              some: {
+                requesterUserId: input.userId,
+                status: 'approved',
+              },
+            },
+          },
+        ],
+      },
+      orderBy: { endsAt: 'asc' },
+    });
+
+    return rows.map(toEvent);
+  }
 }

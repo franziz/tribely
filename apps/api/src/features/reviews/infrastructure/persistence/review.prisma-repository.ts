@@ -13,7 +13,8 @@ import { toReview, toRow } from './review.mapper.js';
 
 const DEFAULT_LIST_LIMIT = 20;
 const EXCERPT_MAX_LENGTH = 100;
-const AGGREGATE_COMMENT_COUNT = 5;
+const AGGREGATE_COMMENT_COUNT = 3;
+const BLIND_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 /**
  * Encode a keyset cursor as base64url JSON. Opaque to callers.
@@ -213,9 +214,33 @@ export class ReviewPrismaRepository implements ReviewRepository {
   ): Promise<ReviewAggregateForUser> {
     const client = ctx ? unwrapTx(ctx) : this.db;
 
-    // Aggregate: avg + count of non-hidden reviews.
+    // Resolve block relationships: rater IDs that are blocked by OR have
+    // blocked `viewerId`. Query the user_blocks table directly — same DB,
+    // same transaction context. This keeps the repo interface simple while
+    // correctly filtering at the SQL aggregate layer.
+    const blockRows = await client.userBlock.findMany({
+      where: {
+        OR: [{ initiatorUserId: input.viewerId }, { blockedUserId: input.viewerId }],
+      },
+      select: { initiatorUserId: true, blockedUserId: true },
+    });
+    const blockedRaterIds = new Set(
+      blockRows.map((b) =>
+        b.initiatorUserId === input.viewerId ? b.blockedUserId : b.initiatorUserId,
+      ),
+    );
+    const blockedArray = [...blockedRaterIds];
+
+    // Build the base where clause: non-hidden, block-filtered.
+    const baseWhere: Prisma.ReviewWhereInput = {
+      ratedUserId: input.ratedUserId,
+      hidden: false,
+      ...(blockedArray.length > 0 ? { raterUserId: { notIn: blockedArray } } : {}),
+    };
+
+    // Aggregate: avg + count of non-hidden, non-blocked reviews.
     const agg = await client.review.aggregate({
-      where: { ratedUserId: input.ratedUserId, hidden: false },
+      where: baseWhere,
       _avg: { rating: true },
       _count: { id: true },
     });
@@ -227,41 +252,101 @@ export class ReviewPrismaRepository implements ReviewRepository {
       return { averageRating: null, reviewCount: 0, recentVisibleComments: [] };
     }
 
-    // Recent visible comments: join to event + user for context.
-    // For simplicity, fetch the most recent reviews with comments and join
-    // in-app. At MVP scale this is fine; if this becomes a hot path add a
-    // materialised view.
-    //
-    // NOTE: mutual-window check at the aggregate level is omitted here for
-    // performance — the aggregate summary is shown on the profile screen which
-    // is a less sensitive context than the full review list. Brief 1D will
-    // revisit if the product spec tightens this.
+    // Fetch the most recent reviews with comments for the snippet surface.
+    // We fetch more than AGGREGATE_COMMENT_COUNT to account for mutual-window
+    // filtering (blind-window rows are excluded from snippets but not from count).
+    const FETCH_EXTRA = AGGREGATE_COMMENT_COUNT * 4;
     const recentWithComments = await client.review.findMany({
       where: {
-        ratedUserId: input.ratedUserId,
-        hidden: false,
+        ...baseWhere,
         comment: { not: null },
       },
       orderBy: { createdAt: 'desc' },
-      take: AGGREGATE_COMMENT_COUNT,
+      take: FETCH_EXTRA,
       include: {
         rater: { select: { displayName: true } },
-        event: { select: { title: true } },
+        event: { select: { title: true, endsAt: true } },
       },
     });
 
-    const recentVisibleComments = recentWithComments.map((row) => ({
-      excerpt: (row.comment ?? '').substring(0, EXCERPT_MAX_LENGTH),
-      raterDisplayName: row.rater.displayName,
-      rating: row.rating,
-      eventTitle: row.event.title,
-      createdAt: row.createdAt,
-    }));
+    if (recentWithComments.length === 0) {
+      return { averageRating, reviewCount, recentVisibleComments: [] };
+    }
+
+    // Batched counterpart-existence check for mutual-window filter.
+    const eventIds = recentWithComments.map((r) => r.eventId);
+    const raterIds = recentWithComments.map((r) => r.raterUserId);
+
+    const counterparts = await client.review.findMany({
+      where: {
+        eventId: { in: eventIds },
+        raterUserId: input.ratedUserId, // rated user wrote back
+        ratedUserId: { in: raterIds },
+        hidden: false,
+      },
+      select: { eventId: true, ratedUserId: true },
+    });
+    const counterpartSet = new Set(counterparts.map((c) => `${c.eventId}:${c.ratedUserId}`));
+
+    const now = Date.now();
+    const recentVisibleComments: ReviewAggregateForUser['recentVisibleComments'] = [];
+
+    for (const row of recentWithComments) {
+      if (recentVisibleComments.length >= AGGREGATE_COMMENT_COUNT) break;
+
+      // Check mutual-window: if counterpart doesn't exist and event ended < 14d ago,
+      // this review is blind-mutual-pending — exclude from snippet surface.
+      const counterpartKey = `${row.eventId}:${row.raterUserId}`;
+      const counterpartExists = counterpartSet.has(counterpartKey);
+      const windowExpired = now - row.event.endsAt.getTime() >= BLIND_WINDOW_MS;
+
+      if (!counterpartExists && !windowExpired) {
+        // Still in blind mutual window — skip from recent comments (but was
+        // already counted in reviewCount/averageRating above, which is correct
+        // per spec: pending-but-revealable reviews count once revealable).
+        continue;
+      }
+
+      recentVisibleComments.push({
+        excerpt: (row.comment ?? '').substring(0, EXCERPT_MAX_LENGTH),
+        raterDisplayName: row.rater.displayName,
+        rating: row.rating,
+        eventTitle: row.event.title,
+        createdAt: row.createdAt,
+      });
+    }
 
     return {
       averageRating,
       reviewCount,
       recentVisibleComments,
     };
+  }
+
+  async findExistingTriples(
+    input: {
+      raterUserId: string;
+      pairs: ReadonlyArray<{ eventId: string; ratedUserId: string }>;
+    },
+    ctx?: TxContext,
+  ): Promise<Set<string>> {
+    if (input.pairs.length === 0) return new Set();
+    const client = ctx ? unwrapTx(ctx) : this.db;
+
+    // Build a batched OR query across all (eventId, ratedUserId) pairs.
+    // The unique index on (eventId, raterUserId, ratedUserId) guarantees at
+    // most one row per triple — no de-duplication needed after the query.
+    const rows = await client.review.findMany({
+      where: {
+        raterUserId: input.raterUserId,
+        OR: input.pairs.map((p) => ({
+          eventId: p.eventId,
+          ratedUserId: p.ratedUserId,
+        })),
+      },
+      select: { eventId: true, ratedUserId: true },
+    });
+
+    return new Set(rows.map((r) => `${r.eventId}:${r.ratedUserId}`));
   }
 }

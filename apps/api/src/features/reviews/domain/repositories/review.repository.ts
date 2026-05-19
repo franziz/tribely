@@ -107,15 +107,38 @@ export interface ReviewRepository {
   ): Promise<{ rows: Review[]; nextCursor: string | null }>;
 
   /**
+   * Batch-lookup: returns the subset of `(eventId, ratedUserId)` pairs from
+   * `pairs` for which `raterUserId` has already submitted a review.
+   *
+   * Used by the pending-review-prompts use case to exclude already-reviewed
+   * counterparts without issuing N+1 queries (one lookup per candidate pair).
+   *
+   * The returned Set contains strings in `"eventId:ratedUserId"` format for
+   * O(1) membership testing by the caller.
+   */
+  findExistingTriples(
+    input: {
+      raterUserId: string;
+      pairs: ReadonlyArray<{ eventId: string; ratedUserId: string }>;
+    },
+    ctx?: TxContext,
+  ): Promise<Set<string>>;
+
+  /**
    * Aggregate read model for a user's review profile.
    *
    * Applies at the read layer:
-   *   - mutual-window + 14-day fallback visibility filter (hidden comments excluded)
-   *   - block filter (viewerId-blocked IDs excluded)
-   *   - `review.hidden` exclusion
+   *   - `review.hidden` exclusion (always applied)
+   *   - block filter: reviews by raters that have a block relationship with
+   *     `viewerId` are excluded from both count/average and `recentVisibleComments`
+   *   - mutual-window visibility: reviews still in the blind mutual-window
+   *     (counterpart review absent AND < 14 days since event completion)
+   *     are excluded from `recentVisibleComments` but ARE counted in
+   *     `reviewCount` and `averageRating` once the window expires or the
+   *     counterpart submits
    *
    * Returns `averageRating=null` when `reviewCount=0`.
-   * `recentVisibleComments` returns at most 5 entries.
+   * `recentVisibleComments` returns at most 3 entries (most recent visible).
    */
   aggregateForUser(
     input: { ratedUserId: string; viewerId: string },
