@@ -16,6 +16,7 @@
     "test:integration": "vitest run --project integration",
     "test:coverage": "vitest run --coverage",
     "format:check": "prettier --check \"src/**/*.{ts,json}\"",
+    "sweep:selfies": "tsx scripts/sweep-selfies.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:create": "prisma migrate dev --create-only",
