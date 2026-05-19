@@ -20,6 +20,7 @@ import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
+import '../lifecycle/app_lifecycle_listener.dart';
 import 'app_shell.dart';
 
 // Navigator keys for the root navigator and each bottom-nav branch.
@@ -182,9 +183,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
+      // AppLifecycleListener is mounted HERE — above the indexedStack — so a
+      // single observer covers all three branches.  Mounting inside a branch
+      // builder would miss transitions when the user is on a different tab, and
+      // could fire multiple times if multiple branches are live simultaneously.
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AppShell(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => AppLifecycleListener(
+          // TODO(TRI-29 M1): wire to checkInsController
+          // e.g. ref.read(checkInsControllerProvider.notifier).refresh()
+          onResumed: () {},
+          child: AppShell(navigationShell: navigationShell),
+        ),
         branches: [
           // Branch 0 — Discover (/events)
           StatefulShellBranch(
