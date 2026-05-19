@@ -24,27 +24,31 @@ const makeReview = (options?: { hidden?: boolean }): Review => {
 };
 
 describe('ListReviewsWrittenByMeUseCase', () => {
+  let listWrittenBySpy: ReturnType<typeof vi.fn>;
   let reviewRepo: ReviewRepository;
   let useCase: ListReviewsWrittenByMeUseCase;
 
   beforeEach(() => {
+    listWrittenBySpy = vi.fn(() => Promise.resolve({ rows: [], nextCursor: null }));
     reviewRepo = {
-      save: vi.fn(async () => {}),
-      findById: vi.fn(async () => null),
-      findByTriple: vi.fn(async () => null),
-      listByRatedUser: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      listWrittenBy: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      aggregateForUser: vi.fn(async () => ({
-        averageRating: null,
-        reviewCount: 0,
-        recentVisibleComments: [],
-      })),
+      save: vi.fn((): Promise<void> => Promise.resolve()),
+      findById: vi.fn(() => Promise.resolve(null)),
+      findByTriple: vi.fn(() => Promise.resolve(null)),
+      listByRatedUser: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
+      listWrittenBy: listWrittenBySpy,
+      aggregateForUser: vi.fn(() =>
+        Promise.resolve({
+          averageRating: null,
+          reviewCount: 0,
+          recentVisibleComments: [],
+        }),
+      ),
     };
     useCase = new ListReviewsWrittenByMeUseCase(reviewRepo);
   });
 
   it('returns visible reviews with full content', async () => {
-    vi.mocked(reviewRepo.listWrittenBy).mockResolvedValue({
+    listWrittenBySpy.mockResolvedValue({
       rows: [makeReview()],
       nextCursor: null,
     });
@@ -58,7 +62,7 @@ describe('ListReviewsWrittenByMeUseCase', () => {
   });
 
   it('includes hidden reviews with hidden=true flag', async () => {
-    vi.mocked(reviewRepo.listWrittenBy).mockResolvedValue({
+    listWrittenBySpy.mockResolvedValue({
       rows: [makeReview({ hidden: true })],
       nextCursor: null,
     });
@@ -73,13 +77,13 @@ describe('ListReviewsWrittenByMeUseCase', () => {
 
   it('passes cursor and limit to repository', async () => {
     await useCase.execute({ raterUserId: 'user_rater', cursor: 'some-cursor', limit: 10 });
-    expect(reviewRepo.listWrittenBy).toHaveBeenCalledWith(
+    expect(listWrittenBySpy).toHaveBeenCalledWith(
       expect.objectContaining({ cursor: 'some-cursor', limit: 10 }),
     );
   });
 
   it('caps limit at 100', async () => {
     await useCase.execute({ raterUserId: 'user_rater', limit: 9999 });
-    expect(reviewRepo.listWrittenBy).toHaveBeenCalledWith(expect.objectContaining({ limit: 100 }));
+    expect(listWrittenBySpy).toHaveBeenCalledWith(expect.objectContaining({ limit: 100 }));
   });
 });

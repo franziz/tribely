@@ -35,12 +35,20 @@ describe('ReviewComment', () => {
   it('equals same value', () => {
     const a = ReviewComment.create('hello');
     const b = ReviewComment.create('hello');
-    expect(a?.equals(b!)).toBe(true);
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    if (a !== null && b !== null) {
+      expect(a.equals(b)).toBe(true);
+    }
   });
 
   it('not equals different value', () => {
     const a = ReviewComment.create('hello');
     const b = ReviewComment.create('world');
-    expect(a?.equals(b!)).toBe(false);
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    if (a !== null && b !== null) {
+      expect(a.equals(b)).toBe(false);
+    }
   });
 });

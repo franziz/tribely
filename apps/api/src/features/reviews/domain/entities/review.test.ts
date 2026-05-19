@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { AppError } from '@/core/errors/app-error.js';
 import { Rating } from '../value-objects/rating.js';
 import { ReviewComment } from '../value-objects/review-comment.js';
 import { Review } from './review.js';
@@ -122,14 +121,16 @@ describe('Review.edit', () => {
     const r = makeReview({ now });
     const afterWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000 + 1);
 
-    expect(() =>
-      r.edit({ rating: Rating.create(3), comment: null, now: afterWindow }),
-    ).toThrowError(
-      expect.objectContaining({
-        code: 'CONFLICT',
-        details: expect.objectContaining({ subcode: 'reviews.editWindowExpired' }),
-      }),
-    );
+    let thrown: unknown;
+    try {
+      r.edit({ rating: Rating.create(3), comment: null, now: afterWindow });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({
+      code: 'CONFLICT',
+      details: { subcode: 'reviews.editWindowExpired' },
+    });
   });
 
   it('does NOT include comment text in the reviewEdited event payload', () => {

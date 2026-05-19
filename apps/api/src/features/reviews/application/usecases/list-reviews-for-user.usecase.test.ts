@@ -57,32 +57,36 @@ const makeRow = (
 });
 
 const noopBlocked: CheckBlockedPort = {
-  filterBlocked: vi.fn(async () => new Set<string>()),
-  isBlocked: vi.fn(async () => false),
+  filterBlocked: vi.fn(() => Promise.resolve(new Set<string>())),
+  isBlocked: vi.fn(() => Promise.resolve(false)),
 };
 
 describe('ListReviewsForUserUseCase', () => {
+  let listByRatedUserSpy: ReturnType<typeof vi.fn>;
   let reviewRepo: ReviewRepository;
   let useCase: ListReviewsForUserUseCase;
 
   beforeEach(() => {
+    listByRatedUserSpy = vi.fn(() => Promise.resolve({ rows: [], nextCursor: null }));
     reviewRepo = {
-      save: vi.fn(async () => {}),
-      findById: vi.fn(async () => null),
-      findByTriple: vi.fn(async () => null),
-      listByRatedUser: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      listWrittenBy: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      aggregateForUser: vi.fn(async () => ({
-        averageRating: null,
-        reviewCount: 0,
-        recentVisibleComments: [],
-      })),
+      save: vi.fn((): Promise<void> => Promise.resolve()),
+      findById: vi.fn(() => Promise.resolve(null)),
+      findByTriple: vi.fn(() => Promise.resolve(null)),
+      listByRatedUser: listByRatedUserSpy,
+      listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
+      aggregateForUser: vi.fn(() =>
+        Promise.resolve({
+          averageRating: null,
+          reviewCount: 0,
+          recentVisibleComments: [],
+        }),
+      ),
     };
   });
 
   it('returns visible reviews with full content', async () => {
     const review = makeReview();
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, true)], // counterpartExists=true → visible
       nextCursor: null,
     });
@@ -98,7 +102,7 @@ describe('ListReviewsForUserUseCase', () => {
 
   it('returns blind-mutual-pending rows with rating=null, comment=null', async () => {
     const review = makeReview();
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, false)], // no counterpart, within window
       nextCursor: null,
     });
@@ -113,7 +117,7 @@ describe('ListReviewsForUserUseCase', () => {
 
   it('excludes hidden reviews from non-author viewers', async () => {
     const review = makeReview({ hidden: true });
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, false)],
       nextCursor: null,
     });
@@ -125,7 +129,7 @@ describe('ListReviewsForUserUseCase', () => {
 
   it('shows hidden review to the author with hidden=true flag', async () => {
     const review = makeReview({ hidden: true });
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, false)],
       nextCursor: null,
     });
@@ -140,7 +144,7 @@ describe('ListReviewsForUserUseCase', () => {
 
   it('author always sees own visible review', async () => {
     const review = makeReview({ raterUserId: 'user_rater', ratedUserId: 'user_rated' });
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, false)], // no counterpart but author is viewer
       nextCursor: null,
     });
@@ -153,7 +157,7 @@ describe('ListReviewsForUserUseCase', () => {
 
   it('visible after 14-day blind window expires', async () => {
     const review = makeReview();
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, false)],
       nextCursor: null,
     });
@@ -166,13 +170,13 @@ describe('ListReviewsForUserUseCase', () => {
 
   it('excludes blocked raters', async () => {
     const review = makeReview({ raterUserId: 'blocked_user' });
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [makeRow(review, true)],
       nextCursor: null,
     });
     const blockedPort: CheckBlockedPort = {
-      filterBlocked: vi.fn(async () => new Set(['blocked_user'])),
-      isBlocked: vi.fn(async () => false),
+      filterBlocked: vi.fn(() => Promise.resolve(new Set(['blocked_user']))),
+      isBlocked: vi.fn(() => Promise.resolve(false)),
     };
     useCase = new ListReviewsForUserUseCase(reviewRepo, blockedPort, makeClock(nowWithin));
 
@@ -181,7 +185,7 @@ describe('ListReviewsForUserUseCase', () => {
   });
 
   it('propagates nextCursor', async () => {
-    vi.mocked(reviewRepo.listByRatedUser).mockResolvedValue({
+    listByRatedUserSpy.mockResolvedValue({
       rows: [],
       nextCursor: 'some-cursor-token',
     });

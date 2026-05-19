@@ -23,6 +23,10 @@ describe.skipIf(!dbUrl)('ReviewPrismaRepository — integration', () => {
   // Shared test user + event IDs seeded per-suite.
   let hostId: string;
   let guestId: string;
+  // secondGuestId is used by the upsert test to avoid a unique-triple
+  // conflict with the 'saves and retrieves' test, which also uses
+  // (hostId, guestId) as the (rater, rated) pair.
+  let secondGuestId: string;
   let eventId: string;
 
   beforeAll(async () => {
@@ -34,12 +38,18 @@ describe.skipIf(!dbUrl)('ReviewPrismaRepository — integration', () => {
     // Seed minimal User + Event rows for FK satisfaction.
     hostId = createId();
     guestId = createId();
+    secondGuestId = createId();
     eventId = createId();
 
     await db.user.createMany({
       data: [
         { id: hostId, email: `host-rev-test-${hostId}@example.com`, displayName: 'Host' },
         { id: guestId, email: `guest-rev-test-${guestId}@example.com`, displayName: 'Guest' },
+        {
+          id: secondGuestId,
+          email: `guest2-rev-test-${secondGuestId}@example.com`,
+          displayName: 'Guest2',
+        },
       ],
     });
 
@@ -69,7 +79,7 @@ describe.skipIf(!dbUrl)('ReviewPrismaRepository — integration', () => {
     // Clean up in FK-safe order.
     await db.review.deleteMany({ where: { eventId } });
     await db.event.delete({ where: { id: eventId } });
-    await db.user.deleteMany({ where: { id: { in: [hostId, guestId] } } });
+    await db.user.deleteMany({ where: { id: { in: [hostId, guestId, secondGuestId] } } });
     await db.$disconnect();
   });
 
@@ -125,11 +135,13 @@ describe.skipIf(!dbUrl)('ReviewPrismaRepository — integration', () => {
 
   it('save updates existing review (upsert)', async () => {
     const now = new Date();
+    // Use secondGuestId to avoid a unique-triple conflict with the
+    // 'saves and retrieves' test which already inserted (hostId, guestId).
     const review = Review.submit({
       id: createId(),
       eventId,
       raterUserId: hostId,
-      ratedUserId: guestId,
+      ratedUserId: secondGuestId,
       rating: Rating.create(3),
       comment: null,
       now,

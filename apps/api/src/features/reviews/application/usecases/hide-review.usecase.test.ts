@@ -10,11 +10,9 @@ import { HideReviewUseCase } from './hide-review.usecase.js';
 const TX = {} as TxContext;
 
 const makeUnitOfWork = (): UnitOfWork => ({
-  run: vi.fn(async (work) => work(TX)),
-});
-
-const makePublisher = (): EventPublisher => ({
-  publish: vi.fn(async () => {}),
+  run: vi.fn((work: (ctx: TxContext) => Promise<unknown>) =>
+    work(TX),
+  ) as UnitOfWork['run'],
 });
 
 const makeClock = (now = new Date('2025-01-05T12:00:00Z')): Clock => ({
@@ -40,6 +38,9 @@ const makeReview = (hidden = false): Review => {
 };
 
 describe('HideReviewUseCase', () => {
+  let saveSpy: ReturnType<typeof vi.fn>;
+  let findByIdSpy: ReturnType<typeof vi.fn>;
+  let publishSpy: ReturnType<typeof vi.fn>;
   let reviewRepo: ReviewRepository;
   let unitOfWork: UnitOfWork;
   let publisher: EventPublisher;
@@ -47,20 +48,25 @@ describe('HideReviewUseCase', () => {
   let useCase: HideReviewUseCase;
 
   beforeEach(() => {
+    saveSpy = vi.fn((): Promise<void> => Promise.resolve());
+    findByIdSpy = vi.fn(() => Promise.resolve(makeReview()));
+    publishSpy = vi.fn((): Promise<void> => Promise.resolve());
     reviewRepo = {
-      save: vi.fn(async () => {}),
-      findById: vi.fn(async () => makeReview()),
-      findByTriple: vi.fn(async () => null),
-      listByRatedUser: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      listWrittenBy: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      aggregateForUser: vi.fn(async () => ({
-        averageRating: null,
-        reviewCount: 0,
-        recentVisibleComments: [],
-      })),
+      save: saveSpy,
+      findById: findByIdSpy,
+      findByTriple: vi.fn(() => Promise.resolve(null)),
+      listByRatedUser: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
+      listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
+      aggregateForUser: vi.fn(() =>
+        Promise.resolve({
+          averageRating: null,
+          reviewCount: 0,
+          recentVisibleComments: [],
+        }),
+      ),
     };
     unitOfWork = makeUnitOfWork();
-    publisher = makePublisher();
+    publisher = { publish: publishSpy };
     clock = makeClock();
     useCase = new HideReviewUseCase(unitOfWork, reviewRepo, publisher, clock);
   });
@@ -72,12 +78,12 @@ describe('HideReviewUseCase', () => {
       reportId: 'rpt_001',
       reason: 'Harassment',
     });
-    expect(reviewRepo.save).toHaveBeenCalled();
-    expect(publisher.publish).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+    expect(publishSpy).toHaveBeenCalled();
   });
 
   it('throws 404 when review not found', async () => {
-    vi.mocked(reviewRepo.findById).mockResolvedValue(null);
+    findByIdSpy.mockResolvedValue(null);
     await expect(
       useCase.execute({
         moderatorUserId: 'mod_001',
@@ -85,18 +91,18 @@ describe('HideReviewUseCase', () => {
         reportId: 'rpt_001',
         reason: 'Spam',
       }),
-    ).rejects.toThrow(expect.objectContaining({ code: 'NOT_FOUND' }));
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('is idempotent for already-hidden review — no save or publish', async () => {
-    vi.mocked(reviewRepo.findById).mockResolvedValue(makeReview(true));
+    findByIdSpy.mockResolvedValue(makeReview(true));
     await useCase.execute({
       moderatorUserId: 'mod_002',
       reviewId: 'rev_001',
       reportId: 'rpt_002',
       reason: 'Double-report',
     });
-    expect(reviewRepo.save).not.toHaveBeenCalled();
-    expect(publisher.publish).not.toHaveBeenCalled();
+    expect(saveSpy).not.toHaveBeenCalled();
+    expect(publishSpy).not.toHaveBeenCalled();
   });
 });

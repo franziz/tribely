@@ -17,11 +17,9 @@ import { SubmitReviewUseCase } from './submit-review.usecase.js';
 const TX = {} as TxContext;
 
 const makeUnitOfWork = (): UnitOfWork => ({
-  run: vi.fn(async (work) => work(TX)),
-});
-
-const makePublisher = (): EventPublisher => ({
-  publish: vi.fn(async () => {}),
+  run: vi.fn((work: (ctx: TxContext) => Promise<unknown>) =>
+    work(TX),
+  ) as UnitOfWork['run'],
 });
 
 const makeClock = (now = new Date('2025-06-01T12:00:00Z')): Clock => ({
@@ -72,6 +70,11 @@ const makeApprovedJoinRequest = (): JoinRequest => {
 };
 
 describe('SubmitReviewUseCase', () => {
+  let saveSpy: ReturnType<typeof vi.fn>;
+  let findByTripleSpy: ReturnType<typeof vi.fn>;
+  let publishSpy: ReturnType<typeof vi.fn>;
+  let eventFindByIdSpy: ReturnType<typeof vi.fn>;
+  let joinRequestFindByEventSpy: ReturnType<typeof vi.fn>;
   let reviewRepo: ReviewRepository;
   let eventRepo: EventRepository;
   let joinRequestRepo: JoinRequestRepository;
@@ -81,35 +84,43 @@ describe('SubmitReviewUseCase', () => {
   let useCase: SubmitReviewUseCase;
 
   beforeEach(() => {
+    saveSpy = vi.fn((): Promise<void> => Promise.resolve());
+    findByTripleSpy = vi.fn(() => Promise.resolve(null));
+    publishSpy = vi.fn((): Promise<void> => Promise.resolve());
+    eventFindByIdSpy = vi.fn(() => Promise.resolve(makeCompletedEvent()));
+    joinRequestFindByEventSpy = vi.fn(() => Promise.resolve([makeApprovedJoinRequest()]));
+
     reviewRepo = {
-      save: vi.fn(async () => {}),
-      findById: vi.fn(async () => null),
-      findByTriple: vi.fn(async () => null),
-      listByRatedUser: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      listWrittenBy: vi.fn(async () => ({ rows: [], nextCursor: null })),
-      aggregateForUser: vi.fn(async () => ({
-        averageRating: null,
-        reviewCount: 0,
-        recentVisibleComments: [],
-      })),
+      save: saveSpy,
+      findById: vi.fn(() => Promise.resolve(null)),
+      findByTriple: findByTripleSpy,
+      listByRatedUser: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
+      listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
+      aggregateForUser: vi.fn(() =>
+        Promise.resolve({
+          averageRating: null,
+          reviewCount: 0,
+          recentVisibleComments: [],
+        }),
+      ),
     };
     eventRepo = {
-      findById: vi.fn(async () => makeCompletedEvent()),
-      findByIdForUpdate: vi.fn(async () => null),
-      save: vi.fn(async () => {}),
-      findManyForListing: vi.fn(async () => ({ events: [], nextCursor: null })),
-      countCompletedByHost: vi.fn(async () => 0),
+      findById: eventFindByIdSpy,
+      findByIdForUpdate: vi.fn(() => Promise.resolve(null)),
+      save: vi.fn((): Promise<void> => Promise.resolve()),
+      findManyForListing: vi.fn(() => Promise.resolve({ events: [], nextCursor: null })),
+      countCompletedByHost: vi.fn(() => Promise.resolve(0)),
     };
     joinRequestRepo = {
-      findById: vi.fn(async () => null),
-      findActiveByEventAndRequester: vi.fn(async () => null),
-      save: vi.fn(async () => {}),
-      countApproved: vi.fn(async () => 0),
-      findByEvent: vi.fn(async () => [makeApprovedJoinRequest()]),
-      listByRequester: vi.fn(async () => ({ joinRequests: [], nextCursor: null })),
+      findById: vi.fn(() => Promise.resolve(null)),
+      findActiveByEventAndRequester: vi.fn(() => Promise.resolve(null)),
+      save: vi.fn((): Promise<void> => Promise.resolve()),
+      countApproved: vi.fn(() => Promise.resolve(0)),
+      findByEvent: joinRequestFindByEventSpy,
+      listByRequester: vi.fn(() => Promise.resolve({ joinRequests: [], nextCursor: null })),
     };
     unitOfWork = makeUnitOfWork();
-    publisher = makePublisher();
+    publisher = { publish: publishSpy };
     clock = makeClock();
     useCase = new SubmitReviewUseCase(
       unitOfWork,
@@ -132,12 +143,12 @@ describe('SubmitReviewUseCase', () => {
 
     expect(review.rating.value).toBe(4);
     expect(review.comment?.value).toBe('Great guest!');
-    expect(reviewRepo.save).toHaveBeenCalledWith(review, TX);
-    expect(publisher.publish).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalledWith(review, TX);
+    expect(publishSpy).toHaveBeenCalled();
   });
 
   it('happy path: guest rates host', async () => {
-    vi.mocked(joinRequestRepo.findByEvent).mockResolvedValue([makeApprovedJoinRequest()]);
+    joinRequestFindByEventSpy.mockResolvedValue([makeApprovedJoinRequest()]);
     const review = await useCase.execute({
       raterUserId: 'user_guest',
       eventId: 'evt_001',
@@ -148,15 +159,13 @@ describe('SubmitReviewUseCase', () => {
   });
 
   it('throws 404 when event not found', async () => {
-    vi.mocked(eventRepo.findById).mockResolvedValue(null);
+    eventFindByIdSpy.mockResolvedValue(null);
     await expect(
       useCase.execute({ raterUserId: 'u1', eventId: 'evt_001', ratedUserId: 'u2', rating: 3 }),
-    ).rejects.toThrow(expect.objectContaining({ code: 'NOT_FOUND' }));
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('throws 403 eventNotCompleted when event not completed', async () => {
-    const event = makeCompletedEvent();
-    // Build a draft event
     const draftEvent = Event.rehydrate({
       id: 'evt_001',
       hostUserId: 'user_host',
@@ -181,7 +190,7 @@ describe('SubmitReviewUseCase', () => {
       updatedAt: new Date('2025-04-01T00:00:00Z'),
     });
     draftEvent.pullEvents();
-    vi.mocked(eventRepo.findById).mockResolvedValue(draftEvent);
+    eventFindByIdSpy.mockResolvedValue(draftEvent);
 
     await expect(
       useCase.execute({
@@ -190,12 +199,10 @@ describe('SubmitReviewUseCase', () => {
         ratedUserId: 'user_guest',
         rating: 3,
       }),
-    ).rejects.toThrow(
-      expect.objectContaining({
-        code: 'FORBIDDEN',
-        details: expect.objectContaining({ subcode: 'reviews.eventNotCompleted' }),
-      }),
-    );
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      details: { subcode: 'reviews.eventNotCompleted' },
+    });
   });
 
   it('throws 403 selfReview when rater === rated', async () => {
@@ -206,11 +213,9 @@ describe('SubmitReviewUseCase', () => {
         ratedUserId: 'user_host',
         rating: 5,
       }),
-    ).rejects.toThrow(
-      expect.objectContaining({
-        details: expect.objectContaining({ subcode: 'reviews.selfReview' }),
-      }),
-    );
+    ).rejects.toMatchObject({
+      details: { subcode: 'reviews.selfReview' },
+    });
   });
 
   it('throws 403 notParticipant when neither user is the host', async () => {
@@ -221,15 +226,13 @@ describe('SubmitReviewUseCase', () => {
         ratedUserId: 'user_guest',
         rating: 3,
       }),
-    ).rejects.toThrow(
-      expect.objectContaining({
-        details: expect.objectContaining({ subcode: 'reviews.notParticipant' }),
-      }),
-    );
+    ).rejects.toMatchObject({
+      details: { subcode: 'reviews.notParticipant' },
+    });
   });
 
   it('throws 403 noApprovedPair when no approved join request', async () => {
-    vi.mocked(joinRequestRepo.findByEvent).mockResolvedValue([]);
+    joinRequestFindByEventSpy.mockResolvedValue([]);
     await expect(
       useCase.execute({
         raterUserId: 'user_host',
@@ -237,11 +240,9 @@ describe('SubmitReviewUseCase', () => {
         ratedUserId: 'user_guest',
         rating: 3,
       }),
-    ).rejects.toThrow(
-      expect.objectContaining({
-        details: expect.objectContaining({ subcode: 'reviews.noApprovedPair' }),
-      }),
-    );
+    ).rejects.toMatchObject({
+      details: { subcode: 'reviews.noApprovedPair' },
+    });
   });
 
   it('throws 409 alreadyReviewed when duplicate triple exists', async () => {
@@ -258,7 +259,7 @@ describe('SubmitReviewUseCase', () => {
       now: new Date(),
     });
     existingReview.pullEvents();
-    vi.mocked(reviewRepo.findByTriple).mockResolvedValue(existingReview);
+    findByTripleSpy.mockResolvedValue(existingReview);
 
     await expect(
       useCase.execute({
@@ -267,12 +268,10 @@ describe('SubmitReviewUseCase', () => {
         ratedUserId: 'user_guest',
         rating: 4,
       }),
-    ).rejects.toThrow(
-      expect.objectContaining({
-        code: 'CONFLICT',
-        details: expect.objectContaining({ subcode: 'reviews.alreadyReviewed' }),
-      }),
-    );
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      details: { subcode: 'reviews.alreadyReviewed' },
+    });
   });
 
   it('throws 400 for invalid rating', async () => {

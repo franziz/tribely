@@ -741,11 +741,11 @@ export const buildContainer = (): Container => {
   // The container will swap this binding when user-blocks/application/ports/
   // check-blocked.port.ts is implemented.
   const checkBlockedPort: CheckBlockedPort = {
-    async filterBlocked() {
-      return new Set<string>();
+    filterBlocked() {
+      return Promise.resolve(new Set<string>());
     },
-    async isBlocked() {
-      return false;
+    isBlocked() {
+      return Promise.resolve(false);
     },
   };
   const submitReviewUseCase = new SubmitReviewUseCase(
