@@ -132,7 +132,16 @@ import { ListReviewsWrittenByMeUseCase } from '@/features/reviews/application/us
 import { ReviewController } from '@/features/reviews/presentation/http/controllers/review.controller.js';
 import { registerReviewsConsumers } from '@/features/reviews/presentation/events/index.js';
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
-import type { CheckBlockedPort } from '@/features/reviews/application/ports/check-blocked.port.js';
+
+import { UserBlockPrismaRepository } from '@/features/user-blocks/infrastructure/persistence/user-block.prisma-repository.js';
+import { RepositoryCheckBlockedAdapter } from '@/features/user-blocks/application/adapters/repository-check-blocked.adapter.js';
+import { BlockUserUseCase } from '@/features/user-blocks/application/usecases/block-user.usecase.js';
+import { UnblockUserUseCase } from '@/features/user-blocks/application/usecases/unblock-user.usecase.js';
+import { ListMyBlocksUseCase } from '@/features/user-blocks/application/usecases/list-my-blocks.usecase.js';
+import { UserBlockController } from '@/features/user-blocks/presentation/http/controllers/user-block.controller.js';
+import { registerUserBlocksConsumers } from '@/features/user-blocks/presentation/events/index.js';
+import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
+import type { UserBlockRepository } from '@/features/user-blocks/domain/repositories/user-block.repository.js';
 
 import { ReportPrismaRepository } from '@/features/reports/infrastructure/persistence/report.prisma-repository.js';
 import { TargetResolver } from '@/features/reports/application/services/target-resolver.js';
@@ -150,9 +159,11 @@ import { ListJoinRequestsByRequesterUseCase } from '@/features/join-requests/app
 import { PseudonymiseJoinRequestsAuthorForUserUseCase } from '@/features/join-requests/application/usecases/pseudonymise-join-requests-author-for-user.usecase.js';
 import { RejectJoinRequestUseCase } from '@/features/join-requests/application/usecases/reject-join-request.usecase.js';
 import { RequestToJoinEventUseCase } from '@/features/join-requests/application/usecases/request-to-join-event.usecase.js';
+import { RepositoryCascadePendingBlocksAdapter } from '@/features/join-requests/application/adapters/repository-cascade-pending-blocks.adapter.js';
 import { JoinRequestPrismaRepository } from '@/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
 import { registerJoinRequestsConsumers } from '@/features/join-requests/presentation/events/index.js';
 import type { JoinRequestRepository } from '@/features/join-requests/domain/repositories/join-request.repository.js';
+import type { CascadePendingBlocksPort } from '@/features/join-requests/application/ports/cascade-pending-blocks.port.js';
 
 const buildEmailSender = (): EmailSender => {
   if (env.EMAIL_TRANSPORT === 'resend') {
@@ -330,6 +341,7 @@ export interface Container {
 
   // Join Requests
   joinRequestRepository: JoinRequestRepository;
+  cascadePendingBlocksPort: CascadePendingBlocksPort;
   requestToJoinEventUseCase: RequestToJoinEventUseCase;
   approveJoinRequestUseCase: ApproveJoinRequestUseCase;
   rejectJoinRequestUseCase: RejectJoinRequestUseCase;
@@ -341,9 +353,16 @@ export interface Container {
   // Core — outbox (exposed for account-deletion cascade DI)
   outboxEventRepository: OutboxEventRepository;
 
+  // User Blocks
+  userBlockRepository: UserBlockRepository;
+  checkBlockedPort: CheckBlockedPort;
+  blockUserUseCase: BlockUserUseCase;
+  unblockUserUseCase: UnblockUserUseCase;
+  listMyBlocksUseCase: ListMyBlocksUseCase;
+  userBlockController: UserBlockController;
+
   // Reviews
   reviewRepository: ReviewRepository;
-  checkBlockedPort: CheckBlockedPort;
   submitReviewUseCase: SubmitReviewUseCase;
   editReviewUseCase: EditReviewUseCase;
   hideReviewUseCase: HideReviewUseCase;
@@ -640,6 +659,12 @@ export const buildContainer = (): Container => {
 
   // --- Join Requests ---
   const joinRequestRepository = new JoinRequestPrismaRepository(db);
+
+  // cascadePendingBlocksPort is instantiated here but wired AFTER publisher
+  // is fully configured (publisher.setAuditHook is called above — this is fine
+  // because the adapter captures the publisher reference, not an early snapshot).
+  const cascadePendingBlocksPort = new RepositoryCascadePendingBlocksAdapter(publisher);
+
   const requestToJoinEventUseCase = new RequestToJoinEventUseCase(
     unitOfWork,
     joinRequestRepository,
@@ -752,19 +777,31 @@ export const buildContainer = (): Container => {
     clock,
   );
 
+  // --- User Blocks ---
+  const userBlockRepository = new UserBlockPrismaRepository(db);
+  const checkBlockedPort: CheckBlockedPort = new RepositoryCheckBlockedAdapter(userBlockRepository);
+  const blockUserUseCase = new BlockUserUseCase(
+    unitOfWork,
+    userBlockRepository,
+    cascadePendingBlocksPort,
+    publisher,
+    clock,
+  );
+  const unblockUserUseCase = new UnblockUserUseCase(
+    unitOfWork,
+    userBlockRepository,
+    publisher,
+    clock,
+  );
+  const listMyBlocksUseCase = new ListMyBlocksUseCase(userBlockRepository);
+  const userBlockController = new UserBlockController(
+    blockUserUseCase,
+    unblockUserUseCase,
+    listMyBlocksUseCase,
+  );
+
   // --- Reviews ---
   const reviewRepository = new ReviewPrismaRepository(db);
-  // CheckBlockedPort: no-op stub until Brief 1C lands (user-blocks feature).
-  // The container will swap this binding when user-blocks/application/ports/
-  // check-blocked.port.ts is implemented.
-  const checkBlockedPort: CheckBlockedPort = {
-    filterBlocked() {
-      return Promise.resolve(new Set<string>());
-    },
-    isBlocked() {
-      return Promise.resolve(false);
-    },
-  };
   const submitReviewUseCase = new SubmitReviewUseCase(
     unitOfWork,
     reviewRepository,
@@ -810,6 +847,7 @@ export const buildContainer = (): Container => {
 
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
+  registerUserBlocksConsumers(consumerRegistry);
   registerReviewsConsumers(consumerRegistry);
   registerReportsConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
@@ -893,6 +931,7 @@ export const buildContainer = (): Container => {
     cancelEventUseCase,
     pseudonymiseEventsHostForUserUseCase,
     joinRequestRepository,
+    cascadePendingBlocksPort,
     requestToJoinEventUseCase,
     approveJoinRequestUseCase,
     rejectJoinRequestUseCase,
@@ -909,8 +948,14 @@ export const buildContainer = (): Container => {
     prunePostEventCheckInsUseCase,
     prunePostEventCheckInsJob,
     checkInsController,
+    userBlockRepository,
     reviewRepository,
     checkBlockedPort,
+    blockUserUseCase,
+    unblockUserUseCase,
+    listMyBlocksUseCase,
+    userBlockController,
+    reviewRepository,
     submitReviewUseCase,
     editReviewUseCase,
     hideReviewUseCase,

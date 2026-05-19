@@ -23,6 +23,7 @@ import {
   buildUserScopedReviewRoutes,
 } from './features/reviews/presentation/http/routes/review.routes.js';
 import { buildReportRoutes } from './features/reports/presentation/http/routes/report.routes.js';
+import { buildUserBlockRoutes } from './features/user-blocks/presentation/http/routes/user-block.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -161,6 +162,17 @@ export const buildApp = (): { app: Hono; container: Container } => {
     '/reports',
     buildReportRoutes({
       controller: container.reportController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+      rateLimiter: container.rateLimiter,
+    }),
+  );
+
+  // User blocks: POST/DELETE/GET /me/blocks — additive mount at /me.
+  app.route(
+    '/me',
+    buildUserBlockRoutes({
+      controller: container.userBlockController,
       accessTokens: container.accessTokens,
       userRepository: container.userRepository,
       rateLimiter: container.rateLimiter,
