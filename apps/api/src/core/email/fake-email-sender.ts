@@ -1,34 +1,27 @@
 import type { EmailSender } from './email-sender.port.js';
 
-export interface RecordedVerification {
-  kind: 'verification';
+export interface RecordedEmail {
   to: string;
-  code: string;
+  subject: string;
+  html: string;
+  text: string;
 }
-
-export interface RecordedPasswordReset {
-  kind: 'password-reset';
-  to: string;
-  code: string;
-}
-
-export type RecordedEmail = RecordedVerification | RecordedPasswordReset;
 
 /**
- * In-memory test double. Records every send for later assertion. Use in
- * place of `ResendEmailSender` when unit-testing use cases that emit email
- * (e.g. TRI-14 password reset, TRI-15 email verification).
+ * In-memory test double. Records every `send` call for later assertion.
+ * Use in place of `ResendEmailSender` when unit-testing use cases that emit
+ * email (e.g. TRI-14 password reset, TRI-15 email verification, TRI-29
+ * safety reports).
+ *
+ * Tests that previously asserted on `kind` ('verification' | 'password-reset')
+ * should instead match on `subject` or inspect `html`/`text` content, since
+ * template composition is now the use case's responsibility.
  */
 export class FakeEmailSender implements EmailSender {
   readonly sent: RecordedEmail[] = [];
 
-  sendVerification(input: { to: string; code: string }): Promise<void> {
-    this.sent.push({ kind: 'verification', to: input.to, code: input.code });
-    return Promise.resolve();
-  }
-
-  sendPasswordReset(input: { to: string; code: string }): Promise<void> {
-    this.sent.push({ kind: 'password-reset', to: input.to, code: input.code });
+  send(input: { to: string; subject: string; html: string; text: string }): Promise<void> {
+    this.sent.push({ to: input.to, subject: input.subject, html: input.html, text: input.text });
     return Promise.resolve();
   }
 }

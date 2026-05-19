@@ -50,7 +50,14 @@ import '../../features/users/data/repositories/user_capabilities_repository_impl
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/repositories/user_capabilities_repository.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
+import '../../features/check_ins/data/datasources/check_ins_remote_datasource.dart';
+import '../../features/check_ins/data/repositories/check_ins_repository_impl.dart';
+import '../../features/check_ins/domain/repositories/check_ins_repository.dart';
+import '../../features/check_ins/domain/usecases/acknowledge_check_in_usecase.dart';
+import '../../features/check_ins/domain/usecases/flag_check_in_usecase.dart';
+import '../../features/check_ins/domain/usecases/surface_pending_check_ins_usecase.dart';
 import '../../features/users/domain/usecases/get_user_profile_usecase.dart';
+import '../storage/intro_flag_storage.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -170,6 +177,28 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(
     () => ListMyHostedEventsUseCase(sl<DiscoverRepository>()),
   );
+
+  // CheckIns — datasources
+  sl.registerLazySingleton<CheckInsRemoteDataSource>(
+    () => CheckInsRemoteDataSourceImpl(sl<ApiClient>().dio),
+  );
+
+  // CheckIns — repositories
+  sl.registerLazySingleton<CheckInsRepository>(
+    () => CheckInsRepositoryImpl(remote: sl<CheckInsRemoteDataSource>()),
+  );
+
+  // CheckIns — use cases
+  sl.registerLazySingleton(
+    () => SurfacePendingCheckInsUseCase(sl<CheckInsRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => AcknowledgeCheckInUseCase(sl<CheckInsRepository>()),
+  );
+  sl.registerLazySingleton(() => FlagCheckInUseCase(sl<CheckInsRepository>()));
+
+  // Core — IntroFlagStorage (reuses SharedPreferences instance from Events)
+  sl.registerLazySingleton(() => IntroFlagStorage(prefs));
 
   // JoinRequests — datasources
   sl.registerLazySingleton<JoinRequestRemoteDatasource>(

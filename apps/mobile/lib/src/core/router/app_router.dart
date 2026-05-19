@@ -20,6 +20,11 @@ import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
+import '../../features/check_ins/presentation/pages/safety_report_page.dart';
+import '../../features/check_ins/presentation/pages/safety_report_submitted_page.dart';
+import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
+import '../../features/check_ins/presentation/widgets/check_ins_overlay.dart';
+import '../lifecycle/app_lifecycle_listener.dart';
 import 'app_shell.dart';
 
 // Navigator keys for the root navigator and each bottom-nav branch.
@@ -181,10 +186,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return EventDetailPage(eventId: eventId);
         },
       ),
+      // Full-screen safety report form — reached from "I need help" in the
+      // check-in prompt sheet. The active check-in id is read from
+      // `checkInsControllerProvider`'s `CheckInsShowing` state — the page is
+      // only reached while a check-in is being prompted.
+      GoRoute(
+        path: '/check-ins/safety-report',
+        name: 'safetyReport',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SafetyReportPage(),
+      ),
+      // Terminal-state confirmation page after a safety report is submitted.
+      // Back navigation is suppressed; "Done" returns to /events.
+      GoRoute(
+        path: '/check-ins/safety-report/submitted',
+        name: 'safetyReportSubmitted',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SafetyReportSubmittedPage(),
+      ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
+      // OnResumedListener is mounted HERE — above the indexedStack — so a
+      // single observer covers all three branches.  Mounting inside a branch
+      // builder would miss transitions when the user is on a different tab, and
+      // could fire multiple times if multiple branches are live simultaneously.
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AppShell(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => Consumer(
+          builder: (context, ref, _) => CheckInsOverlay(
+            child: OnResumedListener(
+              onResumed: () {
+                // Trigger a check-in surface on every foreground resume so the
+                // controller can transition to CheckInsShowing when pending
+                // check-ins exist. CheckInsOverlay reacts to Showing with
+                // showModalBottomSheet.
+                ref.read(checkInsControllerProvider.notifier).refresh();
+              },
+              child: AppShell(navigationShell: navigationShell),
+            ),
+          ),
+        ),
         branches: [
           // Branch 0 — Discover (/events)
           StatefulShellBranch(

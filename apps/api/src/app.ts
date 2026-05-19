@@ -15,6 +15,7 @@ import { buildJoinRequestRoutes } from './features/join-requests/presentation/ht
 import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation/http/routes/my-join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
+import { buildCheckInsRoutes } from './features/check-ins/presentation/http/routes/check-ins.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -139,6 +140,16 @@ export const buildApp = (): { app: Hono; container: Container } => {
     buildAdminSelfieRoutes({
       rejectSelfie: container.rejectSelfieUseCase,
       approveSelfieAppeal: container.approveSelfieAppealUseCase,
+    }),
+  );
+
+  // Post-event check-ins (TRI-29). Mounted under /me — no requireVerifiedEmail/Phone
+  // guard (check-ins surface on foreground-resume; must not block on verification).
+  app.route(
+    '/me/post-event-check-ins',
+    buildCheckInsRoutes({
+      controller: container.checkInsController,
+      accessTokens: container.accessTokens,
     }),
   );
 

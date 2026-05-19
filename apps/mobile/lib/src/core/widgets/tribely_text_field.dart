@@ -19,6 +19,8 @@ class TribelyTextField extends StatefulWidget {
     this.autofillHints,
     this.onSubmitted,
     this.enabled = true,
+    this.minLines = 1,
+    this.maxLines = 1,
     super.key,
   });
 
@@ -33,6 +35,16 @@ class TribelyTextField extends StatefulWidget {
   final Iterable<String>? autofillHints;
   final ValueChanged<String>? onSubmitted;
   final bool enabled;
+
+  /// Minimum number of visible lines. Defaults to 1 to preserve existing
+  /// single-line call-site behaviour. Pass [minLines] > 1 for multi-line
+  /// text areas (e.g. safety report body: `minLines: 6`).
+  final int minLines;
+
+  /// Maximum number of visible lines before the field scrolls.
+  /// Defaults to 1. Pass `null` for unbounded vertical growth (the field
+  /// expands as the user types). Pass a positive integer to cap growth.
+  final int? maxLines;
 
   @override
   State<TribelyTextField> createState() => _TribelyTextFieldState();
@@ -99,6 +111,8 @@ class _TribelyTextFieldState extends State<TribelyTextField> {
               focusNode: _focus,
               enabled: widget.enabled,
               obscureText: widget.obscure,
+              minLines: widget.minLines,
+              maxLines: widget.maxLines,
               keyboardType: widget.keyboardType,
               textInputAction: widget.textInputAction,
               autofillHints: widget.autofillHints,

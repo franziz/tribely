@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EmailSender } from '@/core/email/email-sender.port.js';
+import { verificationTemplate } from '@/core/email/templates/verification.template.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import { EmailVerificationToken } from '../../domain/entities/email-verification-token.js';
@@ -70,9 +71,7 @@ export class IssueEmailVerificationUseCase {
     // want to roll back the persisted token (which would lose the audit
     // trail of "we tried"). The Resend adapter throws on failure — let
     // that bubble; the subscriber wrapper will log it.
-    await this.emailSender.sendVerification({
-      to: user.email.value,
-      code: code.plaintext,
-    });
+    const { subject, html, text } = verificationTemplate({ code: code.plaintext });
+    await this.emailSender.send({ to: user.email.value, subject, html, text });
   }
 }

@@ -85,6 +85,27 @@ class AppTheme {
       highlightColor: Colors.transparent,
       dividerColor: scheme.outline,
       iconTheme: IconThemeData(color: ink, size: 24),
+      // Outlined buttons: 56dp tall, 12dp corners, 1.5dp border in the
+      // scheme.primary colour (teak-teal / burnished-brass depending on
+      // brightness). This makes OutlinedButton the visual partner to
+      // PrimaryButton without requiring a bespoke wrapper widget.
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: scheme.primary,
+          side: BorderSide(color: scheme.primary, width: 1.5),
+          minimumSize: const Size.fromHeight(56),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: TribelyType.bodyFamily,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            height: 1.0,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
     );
   }
 }

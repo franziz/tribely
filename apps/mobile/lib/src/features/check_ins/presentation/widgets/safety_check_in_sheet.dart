@@ -1,0 +1,231 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/design/colors.dart';
+import '../../../../core/design/motion.dart';
+import '../../../../core/design/typography.dart';
+import '../../../../core/widgets/primary_button.dart';
+import '../providers/check_ins_providers.dart';
+import '../string_assets/check_in_copy.dart';
+
+/// Modal bottom sheet presenting the post-event check-in prompt.
+///
+/// Two CTAs:
+///   - "All good": calls [CheckInsController.acknowledged], cross-fades to a
+///     confirmation chip "Glad you're safe.", then auto-dismisses after 2.5s.
+///   - "I need help": pops the sheet, pushes [SafetyReportPage] via go_router.
+///
+/// The sheet is shown by [CheckInsOverlay] after the one-time intro sheet has
+/// been dismissed (or when the user has already seen the intro).
+class SafetyCheckInSheet extends ConsumerStatefulWidget {
+  const SafetyCheckInSheet({
+    required this.checkInId,
+    required this.eventTitle,
+    super.key,
+  });
+
+  final String checkInId;
+
+  /// The event title to display in the prompt. Truncated defensively at 40
+  /// chars if the server sends a longer value.
+  final String eventTitle;
+
+  @override
+  ConsumerState<SafetyCheckInSheet> createState() => _SafetyCheckInSheetState();
+}
+
+class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
+  bool _acknowledged = false;
+  bool _loading = false;
+
+  /// Truncates [eventTitle] at 40 characters for display safety.
+  String get _displayTitle {
+    final title = widget.eventTitle;
+    return title.length > 40 ? '${title.substring(0, 40)}…' : title;
+  }
+
+  String get _promptTitle =>
+      checkInPromptTitle.replaceAll('{event_title}', _displayTitle);
+
+  Future<void> _onAllGood() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+
+    await ref.read(checkInsControllerProvider.notifier).acknowledged();
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _acknowledged = true;
+    });
+
+    // Auto-dismiss after 2.5s.
+    await Future<void>.delayed(const Duration(milliseconds: 2500));
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  void _onNeedHelp() {
+    Navigator.of(context).pop();
+    context.push('/check-ins/safety-report');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
+    final border = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+
+    final reduceMotion = context.reduceMotion;
+
+    // When reduce-motion is enabled skip AnimatedCrossFade entirely (it uses
+    // a RenderAnimatedSize that misbehaves at Duration.zero). Just show the
+    // correct child directly.
+    final Widget body;
+    if (reduceMotion) {
+      body = _acknowledged
+          ? _ConfirmationChip(ink: ink)
+          : _PromptContent(
+              title: _promptTitle,
+              loading: _loading,
+              ink: ink,
+              onAllGood: _onAllGood,
+              onNeedHelp: _onNeedHelp,
+            );
+    } else {
+      body = AnimatedCrossFade(
+        duration: const Duration(milliseconds: 500),
+        firstCurve: Curves.easeInOutCubic,
+        secondCurve: Curves.easeInOutCubic,
+        crossFadeState: _acknowledged
+            ? CrossFadeState.showSecond
+            : CrossFadeState.showFirst,
+        firstChild: _PromptContent(
+          title: _promptTitle,
+          loading: _loading,
+          ink: ink,
+          onAllGood: _onAllGood,
+          onNeedHelp: _onNeedHelp,
+        ),
+        secondChild: _ConfirmationChip(ink: ink),
+      );
+    }
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            body,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-widgets
+// ---------------------------------------------------------------------------
+
+class _PromptContent extends StatelessWidget {
+  const _PromptContent({
+    required this.title,
+    required this.loading,
+    required this.ink,
+    required this.onAllGood,
+    required this.onNeedHelp,
+  });
+
+  final String title;
+  final bool loading;
+  final Color ink;
+  final VoidCallback onAllGood;
+  final VoidCallback onNeedHelp;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: TribelyType.headline(ink)),
+        const SizedBox(height: 24),
+        // Primary CTA — "All good"
+        PrimaryButton(
+          label: checkInPromptAllGoodCta,
+          onPressed: loading ? null : onAllGood,
+          state: loading ? PrimaryButtonState.loading : PrimaryButtonState.idle,
+        ),
+        const SizedBox(height: 12),
+        // Secondary CTA — "I need help" (OutlinedButton styled by theme extension)
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: loading ? null : onNeedHelp,
+            child: const Text(checkInPromptNeedHelpCta),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConfirmationChip extends StatelessWidget {
+  const _ConfirmationChip({required this.ink});
+  final Color ink;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final successColor = dark
+        ? TribelyColors.nightSuccess
+        : TribelyColors.paperSuccess;
+    final successSoftColor = dark
+        ? TribelyColors.nightSuccessSoft
+        : TribelyColors.paperSuccessSoft;
+
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: successSoftColor,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_outline, color: successColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              checkInAcknowledgedConfirmation,
+              style: TribelyType.bodyM(
+                successColor,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

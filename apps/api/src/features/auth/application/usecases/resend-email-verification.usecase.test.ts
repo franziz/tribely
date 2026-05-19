@@ -65,7 +65,12 @@ describe('ResendEmailVerificationUseCase', () => {
   it('issues a new code via the underlying use case', async () => {
     users.put(buildUser());
     await useCase.execute({ userId: 'user_1' });
-    expect(email.sent).toEqual([{ kind: 'verification', to: 'alice@example.com', code: '482917' }]);
+    expect(email.sent).toHaveLength(1);
+    expect(email.sent[0]).toMatchObject({
+      to: 'alice@example.com',
+      subject: 'Your Tribely verification code',
+    });
+    expect(email.sent[0]?.text).toContain('482917');
   });
 
   it('404 if user does not exist', async () => {

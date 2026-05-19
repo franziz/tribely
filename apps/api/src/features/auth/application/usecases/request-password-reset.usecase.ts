@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EmailSender } from '@/core/email/email-sender.port.js';
+import { passwordResetTemplate } from '@/core/email/templates/password-reset.template.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Logger } from '@/core/observability/logger.port.js';
 import { Email } from '@/features/users/domain/value-objects/email.js';
@@ -89,9 +90,7 @@ export class RequestPasswordResetUseCase {
       await this.events.publish(ctx, ...newToken.pullEvents());
     });
 
-    await this.emailSender.sendPasswordReset({
-      to: user.email.value,
-      code: code.plaintext,
-    });
+    const { subject, html, text } = passwordResetTemplate({ code: code.plaintext });
+    await this.emailSender.send({ to: user.email.value, subject, html, text });
   }
 }

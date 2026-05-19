@@ -4,6 +4,8 @@
 // included.
 import 'dotenv/config';
 import { describe, expect, it } from 'vitest';
+import { passwordResetTemplate } from './templates/password-reset.template.js';
+import { verificationTemplate } from './templates/verification.template.js';
 import { ResendEmailSender } from './resend-email-sender.js';
 
 const apiKey = process.env.RESEND_API_KEY;
@@ -16,25 +18,23 @@ const realRecipient = process.env.EMAIL_TEST_RECIPIENT;
  * (`delivered@resend.dev`) which simulate delivery outcomes without
  * actually emailing anyone.
  *
- * Replaces the manual "trigger send, confirm receipt" step from TRI-3's
- * acceptance criteria with an automated equivalent.
- *
- * Construction is lazy (inside each `it`) because `describe.skipIf` still
- * evaluates the describe body at registration time — and the Resend SDK
- * constructor throws synchronously on a missing key.
+ * Template composition is the caller's responsibility — these tests use the
+ * canonical template functions from `core/email/templates/` to exercise the
+ * full real-world path: template → send.
  *
  * Setting `EMAIL_TEST_RECIPIENT=you@example.com` opts into a third + fourth
- * test that delivers to your real inbox — useful for eyeballing the
- * rendered template. With `EMAIL_FROM=onboarding@resend.dev`, Resend will
- * only deliver to the email registered with your Resend account.
+ * test that delivers to your real inbox — useful for eyeballing the rendered
+ * template. With `EMAIL_FROM=onboarding@resend.dev`, Resend will only deliver
+ * to the email registered with your Resend account.
  */
 describe('ResendEmailSender (integration)', () => {
   it.skipIf(!apiKey)(
     'sends a verification email to delivered@resend.dev',
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
+      const { subject, html, text } = verificationTemplate({ code: '482917' });
       await expect(
-        sender.sendVerification({ to: 'delivered@resend.dev', code: '482917' }),
+        sender.send({ to: 'delivered@resend.dev', subject, html, text }),
       ).resolves.toBeUndefined();
     },
     15_000,
@@ -44,8 +44,9 @@ describe('ResendEmailSender (integration)', () => {
     'sends a password-reset email to delivered@resend.dev',
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
+      const { subject, html, text } = passwordResetTemplate({ code: '739104' });
       await expect(
-        sender.sendPasswordReset({ to: 'delivered@resend.dev', code: '739104' }),
+        sender.send({ to: 'delivered@resend.dev', subject, html, text }),
       ).resolves.toBeUndefined();
     },
     15_000,
@@ -55,8 +56,9 @@ describe('ResendEmailSender (integration)', () => {
     'delivers a verification email to EMAIL_TEST_RECIPIENT (eyeball test)',
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
+      const { subject, html, text } = verificationTemplate({ code: '482917' });
       await expect(
-        sender.sendVerification({ to: realRecipient ?? '', code: '482917' }),
+        sender.send({ to: realRecipient ?? '', subject, html, text }),
       ).resolves.toBeUndefined();
     },
     15_000,
@@ -66,8 +68,9 @@ describe('ResendEmailSender (integration)', () => {
     'delivers a password-reset email to EMAIL_TEST_RECIPIENT (eyeball test)',
     async () => {
       const sender = new ResendEmailSender(apiKey ?? '', from);
+      const { subject, html, text } = passwordResetTemplate({ code: '739104' });
       await expect(
-        sender.sendPasswordReset({ to: realRecipient ?? '', code: '739104' }),
+        sender.send({ to: realRecipient ?? '', subject, html, text }),
       ).resolves.toBeUndefined();
     },
     15_000,

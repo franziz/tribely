@@ -83,7 +83,13 @@ describe('IssueEmailVerificationUseCase', () => {
     expect(token.codeHash).toBe('h:482917');
     expect(token.expiresAt.getTime() - clock.now().getTime()).toBe(TTL_SECONDS * 1000);
 
-    expect(email.sent).toEqual([{ kind: 'verification', to: 'alice@example.com', code: '482917' }]);
+    expect(email.sent).toHaveLength(1);
+    expect(email.sent[0]).toMatchObject({
+      to: 'alice@example.com',
+      subject: 'Your Tribely verification code',
+    });
+    expect(email.sent[0]?.text).toContain('482917');
+    expect(email.sent[0]?.html).toContain('482917');
 
     expect(events.published.map((e) => e.type)).toContain(EMAIL_VERIFICATION_ISSUED);
   });
@@ -107,7 +113,9 @@ describe('IssueEmailVerificationUseCase', () => {
       .map((e) => (e.payload as { reason: string }).reason);
     expect(reasons).toContain('replaced');
 
-    expect(email.sent.map((s) => s.code)).toEqual(['111111', '222222']);
+    expect(email.sent.map((s) => s.to)).toEqual(['alice@example.com', 'alice@example.com']);
+    expect(email.sent[0]?.text).toContain('111111');
+    expect(email.sent[1]?.text).toContain('222222');
   });
 
   it('no-ops if user is already verified', async () => {
