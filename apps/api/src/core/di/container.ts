@@ -86,6 +86,15 @@ import { EventPrismaRepository } from '@/features/events/infrastructure/persiste
 import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 
+import { DeleteSelfieForUserUseCase } from '@/features/selfies/application/usecases/delete-selfie-for-user.usecase.js';
+import { SweepRetainedSelfiesUseCase } from '@/features/selfies/application/usecases/sweep-retained-selfies.usecase.js';
+import { PendingStorageDeletePrismaRepository } from '@/features/selfies/infrastructure/persistence/pending-storage-delete.prisma-repository.js';
+import { SelfiePrismaRepository } from '@/features/selfies/infrastructure/persistence/selfie.prisma-repository.js';
+import { SweepRunPrismaRepository } from '@/features/selfies/infrastructure/persistence/sweep-run.prisma-repository.js';
+import type { PendingStorageDeleteRepository } from '@/features/selfies/domain/repositories/pending-storage-delete.repository.js';
+import type { SelfieRepository } from '@/features/selfies/domain/repositories/selfie.repository.js';
+import type { SweepRunRepository } from '@/features/selfies/domain/repositories/sweep-run.repository.js';
+
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
@@ -233,6 +242,13 @@ export interface Container {
   recordSelfieDeletionUseCase: RecordSelfieDeletionUseCase;
   pruneSelfieDeletionEventsUseCase: PruneSelfieDeletionEventsUseCase;
   pruneSelfieDeletionEventsJob: PruneSelfieDeletionEventsJob;
+
+  // Selfies
+  selfieRepository: SelfieRepository;
+  pendingStorageDeleteRepository: PendingStorageDeleteRepository;
+  sweepRunRepository: SweepRunRepository;
+  sweepRetainedSelfiesUseCase: SweepRetainedSelfiesUseCase;
+  deleteSelfieForUserUseCase: DeleteSelfieForUserUseCase;
 
   // Events
   eventRepository: EventRepository;
@@ -421,6 +437,29 @@ export const buildContainer = (): Container => {
     logger,
   });
 
+  // --- Selfies ---
+  const selfieRepository = new SelfiePrismaRepository(db);
+  const pendingStorageDeleteRepository = new PendingStorageDeletePrismaRepository(db);
+  const sweepRunRepository = new SweepRunPrismaRepository(db);
+  const sweepRetainedSelfiesUseCase = new SweepRetainedSelfiesUseCase(
+    unitOfWork,
+    selfieRepository,
+    pendingStorageDeleteRepository,
+    sweepRunRepository,
+    recordSelfieDeletionUseCase,
+    publisher,
+    fileStorage,
+    clock,
+    logger,
+  );
+  const deleteSelfieForUserUseCase = new DeleteSelfieForUserUseCase(
+    selfieRepository,
+    pendingStorageDeleteRepository,
+    recordSelfieDeletionUseCase,
+    publisher,
+    clock,
+  );
+
   // Wire audit hooks into the events core. The publisher + dispatcher have
   // no compile-time dependency on the audit feature — the binding lives
   // here so the cross-cutting concern stays a wiring detail, not a layering
@@ -559,6 +598,11 @@ export const buildContainer = (): Container => {
     recordSelfieDeletionUseCase,
     pruneSelfieDeletionEventsUseCase,
     pruneSelfieDeletionEventsJob,
+    selfieRepository,
+    pendingStorageDeleteRepository,
+    sweepRunRepository,
+    sweepRetainedSelfiesUseCase,
+    deleteSelfieForUserUseCase,
     eventRepository,
     createEventUseCase,
     listEventsUseCase,
