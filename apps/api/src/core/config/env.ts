@@ -129,6 +129,20 @@ export const envSchema = z
       .min(60_000, 'SELFIE_RETENTION_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
       .optional()
       .default(86_400_000),
+
+    // TRI-29 — How often the post-event check-in retention sweep job runs to
+    // delete expired check-in records per the PDPA retention policy:
+    //   pending  rows older than 30 days (createdAt)
+    //   ok       rows older than 90 days (createdAt)
+    //   flagged  rows with resolvedAt older than 12 months
+    // Default 86400000 ms = 24h.
+    // Reject anything below 60000 ms (1 min) to prevent Postgres churn.
+    POST_EVENT_CHECK_IN_SWEEP_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000, 'POST_EVENT_CHECK_IN_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
+      .optional()
+      .default(86_400_000),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {

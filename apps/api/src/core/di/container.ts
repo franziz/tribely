@@ -99,6 +99,23 @@ import type { SelfieRepository } from '@/features/selfies/domain/repositories/se
 import type { SweepRunRepository } from '@/features/selfies/domain/repositories/sweep-run.repository.js';
 import { registerSelfiesConsumers } from '@/features/selfies/presentation/events/index.js';
 
+import { PostEventCheckInEventPrismaRepository } from '@/features/audit/infrastructure/persistence/post-event-check-in-event.prisma-repository.js';
+import { RecordPostEventCheckInEventUseCase } from '@/features/audit/application/usecases/record-post-event-check-in-event.usecase.js';
+import { PrunePostEventCheckInEventsUseCase } from '@/features/audit/application/usecases/prune-post-event-check-in-events.usecase.js';
+import { PrunePostEventCheckInEventsJob } from '@/features/audit/presentation/jobs/prune-post-event-check-in-events.job.js';
+import type { PostEventCheckInEventRepository } from '@/features/audit/domain/repositories/post-event-check-in-event.repository.js';
+
+import { PostEventCheckInPrismaRepository } from '@/features/check-ins/infrastructure/persistence/post-event-check-in.prisma-repository.js';
+import { SurfacePendingCheckInsUseCase } from '@/features/check-ins/application/usecases/surface-pending-check-ins.usecase.js';
+import { AcknowledgeCheckInUseCase } from '@/features/check-ins/application/usecases/acknowledge-check-in.usecase.js';
+import { FlagCheckInUseCase } from '@/features/check-ins/application/usecases/flag-check-in.usecase.js';
+import { PseudonymiseCheckInsForUserUseCase } from '@/features/check-ins/application/usecases/pseudonymise-check-ins-for-user.usecase.js';
+import { PrunePostEventCheckInsUseCase } from '@/features/check-ins/application/usecases/prune-post-event-check-ins.usecase.js';
+import { PrunePostEventCheckInsJob } from '@/features/check-ins/presentation/jobs/prune-post-event-check-ins.job.js';
+import { CheckInsController } from '@/features/check-ins/presentation/http/controllers/check-ins.controller.js';
+import { registerCheckInsConsumers } from '@/features/check-ins/presentation/events/index.js';
+import type { PostEventCheckInRepository } from '@/features/check-ins/domain/repositories/post-event-check-in.repository.js';
+
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
@@ -242,12 +259,26 @@ export interface Container {
   httpAuditLogRepository: HttpAuditLogRepository;
   eventAuditLogRepository: EventAuditLogRepository;
   selfieDeletionEventRepository: SelfieDeletionEventRepository;
+  postEventCheckInEventRepository: PostEventCheckInEventRepository;
   recordHttpCallUseCase: RecordHttpCallUseCase;
   recordEventPublishedUseCase: RecordEventPublishedUseCase;
   recordEventDispatchUseCase: RecordEventDispatchUseCase;
   recordSelfieDeletionUseCase: RecordSelfieDeletionUseCase;
+  recordPostEventCheckInEventUseCase: RecordPostEventCheckInEventUseCase;
   pruneSelfieDeletionEventsUseCase: PruneSelfieDeletionEventsUseCase;
   pruneSelfieDeletionEventsJob: PruneSelfieDeletionEventsJob;
+  prunePostEventCheckInEventsUseCase: PrunePostEventCheckInEventsUseCase;
+  prunePostEventCheckInEventsJob: PrunePostEventCheckInEventsJob;
+
+  // Check-ins
+  postEventCheckInRepository: PostEventCheckInRepository;
+  surfacePendingCheckInsUseCase: SurfacePendingCheckInsUseCase;
+  acknowledgeCheckInUseCase: AcknowledgeCheckInUseCase;
+  flagCheckInUseCase: FlagCheckInUseCase;
+  pseudonymiseCheckInsForUserUseCase: PseudonymiseCheckInsForUserUseCase;
+  prunePostEventCheckInsUseCase: PrunePostEventCheckInsUseCase;
+  prunePostEventCheckInsJob: PrunePostEventCheckInsJob;
+  checkInsController: CheckInsController;
 
   // Selfies
   selfieRepository: SelfieRepository;
@@ -453,6 +484,24 @@ export const buildContainer = (): Container => {
     logger,
   });
 
+  // --- Post-event check-in audit (cross-feature audit for check-ins feature) ---
+  // Placed here (before the check-ins section below) because RecordPostEventCheckInEventUseCase
+  // is needed as a dependency for the check-ins use cases.
+  const postEventCheckInEventRepository = new PostEventCheckInEventPrismaRepository(db);
+  const recordPostEventCheckInEventUseCase = new RecordPostEventCheckInEventUseCase(
+    postEventCheckInEventRepository,
+  );
+  const prunePostEventCheckInEventsUseCase = new PrunePostEventCheckInEventsUseCase(
+    unitOfWork,
+    postEventCheckInEventRepository,
+    clock,
+  );
+  const prunePostEventCheckInEventsJob = new PrunePostEventCheckInEventsJob({
+    pruneUseCase: prunePostEventCheckInEventsUseCase,
+    intervalMs: env.SELFIE_DELETION_SWEEP_INTERVAL_MS,
+    logger,
+  });
+
   // --- Selfies ---
   const selfieRepository = new SelfiePrismaRepository(db);
   const pendingStorageDeleteRepository = new PendingStorageDeletePrismaRepository(db);
@@ -565,6 +614,57 @@ export const buildContainer = (): Container => {
     eventRepository,
   );
 
+  // --- Check-ins ---
+  // PostEventCheckInAuditPort is satisfied by RecordPostEventCheckInEventUseCase
+  // (same two-arg execute(input, ctx) shape — A7 exception, CLAUDE.md).
+  // Placed after Events + Join Requests because SurfacePendingCheckInsUseCase
+  // depends on eventRepository (declared in the Events section above).
+  const postEventCheckInRepository = new PostEventCheckInPrismaRepository(db);
+  const surfacePendingCheckInsUseCase = new SurfacePendingCheckInsUseCase(
+    unitOfWork,
+    postEventCheckInRepository,
+    eventRepository,
+    userRepository,
+    publisher,
+    recordPostEventCheckInEventUseCase, // satisfies PostEventCheckInAuditPort
+    clock,
+  );
+  const acknowledgeCheckInUseCase = new AcknowledgeCheckInUseCase(
+    unitOfWork,
+    postEventCheckInRepository,
+    publisher,
+    recordPostEventCheckInEventUseCase,
+    clock,
+  );
+  const flagCheckInUseCase = new FlagCheckInUseCase(
+    unitOfWork,
+    postEventCheckInRepository,
+    publisher,
+    recordPostEventCheckInEventUseCase,
+    clock,
+  );
+  const pseudonymiseCheckInsForUserUseCase = new PseudonymiseCheckInsForUserUseCase(
+    postEventCheckInRepository,
+    recordPostEventCheckInEventUseCase,
+    clock,
+  );
+  const prunePostEventCheckInsUseCase = new PrunePostEventCheckInsUseCase(
+    unitOfWork,
+    postEventCheckInRepository,
+    recordPostEventCheckInEventUseCase,
+    clock,
+  );
+  const prunePostEventCheckInsJob = new PrunePostEventCheckInsJob({
+    pruneUseCase: prunePostEventCheckInsUseCase,
+    intervalMs: env.POST_EVENT_CHECK_IN_SWEEP_INTERVAL_MS,
+    logger,
+  });
+  const checkInsController = new CheckInsController(
+    surfacePendingCheckInsUseCase,
+    acknowledgeCheckInUseCase,
+    flagCheckInUseCase,
+  );
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
@@ -574,6 +674,10 @@ export const buildContainer = (): Container => {
   registerEventsConsumers(consumerRegistry);
   registerJoinRequestsConsumers(consumerRegistry);
   registerSelfiesConsumers(consumerRegistry);
+  registerCheckInsConsumers(consumerRegistry, {
+    emailSender,
+    eventRepository,
+  });
 
   return {
     db,
@@ -617,12 +721,16 @@ export const buildContainer = (): Container => {
     httpAuditLogRepository,
     eventAuditLogRepository,
     selfieDeletionEventRepository,
+    postEventCheckInEventRepository,
     recordHttpCallUseCase,
     recordEventPublishedUseCase,
     recordEventDispatchUseCase,
     recordSelfieDeletionUseCase,
+    recordPostEventCheckInEventUseCase,
     pruneSelfieDeletionEventsUseCase,
     pruneSelfieDeletionEventsJob,
+    prunePostEventCheckInEventsUseCase,
+    prunePostEventCheckInEventsJob,
     selfieRepository,
     pendingStorageDeleteRepository,
     sweepRunRepository,
@@ -642,5 +750,13 @@ export const buildContainer = (): Container => {
     cancelJoinRequestByRequesterUseCase,
     listJoinRequestsByEventUseCase,
     listJoinRequestsByRequesterUseCase,
+    postEventCheckInRepository,
+    surfacePendingCheckInsUseCase,
+    acknowledgeCheckInUseCase,
+    flagCheckInUseCase,
+    pseudonymiseCheckInsForUserUseCase,
+    prunePostEventCheckInsUseCase,
+    prunePostEventCheckInsJob,
+    checkInsController,
   };
 };
