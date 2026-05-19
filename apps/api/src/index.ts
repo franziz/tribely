@@ -20,6 +20,7 @@ async function main(): Promise<void> {
 
   container.dispatcher.start();
   container.pruneSelfieDeletionEventsJob.start();
+  container.sweepRetainedSelfiesJob.start();
 
   const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     logger.info({ port: info.port, env: env.NODE_ENV }, 'API listening');
@@ -27,10 +28,11 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'Shutting down');
-    // Stop the prune job BEFORE the dispatcher — the job has no outbound
-    // dependency on the dispatcher, and stopping in this order avoids the
-    // (unlikely but possible) race where a job tick fires after the
-    // dispatcher has already torn down its DB connection.
+    // Stop jobs in reverse-start order, all before the dispatcher — jobs have
+    // no outbound dependency on the dispatcher, and stopping first avoids the
+    // (unlikely but possible) race where a tick fires after the dispatcher has
+    // already torn down its DB connection.
+    await container.sweepRetainedSelfiesJob.stop();
     await container.pruneSelfieDeletionEventsJob.stop();
     await container.dispatcher.stop();
     server.close(() => process.exit(0));

@@ -78,6 +78,7 @@ import type { EventAuditLogRepository } from '@/features/audit/domain/repositori
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
 import type { SelfieDeletionEventRepository } from '@/features/audit/domain/repositories/selfie-deletion-event.repository.js';
 import { PruneSelfieDeletionEventsJob } from '@/features/audit/presentation/jobs/prune-selfie-deletion-events.job.js';
+import { SweepRetainedSelfiesJob } from '@/features/selfies/presentation/jobs/sweep-retained-selfies.job.js';
 
 import { CancelEventUseCase } from '@/features/events/application/usecases/cancel-event.usecase.js';
 import { CreateEventUseCase } from '@/features/events/application/usecases/create-event.usecase.js';
@@ -87,6 +88,16 @@ import { UpdateEventUseCase } from '@/features/events/application/usecases/updat
 import { EventPrismaRepository } from '@/features/events/infrastructure/persistence/event.prisma-repository.js';
 import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
+
+import { DeleteSelfieForUserUseCase } from '@/features/selfies/application/usecases/delete-selfie-for-user.usecase.js';
+import { SweepRetainedSelfiesUseCase } from '@/features/selfies/application/usecases/sweep-retained-selfies.usecase.js';
+import { PendingStorageDeletePrismaRepository } from '@/features/selfies/infrastructure/persistence/pending-storage-delete.prisma-repository.js';
+import { SelfiePrismaRepository } from '@/features/selfies/infrastructure/persistence/selfie.prisma-repository.js';
+import { SweepRunPrismaRepository } from '@/features/selfies/infrastructure/persistence/sweep-run.prisma-repository.js';
+import type { PendingStorageDeleteRepository } from '@/features/selfies/domain/repositories/pending-storage-delete.repository.js';
+import type { SelfieRepository } from '@/features/selfies/domain/repositories/selfie.repository.js';
+import type { SweepRunRepository } from '@/features/selfies/domain/repositories/sweep-run.repository.js';
+import { registerSelfiesConsumers } from '@/features/selfies/presentation/events/index.js';
 
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
@@ -237,6 +248,14 @@ export interface Container {
   recordSelfieDeletionUseCase: RecordSelfieDeletionUseCase;
   pruneSelfieDeletionEventsUseCase: PruneSelfieDeletionEventsUseCase;
   pruneSelfieDeletionEventsJob: PruneSelfieDeletionEventsJob;
+
+  // Selfies
+  selfieRepository: SelfieRepository;
+  pendingStorageDeleteRepository: PendingStorageDeleteRepository;
+  sweepRunRepository: SweepRunRepository;
+  sweepRetainedSelfiesUseCase: SweepRetainedSelfiesUseCase;
+  sweepRetainedSelfiesJob: SweepRetainedSelfiesJob;
+  deleteSelfieForUserUseCase: DeleteSelfieForUserUseCase;
 
   // Events
   eventRepository: EventRepository;
@@ -434,6 +453,34 @@ export const buildContainer = (): Container => {
     logger,
   });
 
+  // --- Selfies ---
+  const selfieRepository = new SelfiePrismaRepository(db);
+  const pendingStorageDeleteRepository = new PendingStorageDeletePrismaRepository(db);
+  const sweepRunRepository = new SweepRunPrismaRepository(db);
+  const sweepRetainedSelfiesUseCase = new SweepRetainedSelfiesUseCase(
+    unitOfWork,
+    selfieRepository,
+    pendingStorageDeleteRepository,
+    sweepRunRepository,
+    recordSelfieDeletionUseCase,
+    publisher,
+    fileStorage,
+    clock,
+    logger,
+  );
+  const sweepRetainedSelfiesJob = new SweepRetainedSelfiesJob({
+    sweepUseCase: sweepRetainedSelfiesUseCase,
+    intervalMs: env.SELFIE_RETENTION_SWEEP_INTERVAL_MS,
+    logger,
+  });
+  const deleteSelfieForUserUseCase = new DeleteSelfieForUserUseCase(
+    selfieRepository,
+    pendingStorageDeleteRepository,
+    recordSelfieDeletionUseCase,
+    publisher,
+    clock,
+  );
+
   // Wire audit hooks into the events core. The publisher + dispatcher have
   // no compile-time dependency on the audit feature — the binding lives
   // here so the cross-cutting concern stays a wiring detail, not a layering
@@ -526,6 +573,7 @@ export const buildContainer = (): Container => {
   });
   registerEventsConsumers(consumerRegistry);
   registerJoinRequestsConsumers(consumerRegistry);
+  registerSelfiesConsumers(consumerRegistry);
 
   return {
     db,
@@ -575,6 +623,12 @@ export const buildContainer = (): Container => {
     recordSelfieDeletionUseCase,
     pruneSelfieDeletionEventsUseCase,
     pruneSelfieDeletionEventsJob,
+    selfieRepository,
+    pendingStorageDeleteRepository,
+    sweepRunRepository,
+    sweepRetainedSelfiesUseCase,
+    sweepRetainedSelfiesJob,
+    deleteSelfieForUserUseCase,
     eventRepository,
     createEventUseCase,
     listEventsUseCase,

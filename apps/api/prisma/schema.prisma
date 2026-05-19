@@ -50,6 +50,7 @@ model User {
   passwordResetTokens      PasswordResetToken[]
   hostedEvents             Event[]
   joinRequests             JoinRequest[]
+  selfies                  Selfie[]
 
   @@map("users")
 }
@@ -346,4 +347,87 @@ model SelfieDeletionEvent {
   @@index([deletedAt])
   @@index([requestId])
   @@map("selfie_deletion_events")
+}
+
+/// Aggregate root in the `selfies` bounded context.
+/// Tracks a user's selfie submitted for identity verification.
+///
+/// Lifecycle: pending → approved | rejected → deleted.
+/// Deletion cascades from any non-deleted state (AC #6 — pending, approved,
+/// or rejected can all be deleted).
+///
+/// `status` is a plain String column (not Prisma enum) — consistent with
+/// the codebase convention (cf. Event.status, JoinRequest.status). The
+/// SelfieStatus VO in the domain layer enforces the closed enum.
+///
+/// `storageKey` is cleared to null on markDeleted — the actual S3 object
+/// deletion is queued in `selfie_pending_storage_deletes` (AC #2).
+///
+/// `onDelete: Cascade` on the user FK: when a User is hard-deleted, their
+/// selfies cascade. The `selfie_deletion_events` audit table uses a plain
+/// String userId (not a relation) so audit evidence survives user deletion.
+model Selfie {
+  id         String    @id @default(cuid())
+  userId     String
+  status     String    // pending | approved | rejected | deleted
+  storageKey String?   // S3 object key; cleared to null on deletion
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, approvedAt])
+  @@index([status, rejectedAt])
+  @@map("selfies")
+}
+
+/// Queue of pending S3 object deletions for selfies.
+///
+/// Enqueued atomically alongside the selfie's `markDeleted` mutation so that
+/// storage deletion survives application restarts and crashes. The storage
+/// deletion worker pops rows, attempts deletion, and increments `attempts`
+/// on failure. After `attempts` exceeds the configured max, the row stays
+/// for manual review.
+///
+/// No FK to `selfies` — the selfie row may be deleted separately from the
+/// storage object (intentional decoupling). `storageKey` is stored directly
+/// so the worker can attempt deletion even after the selfie row is gone.
+model SelfiePendingStorageDelete {
+  id            String    @id @default(cuid())
+  selfieId      String
+  storageKey    String
+  attempts      Int       @default(0)
+  enqueuedAt    DateTime  @default(now())
+  lastAttemptAt DateTime?
+  lastError     String?
+
+  @@index([attempts, enqueuedAt])
+  @@map("selfie_pending_storage_deletes")
+}
+
+/// Per-tick observability record for scheduled sweep jobs.
+///
+/// One row is written per sweep execution (success or failure). Answers
+/// "did the sweep run on date X?" for App Store / regulator audit requests.
+///
+/// `kind` is 'selfie-retention-sweep' at launch; future jobs (account-deletion
+/// sweep, orphan-media reaper) can reuse this table by using a distinct kind.
+model SweepRun {
+  id              String    @id @default(cuid())
+  kind            String    // 'selfie-retention-sweep' for this brief; future jobs can reuse the table
+  startedAt       DateTime
+  finishedAt      DateTime?
+  evaluated       Int       @default(0)
+  deleted         Int       @default(0)
+  failed          Int       @default(0)
+  reaperRetried   Int       @default(0)
+  reaperSucceeded Int       @default(0)
+  error           String?
+
+  @@index([kind, startedAt])
+  @@map("sweep_runs")
 }
