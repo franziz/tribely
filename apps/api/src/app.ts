@@ -14,6 +14,7 @@ import { buildEventScopedJoinRequestRoutes } from './features/join-requests/pres
 import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
 import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation/http/routes/my-join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
+import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -127,6 +128,17 @@ export const buildApp = (): { app: Hono; container: Container } => {
       controller: joinRequestController,
       accessTokens: container.accessTokens,
       userRepository: container.userRepository,
+    }),
+  );
+
+  // Admin routes — selfie moderation (TRI-70).
+  // SECURITY NOTE: no admin-role middleware yet — network-restrict before production.
+  // See TODO in admin-selfie.routes.ts for the follow-up ticket scope.
+  app.route(
+    '/admin/users',
+    buildAdminSelfieRoutes({
+      rejectSelfie: container.rejectSelfieUseCase,
+      approveSelfieAppeal: container.approveSelfieAppealUseCase,
     }),
   );
 

@@ -50,11 +50,20 @@ export class FakeUserRepository implements UserRepository {
 
 export class FakeGetUserCapabilitiesUseCase {
   private _canPostPrivateVenue = false;
+  private _canPerformVerifiedAction = false;
   setCanPostPrivateVenue(v: boolean): void {
     this._canPostPrivateVenue = v;
   }
-  execute(_input: { userId: string }): Promise<{ canPostPrivateVenue: boolean }> {
-    return Promise.resolve({ canPostPrivateVenue: this._canPostPrivateVenue });
+  setCanPerformVerifiedAction(v: boolean): void {
+    this._canPerformVerifiedAction = v;
+  }
+  execute(_input: {
+    userId: string;
+  }): Promise<{ canPostPrivateVenue: boolean; canPerformVerifiedAction: boolean }> {
+    return Promise.resolve({
+      canPostPrivateVenue: this._canPostPrivateVenue,
+      canPerformVerifiedAction: this._canPerformVerifiedAction,
+    });
   }
 }
 

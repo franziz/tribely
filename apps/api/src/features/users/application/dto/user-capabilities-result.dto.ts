@@ -3,7 +3,11 @@
  * The capability gate behind `canPostPrivateVenue` is the TRI-33
  * first-event-must-be-public enforcement; future fields extend
  * append-only without versioning.
+ *
+ * canPerformVerifiedAction (TRI-70): real-time gate — true only when
+ * selfieStatus === 'approved' AND selfieAppealLockedAt === null.
  */
 export interface UserCapabilitiesResult {
   canPostPrivateVenue: boolean;
+  canPerformVerifiedAction: boolean;
 }
