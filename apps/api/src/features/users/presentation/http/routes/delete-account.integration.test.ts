@@ -64,6 +64,23 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
   beforeAll(async () => {
     if (!dbUrl) return;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+
+    // TRI-134: wipe consumer_offsets before fixture seeding.
+    //
+    // The production query MIN("committedSeq") across all consumer_offsets rows is the
+    // multi-consumer-safe un-dispatched boundary — see outbox-event.prisma-repository.ts
+    // JSDoc for rationale. The dev DB carries pre-registered application consumers at
+    // committedSeq=0 (TRI-38 per-consumer-offsets dispatcher contract), which pulls MIN
+    // to 0 and breaks the dispatched/un-dispatched discrimination the outbox assertion
+    // tests rely on. Wipe before any fixture seeding so the test-seeded consumer_offset
+    // (seeded at dispatchedRow.seq) determines MIN.
+    //
+    // Safe: OutboxDispatcher.start() runs only in production (apps/api/src/index.ts);
+    // buildApp() does not auto-start it, so no race from the app itself. If the dev
+    // server is running locally its dispatcher tick may re-insert rows, but since all
+    // outbox assertions execute within the same beforeAll fixture the window is narrow.
+    await db.consumerOffset.deleteMany({});
+
     tokens = new JwtAccessTokenIssuer();
     passwordHasher = new Argon2PasswordHasher();
 
@@ -316,6 +333,14 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
   // ──────────────────────────────────────────────────────────────────────────
 
   it('DELETE /users/me returns 204 No Content', async () => {
+    // Purge any committedSeq=0 rows the dev-server dispatcher may have inserted
+    // since beforeAll. These pull MIN("committedSeq") to 0, causing every outbox
+    // row (seq >= 1) to be treated as un-dispatched and getting redacted, which
+    // breaks the "dispatched row untouched" assertion below. Wipe here, just
+    // before the cascade fires, to minimise the race window.
+    // Safe: the test-seeded consumer_offset is at dispatchedRow.seq > 0.
+    await db.consumerOffset.deleteMany({ where: { committedSeq: 0n } });
+
     const { app } = buildApp();
     const res = await app.request('/users/me', {
       method: 'DELETE',

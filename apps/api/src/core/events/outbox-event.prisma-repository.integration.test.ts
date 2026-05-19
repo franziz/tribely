@@ -87,11 +87,15 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
     return consumerName;
   };
 
-  beforeAll(() => {
+  beforeAll(async () => {
     if (!dbUrl) return;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
     unitOfWork = new PrismaUnitOfWork(db);
     repo = new OutboxEventPrismaRepository(db);
+
+    // TRI-134: initial wipe of consumer_offsets — beforeEach repeats this wipe
+    // to handle dev-server dispatcher re-insertions between tests (see beforeEach).
+    await db.consumerOffset.deleteMany({});
   });
 
   beforeEach(async () => {
@@ -100,12 +104,15 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
       await db.outboxEvent.deleteMany({ where: { id: { in: [...trackedOutboxIds] } } });
       trackedOutboxIds.clear();
     }
-    if (trackedConsumerNames.size > 0) {
-      await db.consumerOffset.deleteMany({
-        where: { consumerName: { in: [...trackedConsumerNames] } },
-      });
-      trackedConsumerNames.clear();
-    }
+    // Wipe all consumer_offsets (tracked and any re-inserted by the dev-server
+    // dispatcher between tests). The dev server's OutboxDispatcher.tickOnce()
+    // upserts application consumer rows at committedSeq=0 on each tick
+    // (see outbox-dispatcher.ts driveConsumer). Those rows pull MIN("committedSeq")
+    // to 0, breaking the dispatched/un-dispatched boundary for tests that seed
+    // a consumer_offset at seq N > 0. Wiping unconditionally in beforeEach
+    // ensures each test sees a clean table regardless of dispatcher timing.
+    await db.consumerOffset.deleteMany({});
+    trackedConsumerNames.clear();
   });
 
   afterAll(async () => {
@@ -180,6 +187,12 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
 
       // Commit consumer offset at dispatched.seq → dispatched row is processed.
       await seedConsumerOffset(dispatched.seq);
+
+      // Purge any committedSeq=0 rows that the dev-server dispatcher may have
+      // re-inserted since beforeEach. These pull MIN to 0, making every row
+      // with seq >= 1 "un-dispatched" and defeating the boundary this test asserts.
+      // Safe: test-seeded rows are at dispatched.seq > 0, so they survive this wipe.
+      await db.consumerOffset.deleteMany({ where: { committedSeq: 0n } });
 
       const count = await unitOfWork.run((ctx) =>
         repo.pseudonymiseUndispatchedPayloadsForUser(userX, pseudonymX, ctx),
@@ -258,6 +271,12 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
       });
       // Mark as dispatched via consumer offset at dispatched.seq.
       await seedConsumerOffset(dispatched.seq);
+
+      // Purge any committedSeq=0 rows that the dev-server dispatcher may have
+      // re-inserted since beforeEach. These pull MIN to 0, making every row
+      // with seq >= 1 "un-dispatched" and defeating the dispatched-boundary
+      // assertion. Safe: test-seeded row is at dispatched.seq > 0.
+      await db.consumerOffset.deleteMany({ where: { committedSeq: 0n } });
 
       await unitOfWork.run((ctx) =>
         repo.pseudonymiseUndispatchedPayloadsForUser(userId, pseudonym, ctx),
