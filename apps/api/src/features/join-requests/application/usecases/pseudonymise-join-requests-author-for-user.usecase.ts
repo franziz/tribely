@@ -1,14 +1,14 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { JoinRequestRepository } from '../../domain/repositories/join-request.repository.js';
+import type {
+  PseudonymiseJoinRequestsAuthorForUserInput,
+  PseudonymiseJoinRequestsAuthorForUserResult,
+} from '../dto/pseudonymise-join-requests-author-for-user.dto.js';
 
-export interface PseudonymiseJoinRequestsAuthorForUserInput {
-  userId: string;
-  pseudonymAuthorId: string;
-}
-
-export interface PseudonymiseJoinRequestsAuthorForUserResult {
-  updatedCount: number;
-}
+export type {
+  PseudonymiseJoinRequestsAuthorForUserInput,
+  PseudonymiseJoinRequestsAuthorForUserResult,
+};
 
 /**
  * Pseudonymise all join-request rows authored by a user as part of a PDPA
