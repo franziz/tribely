@@ -5,10 +5,10 @@
 /// value (see report_copy.dart for the verbatim copy SoT used in the sheet).
 enum ReportReason {
   harassment,
-  hate_speech,
-  sexual_content,
-  personal_information_disclosure,
-  false_information,
+  hateSpeech,
+  sexualContent,
+  personalInformationDisclosure,
+  falseInformation,
   spam,
   other;
 
@@ -17,13 +17,13 @@ enum ReportReason {
     switch (this) {
       case ReportReason.harassment:
         return 'Harassment or threats';
-      case ReportReason.hate_speech:
+      case ReportReason.hateSpeech:
         return 'Hate speech or discrimination';
-      case ReportReason.sexual_content:
+      case ReportReason.sexualContent:
         return 'Sexual content';
-      case ReportReason.personal_information_disclosure:
+      case ReportReason.personalInformationDisclosure:
         return 'Sharing personal information';
-      case ReportReason.false_information:
+      case ReportReason.falseInformation:
         return 'False or misleading information';
       case ReportReason.spam:
         return 'Spam';
@@ -37,13 +37,13 @@ enum ReportReason {
     switch (this) {
       case ReportReason.harassment:
         return 'harassment';
-      case ReportReason.hate_speech:
+      case ReportReason.hateSpeech:
         return 'hate_speech';
-      case ReportReason.sexual_content:
+      case ReportReason.sexualContent:
         return 'sexual_content';
-      case ReportReason.personal_information_disclosure:
+      case ReportReason.personalInformationDisclosure:
         return 'personal_information_disclosure';
-      case ReportReason.false_information:
+      case ReportReason.falseInformation:
         return 'false_information';
       case ReportReason.spam:
         return 'spam';

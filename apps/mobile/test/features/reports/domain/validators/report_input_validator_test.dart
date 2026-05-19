@@ -45,7 +45,9 @@ void main() {
 
     test('normal comment is valid', () {
       expect(
-        ReportInputValidator.validateComment('This review seemed fake.').isValid,
+        ReportInputValidator.validateComment(
+          'This review seemed fake.',
+        ).isValid,
         isTrue,
       );
     });
@@ -64,25 +66,25 @@ void main() {
 
     test('hate_speech maps to correct copy', () {
       expect(
-        ReportReason.hate_speech.displayString,
+        ReportReason.hateSpeech.displayString,
         'Hate speech or discrimination',
       );
     });
 
     test('sexual_content maps to correct copy', () {
-      expect(ReportReason.sexual_content.displayString, 'Sexual content');
+      expect(ReportReason.sexualContent.displayString, 'Sexual content');
     });
 
     test('personal_information_disclosure maps to correct copy', () {
       expect(
-        ReportReason.personal_information_disclosure.displayString,
+        ReportReason.personalInformationDisclosure.displayString,
         'Sharing personal information',
       );
     });
 
     test('false_information maps to correct copy', () {
       expect(
-        ReportReason.false_information.displayString,
+        ReportReason.falseInformation.displayString,
         'False or misleading information',
       );
     });

@@ -15,14 +15,6 @@ class ReportModel {
     this.comment,
   });
 
-  final String id;
-  final String reporterUserId;
-  final String targetType;
-  final String targetId;
-  final String reason;
-  final String? comment;
-  final DateTime createdAt;
-
   factory ReportModel.fromJson(Map<String, dynamic> json) {
     return ReportModel(
       id: json['id'] as String,
@@ -34,6 +26,14 @@ class ReportModel {
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
+
+  final String id;
+  final String reporterUserId;
+  final String targetType;
+  final String targetId;
+  final String reason;
+  final String? comment;
+  final DateTime createdAt;
 
   Report toEntity() {
     return Report(

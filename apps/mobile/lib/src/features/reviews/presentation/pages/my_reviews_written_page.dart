@@ -221,14 +221,14 @@ class _AuthorReviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // reportedUserId / reportedUserDisplayName drive the overflow → report sheet
+    // flow inside ReviewRow (Brief 2B wiring). The display name is the rater's
+    // identity; we use the review.raterUserId as the user to block if they
+    // choose to. Display name falls back to "this user" when unavailable.
     return ReviewRow(
       review: review,
-      onOverflowTap: () {
-        // TODO: import ReportReviewSheet from reports/ when Brief 2B lands
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report sheet coming in Brief 2B')),
-        );
-      },
+      reportedUserId: review.raterUserId,
+      reportedUserDisplayName: 'this user',
       showEditLink: _canEdit,
       onEditTap: _canEdit
           ? () {

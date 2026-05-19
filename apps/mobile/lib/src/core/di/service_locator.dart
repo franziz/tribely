@@ -69,6 +69,10 @@ import '../../features/reviews/domain/usecases/submit_review_usecase.dart';
 import '../../features/reviews/domain/usecases/edit_review_usecase.dart';
 import '../../features/reviews/domain/usecases/list_reviews_for_user_usecase.dart';
 import '../../features/reviews/domain/usecases/list_reviews_written_by_me_usecase.dart';
+import '../../features/reports/data/datasources/report_remote_datasource.dart';
+import '../../features/reports/data/repositories/report_repository_impl.dart';
+import '../../features/reports/domain/repositories/report_repository.dart';
+import '../../features/reports/domain/usecases/file_report_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -276,4 +280,17 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(
     () => ListReviewsWrittenByMeUseCase(sl<ReviewRepository>()),
   );
+
+  // Reports — datasources
+  sl.registerLazySingleton<ReportRemoteDatasource>(
+    () => ReportRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Reports — repositories
+  sl.registerLazySingleton<ReportRepository>(
+    () => ReportRepositoryImpl(remote: sl<ReportRemoteDatasource>()),
+  );
+
+  // Reports — use cases
+  sl.registerLazySingleton(() => FileReportUseCase(sl<ReportRepository>()));
 }

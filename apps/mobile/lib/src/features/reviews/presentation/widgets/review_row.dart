@@ -5,23 +5,28 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../domain/entities/review.dart';
 
+// Cross-feature import: ReportReviewSheet is owned by the `reports` feature.
+// This is a deliberate one-widget reference specified in Brief 2B and does NOT
+// constitute a sanctioned cross-feature exception in CLAUDE.md. Inline comment
+// documents the reference per Brief 2B requirement.
+import '../../../reports/presentation/widgets/report_review_sheet.dart';
+
 /// Renders a single visible review row.
 ///
 /// Used in both the profile review list (public) and the "Reviews I wrote"
-/// page (author view). The caller controls the [overflowMenuCallback] — for
-/// public-profile views this should open a report sheet; for the author's own
-/// list it may offer edit/delete actions.
+/// page (author view). When [reportedUserId] and [reportedUserDisplayName] are
+/// provided, tapping the three-dot overflow icon shows a popup menu with
+/// "Report this review", which opens [ReportReviewSheet] as a modal bottom
+/// sheet.
 ///
-/// The [onOverflowTap] callback fires when the three-dot menu is tapped. The
-/// actual sheet content is provided by the caller so this widget stays
-/// context-agnostic.
-///
-/// Report sheet integration (Brief 2B):
-/// // TODO: import ReportReviewSheet from reports/ when Brief 2B lands
+/// When neither is provided, [onOverflowTap] is called instead (backward
+/// compat for callers that supply their own overflow logic).
 class ReviewRow extends StatelessWidget {
   const ReviewRow({
     required this.review,
-    required this.onOverflowTap,
+    this.onOverflowTap,
+    this.reportedUserId,
+    this.reportedUserDisplayName,
     this.showEditLink = false,
     this.onEditTap,
     super.key,
@@ -29,15 +34,54 @@ class ReviewRow extends StatelessWidget {
 
   final Review review;
 
-  /// Called when the three-dot overflow icon is tapped. Host page is
-  /// responsible for pushing the appropriate sheet (report, edit, etc.).
-  final VoidCallback onOverflowTap;
+  /// Display name of the user who wrote this review. Used in the report flow's
+  /// block opt-in sheet ("Block [name]?").
+  ///
+  /// When provided alongside [reportedUserId], tapping the overflow icon opens
+  /// the report sheet directly. When omitted, [onOverflowTap] is called.
+  final String? reportedUserDisplayName;
+
+  /// User ID of the review author. Required together with
+  /// [reportedUserDisplayName] to enable the inline report sheet.
+  final String? reportedUserId;
+
+  /// Fallback callback called when [reportedUserId] / [reportedUserDisplayName]
+  /// are not provided. Host page is responsible for pushing the appropriate
+  /// sheet (report, edit, etc.).
+  final VoidCallback? onOverflowTap;
 
   /// When true, shows an "Edit ›" inline link (visible only within 24h).
   final bool showEditLink;
 
   /// Callback for the "Edit ›" link. Required when [showEditLink] is true.
   final VoidCallback? onEditTap;
+
+  void _handleOverflowTap(BuildContext context) {
+    final userId = reportedUserId;
+    final displayName = reportedUserDisplayName;
+    if (userId != null && displayName != null) {
+      _showReportMenu(context, userId, displayName);
+    } else {
+      onOverflowTap?.call();
+    }
+  }
+
+  void _showReportMenu(
+    BuildContext context,
+    String userId,
+    String displayName,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ReportReviewSheet(
+        reviewId: review.id,
+        reportedUserId: userId,
+        reportedUserDisplayName: displayName,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +119,7 @@ class ReviewRow extends StatelessWidget {
               const Spacer(),
               // Three-dot overflow
               GestureDetector(
-                onTap: onOverflowTap,
+                onTap: () => _handleOverflowTap(context),
                 child: Icon(Icons.more_horiz, size: 20, color: inkSecondary),
               ),
             ],
