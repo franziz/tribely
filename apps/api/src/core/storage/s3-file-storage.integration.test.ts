@@ -67,7 +67,10 @@ function makeClient(): S3Client {
   });
 }
 
-function makeAdapter(overrides?: { readUrlMaxSeconds?: number; uploadUrlMaxSeconds?: number }): S3FileStorageAdapter {
+function makeAdapter(overrides?: {
+  readUrlMaxSeconds?: number;
+  uploadUrlMaxSeconds?: number;
+}): S3FileStorageAdapter {
   return new S3FileStorageAdapter({
     client: makeClient(),
     bucket: TEST_BUCKET,
@@ -96,9 +99,7 @@ describe('S3FileStorageAdapter (integration — real S3 bucket)', () => {
     // deleteObject is idempotent and a failed cleanup should not mask the
     // actual test outcome.
     const cleanup = adapter;
-    await Promise.allSettled(
-      createdKeys.splice(0).map((key) => cleanup.deleteObject({ key })),
-    );
+    await Promise.allSettled(createdKeys.splice(0).map((key) => cleanup.deleteObject({ key })));
   });
 
   // -------------------------------------------------------------------------
@@ -144,7 +145,11 @@ describe('S3FileStorageAdapter (integration — real S3 bucket)', () => {
       const contentType = 'image/png';
 
       // Get a presigned upload URL
-      const uploadUrl = await adapter.getSignedUploadUrl({ key, contentType, expiresInSeconds: 60 });
+      const uploadUrl = await adapter.getSignedUploadUrl({
+        key,
+        contentType,
+        expiresInSeconds: 60,
+      });
 
       // HTTP PUT with the exact matching Content-Type
       const putResponse = await fetch(uploadUrl, {
@@ -175,7 +180,11 @@ describe('S3FileStorageAdapter (integration — real S3 bucket)', () => {
       const contentType = 'image/png';
 
       // Get a presigned upload URL bound to image/png
-      const uploadUrl = await adapter.getSignedUploadUrl({ key, contentType, expiresInSeconds: 60 });
+      const uploadUrl = await adapter.getSignedUploadUrl({
+        key,
+        contentType,
+        expiresInSeconds: 60,
+      });
 
       // PUT with a DIFFERENT Content-Type — S3 must reject with 403
       const putResponse = await fetch(uploadUrl, {
@@ -210,9 +219,9 @@ describe('S3FileStorageAdapter (integration — real S3 bucket)', () => {
       const tightAdapter = makeAdapter({ readUrlMaxSeconds: 60 });
       const key = `${KEY_PREFIX}test-5-cap-check.txt`;
 
-      await expect(
-        tightAdapter.getSignedUrl({ key, expiresInSeconds: 61 }),
-      ).rejects.toThrow('exceeds the adapter cap');
+      await expect(tightAdapter.getSignedUrl({ key, expiresInSeconds: 61 })).rejects.toThrow(
+        'exceeds the adapter cap',
+      );
     },
     10_000,
   );

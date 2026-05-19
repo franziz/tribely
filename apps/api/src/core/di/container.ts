@@ -129,7 +129,12 @@ const buildFileStorage = (): FileStorage => {
     // Zod's superRefine on env guarantees these four vars are set when
     // STORAGE_TRANSPORT=s3, but explicit checks keep type narrowing local
     // and avoid non-null assertions (banned by strictTypeChecked).
-    if (!env.STORAGE_BUCKET || !env.STORAGE_REGION || !env.STORAGE_ACCESS_KEY_ID || !env.STORAGE_SECRET_ACCESS_KEY) {
+    if (
+      !env.STORAGE_BUCKET ||
+      !env.STORAGE_REGION ||
+      !env.STORAGE_ACCESS_KEY_ID ||
+      !env.STORAGE_SECRET_ACCESS_KEY
+    ) {
       throw new Error(
         'STORAGE_TRANSPORT=s3 requires STORAGE_BUCKET, STORAGE_REGION, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY',
       );
