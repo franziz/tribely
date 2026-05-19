@@ -43,8 +43,11 @@ model User {
   selfieAppealLockedAt      DateTime?
   /// TRI-134 tombstone: set to non-null by User.tombstone(now). A tombstoned user has had all
   /// PII columns cleared and email replaced with a placeholder. The row is retained (not hard-
-  /// deleted) so FK constraints on events/join_requests/etc. remain intact. Downstream cascade
-  /// mutations (credential revoke, token purge, etc.) are driven by the DeleteAccountUseCase.
+  /// deleted) so FK constraints on events/join_requests are intentionally absent post-TRI-134
+  /// (see migration tri134_drop_event_host_and_jr_requester_fks) — events and join-requests
+  /// remain queryable post-tombstone with an opaque cuid2 pseudonym in hostUserId /
+  /// requesterUserId. Downstream cascade mutations (credential revoke, token purge, etc.) are
+  /// driven by the DeleteAccountUseCase.
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -53,8 +56,6 @@ model User {
   refreshTokens            RefreshToken[]
   emailVerificationTokens  EmailVerificationToken[]
   passwordResetTokens      PasswordResetToken[]
-  hostedEvents             Event[]
-  joinRequests             JoinRequest[]
   selfies                  Selfie[]
   postEventCheckIns        PostEventCheckIn[]
   hostedCheckIns           PostEventCheckIn[] @relation("HostedCheckIns")
@@ -194,7 +195,9 @@ model Event {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  host              User               @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
+  // host FK deliberately absent: TRI-134 pseudonymisation rewrites hostUserId to a cuid2
+  // with no User row; removing the FK lets events remain queryable post-tombstone.
+  // See migration tri134_drop_event_host_and_jr_requester_fks.
   joinRequests      JoinRequest[]
   postEventCheckIns PostEventCheckIn[]
 
@@ -229,7 +232,9 @@ model JoinRequest {
   decisionReason  String?
 
   event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  requester User  @relation(fields: [requesterUserId], references: [id], onDelete: Cascade)
+  // requester FK deliberately absent: TRI-134 pseudonymisation rewrites requesterUserId to a
+  // cuid2 with no User row; removing the FK lets join-requests remain visible to the host
+  // post-tombstone. See migration tri134_drop_event_host_and_jr_requester_fks.
 
   @@index([eventId, status])
   @@index([requesterUserId, status])
