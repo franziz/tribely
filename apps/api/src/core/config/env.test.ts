@@ -12,7 +12,7 @@
  * JWT_SECRET), which both local .env and CI _api.yml do.
  */
 import { describe, expect, it } from 'vitest';
-import { envSchema } from './env.js';
+import { envSchema, optionalString } from './env.js';
 
 // Minimal valid env fixture — all required fields with the smallest legal values.
 const validBaseEnv: Record<string, string> = {
@@ -119,6 +119,121 @@ describe('env schema', () => {
       // In dev/test, PHONE_HASH_SALT is optional — the container falls back to a
       // sentinel so local dev works without manual env editing.
       expect(() => parseEnv({ NODE_ENV: 'development' })).not.toThrow();
+    });
+  });
+
+  describe('STORAGE_READ_URL_MAX_SECONDS', () => {
+    it('is undefined when omitted', () => {
+      const result = parseEnv({});
+      expect(result.STORAGE_READ_URL_MAX_SECONDS).toBeUndefined();
+    });
+
+    it('coerces a string to a number', () => {
+      const result = parseEnv({ STORAGE_READ_URL_MAX_SECONDS: '1800' });
+      expect(result.STORAGE_READ_URL_MAX_SECONDS).toBe(1800);
+    });
+
+    it('rejects a value above the 86400 cap', () => {
+      expect(() => parseEnv({ STORAGE_READ_URL_MAX_SECONDS: '86401' })).toThrow();
+    });
+
+    it('rejects zero', () => {
+      expect(() => parseEnv({ STORAGE_READ_URL_MAX_SECONDS: '0' })).toThrow();
+    });
+  });
+
+  describe('STORAGE_UPLOAD_URL_MAX_SECONDS', () => {
+    it('is undefined when omitted', () => {
+      const result = parseEnv({});
+      expect(result.STORAGE_UPLOAD_URL_MAX_SECONDS).toBeUndefined();
+    });
+
+    it('coerces a string to a number', () => {
+      const result = parseEnv({ STORAGE_UPLOAD_URL_MAX_SECONDS: '300' });
+      expect(result.STORAGE_UPLOAD_URL_MAX_SECONDS).toBe(300);
+    });
+
+    it('rejects a value above the 3600 cap', () => {
+      expect(() => parseEnv({ STORAGE_UPLOAD_URL_MAX_SECONDS: '3601' })).toThrow();
+    });
+
+    it('rejects zero', () => {
+      expect(() => parseEnv({ STORAGE_UPLOAD_URL_MAX_SECONDS: '0' })).toThrow();
+    });
+  });
+
+  describe('empty-string optional handling', () => {
+    it('optionalString() parses "" to undefined', () => {
+      const schema = optionalString();
+      expect(schema.parse('')).toBeUndefined();
+    });
+
+    it('optionalString() parses undefined to undefined', () => {
+      const schema = optionalString();
+      expect(schema.parse(undefined)).toBeUndefined();
+    });
+
+    it('optionalString() parses a non-empty string through unchanged', () => {
+      const schema = optionalString();
+      expect(schema.parse('value')).toBe('value');
+    });
+
+    it('optionalString() with whitespace-only input passes through unchanged (no trimming)', () => {
+      // Deliberate: the preprocessor only collapses literal "". Whitespace-only
+      // strings are NOT coerced to undefined — "   " is an operator error (someone
+      // set the env var to spaces), not a placeholder. We do NOT trim because that
+      // would mask real input errors; the value passes min(1) since it has length > 0
+      // and surfaces as a present (but space-only) string. Ops must fix the .env.
+      const schema = optionalString();
+      expect(schema.parse('   ')).toBe('   ');
+    });
+
+    it('optionalString(32) rejects a string shorter than 32 chars', () => {
+      const schema = optionalString(32);
+      expect(() => schema.parse('short')).toThrow();
+    });
+
+    it('optionalString(32) accepts a 32-character string', () => {
+      const schema = optionalString(32);
+      expect(schema.parse('a'.repeat(32))).toBe('a'.repeat(32));
+    });
+
+    it('envSchema with TWILIO_ACCOUNT_SID="" and SMS_TRANSPORT=log parses successfully (cascade fix)', () => {
+      // Core regression test: empty-string placeholder in .env with dev/log transport
+      // must NOT cause a schema failure. This was the root cause of the qa cascade.
+      expect(() =>
+        parseEnv({
+          SMS_TRANSPORT: 'log',
+          TWILIO_ACCOUNT_SID: '',
+        }),
+      ).not.toThrow();
+    });
+
+    it('envSchema with TWILIO_ACCOUNT_SID="" and SMS_TRANSPORT=twilio still fails superRefine', () => {
+      // Empty-string becomes undefined after preprocessing, which means
+      // !data.TWILIO_ACCOUNT_SID is true — the production-safety guard still fires.
+      expect(() =>
+        parseEnv({
+          SMS_TRANSPORT: 'twilio',
+          TWILIO_ACCOUNT_SID: '',
+          TWILIO_AUTH_TOKEN: 'authtest',
+          TWILIO_VERIFY_SERVICE_SID: 'VAtest',
+        }),
+      ).toThrow(/TWILIO_ACCOUNT_SID is required when SMS_TRANSPORT=twilio/);
+    });
+
+    it('envSchema with STORAGE_TRANSPORT=s3 and STORAGE_BUCKET="" rejects with the s3 guard message', () => {
+      // Empty-string is coerced to undefined by optionalString(). The superRefine
+      // block checks !data.STORAGE_BUCKET, so undefined correctly triggers the guard.
+      expect(() =>
+        parseEnv({
+          STORAGE_TRANSPORT: 's3',
+          STORAGE_BUCKET: '',
+          STORAGE_REGION: 'ap-southeast-1',
+          STORAGE_ACCESS_KEY_ID: 'AKIATEST',
+          STORAGE_SECRET_ACCESS_KEY: 'secrettest',
+        }),
+      ).toThrow(/STORAGE_BUCKET is required when STORAGE_TRANSPORT=s3/);
     });
   });
 

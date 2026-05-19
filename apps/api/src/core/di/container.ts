@@ -12,6 +12,7 @@ import { LoggingPhoneVerifier } from '../sms/logging-phone-verifier.js';
 import { TwilioPhoneVerifier } from '../sms/twilio-phone-verifier.js';
 import type { FileStorage } from '../storage/file-storage.port.js';
 import { LoggingFileStorage } from '../storage/logging-file-storage.js';
+import { S3FileStorageAdapter } from '../storage/s3-file-storage.js';
 import {
   ConsumerRegistry,
   OutboxDispatcher,
@@ -125,11 +126,33 @@ const buildPhoneVerifier = (): PhoneVerifier => {
 
 const buildFileStorage = (): FileStorage => {
   if (env.STORAGE_TRANSPORT === 's3') {
-    throw new Error(
-      'S3FileStorage adapter is pending TRI-5. For local dev, set ' +
-        'STORAGE_TRANSPORT=log in apps/api/.env. Production must wait for ' +
-        'TRI-5 to land before STORAGE_TRANSPORT=s3 can boot.',
-    );
+    // Zod's superRefine on env guarantees these four vars are set when
+    // STORAGE_TRANSPORT=s3, but explicit checks keep type narrowing local
+    // and avoid non-null assertions (banned by strictTypeChecked).
+    if (
+      !env.STORAGE_BUCKET ||
+      !env.STORAGE_REGION ||
+      !env.STORAGE_ACCESS_KEY_ID ||
+      !env.STORAGE_SECRET_ACCESS_KEY
+    ) {
+      throw new Error(
+        'STORAGE_TRANSPORT=s3 requires STORAGE_BUCKET, STORAGE_REGION, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY',
+      );
+    }
+    // S3Client is constructed inside fromConfig() — keeping @aws-sdk/client-s3
+    // imports isolated to s3-file-storage.ts (enforced by ESLint no-restricted-imports).
+    return S3FileStorageAdapter.fromConfig({
+      region: env.STORAGE_REGION,
+      accessKeyId: env.STORAGE_ACCESS_KEY_ID,
+      secretAccessKey: env.STORAGE_SECRET_ACCESS_KEY,
+      bucket: env.STORAGE_BUCKET,
+      readUrlMaxSeconds: env.STORAGE_READ_URL_MAX_SECONDS ?? 3600,
+      uploadUrlMaxSeconds: env.STORAGE_UPLOAD_URL_MAX_SECONDS ?? 300,
+      // exactOptionalPropertyTypes: spread undefined-guarded optionals so
+      // the property is absent rather than present-with-undefined.
+      ...(env.STORAGE_ENDPOINT ? { endpoint: env.STORAGE_ENDPOINT } : {}),
+      ...(env.STORAGE_FORCE_PATH_STYLE ? { forcePathStyle: env.STORAGE_FORCE_PATH_STYLE } : {}),
+    });
   }
   return new LoggingFileStorage();
 };
