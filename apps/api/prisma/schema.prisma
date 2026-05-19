@@ -61,6 +61,7 @@ model User {
   // pseudonymisation — see migration drop_post_event_check_ins_user_fk.
   reviewsAsRater           Review[]      @relation("ReviewsAsRater")
   reviewsAsRated           Review[]      @relation("ReviewsAsRated")
+  reportsAsReporter        Report[]      @relation("ReportsAsReporter")
 
   @@map("users")
 }
@@ -280,6 +281,42 @@ model Review {
   @@index([eventId])
   @@index([hidden, hiddenAt])
   @@map("reviews")
+}
+
+/// Aggregate root in the `reports` bounded context.
+/// Tracks a user-filed content-moderation report targeting another entity
+/// (initially only 'review', with 'user' and 'event' as stubs).
+///
+/// `targetType` / `reason` / `resolution` are plain String columns with
+/// DB CHECK constraints enforcing the closed enums — consistent with the
+/// codebase convention (cf. Event.status, JoinRequest.status).
+///
+/// Append-only invariant: once `resolvedAt` is set it cannot change. This is
+/// enforced at the application layer (ReportAlreadyResolved domain error) because
+/// a DB-level enforcement would require a trigger; the domain layer is the SOT.
+///
+/// `reporterUserId` has an FK to User with onDelete: Cascade — when a user is
+/// hard-deleted their filed reports are also deleted (PDPA minimum-retention
+/// for personal data the user themselves generated).
+model Report {
+  id               String    @id @default(cuid())
+  reporterUserId   String
+  targetType       String    // review | user | event — CHECK enforced by migration
+  targetId         String
+  reason           String    // harassment | hate_speech | ... — CHECK enforced by migration
+  comment          String?   @db.VarChar(500)
+  createdAt        DateTime  @default(now())
+  firstReviewedAt  DateTime?
+  resolvedAt       DateTime?
+  resolution       String?   // hidden | kept — CHECK enforced by migration
+  resolvedByUserId String?
+
+  reporter User @relation("ReportsAsReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@index([resolvedAt])
+  @@index([targetType, targetId])
+  @@index([reporterUserId])
+  @@map("reports")
 }
 
 /// Transactional outbox: domain events written in the same Postgres transaction
