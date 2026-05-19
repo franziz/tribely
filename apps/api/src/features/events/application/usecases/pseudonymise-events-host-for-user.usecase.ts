@@ -1,14 +1,11 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { EventRepository } from '../../domain/repositories/event.repository.js';
+import type {
+  PseudonymiseEventsHostForUserInput,
+  PseudonymiseEventsHostForUserResult,
+} from '../dto/pseudonymise-events-host-for-user.dto.js';
 
-export interface PseudonymiseEventsHostForUserInput {
-  userId: string;
-  pseudonymHostId: string;
-}
-
-export interface PseudonymiseEventsHostForUserResult {
-  updatedCount: number;
-}
+export type { PseudonymiseEventsHostForUserInput, PseudonymiseEventsHostForUserResult };
 
 /**
  * Pseudonymise all events hosted by a user as part of a PDPA erasure cascade.
