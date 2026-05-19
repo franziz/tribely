@@ -77,7 +77,7 @@ class _VerifyEmailPageState extends ConsumerState<VerifyEmailPage> {
                 child: OtpCodeInput(
                   enabled: !submitting,
                   errorState: state is VerifyEmailError,
-                  onCompleted: (code) => _verify(code),
+                  onCompleted: _verify,
                 ),
               ),
               const SizedBox(height: 24),
