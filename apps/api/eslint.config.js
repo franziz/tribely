@@ -81,4 +81,30 @@ export default tseslint.config(
       ],
     },
   },
+  // Enforce the AWS SDK import boundary. `@aws-sdk/client-s3` and
+  // `@aws-sdk/s3-request-presigner` must only be imported from the S3 adapter
+  // and its opt-in integration test. All other callers must consume the
+  // FileStorage port instead. Any violation is caught at lint time.
+  {
+    files: ['src/**/*.ts'],
+    ignores: [
+      'src/core/storage/s3-file-storage.ts',
+      'src/core/storage/s3-file-storage.integration.test.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@aws-sdk/*'],
+              message:
+                'Import @aws-sdk/* only from core/storage/s3-file-storage.ts. ' +
+                'All other files must consume the FileStorage port instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

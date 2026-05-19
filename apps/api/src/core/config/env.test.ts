@@ -122,6 +122,46 @@ describe('env schema', () => {
     });
   });
 
+  describe('STORAGE_READ_URL_MAX_SECONDS', () => {
+    it('is undefined when omitted', () => {
+      const result = parseEnv({});
+      expect(result.STORAGE_READ_URL_MAX_SECONDS).toBeUndefined();
+    });
+
+    it('coerces a string to a number', () => {
+      const result = parseEnv({ STORAGE_READ_URL_MAX_SECONDS: '1800' });
+      expect(result.STORAGE_READ_URL_MAX_SECONDS).toBe(1800);
+    });
+
+    it('rejects a value above the 86400 cap', () => {
+      expect(() => parseEnv({ STORAGE_READ_URL_MAX_SECONDS: '86401' })).toThrow();
+    });
+
+    it('rejects zero', () => {
+      expect(() => parseEnv({ STORAGE_READ_URL_MAX_SECONDS: '0' })).toThrow();
+    });
+  });
+
+  describe('STORAGE_UPLOAD_URL_MAX_SECONDS', () => {
+    it('is undefined when omitted', () => {
+      const result = parseEnv({});
+      expect(result.STORAGE_UPLOAD_URL_MAX_SECONDS).toBeUndefined();
+    });
+
+    it('coerces a string to a number', () => {
+      const result = parseEnv({ STORAGE_UPLOAD_URL_MAX_SECONDS: '300' });
+      expect(result.STORAGE_UPLOAD_URL_MAX_SECONDS).toBe(300);
+    });
+
+    it('rejects a value above the 3600 cap', () => {
+      expect(() => parseEnv({ STORAGE_UPLOAD_URL_MAX_SECONDS: '3601' })).toThrow();
+    });
+
+    it('rejects zero', () => {
+      expect(() => parseEnv({ STORAGE_UPLOAD_URL_MAX_SECONDS: '0' })).toThrow();
+    });
+  });
+
   describe('credential requirements', () => {
     it('requires RESEND_API_KEY when EMAIL_TRANSPORT=resend', () => {
       expect(() => parseEnv({ EMAIL_TRANSPORT: 'resend' })).toThrow(

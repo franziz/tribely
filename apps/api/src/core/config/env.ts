@@ -76,6 +76,14 @@ export const envSchema = z
       .union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')])
       .optional()
       .default(false),
+    // Hard cap (in seconds) that the adapter enforces on caller-supplied
+    // `expiresInSeconds` for read (GET) presigned URLs. The DI factory applies
+    // a default of 3600 (1h) when this var is absent; setting it here lets ops
+    // tighten the cap without a code change.
+    STORAGE_READ_URL_MAX_SECONDS: z.coerce.number().int().positive().max(86400).optional(),
+    // Hard cap for upload (PUT) presigned URLs. The DI factory applies a
+    // default of 300 (5m) when this var is absent.
+    STORAGE_UPLOAD_URL_MAX_SECONDS: z.coerce.number().int().positive().max(3600).optional(),
 
     // Salt for one-way hashing of phone numbers before they appear in
     // long-lived outbox events (e.g. userPhoneVerificationRevoked). Must be at
