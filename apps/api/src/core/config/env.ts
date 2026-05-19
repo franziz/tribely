@@ -4,6 +4,20 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+/**
+ * Optional string env var that treats `""` (empty string) as `undefined`.
+ *
+ * Background: shell-style `.env` files commonly carry placeholder lines like
+ * `TWILIO_ACCOUNT_SID=` (assignment with no value). Without preprocessing,
+ * Zod sees `""` as a present value and rejects it under `.min(1)` — but the
+ * field is `.optional()`, so the intent of an empty placeholder is "not set,
+ * use the default / skip." Coerce to `undefined` so optional behavior matches
+ * developer expectation. Required string fields (DATABASE_URL, JWT_SECRET)
+ * deliberately do NOT use this helper — they must be set to a real value.
+ */
+export const optionalString = (min = 1) =>
+  z.preprocess((v) => (v === '' ? undefined : v), z.string().min(min).optional());
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -23,7 +37,7 @@ export const envSchema = z
     // presence) so a missing key in staging fails loudly at boot instead
     // of silently dropping mail behind a stray `logger.info` line.
     EMAIL_TRANSPORT: z.enum(['log', 'resend']).default('log'),
-    RESEND_API_KEY: z.string().min(1).optional(),
+    RESEND_API_KEY: optionalString(),
     // Defaults to Resend's onboarding sender so local dev / integration
     // tests work without DNS verification. Production must override with a
     // verified sender (e.g. `Tribely <noreply@gotribely.com>`).
@@ -46,9 +60,9 @@ export const envSchema = z
     // is explicit (not inferred from key presence) so a missing credential
     // in staging fails loudly at boot rather than silently skipping sends.
     SMS_TRANSPORT: z.enum(['log', 'twilio']).default('log'),
-    TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
-    TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
-    TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
+    TWILIO_ACCOUNT_SID: optionalString(),
+    TWILIO_AUTH_TOKEN: optionalString(),
+    TWILIO_VERIFY_SERVICE_SID: optionalString(),
     // Comma-separated list of E.164 country code prefixes to allow. Requests
     // from numbers NOT matching any prefix are rejected before a Twilio call
     // is made (returns { status: 'invalid' } to the caller, logs WARN for ops).
@@ -67,10 +81,10 @@ export const envSchema = z
     // S3 adapter pending TRI-5 — STORAGE_TRANSPORT=s3 will throw at boot
     // until that adapter lands.
     STORAGE_TRANSPORT: z.enum(['log', 's3']).default('log'),
-    STORAGE_BUCKET: z.string().min(1).optional(),
-    STORAGE_REGION: z.string().min(1).optional(),
-    STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
-    STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_BUCKET: optionalString(),
+    STORAGE_REGION: optionalString(),
+    STORAGE_ACCESS_KEY_ID: optionalString(),
+    STORAGE_SECRET_ACCESS_KEY: optionalString(),
     STORAGE_ENDPOINT: z.string().url().optional(),
     STORAGE_FORCE_PATH_STYLE: z
       .union([z.boolean(), z.enum(['true', 'false']).transform((v) => v === 'true')])
@@ -89,7 +103,7 @@ export const envSchema = z
     // long-lived outbox events (e.g. userPhoneVerificationRevoked). Must be at
     // least 32 characters. Generate with: openssl rand -hex 32
     // Boot refuses an empty/missing value when NODE_ENV=production.
-    PHONE_HASH_SALT: z.string().min(32).optional(),
+    PHONE_HASH_SALT: optionalString(32),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
