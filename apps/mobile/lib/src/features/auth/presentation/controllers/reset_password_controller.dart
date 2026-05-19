@@ -57,6 +57,8 @@ String _bannerFor(Failure failure) {
     FirstEventMustBePublicFailure() => failure.message,
     SmsRateLimitedFailure() => failure.message,
     EditWindowExpiredFailure() => failure.message,
+    TargetNotFoundFailure() => failure.message,
+    TargetTypeNotImplementedFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }

@@ -86,6 +86,20 @@ class EditWindowExpiredFailure extends Failure {
   const EditWindowExpiredFailure(super.message, {super.code});
 }
 
+/// 404 when the report target (e.g. a review) does not exist or is not visible
+/// to the reporting user. Distinct from the generic [NotFoundFailure] so the
+/// reports UI can show context-specific copy ("This review no longer exists").
+class TargetNotFoundFailure extends Failure {
+  const TargetNotFoundFailure(super.message, {super.code});
+}
+
+/// 422 when the report target type is not yet supported by the backend
+/// (e.g. reporting a message — only 'review' is implemented in MVP).
+/// The UI uses this to show a graceful "not supported yet" message.
+class TargetTypeNotImplementedFailure extends Failure {
+  const TargetTypeNotImplementedFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event
