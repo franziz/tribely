@@ -1,5 +1,7 @@
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { describe, expect, it } from 'vitest';
+import { SELFIE_APPEAL_APPROVED } from '../events/selfie-appeal-approved.event.js';
+import { SELFIE_REJECTED } from '../events/selfie-rejected.event.js';
 import { USER_PHONE_VERIFICATION_REVOKED } from '../events/user-phone-verification-revoked.event.js';
 import { USER_PHONE_VERIFIED } from '../events/user-phone-verified.event.js';
 import { USER_EMAIL_VERIFIED } from '../events/user-email-verified.event.js';
@@ -81,6 +83,10 @@ describe('User aggregate', () => {
         travelerType: null,
         phone: null,
         phoneVerifiedAt: null,
+        selfieStatus: null,
+        selfieAttemptCount: 0,
+        selfieLastFailureCategory: null,
+        selfieAppealLockedAt: null,
       });
       expect(user.isEmailVerified()).toBe(true);
       expect(user.emailVerifiedAt).toEqual(verifiedAt);
@@ -103,10 +109,42 @@ describe('User aggregate', () => {
         travelerType: null,
         phone: PHONE_SG,
         phoneVerifiedAt: verifiedAt,
+        selfieStatus: null,
+        selfieAttemptCount: 0,
+        selfieLastFailureCategory: null,
+        selfieAppealLockedAt: null,
       });
       expect(user.phone?.value).toBe('+6591234567');
       expect(user.phoneVerifiedAt).toEqual(verifiedAt);
       expect(user.isPhoneVerified()).toBe(true);
+    });
+
+    it('preserves selfie fields from persistence', () => {
+      const lockedAt = new Date('2026-05-01T08:00:00Z');
+      const user = User.rehydrate({
+        id: 'user_1',
+        email: Email.create('a@b.co'),
+        displayName: DisplayName.create('Alice'),
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: lockedAt,
+        emailVerifiedAt: null,
+        bio: null,
+        avatarUrl: null,
+        languages: [],
+        interests: [],
+        currentCity: null,
+        travelerType: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        selfieStatus: 'rejected',
+        selfieAttemptCount: 3,
+        selfieLastFailureCategory: 'poor_lighting',
+        selfieAppealLockedAt: lockedAt,
+      });
+      expect(user.selfieStatus).toBe('rejected');
+      expect(user.selfieAttemptCount).toBe(3);
+      expect(user.selfieLastFailureCategory).toBe('poor_lighting');
+      expect(user.selfieAppealLockedAt).toEqual(lockedAt);
     });
   });
 
@@ -262,6 +300,150 @@ describe('User aggregate', () => {
       user.revokePhoneVerificationOnTakeover('user_2', 'hash_abc', now);
 
       expect(user.updatedAt).toEqual(now);
+    });
+  });
+
+  describe('recordSelfieRejection', () => {
+    it('increments attemptCount, sets status=rejected, records failure category', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const now = new Date('2026-05-01T08:00:00Z');
+
+      user.recordSelfieRejection({ failureCategory: 'poor_lighting', now });
+
+      expect(user.selfieAttemptCount).toBe(1);
+      expect(user.selfieStatus).toBe('rejected');
+      expect(user.selfieLastFailureCategory).toBe('poor_lighting');
+      expect(user.selfieAppealLockedAt).toBeNull();
+      expect(user.updatedAt).toEqual(now);
+    });
+
+    it('emits auth.selfieRejected with full snapshot (no lock on first attempt)', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const now = new Date('2026-05-01T08:00:00Z');
+
+      user.recordSelfieRejection({ failureCategory: 'face_not_visible', now });
+
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(SELFIE_REJECTED);
+      expect(events[0]?.payload).toMatchObject({
+        userId: 'user_1',
+        failureCategory: 'face_not_visible',
+        attemptCount: 1,
+        lockedAt: null,
+      });
+    });
+
+    it('sets selfieAppealLockedAt on third rejection (attempt >= 3)', () => {
+      const user = buildUser();
+      user.pullEvents();
+
+      user.recordSelfieRejection({
+        failureCategory: 'quality_too_low',
+        now: new Date('2026-05-01T08:00:00Z'),
+      });
+      user.recordSelfieRejection({
+        failureCategory: 'quality_too_low',
+        now: new Date('2026-05-02T08:00:00Z'),
+      });
+      user.pullEvents();
+
+      const lockTime = new Date('2026-05-03T08:00:00Z');
+      user.recordSelfieRejection({ failureCategory: 'other', now: lockTime });
+
+      expect(user.selfieAttemptCount).toBe(3);
+      expect(user.selfieAppealLockedAt).toEqual(lockTime);
+
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.payload).toMatchObject({
+        attemptCount: 3,
+        lockedAt: lockTime.toISOString(),
+      });
+    });
+
+    it('locks on attempt 4 as well (>= 3 is the threshold)', () => {
+      const user = buildUser();
+      user.pullEvents();
+
+      for (let i = 0; i < 3; i++) {
+        user.recordSelfieRejection({
+          failureCategory: 'poor_lighting',
+          now: new Date(`2026-05-0${String(i + 1)}T08:00:00Z`),
+        });
+      }
+      user.pullEvents();
+
+      const lockTime2 = new Date('2026-05-10T08:00:00Z');
+      user.recordSelfieRejection({ failureCategory: 'other', now: lockTime2 });
+
+      expect(user.selfieAttemptCount).toBe(4);
+      expect(user.selfieAppealLockedAt).toEqual(lockTime2);
+    });
+  });
+
+  describe('recordSelfieAppealApproved', () => {
+    const buildLockedUser = (): User => {
+      const user = buildUser();
+      user.pullEvents();
+      user.recordSelfieRejection({
+        failureCategory: 'poor_lighting',
+        now: new Date('2026-05-01T08:00:00Z'),
+      });
+      user.recordSelfieRejection({
+        failureCategory: 'face_not_visible',
+        now: new Date('2026-05-02T08:00:00Z'),
+      });
+      user.recordSelfieRejection({
+        failureCategory: 'quality_too_low',
+        now: new Date('2026-05-03T08:00:00Z'),
+      });
+      user.pullEvents();
+      return user;
+    };
+
+    it('clears selfieAppealLockedAt and sets status=pending', () => {
+      const user = buildLockedUser();
+      const now = new Date('2026-05-10T09:00:00Z');
+
+      user.recordSelfieAppealApproved({ now });
+
+      expect(user.selfieAppealLockedAt).toBeNull();
+      expect(user.selfieStatus).toBe('pending');
+      expect(user.updatedAt).toEqual(now);
+    });
+
+    it('PRESERVES selfieAttemptCount (does not reset)', () => {
+      const user = buildLockedUser();
+
+      user.recordSelfieAppealApproved({ now: new Date('2026-05-10T09:00:00Z') });
+
+      expect(user.selfieAttemptCount).toBe(3);
+    });
+
+    it('PRESERVES selfieLastFailureCategory (does not clear)', () => {
+      const user = buildLockedUser();
+
+      user.recordSelfieAppealApproved({ now: new Date('2026-05-10T09:00:00Z') });
+
+      expect(user.selfieLastFailureCategory).toBe('quality_too_low');
+    });
+
+    it('emits auth.selfieAppealApproved with clearedAt payload', () => {
+      const user = buildLockedUser();
+      const now = new Date('2026-05-10T09:00:00Z');
+
+      user.recordSelfieAppealApproved({ now });
+
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(SELFIE_APPEAL_APPROVED);
+      expect(events[0]?.payload).toMatchObject({
+        userId: 'user_1',
+        clearedAt: now.toISOString(),
+      });
     });
   });
 });

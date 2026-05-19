@@ -1,5 +1,7 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
+import { selfieAppealApproved } from '../events/selfie-appeal-approved.event.js';
+import { selfieRejected } from '../events/selfie-rejected.event.js';
 import { userPhoneVerificationRevoked } from '../events/user-phone-verification-revoked.event.js';
 import { userPhoneVerified } from '../events/user-phone-verified.event.js';
 import { userEmailVerified } from '../events/user-email-verified.event.js';
@@ -12,7 +14,11 @@ import { DisplayName } from '../value-objects/display-name.js';
 import { Email } from '../value-objects/email.js';
 import { Interest } from '../value-objects/interest.js';
 import { Language } from '../value-objects/language.js';
+import { type SelfieFailureCategory } from '../value-objects/selfie-failure-category.js';
 import { TravelerType } from '../value-objects/traveler-type.js';
+
+/** Selfie verification status. Stored as TEXT + CHECK constraint in the DB. */
+export type SelfieStatus = 'pending' | 'approved' | 'rejected';
 
 export interface UserProfileFields {
   bio: Bio | null;
@@ -65,6 +71,11 @@ export class User extends AggregateRoot {
     // Phone verification (null until verified via OTP)
     private _phone: PhoneNumber | null,
     private _phoneVerifiedAt: Date | null,
+    // Selfie verification (TRI-70)
+    private _selfieStatus: SelfieStatus | null,
+    private _selfieAttemptCount: number,
+    private _selfieLastFailureCategory: SelfieFailureCategory | null,
+    private _selfieAppealLockedAt: Date | null,
   ) {
     super();
   }
@@ -83,6 +94,10 @@ export class User extends AggregateRoot {
       [],
       null,
       null,
+      null,
+      null,
+      null,
+      0,
       null,
       null,
     );
@@ -112,6 +127,10 @@ export class User extends AggregateRoot {
     travelerType: TravelerType | null;
     phone: PhoneNumber | null;
     phoneVerifiedAt: Date | null;
+    selfieStatus: SelfieStatus | null;
+    selfieAttemptCount: number;
+    selfieLastFailureCategory: SelfieFailureCategory | null;
+    selfieAppealLockedAt: Date | null;
   }): User {
     return new User(
       state.id,
@@ -128,6 +147,10 @@ export class User extends AggregateRoot {
       state.travelerType,
       state.phone,
       state.phoneVerifiedAt,
+      state.selfieStatus,
+      state.selfieAttemptCount,
+      state.selfieLastFailureCategory,
+      state.selfieAppealLockedAt,
     );
   }
 
@@ -177,6 +200,22 @@ export class User extends AggregateRoot {
 
   get phoneVerifiedAt(): Date | null {
     return this._phoneVerifiedAt;
+  }
+
+  get selfieStatus(): SelfieStatus | null {
+    return this._selfieStatus;
+  }
+
+  get selfieAttemptCount(): number {
+    return this._selfieAttemptCount;
+  }
+
+  get selfieLastFailureCategory(): SelfieFailureCategory | null {
+    return this._selfieLastFailureCategory;
+  }
+
+  get selfieAppealLockedAt(): Date | null {
+    return this._selfieAppealLockedAt;
   }
 
   isEmailVerified(): boolean {
@@ -285,6 +324,66 @@ export class User extends AggregateRoot {
         newUserId,
         phoneE164Hash,
         revokedAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Records a selfie rejection. Increments `selfieAttemptCount`, sets status to
+   * `rejected`, records the failure category, and — when the post-increment count
+   * reaches or exceeds 3 — locks the user into the appeal path by setting
+   * `selfieAppealLockedAt`.
+   *
+   * Emits `auth.selfieRejected` with a full post-state snapshot.
+   *
+   * @param failureCategory  One of the four recognised rejection reasons.
+   * @param now              Wall-clock time of rejection (injected for testability).
+   */
+  recordSelfieRejection(input: { failureCategory: SelfieFailureCategory; now: Date }): void {
+    this._selfieAttemptCount += 1;
+    this._selfieLastFailureCategory = input.failureCategory;
+    this._selfieStatus = 'rejected';
+    this._updatedAt = input.now;
+
+    const lockedAt =
+      this._selfieAttemptCount >= 3
+        ? (() => {
+            this._selfieAppealLockedAt = input.now;
+            return input.now;
+          })()
+        : null;
+
+    this.record(
+      selfieRejected({
+        userId: this.id,
+        failureCategory: input.failureCategory,
+        attemptCount: this._selfieAttemptCount,
+        lockedAt: lockedAt?.toISOString() ?? null,
+      }),
+    );
+  }
+
+  /**
+   * Records approval of a selfie appeal. Clears `selfieAppealLockedAt` and
+   * resets status to `pending` so the user must re-submit a new selfie.
+   *
+   * Per-spec preservations:
+   *   - `selfieAttemptCount` is NOT reset (historical record of prior failures).
+   *   - `selfieLastFailureCategory` is NOT cleared (preserved for audit).
+   *
+   * Emits `auth.selfieAppealApproved`.
+   *
+   * @param now  Wall-clock time of approval.
+   */
+  recordSelfieAppealApproved(input: { now: Date }): void {
+    this._selfieAppealLockedAt = null;
+    this._selfieStatus = 'pending';
+    this._updatedAt = input.now;
+
+    this.record(
+      selfieAppealApproved({
+        userId: this.id,
+        clearedAt: input.now.toISOString(),
       }),
     );
   }

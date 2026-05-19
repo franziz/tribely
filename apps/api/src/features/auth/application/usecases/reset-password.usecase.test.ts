@@ -38,6 +38,10 @@ const buildUser = (verifiedAt: Date | null = new Date('2026-01-01T00:00:00Z')): 
     travelerType: null,
     phone: null,
     phoneVerifiedAt: null,
+    selfieStatus: null,
+    selfieAttemptCount: 0,
+    selfieLastFailureCategory: null,
+    selfieAppealLockedAt: null,
   });
 
 const buildCredential = (): CredentialEntity => {

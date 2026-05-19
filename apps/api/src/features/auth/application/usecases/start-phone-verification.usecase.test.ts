@@ -36,6 +36,10 @@ const buildUser = (
     travelerType: null,
     phone: overrides.phone ?? null,
     phoneVerifiedAt: overrides.phoneVerifiedAt ?? null,
+    selfieStatus: null,
+    selfieAttemptCount: 0,
+    selfieLastFailureCategory: null,
+    selfieAppealLockedAt: null,
   });
 
 interface FakeVerifier extends PhoneVerifier {
