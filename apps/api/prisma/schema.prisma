@@ -468,3 +468,33 @@ model PostEventCheckIn {
   @@index([hostUserId, status])
   @@map("post_event_check_ins")
 }
+
+/// Append-only audit log for post-event check-in lifecycle events.
+///
+/// Mirrors the `selfie_deletion_events` audit table shape (TRI-79 precedent).
+/// No FK constraints on checkInId / userId / eventId — rows must outlive the
+/// originating check-in record (PDPA s25 evidence-integrity requirement).
+///
+/// `reason` is a plain String column; a CHECK constraint in the migration
+/// enforces the closed enum:
+///   reason IN ('created', 'acknowledged', 'flagged', 'pseudonymised', 'deleted_by_retention')
+///
+/// `userId` is pseudonymised (set to opaque id) on account deletion, matching
+/// the `selfie_deletion_events` cascade handling convention.
+///
+/// Pruned at 24 calendar months from `occurredAt` by the retention sweep job.
+/// Read access is out-of-band SQL only — no public-port read methods.
+model PostEventCheckInEvent {
+  id         String   @id @default(cuid())
+  checkInId  String   // FK omitted intentionally — survives cascade deletion of the check-in row
+  userId     String   // pseudonymised in cascade (set to opaque id)
+  eventId    String
+  reason     String   // 'created' | 'acknowledged' | 'flagged' | 'pseudonymised' | 'deleted_by_retention' — CHECK enforced
+  occurredAt DateTime
+  requestId  String?
+  recordedAt DateTime @default(now())
+
+  @@index([occurredAt])
+  @@index([userId, reason])
+  @@map("post_event_check_in_events")
+}
