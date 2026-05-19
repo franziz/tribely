@@ -1,6 +1,6 @@
 import type { DomainEvent } from '@/core/events/domain-event.js';
 
-export const SELFIE_APPEAL_APPROVED = 'auth.selfieAppealApproved' as const;
+export const SELFIE_APPEAL_APPROVED = 'users.selfieAppealApproved' as const;
 
 export interface SelfieAppealApprovedPayload {
   userId: string;

@@ -16,6 +16,7 @@ import { ApproveSelfieAppealUseCase } from './approve-selfie-appeal.usecase.js';
 
 class FakeUserRepository implements UserRepository {
   private readonly byId = new Map<string, User>();
+  saveCallCount = 0;
 
   put(user: User): void {
     this.byId.set(user.id, user);
@@ -34,6 +35,7 @@ class FakeUserRepository implements UserRepository {
   }
 
   save(user: User, _ctx?: TxContext): Promise<void> {
+    this.saveCallCount += 1;
     this.byId.set(user.id, user);
     return Promise.resolve();
   }
@@ -46,6 +48,32 @@ class FakeUserRepository implements UserRepository {
 const NOW = new Date('2026-05-15T10:00:00Z');
 const LOCKED_AT = new Date('2026-05-01T08:00:00Z');
 const USER_ID = 'user_002';
+
+/**
+ * A user already in the post-approval state: selfieAppealLockedAt cleared,
+ * status reset to pending. A second approval call should be a no-op.
+ */
+const buildAlreadyApprovedUser = (): User =>
+  User.rehydrate({
+    id: USER_ID,
+    email: Email.create('bob@example.com'),
+    displayName: DisplayName.create('Bob'),
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: NOW,
+    emailVerifiedAt: null,
+    bio: null,
+    avatarUrl: null,
+    languages: [],
+    interests: [],
+    currentCity: null,
+    travelerType: null,
+    phone: null,
+    phoneVerifiedAt: null,
+    selfieStatus: 'pending', // already reset by prior approval
+    selfieAttemptCount: 3, // preserved (historical record)
+    selfieLastFailureCategory: 'quality_too_low', // preserved for audit
+    selfieAppealLockedAt: null, // already cleared by prior approval
+  });
 
 /** A locked user: 3 rejections, selfieAppealLockedAt set. */
 const buildLockedUser = (): User =>
@@ -132,5 +160,25 @@ describe('ApproveSelfieAppealUseCase', () => {
       userId: USER_ID,
       clearedAt: NOW.toISOString(),
     });
+  });
+
+  it('approving an already-approved appeal is a no-op — no aggregate mutation, no event emitted, no DB write', async () => {
+    // The user is already in the post-approval state: selfieAppealLockedAt=null,
+    // selfieStatus='pending'. A duplicate call (admin double-click, network retry)
+    // must short-circuit before invoking the aggregate method.
+    const { repo, publisher, useCase } = buildSut();
+    repo.put(buildAlreadyApprovedUser());
+
+    await useCase.execute({ userId: USER_ID });
+
+    // No DB write
+    expect(repo.saveCallCount).toBe(0);
+    // No event emitted
+    expect(publisher.published).toHaveLength(0);
+    // Aggregate state unchanged
+    const unchanged = await repo.findById(USER_ID);
+    expect(unchanged?.selfieAppealLockedAt).toBeNull();
+    expect(unchanged?.selfieStatus).toBe('pending');
+    expect(unchanged?.selfieAttemptCount).toBe(3); // historical count untouched
   });
 });

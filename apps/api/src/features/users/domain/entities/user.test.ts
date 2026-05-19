@@ -318,7 +318,7 @@ describe('User aggregate', () => {
       expect(user.updatedAt).toEqual(now);
     });
 
-    it('emits auth.selfieRejected with full snapshot (no lock on first attempt)', () => {
+    it('emits users.selfieRejected with full snapshot (no lock on first attempt)', () => {
       const user = buildUser();
       user.pullEvents();
       const now = new Date('2026-05-01T08:00:00Z');
@@ -431,7 +431,7 @@ describe('User aggregate', () => {
       expect(user.selfieLastFailureCategory).toBe('quality_too_low');
     });
 
-    it('emits auth.selfieAppealApproved with clearedAt payload', () => {
+    it('emits users.selfieAppealApproved with clearedAt payload', () => {
       const user = buildLockedUser();
       const now = new Date('2026-05-10T09:00:00Z');
 

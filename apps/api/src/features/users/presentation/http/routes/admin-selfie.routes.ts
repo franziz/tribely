@@ -9,7 +9,6 @@ import { zValidator } from '@hono/zod-validator';
 import type { RejectSelfieUseCase } from '../../../application/usecases/reject-selfie.usecase.js';
 import type { ApproveSelfieAppealUseCase } from '../../../application/usecases/approve-selfie-appeal.usecase.js';
 import { rejectSelfieBodySchema } from '../schemas/admin-selfie.schemas.js';
-import type { SelfieFailureCategory } from '../../../domain/value-objects/selfie-failure-category.js';
 
 export interface AdminSelfieRouteDeps {
   rejectSelfie: RejectSelfieUseCase;
@@ -35,7 +34,7 @@ export const buildAdminSelfieRoutes = (deps: AdminSelfieRouteDeps): Hono => {
       const body = c.req.valid('json');
       await deps.rejectSelfie.execute({
         userId,
-        failureCategory: body.failureCategory as SelfieFailureCategory,
+        failureCategory: body.failureCategory,
       });
       return c.json({ success: true }, 200);
     })

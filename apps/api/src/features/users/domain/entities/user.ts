@@ -334,7 +334,7 @@ export class User extends AggregateRoot {
    * reaches or exceeds 3 — locks the user into the appeal path by setting
    * `selfieAppealLockedAt`.
    *
-   * Emits `auth.selfieRejected` with a full post-state snapshot.
+   * Emits `users.selfieRejected` with a full post-state snapshot.
    *
    * @param failureCategory  One of the four recognised rejection reasons.
    * @param now              Wall-clock time of rejection (injected for testability).
@@ -371,7 +371,7 @@ export class User extends AggregateRoot {
    *   - `selfieAttemptCount` is NOT reset (historical record of prior failures).
    *   - `selfieLastFailureCategory` is NOT cleared (preserved for audit).
    *
-   * Emits `auth.selfieAppealApproved`.
+   * Emits `users.selfieAppealApproved`.
    *
    * @param now  Wall-clock time of approval.
    */

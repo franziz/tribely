@@ -1,7 +1,7 @@
 import type { DomainEvent } from '@/core/events/domain-event.js';
 import type { SelfieFailureCategory } from '../value-objects/selfie-failure-category.js';
 
-export const SELFIE_REJECTED = 'auth.selfieRejected' as const;
+export const SELFIE_REJECTED = 'users.selfieRejected' as const;
 
 export interface SelfieRejectedPayload {
   userId: string;

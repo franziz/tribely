@@ -21,6 +21,16 @@ export class ApproveSelfieAppealUseCase {
       const user = await this.users.findById(input.userId, ctx);
       if (!user) throw AppError.notFound(`User ${input.userId} not found`);
 
+      // Idempotency via natural-key check on aggregate state:
+      // If the aggregate already reflects this approval (selfieAppealLockedAt is
+      // cleared and status reset to pending), the event was already emitted and
+      // persisted. Short-circuit to prevent duplicate event emission and redundant
+      // DB writes. We do NOT consult the outbox — the aggregate state IS the
+      // idempotency boundary. Mirrors the symmetric guard in RejectSelfieUseCase.
+      if (user.selfieAppealLockedAt === null && user.selfieStatus === 'pending') {
+        return; // already applied — no-op
+      }
+
       user.recordSelfieAppealApproved({ now: this.clock.now() });
 
       await this.users.save(user, ctx);
