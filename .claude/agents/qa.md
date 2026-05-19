@@ -107,6 +107,7 @@ Do not add commentary, suggestions, or victory laps. Pass is pass.
 - **No tests exist for the changed area**: Report that explicitly. Don't pretend coverage exists.
 - **Tests pass but coverage is suspiciously low for the change**: Note it factually; don't gatekeep on it (coverage policy isn't your jurisdiction).
 - **CI env var gotcha**: Backend tests need `DATABASE_URL` + `JWT_SECRET` set (env.ts parses at module load). If a test fails to collect with a Zod env error, surface this as an env problem, not a test problem.
+- **Missing `apps/api/.env` for backend tests**: when `apps/api/.env` is absent and tests fail to collect because env.ts rejects missing required vars, bootstrap it by copying the canonical example: `cp apps/api/.env.example apps/api/.env`. This is the sanctioned pattern — it gives you the maintainer-curated placeholder set with all currently-required keys, and the file is gitignored so it won't pollute the working tree. Do NOT write `.env` content from scratch (you'll miss required vars and burn a cycle). Do NOT proceed without `.env` either — that's how the prior "harness blocked further commands" failure mode happens. If mandatory vars in `.env.example` are blank placeholders (e.g., `DATABASE_URL=`, `JWT_SECRET=`), you must still supply real values inline on the test command (e.g., `DATABASE_URL=postgresql://… JWT_SECRET=… npm run --workspace=@tribely/api test`) since Zod rejects empty strings. Optional vars (e.g., commented `STORAGE_*` lines) are fine as-is once `.env.example` is set up correctly to comment them.
 
 ### 7. Style
 
