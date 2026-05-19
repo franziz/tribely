@@ -55,6 +55,7 @@ describe('EditReviewUseCase', () => {
       save: saveSpy,
       findById: findByIdSpy,
       findByTriple: vi.fn(() => Promise.resolve(null)),
+      findExistingTriples: vi.fn(() => Promise.resolve(new Set<string>())),
       listByRatedUser: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       aggregateForUser: vi.fn(() =>

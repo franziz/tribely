@@ -72,6 +72,7 @@ describe('ListReviewsForUserUseCase', () => {
       save: vi.fn((): Promise<void> => Promise.resolve()),
       findById: vi.fn(() => Promise.resolve(null)),
       findByTriple: vi.fn(() => Promise.resolve(null)),
+      findExistingTriples: vi.fn(() => Promise.resolve(new Set<string>())),
       listByRatedUser: listByRatedUserSpy,
       listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       aggregateForUser: vi.fn(() =>

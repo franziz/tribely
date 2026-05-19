@@ -64,6 +64,7 @@ import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecase
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { RejectSelfieUseCase } from '@/features/users/application/usecases/reject-selfie.usecase.js';
 import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
+import { ListPendingReviewPromptsUseCase } from '@/features/users/application/usecases/list-pending-review-prompts.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
 import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapters/stub-host-ratings-read-model.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
@@ -271,6 +272,7 @@ export interface Container {
   rejectSelfieUseCase: RejectSelfieUseCase;
   approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
   deleteAccountUseCase: DeleteAccountUseCase;
+  listPendingReviewPromptsUseCase: ListPendingReviewPromptsUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -400,9 +402,19 @@ export const buildContainer = (): Container => {
   );
   const logger: Logger = new PinoLogger();
 
+  // ReviewPrismaRepository depends only on `db` — it is safe to instantiate
+  // here so that GetUserUseCase (which needs it) can reference it early.
+  // The later `const reviewRepository` line is removed; this early binding
+  // is the canonical instance used by all consumers.
+  const reviewRepository = new ReviewPrismaRepository(db);
+
   // --- Users ---
   const userRepository = new UserPrismaRepository(db);
-  const getUserUseCase = new GetUserUseCase(userRepository, env.VERIFIED_SIGNAL_SET);
+  const getUserUseCase = new GetUserUseCase(
+    userRepository,
+    env.VERIFIED_SIGNAL_SET,
+    reviewRepository,
+  );
   const updateUserProfileUseCase = new UpdateUserProfileUseCase(
     unitOfWork,
     userRepository,
@@ -801,7 +813,7 @@ export const buildContainer = (): Container => {
   );
 
   // --- Reviews ---
-  const reviewRepository = new ReviewPrismaRepository(db);
+  // reviewRepository is already instantiated above (early init for GetUserUseCase dep).
   const submitReviewUseCase = new SubmitReviewUseCase(
     unitOfWork,
     reviewRepository,
@@ -823,6 +835,17 @@ export const buildContainer = (): Container => {
     editReviewUseCase,
     listReviewsForUserUseCase,
     listReviewsWrittenByMeUseCase,
+  );
+
+  // --- Pending Review Prompts (depends on eventRepo, joinRequestRepo, reviewRepo,
+  //     checkBlockedPort, userRepository, clock — all now in scope) ---
+  const listPendingReviewPromptsUseCase = new ListPendingReviewPromptsUseCase(
+    eventRepository,
+    joinRequestRepository,
+    reviewRepository,
+    checkBlockedPort,
+    userRepository,
+    clock,
   );
 
   // --- Reports ---
@@ -881,6 +904,7 @@ export const buildContainer = (): Container => {
     rejectSelfieUseCase,
     approveSelfieAppealUseCase,
     deleteAccountUseCase,
+    listPendingReviewPromptsUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,

@@ -6,6 +6,7 @@ import { TargetResolver } from './target-resolver.js';
 const makeReviewRepoStub = (review: unknown = null): ReviewRepository => ({
   findById: vi.fn().mockResolvedValue(review),
   findByTriple: vi.fn(),
+  findExistingTriples: vi.fn().mockResolvedValue(new Set()),
   save: vi.fn(),
   listByRatedUser: vi.fn(),
   listWrittenBy: vi.fn(),

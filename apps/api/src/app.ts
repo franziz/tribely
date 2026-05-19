@@ -14,6 +14,7 @@ import { buildEventScopedJoinRequestRoutes } from './features/join-requests/pres
 import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
 import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation/http/routes/my-join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
+import { buildPendingReviewPromptsRoutes } from './features/users/presentation/http/routes/pending-review-prompts.routes.js';
 import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
 import { buildCheckInsRoutes } from './features/check-ins/presentation/http/routes/check-ins.routes.js';
 import {
@@ -176,6 +177,17 @@ export const buildApp = (): { app: Hono; container: Container } => {
       accessTokens: container.accessTokens,
       userRepository: container.userRepository,
       rateLimiter: container.rateLimiter,
+    }),
+  );
+
+  // GET /me/pending-review-prompts — returns the next unreviewed counterpart
+  // for the authenticated user's completed events. Additive mount at /me.
+  app.route(
+    '/me',
+    buildPendingReviewPromptsRoutes({
+      listPendingReviewPrompts: container.listPendingReviewPromptsUseCase,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
     }),
   );
 

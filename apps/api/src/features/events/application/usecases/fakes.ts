@@ -134,6 +134,22 @@ export class FakeEventRepository implements EventRepository {
     return Promise.resolve(count);
   }
 
+  findCompletedForUserBetween(
+    input: { userId: string; completedAfter: Date; completedBefore: Date },
+    _ctx?: TxContext,
+  ): Promise<Event[]> {
+    // In the fake we cannot join join_requests — host-side participation only.
+    // Callers that need the joiner path must use the integration repo.
+    const rows = Array.from(this.byId.values()).filter(
+      (e) =>
+        e.status === 'completed' &&
+        e.endsAt.getTime() > input.completedAfter.getTime() &&
+        e.endsAt.getTime() <= input.completedBefore.getTime() &&
+        e.hostUserId === input.userId,
+    );
+    return Promise.resolve(rows);
+  }
+
   findManyForListing(
     filters: ListEventsFilters,
     cursor: ListEventsCursor | null,

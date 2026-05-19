@@ -92,6 +92,7 @@ describe('SubmitReviewUseCase', () => {
       save: saveSpy,
       findById: vi.fn(() => Promise.resolve(null)),
       findByTriple: findByTripleSpy,
+      findExistingTriples: vi.fn(() => Promise.resolve(new Set<string>())),
       listByRatedUser: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       aggregateForUser: vi.fn(() =>
@@ -108,6 +109,7 @@ describe('SubmitReviewUseCase', () => {
       save: vi.fn((): Promise<void> => Promise.resolve()),
       findManyForListing: vi.fn(() => Promise.resolve({ events: [], nextCursor: null })),
       countCompletedByHost: vi.fn(() => Promise.resolve(0)),
+      findCompletedForUserBetween: vi.fn(() => Promise.resolve([])),
     };
     joinRequestRepo = {
       findById: vi.fn(() => Promise.resolve(null)),
@@ -116,6 +118,7 @@ describe('SubmitReviewUseCase', () => {
       countApproved: vi.fn(() => Promise.resolve(0)),
       findByEvent: joinRequestFindByEventSpy,
       listByRequester: vi.fn(() => Promise.resolve({ joinRequests: [], nextCursor: null })),
+      listApprovedByEvents: vi.fn(() => Promise.resolve([])),
     };
     unitOfWork = makeUnitOfWork();
     publisher = { publish: publishSpy };
