@@ -59,7 +59,7 @@ ProviderContainer _makeContainer({
   );
   // Keep the autoDispose provider alive for the duration of the test so
   // ref.mounted stays true while async methods are in-flight.
-  container.listen(reviewComposerControllerProvider, (_, __) {});
+  container.listen(reviewComposerControllerProvider, (prev, next) {});
   addTearDown(container.dispose);
   return container;
 }
@@ -141,11 +141,12 @@ void main() {
         editUseCase: editUseCase,
       );
 
-      // Fire first submit without awaiting.
-      // ignore: unawaited_futures
-      container
-          .read(reviewComposerControllerProvider.notifier)
-          .submit(eventId: 'evt-1', ratedUserId: 'user-b', rating: 4);
+      // Fire first submit without awaiting — intentional fire-and-forget.
+      unawaited(
+        container
+            .read(reviewComposerControllerProvider.notifier)
+            .submit(eventId: 'evt-1', ratedUserId: 'user-b', rating: 4),
+      );
       // Allow state to reach Submitting before the completer resolves.
       await Future<void>.delayed(Duration.zero);
 

@@ -53,7 +53,7 @@ class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
     final body = <String, dynamic>{
       'ratedUserId': ratedUserId,
       'rating': rating,
-      if (comment != null) 'comment': comment,
+      'comment': ?comment,
     };
     final response = await _dio.post<Map<String, dynamic>>(
       '/events/$eventId/reviews',
@@ -70,10 +70,7 @@ class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
     required int rating,
     String? comment,
   }) async {
-    final body = <String, dynamic>{
-      'rating': rating,
-      if (comment != null) 'comment': comment,
-    };
+    final body = <String, dynamic>{'rating': rating, 'comment': ?comment};
     await _dio.patch<void>('/reviews/$reviewId', data: body);
   }
 
@@ -85,7 +82,7 @@ class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/users/$userId/reviews',
-      queryParameters: {'limit': limit, if (cursor != null) 'cursor': cursor},
+      queryParameters: {'limit': limit, 'cursor': ?cursor},
     );
     return ReviewListPageModel.fromJson(response.data!);
   }
@@ -97,7 +94,7 @@ class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
   }) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/me/reviews/written',
-      queryParameters: {'limit': limit, if (cursor != null) 'cursor': cursor},
+      queryParameters: {'limit': limit, 'cursor': ?cursor},
     );
     return ReviewListPageModel.fromJson(response.data!);
   }
