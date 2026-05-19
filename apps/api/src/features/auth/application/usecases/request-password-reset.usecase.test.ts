@@ -40,6 +40,7 @@ const buildUser = (overrides: { verifiedAt?: Date | null } = {}): User => {
     selfieAttemptCount: 0,
     selfieLastFailureCategory: null,
     selfieAppealLockedAt: null,
+    deletedAt: null,
   });
 };
 

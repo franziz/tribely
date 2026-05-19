@@ -70,6 +70,7 @@ const buildUserWithAttempts = (attemptCount: number): User =>
     selfieAttemptCount: attemptCount,
     selfieLastFailureCategory: attemptCount > 0 ? 'poor_lighting' : null,
     selfieAppealLockedAt: attemptCount >= 3 ? NOW : null,
+    deletedAt: null,
   });
 
 const buildFreshUser = (): User =>
@@ -92,6 +93,7 @@ const buildFreshUser = (): User =>
     selfieAttemptCount: 0,
     selfieLastFailureCategory: null,
     selfieAppealLockedAt: null,
+    deletedAt: null,
   });
 
 const buildSut = () => {
@@ -161,6 +163,7 @@ describe('RejectSelfieUseCase', () => {
         selfieAttemptCount: 2,
         selfieLastFailureCategory: 'face_not_visible', // differs from upcoming call
         selfieAppealLockedAt: null,
+        deletedAt: null,
       }),
     );
 
@@ -228,6 +231,7 @@ describe('RejectSelfieUseCase', () => {
         selfieAttemptCount: 0, // anomaly: status rejected but count 0
         selfieLastFailureCategory: 'poor_lighting',
         selfieAppealLockedAt: null,
+        deletedAt: null,
       }),
     );
 
