@@ -99,9 +99,7 @@ describe('LoggingFileStorage', () => {
       });
 
       expect(url).toMatch(/^https:\/\/storage\.local\/.+\?upload=1&expires=\d+$/);
-      expect(url).toBe(
-        'https://storage.local/selfies/user-1/sub-1.jpg?upload=1&expires=3600',
-      );
+      expect(url).toBe('https://storage.local/selfies/user-1/sub-1.jpg?upload=1&expires=3600');
     });
 
     it('logs key, contentType, and expiresInSeconds at info level', async () => {
