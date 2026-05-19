@@ -57,8 +57,8 @@ model User {
   emailVerificationTokens  EmailVerificationToken[]
   passwordResetTokens      PasswordResetToken[]
   selfies                  Selfie[]
-  postEventCheckIns        PostEventCheckIn[]
-  hostedCheckIns           PostEventCheckIn[] @relation("HostedCheckIns")
+  // postEventCheckIns and hostedCheckIns back-relations removed: both FKs dropped for TRI-134
+  // pseudonymisation — see migration drop_post_event_check_ins_user_fk.
 
   @@map("users")
 }
@@ -501,9 +501,11 @@ model PostEventCheckIn {
   reportBody     String?
   resolvedAt     DateTime?
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // userId FK deliberately absent: TRI-134 pseudonymisation rewrites userId to a cuid2
+  // with no User row; removing the FK lets check-ins remain queryable post-tombstone.
+  // See migration drop_post_event_check_ins_user_fk.
+  // hostUserId FK deliberately absent: same rationale — host may be tombstoned post-TRI-134.
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  host  User  @relation("HostedCheckIns", fields: [hostUserId], references: [id], onDelete: Cascade)
 
   @@unique([userId, eventId])
   @@index([status, createdAt])
