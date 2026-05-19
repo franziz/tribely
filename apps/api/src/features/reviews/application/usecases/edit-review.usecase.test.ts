@@ -11,9 +11,7 @@ import { EditReviewUseCase } from './edit-review.usecase.js';
 const TX = {} as TxContext;
 
 const makeUnitOfWork = (): UnitOfWork => ({
-  run: vi.fn((work: (ctx: TxContext) => Promise<unknown>) =>
-    work(TX),
-  ) as UnitOfWork['run'],
+  run: vi.fn((work: (ctx: TxContext) => Promise<unknown>) => work(TX)) as UnitOfWork['run'],
 });
 
 const makeClock = (now = new Date('2025-01-01T13:00:00Z')): Clock => ({

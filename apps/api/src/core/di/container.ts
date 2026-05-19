@@ -134,6 +134,15 @@ import { registerReviewsConsumers } from '@/features/reviews/presentation/events
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 import type { CheckBlockedPort } from '@/features/reviews/application/ports/check-blocked.port.js';
 
+import { ReportPrismaRepository } from '@/features/reports/infrastructure/persistence/report.prisma-repository.js';
+import { TargetResolver } from '@/features/reports/application/services/target-resolver.js';
+import { FileReportUseCase } from '@/features/reports/application/usecases/file-report.usecase.js';
+import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
+import { ResolveReportUseCase } from '@/features/reports/application/usecases/resolve-report.usecase.js';
+import { ReportController } from '@/features/reports/presentation/http/controllers/report.controller.js';
+import { registerReportsConsumers } from '@/features/reports/presentation/events/index.js';
+import type { ReportRepository } from '@/features/reports/domain/repositories/report.repository.js';
+
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
@@ -341,6 +350,14 @@ export interface Container {
   listReviewsForUserUseCase: ListReviewsForUserUseCase;
   listReviewsWrittenByMeUseCase: ListReviewsWrittenByMeUseCase;
   reviewController: ReviewController;
+
+  // Reports
+  reportRepository: ReportRepository;
+  targetResolver: TargetResolver;
+  fileReportUseCase: FileReportUseCase;
+  touchReportUseCase: TouchReportUseCase;
+  resolveReportUseCase: ResolveReportUseCase;
+  reportController: ReportController;
 }
 
 export const buildContainer = (): Container => {
@@ -771,9 +788,30 @@ export const buildContainer = (): Container => {
     listReviewsWrittenByMeUseCase,
   );
 
+  // --- Reports ---
+  const reportRepository = new ReportPrismaRepository(db);
+  const targetResolver = new TargetResolver(reviewRepository);
+  const fileReportUseCase = new FileReportUseCase(
+    unitOfWork,
+    reportRepository,
+    targetResolver,
+    publisher,
+    clock,
+  );
+  const touchReportUseCase = new TouchReportUseCase(unitOfWork, reportRepository, clock);
+  const resolveReportUseCase = new ResolveReportUseCase(
+    unitOfWork,
+    reportRepository,
+    hideReviewUseCase,
+    publisher,
+    clock,
+  );
+  const reportController = new ReportController(fileReportUseCase);
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
   registerReviewsConsumers(consumerRegistry);
+  registerReportsConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
     issueEmailVerification: issueEmailVerificationUseCase,
     signOutAll: signOutAllUseCase,
@@ -879,5 +917,11 @@ export const buildContainer = (): Container => {
     listReviewsForUserUseCase,
     listReviewsWrittenByMeUseCase,
     reviewController,
+    reportRepository,
+    targetResolver,
+    fileReportUseCase,
+    touchReportUseCase,
+    resolveReportUseCase,
+    reportController,
   };
 };

@@ -22,6 +22,7 @@ import {
   buildReviewRoutes,
   buildUserScopedReviewRoutes,
 } from './features/reviews/presentation/http/routes/review.routes.js';
+import { buildReportRoutes } from './features/reports/presentation/http/routes/report.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -154,6 +155,17 @@ export const buildApp = (): { app: Hono; container: Container } => {
   app.route('/reviews', buildReviewRoutes(reviewDeps));
   app.route('/users', buildUserScopedReviewRoutes(reviewDeps));
   app.route('/me', buildMyReviewRoutes(reviewDeps));
+
+  // Reports: POST /reports — file a content-moderation report.
+  app.route(
+    '/reports',
+    buildReportRoutes({
+      controller: container.reportController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+      rateLimiter: container.rateLimiter,
+    }),
+  );
 
   // Admin routes — selfie moderation (TRI-70).
   // SECURITY NOTE: no admin-role middleware yet — network-restrict before production.
