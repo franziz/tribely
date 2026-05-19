@@ -104,6 +104,16 @@ export const envSchema = z
     // least 32 characters. Generate with: openssl rand -hex 32
     // Boot refuses an empty/missing value when NODE_ENV=production.
     PHONE_HASH_SALT: optionalString(32),
+
+    // How often the selfie-deletion audit table is swept for rows older than
+    // the 24-month PDPA retention window (PDPA s25). Default 86400000 ms = 24h.
+    // Reject anything below 60000 ms (1 min) to prevent Postgres churn.
+    SELFIE_DELETION_SWEEP_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000, 'SELFIE_DELETION_SWEEP_INTERVAL_MS must be at least 60000 ms (1 min)')
+      .optional()
+      .default(86_400_000),
   })
   .superRefine((data, ctx) => {
     if (data.EMAIL_TRANSPORT === 'resend' && !data.RESEND_API_KEY) {
