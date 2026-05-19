@@ -69,6 +69,19 @@ function isS3NotFoundError(e: unknown): boolean {
 // Adapter
 // ---------------------------------------------------------------------------
 
+export interface S3FileStorageConfig {
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  readUrlMaxSeconds: number;
+  uploadUrlMaxSeconds: number;
+  /** S3-compatible endpoint override (R2, B2, MinIO). Optional. */
+  endpoint?: string;
+  /** Use path-style URLs — required for MinIO and some S3-compatible stores. */
+  forcePathStyle?: boolean;
+}
+
 export class S3FileStorageAdapter implements FileStorage {
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -85,6 +98,30 @@ export class S3FileStorageAdapter implements FileStorage {
     this.bucket = input.bucket;
     this.readUrlMaxSeconds = input.readUrlMaxSeconds;
     this.uploadUrlMaxSeconds = input.uploadUrlMaxSeconds;
+  }
+
+  /**
+   * Factory that constructs an S3Client from raw credentials, keeping all
+   * @aws-sdk/client-s3 imports contained within this file (enforced by
+   * ESLint no-restricted-imports). DI container callers use this rather
+   * than importing S3Client directly.
+   */
+  static fromConfig(config: S3FileStorageConfig): S3FileStorageAdapter {
+    const client = new S3Client({
+      region: config.region,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
+      ...(config.endpoint ? { endpoint: config.endpoint } : {}),
+      ...(config.forcePathStyle ? { forcePathStyle: true } : {}),
+    });
+    return new S3FileStorageAdapter({
+      client,
+      bucket: config.bucket,
+      readUrlMaxSeconds: config.readUrlMaxSeconds,
+      uploadUrlMaxSeconds: config.uploadUrlMaxSeconds,
+    });
   }
 
   async putObject(input: { key: string; body: Buffer; contentType: string }): Promise<void> {
