@@ -3,21 +3,12 @@ import { getRequestContext } from '@/core/context/request-context.js';
 import { sha256Hex } from '@/core/crypto/sha256-hex.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type {
-  AccountDeletionCascadeScope,
   AccountDeletionEventRecord,
   AccountDeletionEventRepository,
-  AccountDeletionOutcome,
 } from '../../domain/repositories/account-deletion-event.repository.js';
+import type { RecordAccountDeletionInput } from '../dto/record-account-deletion.input.js';
 
-export interface RecordAccountDeletionInput {
-  /** Raw userId — will be SHA-256 hashed before writing; plaintext is never persisted. */
-  userId: string;
-  requestedAt: Date;
-  completedAt: Date;
-  cascadeScope: AccountDeletionCascadeScope[];
-  outcome: AccountDeletionOutcome;
-  failureReason?: string | null;
-}
+export type { RecordAccountDeletionInput };
 
 /**
  * Records one account-deletion event to the append-only audit table.
