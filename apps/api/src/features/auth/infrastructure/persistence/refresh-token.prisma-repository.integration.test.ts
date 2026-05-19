@@ -83,9 +83,11 @@ describe.skipIf(!dbUrl)('RefreshTokenPrismaRepository.deleteAllForUser (integrat
 
   afterAll(async () => {
     if (!dbUrl) return;
-    await db.refreshToken.deleteMany({
-      where: { userId: { in: [userX, userY, userZ] } },
-    }).catch(() => null);
+    await db.refreshToken
+      .deleteMany({
+        where: { userId: { in: [userX, userY, userZ] } },
+      })
+      .catch(() => null);
     await db.user.deleteMany({ where: { id: { in: [userX, userY, userZ] } } }).catch(() => null);
     await db.$disconnect();
   });

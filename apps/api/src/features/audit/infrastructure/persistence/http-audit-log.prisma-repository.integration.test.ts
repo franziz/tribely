@@ -33,9 +33,7 @@ describe.skipIf(!dbUrl)('HttpAuditLogPrismaRepository (integration)', () => {
    */
   const trackedIds = new Set<string>();
 
-  const buildRecord = (
-    overrides: Partial<HttpAuditLogRecord> = {},
-  ): HttpAuditLogRecord => {
+  const buildRecord = (overrides: Partial<HttpAuditLogRecord> = {}): HttpAuditLogRecord => {
     const id = createId();
     trackedIds.add(id);
     return {
@@ -116,9 +114,7 @@ describe.skipIf(!dbUrl)('HttpAuditLogPrismaRepository (integration)', () => {
       });
 
       // Hash only user X.
-      const count = await unitOfWork.run((ctx) =>
-        repo.hashActorForUser(userX, hashX, ctx),
-      );
+      const count = await unitOfWork.run((ctx) => repo.hashActorForUser(userX, hashX, ctx));
 
       expect(count).toBe(2);
 
@@ -158,9 +154,7 @@ describe.skipIf(!dbUrl)('HttpAuditLogPrismaRepository (integration)', () => {
 
       // Second pass: calling again on the same userId matches nothing (the
       // row now holds hashV, not userId), so count = 0 and value unchanged.
-      const secondCount = await unitOfWork.run((ctx) =>
-        repo.hashActorForUser(userId, hashV, ctx),
-      );
+      const secondCount = await unitOfWork.run((ctx) => repo.hashActorForUser(userId, hashV, ctx));
       expect(secondCount).toBe(0);
 
       const afterSecondPass = await db.httpAuditLog.findUnique({ where: { id: rowA.id } });

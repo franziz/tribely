@@ -276,9 +276,11 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
 
     // Clean up all test state. Account deletion tombstones the user row —
     // we try deletion by id (tolerating "already deleted" or "not found").
-    await db.outboxEvent.deleteMany({
-      where: { id: { in: [outboxUndispatchedId, outboxDispatchedId].filter(Boolean) } },
-    }).catch(() => null);
+    await db.outboxEvent
+      .deleteMany({
+        where: { id: { in: [outboxUndispatchedId, outboxDispatchedId].filter(Boolean) } },
+      })
+      .catch(() => null);
     await db.consumerOffset
       .delete({ where: { consumerName: 'test.deleteAccountIntegration.dispatched' } })
       .catch(() => null);
@@ -297,7 +299,9 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
     // The events and second event's join request cascade on event delete
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
     // Second user (hostUserId) — their event might also be left
-    await db.event.deleteMany({ where: { hostUserId: { startsWith: 'delete-acct-host' } } }).catch(() => null);
+    await db.event
+      .deleteMany({ where: { hostUserId: { startsWith: 'delete-acct-host' } } })
+      .catch(() => null);
     await db.user
       .deleteMany({ where: { email: { startsWith: 'delete-acct-host' } } })
       .catch(() => null);

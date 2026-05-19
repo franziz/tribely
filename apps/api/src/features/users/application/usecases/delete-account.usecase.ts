@@ -135,11 +135,7 @@ export class DeleteAccountUseCase {
         cascadeScope.push('join_requests_authored');
 
         // ── 7. Pseudonymise un-dispatched outbox-event payloads ────────────────
-        await this.outboxRepository.pseudonymiseUndispatchedPayloadsForUser(
-          userId,
-          pseudonym,
-          ctx,
-        );
+        await this.outboxRepository.pseudonymiseUndispatchedPayloadsForUser(userId, pseudonym, ctx);
         cascadeScope.push('outbox_events_redacted');
 
         // ── 8. Hash actorUserId in http_audit_logs rows ────────────────────────

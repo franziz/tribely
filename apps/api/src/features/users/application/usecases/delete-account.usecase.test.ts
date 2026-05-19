@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError } from '@/core/errors/app-error.js';
 import { sha256Hex } from '@/core/crypto/sha256-hex.js';
-import {
-  FakeEventPublisher,
-  FakeUnitOfWork,
-  FixedClock,
-  TEST_TX,
-} from '@/core/testing/fakes.js';
+import { FakeEventPublisher, FakeUnitOfWork, FixedClock, TEST_TX } from '@/core/testing/fakes.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { DomainEvent } from '@/core/events/domain-event.js';
 import type { User } from '../../domain/entities/user.js';
@@ -73,9 +68,10 @@ class FakeRefreshTokenRepository implements Pick<RefreshTokenRepository, 'delete
   }
 }
 
-class FakeEmailVerificationTokenRepository
-  implements Pick<EmailVerificationTokenRepository, 'deleteAllForUser'>
-{
+class FakeEmailVerificationTokenRepository implements Pick<
+  EmailVerificationTokenRepository,
+  'deleteAllForUser'
+> {
   calls: string[] = [];
   async deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
     this.calls.push(userId);
@@ -83,9 +79,10 @@ class FakeEmailVerificationTokenRepository
   }
 }
 
-class FakePasswordResetTokenRepository
-  implements Pick<PasswordResetTokenRepository, 'deleteAllForUser'>
-{
+class FakePasswordResetTokenRepository implements Pick<
+  PasswordResetTokenRepository,
+  'deleteAllForUser'
+> {
   calls: string[] = [];
   async deleteAllForUser(userId: string, _ctx: TxContext): Promise<number> {
     this.calls.push(userId);
@@ -95,19 +92,20 @@ class FakePasswordResetTokenRepository
 
 class FakeDeleteSelfieForUser implements Pick<DeleteSelfieForUserUseCase, 'execute'> {
   calls: Array<{ userId: string; reason: string }> = [];
-  async execute(
-    input: { userId: string; reason: string },
-    _ctx: TxContext,
-  ): Promise<void> {
+  async execute(input: { userId: string; reason: string }, _ctx: TxContext): Promise<void> {
     this.calls.push(input);
   }
 }
 
-class FakePseudonymiseCheckInsForUser
-  implements Pick<PseudonymiseCheckInsForUserUseCase, 'execute'>
-{
+class FakePseudonymiseCheckInsForUser implements Pick<
+  PseudonymiseCheckInsForUserUseCase,
+  'execute'
+> {
   calls: string[] = [];
-  async execute(input: { userId: string }, _ctx: TxContext): Promise<{ pseudonymisedReports: number; deletedReports: number }> {
+  async execute(
+    input: { userId: string },
+    _ctx: TxContext,
+  ): Promise<{ pseudonymisedReports: number; deletedReports: number }> {
     this.calls.push(input.userId);
     return { pseudonymisedReports: 0, deletedReports: 0 };
   }

@@ -74,9 +74,11 @@ describe.skipIf(!dbUrl)('CredentialPrismaRepository.deleteForUser (integration)'
   afterAll(async () => {
     if (!dbUrl) return;
     // Best-effort cleanup — credential rows cascade-deleted when user is deleted.
-    await db.credential.deleteMany({
-      where: { userId: { in: [userX, userY, userZ] } },
-    }).catch(() => null);
+    await db.credential
+      .deleteMany({
+        where: { userId: { in: [userX, userY, userZ] } },
+      })
+      .catch(() => null);
     await db.user.deleteMany({ where: { id: { in: [userX, userY, userZ] } } }).catch(() => null);
     await db.$disconnect();
   });

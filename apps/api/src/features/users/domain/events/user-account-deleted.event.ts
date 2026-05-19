@@ -11,7 +11,9 @@ export type UserAccountDeletedEvent = DomainEvent<UserAccountDeletedPayload> & {
   type: typeof USER_ACCOUNT_DELETED;
 };
 
-export const userAccountDeleted = (payload: UserAccountDeletedPayload): UserAccountDeletedEvent => ({
+export const userAccountDeleted = (
+  payload: UserAccountDeletedPayload,
+): UserAccountDeletedEvent => ({
   type: USER_ACCOUNT_DELETED,
   aggregateType: 'User',
   aggregateId: payload.userId,
