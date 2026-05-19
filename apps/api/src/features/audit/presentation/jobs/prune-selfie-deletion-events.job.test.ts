@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestContext } from '@/core/context/request-context.js';
 import type { Logger } from '@/core/observability/logger.port.js';
-import type { PruneSelfieDeletionEventsResult } from '../../application/usecases/prune-selfie-deletion-events.usecase.js';
+import type { PruneSelfieDeletionEventsResult } from '../../application/dto/prune-selfie-deletion-events.result.js';
 import type { PruneSelfieDeletionEventsUseCase } from '../../application/usecases/prune-selfie-deletion-events.usecase.js';
 import { PruneSelfieDeletionEventsJob } from './prune-selfie-deletion-events.job.js';
 

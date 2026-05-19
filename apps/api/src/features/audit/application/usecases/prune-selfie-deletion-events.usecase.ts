@@ -1,12 +1,7 @@
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { SelfieDeletionEventRepository } from '../../domain/repositories/selfie-deletion-event.repository.js';
-
-export interface PruneSelfieDeletionEventsResult {
-  pruned: number;
-  cutoff: Date;
-  durationMs: number;
-}
+import type { PruneSelfieDeletionEventsResult } from '../dto/prune-selfie-deletion-events.result.js';
 
 /**
  * Subtracts `months` calendar months from `date`.
