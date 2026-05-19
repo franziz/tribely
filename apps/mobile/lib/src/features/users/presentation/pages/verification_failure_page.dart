@@ -44,22 +44,6 @@ class VerificationFailurePage extends ConsumerStatefulWidget {
 class _VerificationFailurePageState
     extends ConsumerState<VerificationFailurePage> {
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // React to clipboard-fallback state transitions after build.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handleStateChange());
-  }
-
-  void _handleStateChange() {
-    if (!mounted) return;
-    final state = ref.read(verificationFailureControllerProvider);
-    if (state is VerificationFailureShowClipboardFallback) {
-      _showClipboardFallback(state.clipboardContent);
-      ref.read(verificationFailureControllerProvider.notifier).reset();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final ink = dark
