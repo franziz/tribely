@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import type { User } from '../../../domain/entities/user.js';
+import type { GetUserResult } from '../../../application/dto/get-user-result.dto.js';
 import type { GetUserUseCase } from '../../../application/usecases/get-user.usecase.js';
 import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
 import type { UpdateUserProfileInput } from '../../../application/usecases/update-user-profile.usecase.js';
@@ -9,20 +9,29 @@ import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { AuthVariables } from '@/core/middleware/require-auth.js';
 import type { UpdateUserProfileBody, UserResponse } from '../schemas/user.schemas.js';
 
-const toResponse = (user: User, isVerified: boolean): UserResponse => ({
-  id: user.id,
-  email: user.email.value,
-  displayName: user.displayName.value,
-  emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
-  isVerified,
-  bio: user.bio?.value ?? null,
-  avatarUrl: user.avatarUrl?.value ?? null,
-  languages: user.languages.map((l) => l.value),
-  interests: user.interests.map((i) => i.value),
-  currentCity: user.currentCity?.value ?? null,
-  travelerType: user.travelerType?.value ?? null,
-  createdAt: user.createdAt.toISOString(),
-  updatedAt: user.updatedAt.toISOString(),
+const toResponse = (result: GetUserResult): UserResponse => ({
+  id: result.user.id,
+  email: result.user.email.value,
+  displayName: result.user.displayName.value,
+  emailVerifiedAt: result.user.emailVerifiedAt?.toISOString() ?? null,
+  isVerified: result.isVerified,
+  bio: result.user.bio?.value ?? null,
+  avatarUrl: result.user.avatarUrl?.value ?? null,
+  languages: result.user.languages.map((l) => l.value),
+  interests: result.user.interests.map((i) => i.value),
+  currentCity: result.user.currentCity?.value ?? null,
+  travelerType: result.user.travelerType?.value ?? null,
+  createdAt: result.user.createdAt.toISOString(),
+  updatedAt: result.user.updatedAt.toISOString(),
+  averageRating: result.averageRating,
+  reviewCount: result.reviewCount,
+  recentVisibleComments: result.recentVisibleComments.map((c) => ({
+    excerpt: c.excerpt,
+    raterDisplayName: c.raterDisplayName,
+    rating: c.rating,
+    eventTitle: c.eventTitle,
+    createdAt: c.createdAt.toISOString(),
+  })),
 });
 
 /**
@@ -58,9 +67,9 @@ export class UserController {
     private readonly deleteAccount: DeleteAccountUseCase,
   ) {}
 
-  get = async (c: Context, id: string) => {
-    const { user, isVerified } = await this.getUser.execute({ id });
-    return c.json(toResponse(user, isVerified), 200);
+  get = async (c: Context, id: string, viewerId?: string) => {
+    const result = await this.getUser.execute(viewerId !== undefined ? { id, viewerId } : { id });
+    return c.json(toResponse(result), 200);
   };
 
   getMyCapabilities = async (c: Context<{ Variables: AuthVariables }>) => {
@@ -75,8 +84,8 @@ export class UserController {
 
     await this.updateProfile.execute(input);
 
-    const { user, isVerified } = await this.getUser.execute({ id: userId });
-    return c.json(toResponse(user, isVerified), 200);
+    const result = await this.getUser.execute({ id: userId, viewerId: userId });
+    return c.json(toResponse(result), 200);
   };
 
   /**
