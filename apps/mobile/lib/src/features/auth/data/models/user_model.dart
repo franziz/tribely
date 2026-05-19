@@ -1,5 +1,5 @@
-import '../../../../features/users/domain/value_objects/selfie_failure_category.dart';
 import '../../domain/entities/user.dart';
+import '../../../../features/users/domain/value_objects/selfie_failure_category.dart';
 
 class UserModel {
   const UserModel({
@@ -34,9 +34,8 @@ class UserModel {
           : null,
       selfieStatus: json['selfie_status'] as String? ?? 'notStarted',
       selfieAttemptCount: json['selfie_attempt_count'] as int? ?? 0,
-      selfieLastFailureCategory: SelfieFailureCategory.fromJson(
-        json['selfie_last_failure_category'] as String?,
-      ),
+      selfieLastFailureCategory:
+          json['selfie_last_failure_category'] as String?,
       selfieAppealLockedAt: appealLockedAt is String
           ? DateTime.parse(appealLockedAt)
           : null,
@@ -52,7 +51,11 @@ class UserModel {
   final DateTime? phoneVerifiedAt;
   final String selfieStatus;
   final int selfieAttemptCount;
-  final SelfieFailureCategory? selfieLastFailureCategory;
+
+  /// Raw wire-type from the JSON response (`'poor_lighting'`, `'face_not_visible'`,
+  /// etc.). Conversion to the typed [SelfieFailureCategory] enum happens in
+  /// [toEntity] — that is the intended data/domain conversion seam.
+  final String? selfieLastFailureCategory;
   final DateTime? selfieAppealLockedAt;
 
   User toEntity() => User(
@@ -65,7 +68,9 @@ class UserModel {
     phoneVerifiedAt: phoneVerifiedAt,
     selfieStatus: selfieStatus,
     selfieAttemptCount: selfieAttemptCount,
-    selfieLastFailureCategory: selfieLastFailureCategory,
+    selfieLastFailureCategory: SelfieFailureCategory.fromJson(
+      selfieLastFailureCategory,
+    ),
     selfieAppealLockedAt: selfieAppealLockedAt,
   );
 }
