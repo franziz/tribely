@@ -67,7 +67,7 @@ export class OutboxEventPrismaRepository implements OutboxEventRepository {
       UPDATE outbox_events
       SET    payload = jsonb_set(payload, '{userId}', to_jsonb(${pseudonym}::TEXT))
       WHERE  payload->>'userId' = ${userId}
-        AND  seq > (SELECT COALESCE(MIN(committed_seq), -1) FROM consumer_offsets)
+        AND  seq > (SELECT COALESCE(MIN("committedSeq"), -1) FROM consumer_offsets)
     `;
 
     // Pass 2: redact `payload->>'actorUserId'` for un-dispatched rows.
@@ -75,7 +75,7 @@ export class OutboxEventPrismaRepository implements OutboxEventRepository {
       UPDATE outbox_events
       SET    payload = jsonb_set(payload, '{actorUserId}', to_jsonb(${pseudonym}::TEXT))
       WHERE  payload->>'actorUserId' = ${userId}
-        AND  seq > (SELECT COALESCE(MIN(committed_seq), -1) FROM consumer_offsets)
+        AND  seq > (SELECT COALESCE(MIN("committedSeq"), -1) FROM consumer_offsets)
     `;
 
     // Pass 3: redact the top-level `"actorUserId"` column.
@@ -85,7 +85,7 @@ export class OutboxEventPrismaRepository implements OutboxEventRepository {
       UPDATE outbox_events
       SET    "actorUserId" = ${pseudonym}
       WHERE  "actorUserId" = ${userId}
-        AND  seq > (SELECT COALESCE(MIN(committed_seq), -1) FROM consumer_offsets)
+        AND  seq > (SELECT COALESCE(MIN("committedSeq"), -1) FROM consumer_offsets)
     `;
 
     return payloadUserIdCount + payloadActorUserIdCount + columnCount;
