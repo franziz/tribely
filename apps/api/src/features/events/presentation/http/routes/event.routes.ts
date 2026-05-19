@@ -54,10 +54,20 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
       controller.listAction(c, c.req.valid('query')),
     )
     .get('/:id', (c) => controller.getAction(c, c.req.param('id')))
-    .patch('/:id', auth, zValidator('json', updateEventBodySchema), (c) =>
-      controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+    .patch(
+      '/:id',
+      auth,
+      verifiedEmail,
+      verifiedPhone,
+      zValidator('json', updateEventBodySchema),
+      (c) => controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
     )
-    .delete('/:id', auth, zValidator('json', cancelEventBodySchema), (c) =>
-      controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+    .delete(
+      '/:id',
+      auth,
+      verifiedEmail,
+      verifiedPhone,
+      zValidator('json', cancelEventBodySchema),
+      (c) => controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
     );
 };
