@@ -19,6 +19,7 @@ import '../../features/my_events/presentation/pages/my_events_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
+import '../../features/users/presentation/pages/verification_failure_page.dart';
 import 'app_shell.dart';
 
 // Navigator keys for the root navigator and each bottom-nav branch.
@@ -148,6 +149,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final userId = state.pathParameters['id']!;
           return UserProfilePage(userId: userId);
         },
+      ),
+      // Full-screen verification failure / lockout page. Declared outside the
+      // shell with parentNavigatorKey pointing at root so the bottom nav bar
+      // is hidden and the sheet modal survives tab switches.
+      GoRoute(
+        path: '/verification/failure',
+        name: 'verificationFailure',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const VerificationFailurePage(),
       ),
       // Full-screen create-event flow. Declared outside the shell with
       // parentNavigatorKey pointing at root so it renders without the bottom
