@@ -33,6 +33,10 @@
  * - `verifyReachable()` is adapter-specific (not on the FileStorage port). It is
  *   intended as a boot-time probe to surface misconfiguration early, before the
  *   first real request.
+ * - Unit tests in `s3-file-storage.test.ts` do NOT import `@aws-sdk/*` either —
+ *   they assert command shape via runtime introspection (`.constructor.name` +
+ *   `.input`). The integration test (`s3-file-storage.integration.test.ts`) is
+ *   exempt from the ESLint gate and is the real wire-shape safety net.
  */
 import {
   DeleteObjectCommand,
@@ -152,6 +156,7 @@ export class S3FileStorageAdapter implements FileStorage {
       const originalMessage = e instanceof Error ? e.message : String(e);
       throw new Error(
         `S3FileStorageAdapter: bucket "${this.bucket}" is not reachable — ${originalMessage}`,
+        { cause: e },
       );
     }
   }

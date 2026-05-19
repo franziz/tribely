@@ -1,14 +1,34 @@
+/**
+ * Unit tests for S3FileStorageAdapter.
+ *
+ * IMPORTANT — this file intentionally does NOT import '@aws-sdk/client-s3' or
+ * '@aws-sdk/s3-request-presigner' (not even type-only imports). An ESLint
+ * no-restricted-imports rule gates those imports to the adapter file itself and
+ * the integration test. Extending that exemption here would defeat the boundary.
+ *
+ * Command-shape verification uses runtime introspection: `.constructor.name`
+ * identifies the command class and `.input` carries the parameters object.
+ * String-literal names ('PutObjectCommand', 'GetObjectCommand', etc.) are
+ * intentional — they are the stable SDK export names.
+ *
+ * The integration test (s3-file-storage.integration.test.ts) is the real safety
+ * net for wire-shape correctness against a live-compatible endpoint.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { S3Client } from '@aws-sdk/client-s3';
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  HeadBucketCommand,
-  PutObjectCommand,
-} from '@aws-sdk/client-s3';
 
 // ---------------------------------------------------------------------------
-// Mock the presigner — we assert call shape, not the real signed URL output.
+// Minimal duck-type interface — mirrors what the adapter actually consumes.
+// No @aws-sdk/* types needed.
+// ---------------------------------------------------------------------------
+
+interface FakeS3Client {
+  send: ReturnType<typeof vi.fn>;
+}
+
+// ---------------------------------------------------------------------------
+// Mock the presigner — stringly-typed factory, zero SDK imports.
+// vi.hoisted captures the reference before the vi.mock() factory runs so we
+// can use it both inside the factory and inside the test bodies.
 // ---------------------------------------------------------------------------
 
 const { mockGetSignedUrl } = vi.hoisted(() => ({
@@ -34,14 +54,18 @@ const DEFAULT_CONFIG = {
 };
 
 /** Build a minimal S3Client stub with a `send` vitest mock. */
-function makeClientStub() {
-  return {
-    send: vi.fn(),
-  } as unknown as S3Client;
+function makeClientStub(): FakeS3Client {
+  return { send: vi.fn() };
 }
 
-function makeAdapter(client: S3Client, overrides: Partial<typeof DEFAULT_CONFIG> = {}) {
-  return new S3FileStorageAdapter({ client, ...DEFAULT_CONFIG, ...overrides });
+function makeAdapter(client: FakeS3Client, overrides: Partial<typeof DEFAULT_CONFIG> = {}) {
+  // Cast through unknown: FakeS3Client satisfies the duck-type the adapter consumes
+  // (only `send` is called). The ESLint gate prevents importing the real S3Client type.
+  return new S3FileStorageAdapter({
+    client: client as unknown as ConstructorParameters<typeof S3FileStorageAdapter>[0]['client'],
+    ...DEFAULT_CONFIG,
+    ...overrides,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -49,11 +73,13 @@ function makeAdapter(client: S3Client, overrides: Partial<typeof DEFAULT_CONFIG>
 // ---------------------------------------------------------------------------
 
 describe('putObject', () => {
-  let client: S3Client;
+  let send: ReturnType<typeof vi.fn>;
+  let client: FakeS3Client;
 
   beforeEach(() => {
     client = makeClientStub();
-    vi.mocked(client.send).mockResolvedValue({} as never);
+    send = client.send;
+    send.mockResolvedValue({});
   });
 
   it('sends a PutObjectCommand with Bucket, Key, Body, and ContentType', async () => {
@@ -62,11 +88,12 @@ describe('putObject', () => {
 
     await adapter.putObject({ key: 'selfies/user-1/sub-1.jpg', body, contentType: 'image/jpeg' });
 
-    expect(client.send).toHaveBeenCalledTimes(1);
-    const [command] = vi.mocked(client.send).mock.calls[0]!;
-    expect(command).toBeInstanceOf(PutObjectCommand);
-    const cmd = command as PutObjectCommand;
-    expect(cmd.input).toMatchObject({
+    expect(send).toHaveBeenCalledTimes(1);
+    const callArg: unknown = send.mock.calls[0]?.[0];
+    expect((callArg as { constructor: { name: string } }).constructor.name).toBe(
+      'PutObjectCommand',
+    );
+    expect((callArg as { input: unknown }).input).toMatchObject({
       Bucket: BUCKET,
       Key: 'selfies/user-1/sub-1.jpg',
       Body: body,
@@ -77,15 +104,23 @@ describe('putObject', () => {
   it('resolves to void on success', async () => {
     const adapter = makeAdapter(client);
     await expect(
-      adapter.putObject({ key: 'selfies/user-1/sub-1.jpg', body: Buffer.from('x'), contentType: 'image/jpeg' }),
+      adapter.putObject({
+        key: 'selfies/user-1/sub-1.jpg',
+        body: Buffer.from('x'),
+        contentType: 'image/jpeg',
+      }),
     ).resolves.toBeUndefined();
   });
 
   it('rethrows errors from S3', async () => {
     const adapter = makeAdapter(client);
-    vi.mocked(client.send).mockRejectedValueOnce(new Error('AccessDenied'));
+    send.mockRejectedValueOnce(new Error('AccessDenied'));
     await expect(
-      adapter.putObject({ key: 'selfies/user-1/sub-1.jpg', body: Buffer.from('x'), contentType: 'image/jpeg' }),
+      adapter.putObject({
+        key: 'selfies/user-1/sub-1.jpg',
+        body: Buffer.from('x'),
+        contentType: 'image/jpeg',
+      }),
     ).rejects.toThrow('AccessDenied');
   });
 });
@@ -95,34 +130,44 @@ describe('putObject', () => {
 // ---------------------------------------------------------------------------
 
 describe('deleteObject', () => {
-  let client: S3Client;
+  let send: ReturnType<typeof vi.fn>;
+  let client: FakeS3Client;
 
   beforeEach(() => {
     client = makeClientStub();
-    vi.mocked(client.send).mockResolvedValue({} as never);
+    send = client.send;
+    send.mockResolvedValue({});
   });
 
   it('sends a DeleteObjectCommand with Bucket and Key', async () => {
     const adapter = makeAdapter(client);
     await adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' });
 
-    expect(client.send).toHaveBeenCalledTimes(1);
-    const [command] = vi.mocked(client.send).mock.calls[0]!;
-    expect(command).toBeInstanceOf(DeleteObjectCommand);
-    const cmd = command as DeleteObjectCommand;
-    expect(cmd.input).toMatchObject({ Bucket: BUCKET, Key: 'selfies/user-1/sub-1.jpg' });
+    expect(send).toHaveBeenCalledTimes(1);
+    const callArg: unknown = send.mock.calls[0]?.[0];
+    expect((callArg as { constructor: { name: string } }).constructor.name).toBe(
+      'DeleteObjectCommand',
+    );
+    expect((callArg as { input: unknown }).input).toMatchObject({
+      Bucket: BUCKET,
+      Key: 'selfies/user-1/sub-1.jpg',
+    });
   });
 
   it('resolves to void when S3 returns success', async () => {
     const adapter = makeAdapter(client);
-    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).resolves.toBeUndefined();
+    await expect(
+      adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' }),
+    ).resolves.toBeUndefined();
   });
 
   it('swallows a NoSuchKey-shaped error (name === "NoSuchKey")', async () => {
     const adapter = makeAdapter(client);
     const notFound = Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' });
-    vi.mocked(client.send).mockRejectedValueOnce(notFound);
-    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).resolves.toBeUndefined();
+    send.mockRejectedValueOnce(notFound);
+    await expect(
+      adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' }),
+    ).resolves.toBeUndefined();
   });
 
   it('swallows a 404-shaped error ($metadata.httpStatusCode === 404)', async () => {
@@ -130,8 +175,10 @@ describe('deleteObject', () => {
     const notFound = Object.assign(new Error('NotFound'), {
       $metadata: { httpStatusCode: 404 },
     });
-    vi.mocked(client.send).mockRejectedValueOnce(notFound);
-    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).resolves.toBeUndefined();
+    send.mockRejectedValueOnce(notFound);
+    await expect(
+      adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' }),
+    ).resolves.toBeUndefined();
   });
 
   it('rethrows non-404 S3 errors', async () => {
@@ -140,14 +187,18 @@ describe('deleteObject', () => {
       name: 'AccessDenied',
       $metadata: { httpStatusCode: 403 },
     });
-    vi.mocked(client.send).mockRejectedValueOnce(accessDenied);
-    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).rejects.toThrow('AccessDenied');
+    send.mockRejectedValueOnce(accessDenied);
+    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).rejects.toThrow(
+      'AccessDenied',
+    );
   });
 
   it('rethrows plain Error objects that are not not-found shaped', async () => {
     const adapter = makeAdapter(client);
-    vi.mocked(client.send).mockRejectedValueOnce(new Error('InternalServerError'));
-    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).rejects.toThrow('InternalServerError');
+    send.mockRejectedValueOnce(new Error('InternalServerError'));
+    await expect(adapter.deleteObject({ key: 'selfies/user-1/sub-1.jpg' })).rejects.toThrow(
+      'InternalServerError',
+    );
   });
 });
 
@@ -156,7 +207,7 @@ describe('deleteObject', () => {
 // ---------------------------------------------------------------------------
 
 describe('getSignedUrl', () => {
-  let client: S3Client;
+  let client: FakeS3Client;
 
   beforeEach(() => {
     client = makeClientStub();
@@ -166,17 +217,19 @@ describe('getSignedUrl', () => {
 
   it('calls the presigner with a GetObjectCommand, correct expiresIn, Bucket, and Key', async () => {
     const adapter = makeAdapter(client);
-    const url = await adapter.getSignedUrl({ key: 'selfies/user-1/sub-1.jpg', expiresInSeconds: 900 });
+    const url = await adapter.getSignedUrl({
+      key: 'selfies/user-1/sub-1.jpg',
+      expiresInSeconds: 900,
+    });
 
     expect(mockGetSignedUrl).toHaveBeenCalledTimes(1);
-    const firstCall = mockGetSignedUrl.mock.calls[0] as unknown as [
-      S3Client,
-      GetObjectCommand,
-      { expiresIn: number },
-    ];
-    const [calledClient, calledCommand, calledOptions] = firstCall;
+    const calls = mockGetSignedUrl.mock.calls[0] as unknown[];
+    const calledClient = calls[0];
+    const calledCommand = calls[1] as { constructor: { name: string }; input: unknown };
+    const calledOptions = calls[2] as { expiresIn: number };
+
     expect(calledClient).toBe(client);
-    expect(calledCommand).toBeInstanceOf(GetObjectCommand);
+    expect(calledCommand.constructor.name).toBe('GetObjectCommand');
     expect(calledCommand.input).toMatchObject({
       Bucket: BUCKET,
       Key: 'selfies/user-1/sub-1.jpg',
@@ -217,7 +270,7 @@ describe('getSignedUrl', () => {
 // ---------------------------------------------------------------------------
 
 describe('getSignedUploadUrl', () => {
-  let client: S3Client;
+  let client: FakeS3Client;
 
   beforeEach(() => {
     client = makeClientStub();
@@ -234,14 +287,13 @@ describe('getSignedUploadUrl', () => {
     });
 
     expect(mockGetSignedUrl).toHaveBeenCalledTimes(1);
-    const firstCall = mockGetSignedUrl.mock.calls[0] as unknown as [
-      S3Client,
-      PutObjectCommand,
-      { expiresIn: number; signableHeaders?: Set<string> },
-    ];
-    const [calledClient, calledCommand, calledOptions] = firstCall;
+    const calls = mockGetSignedUrl.mock.calls[0] as unknown[];
+    const calledClient = calls[0];
+    const calledCommand = calls[1] as { constructor: { name: string }; input: unknown };
+    const calledOptions = calls[2] as { expiresIn: number; signableHeaders?: Set<string> };
+
     expect(calledClient).toBe(client);
-    expect(calledCommand).toBeInstanceOf(PutObjectCommand);
+    expect(calledCommand.constructor.name).toBe('PutObjectCommand');
     expect(calledCommand.input).toMatchObject({
       Bucket: BUCKET,
       Key: 'selfies/user-1/sub-1.jpg',
@@ -290,21 +342,25 @@ describe('getSignedUploadUrl', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyReachable', () => {
-  let client: S3Client;
+  let send: ReturnType<typeof vi.fn>;
+  let client: FakeS3Client;
 
   beforeEach(() => {
     client = makeClientStub();
-    vi.mocked(client.send).mockResolvedValue({} as never);
+    send = client.send;
+    send.mockResolvedValue({});
   });
 
   it('sends a HeadBucketCommand with the configured Bucket', async () => {
     const adapter = makeAdapter(client);
     await adapter.verifyReachable();
 
-    expect(client.send).toHaveBeenCalledTimes(1);
-    const [command] = vi.mocked(client.send).mock.calls[0]!;
-    expect(command).toBeInstanceOf(HeadBucketCommand);
-    expect((command as HeadBucketCommand).input).toMatchObject({ Bucket: BUCKET });
+    expect(send).toHaveBeenCalledTimes(1);
+    const callArg: unknown = send.mock.calls[0]?.[0];
+    expect((callArg as { constructor: { name: string } }).constructor.name).toBe(
+      'HeadBucketCommand',
+    );
+    expect((callArg as { input: unknown }).input).toMatchObject({ Bucket: BUCKET });
   });
 
   it('resolves to void when HeadBucket succeeds', async () => {
@@ -314,21 +370,21 @@ describe('verifyReachable', () => {
 
   it('throws when client rejects — error message includes bucket name', async () => {
     const adapter = makeAdapter(client);
-    vi.mocked(client.send).mockRejectedValueOnce(new Error('NoSuchBucket'));
+    send.mockRejectedValueOnce(new Error('NoSuchBucket'));
 
     await expect(adapter.verifyReachable()).rejects.toThrow(BUCKET);
   });
 
   it('wraps the original error message in the thrown error', async () => {
     const adapter = makeAdapter(client);
-    vi.mocked(client.send).mockRejectedValueOnce(new Error('network timeout'));
+    send.mockRejectedValueOnce(new Error('network timeout'));
 
     await expect(adapter.verifyReachable()).rejects.toThrow('network timeout');
   });
 
   it('handles non-Error throws — converts to string in the message', async () => {
     const adapter = makeAdapter(client);
-    vi.mocked(client.send).mockRejectedValueOnce('connection refused');
+    send.mockRejectedValueOnce('connection refused');
 
     await expect(adapter.verifyReachable()).rejects.toThrow('connection refused');
   });
