@@ -8,6 +8,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { sha256Hex } from '@/core/crypto/sha256-hex.js';
+import { Password } from '../../../../auth/domain/value-objects/password.js';
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
 import { Argon2PasswordHasher } from '@/features/auth/infrastructure/adapters/argon2-password-hasher.js';
 import { buildApp } from '../../../../../app.js';
@@ -83,9 +84,10 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
     userToken = issued.value;
 
     // ── 2. Seed credential ────────────────────────────────────────────────────
-    const passwordHash = await passwordHasher.hash('TestPass123!');
+    const password = Password.create('TestPass123!');
+    const passwordHash = await passwordHasher.hash(password);
     await db.credential.create({
-      data: { userId, passwordHash },
+      data: { userId, passwordHash: passwordHash.value },
     });
     credentialExists = true;
 
@@ -100,9 +102,8 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
         expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
         issuedAt: new Date(),
         revokedAt: null,
-        revocationReason: null,
-        replacedByTokenId: null,
-        family: createId(),
+        revokedReason: null,
+        rotatedToId: null,
       },
     });
 
@@ -115,7 +116,7 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
         expiresAt: new Date(Date.now() + 1000 * 60 * 60),
         issuedAt: new Date(),
         consumedAt: null,
-        invalidatedAt: null,
+        invalidated: false,
       },
     });
 

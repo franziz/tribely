@@ -61,7 +61,7 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
         type: opts.type ?? 'test.eventType',
         aggregateType: 'TestAggregate',
         aggregateId: createId(),
-        payload: opts.payload,
+        payload: opts.payload as object,
         actorUserId: opts.actorUserId ?? null,
         requestId: null,
       },

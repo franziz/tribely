@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type {
   HttpAuditLogRecord,
   HttpAuditLogRepository,
@@ -10,6 +11,9 @@ class FakeHttpAuditLogRepository implements HttpAuditLogRepository {
   record(entry: HttpAuditLogRecord): Promise<void> {
     this.recorded.push(entry);
     return Promise.resolve();
+  }
+  async hashActorForUser(_userId: string, _actorHash: string, _ctx: TxContext): Promise<number> {
+    return 0;
   }
 }
 

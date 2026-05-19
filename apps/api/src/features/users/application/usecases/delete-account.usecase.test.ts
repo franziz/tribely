@@ -310,8 +310,8 @@ describe('DeleteAccountUseCase', () => {
 
       await useCase.execute({ userId: USER_ID });
 
-      const publishedTopics = publisher.published.map((e: DomainEvent) => e.topic);
-      expect(publishedTopics).toContain('users.userAccountDeleted');
+      const publishedTypes = publisher.published.map((e: DomainEvent) => e.type);
+      expect(publishedTypes).toContain('users.userAccountDeleted');
     });
 
     it('writes the audit row with outcome=completed and all 11 cascadeScope values', async () => {
