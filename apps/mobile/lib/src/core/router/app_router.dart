@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/phone_entry_page.dart';
+import '../../features/reviews/presentation/pages/my_reviews_written_page.dart';
+import '../../features/reviews/presentation/pages/review_composer_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/sign_in_page.dart';
 import '../../features/auth/presentation/pages/sign_up_page.dart';
@@ -149,6 +151,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // that were issued before the /events rename. Redirect fires before any
       // builder so the builder can be omitted entirely.
       GoRoute(path: '/home', redirect: (context, state) => '/events'),
+      // Full-screen review composer. Declared outside the shell with
+      // parentNavigatorKey pointing at root so it renders without the bottom
+      // nav bar. Accepts eventId, ratedUserId, and optional reviewId, ratedUserName,
+      // prefillRating, prefillComment, reviewCreatedAt query params.
+      GoRoute(
+        path: '/reviews/write',
+        name: 'reviewComposer',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          final eventId = q['eventId'] ?? '';
+          final ratedUserId = q['ratedUserId'] ?? '';
+          final reviewId = q['reviewId'];
+          final ratedUserName = q['ratedUserName'];
+          final prefillRatingStr = q['prefillRating'];
+          final prefillComment = q['prefillComment'];
+          final reviewCreatedAtStr = q['reviewCreatedAt'];
+          return ReviewComposerPage(
+            eventId: eventId,
+            ratedUserId: ratedUserId,
+            reviewId: reviewId,
+            ratedUserName: ratedUserName,
+            prefillRating: prefillRatingStr != null
+                ? int.tryParse(prefillRatingStr)
+                : null,
+            prefillComment: prefillComment,
+            reviewCreatedAt: reviewCreatedAtStr != null
+                ? DateTime.tryParse(reviewCreatedAtStr)
+                : null,
+          );
+        },
+      ),
+      // Full-screen "Reviews I wrote" page. Declared outside the shell with
+      // parentNavigatorKey pointing at root so it renders without the bottom
+      // nav bar.
+      GoRoute(
+        path: '/profile/reviews-written',
+        name: 'myReviewsWritten',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const MyReviewsWrittenPage(),
+      ),
       // Full-screen route for other users' profiles. Declared outside the shell
       // with parentNavigatorKey pointing at root so it renders without the
       // bottom nav bar.

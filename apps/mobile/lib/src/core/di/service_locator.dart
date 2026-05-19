@@ -62,6 +62,13 @@ import '../../features/account/data/repositories/account_repository_impl.dart';
 import '../../features/account/domain/repositories/account_repository.dart';
 import '../../features/account/domain/usecases/delete_account_usecase.dart';
 import '../storage/intro_flag_storage.dart';
+import '../../features/reviews/data/datasources/review_remote_datasource.dart';
+import '../../features/reviews/data/repositories/review_repository_impl.dart';
+import '../../features/reviews/domain/repositories/review_repository.dart';
+import '../../features/reviews/domain/usecases/submit_review_usecase.dart';
+import '../../features/reviews/domain/usecases/edit_review_usecase.dart';
+import '../../features/reviews/domain/usecases/list_reviews_for_user_usecase.dart';
+import '../../features/reviews/domain/usecases/list_reviews_written_by_me_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -249,4 +256,24 @@ Future<void> configureDependencies() async {
 
   // Account — use cases
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl<AccountRepository>()));
+
+  // Reviews — datasources
+  sl.registerLazySingleton<ReviewRemoteDatasource>(
+    () => ReviewRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Reviews — repositories
+  sl.registerLazySingleton<ReviewRepository>(
+    () => ReviewRepositoryImpl(remote: sl<ReviewRemoteDatasource>()),
+  );
+
+  // Reviews — use cases
+  sl.registerLazySingleton(() => SubmitReviewUseCase(sl<ReviewRepository>()));
+  sl.registerLazySingleton(() => EditReviewUseCase(sl<ReviewRepository>()));
+  sl.registerLazySingleton(
+    () => ListReviewsForUserUseCase(sl<ReviewRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ListReviewsWrittenByMeUseCase(sl<ReviewRepository>()),
+  );
 }

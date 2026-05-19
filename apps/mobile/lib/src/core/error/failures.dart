@@ -80,6 +80,12 @@ class SmsRateLimitedFailure extends Failure {
   const SmsRateLimitedFailure(super.message, {super.code});
 }
 
+/// 409 with code `reviews.editWindowExpired`. The 24-hour edit window for the
+/// review has passed; the review is now locked.
+class EditWindowExpiredFailure extends Failure {
+  const EditWindowExpiredFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event
