@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -137,7 +138,14 @@ class _OtpCodeInputState extends State<OtpCodeInput> {
                     focusNode: _focusNode,
                     enabled: widget.enabled,
                     keyboardType: TextInputType.number,
-                    autofillHints: const [AutofillHints.oneTimeCode],
+                    // In debug mode, omit autofill hints so that a real device's
+                    // SMS app cannot overwrite a manually-typed magic code
+                    // (e.g. "000000") via AutofillHints.oneTimeCode injection.
+                    // Production users keep the autofill UX; developers testing
+                    // on real devices stop having their keystrokes overwritten.
+                    autofillHints: kDebugMode
+                        ? const []
+                        : const [AutofillHints.oneTimeCode],
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(_length),
