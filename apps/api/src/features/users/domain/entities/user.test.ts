@@ -2,6 +2,7 @@ import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { describe, expect, it } from 'vitest';
 import { SELFIE_APPEAL_APPROVED } from '../events/selfie-appeal-approved.event.js';
 import { SELFIE_REJECTED } from '../events/selfie-rejected.event.js';
+import { USER_ACCOUNT_DELETED } from '../events/user-account-deleted.event.js';
 import { USER_PHONE_VERIFICATION_REVOKED } from '../events/user-phone-verification-revoked.event.js';
 import { USER_PHONE_VERIFIED } from '../events/user-phone-verified.event.js';
 import { USER_EMAIL_VERIFIED } from '../events/user-email-verified.event.js';
@@ -87,6 +88,7 @@ describe('User aggregate', () => {
         selfieAttemptCount: 0,
         selfieLastFailureCategory: null,
         selfieAppealLockedAt: null,
+        deletedAt: null,
       });
       expect(user.isEmailVerified()).toBe(true);
       expect(user.emailVerifiedAt).toEqual(verifiedAt);
@@ -113,6 +115,7 @@ describe('User aggregate', () => {
         selfieAttemptCount: 0,
         selfieLastFailureCategory: null,
         selfieAppealLockedAt: null,
+        deletedAt: null,
       });
       expect(user.phone?.value).toBe('+6591234567');
       expect(user.phoneVerifiedAt).toEqual(verifiedAt);
@@ -140,6 +143,7 @@ describe('User aggregate', () => {
         selfieAttemptCount: 3,
         selfieLastFailureCategory: 'poor_lighting',
         selfieAppealLockedAt: lockedAt,
+        deletedAt: null,
       });
       expect(user.selfieStatus).toBe('rejected');
       expect(user.selfieAttemptCount).toBe(3);
@@ -444,6 +448,113 @@ describe('User aggregate', () => {
         userId: 'user_1',
         clearedAt: now.toISOString(),
       });
+    });
+  });
+
+  describe('tombstone', () => {
+    const buildFullUser = (): User => {
+      const user = User.register({
+        id: 'user_1',
+        email: Email.create('alice@example.com'),
+        displayName: DisplayName.create('Alice'),
+        now: new Date('2026-01-01T00:00:00Z'),
+      });
+      user.pullEvents(); // flush register event
+      user.verifyPhone(PHONE_SG, new Date('2026-03-01T10:00:00Z'));
+      user.pullEvents();
+      return user;
+    };
+
+    it('sets deletedAt to the supplied timestamp', () => {
+      const user = buildFullUser();
+      const now = new Date('2026-05-19T12:00:00Z');
+
+      user.tombstone(now);
+
+      expect(user.deletedAt).toEqual(now);
+    });
+
+    it('bumps updatedAt to the tombstone timestamp', () => {
+      const user = buildFullUser();
+      const now = new Date('2026-05-19T12:00:00Z');
+
+      user.tombstone(now);
+
+      expect(user.updatedAt).toEqual(now);
+    });
+
+    it('replaces email with a deleted-* placeholder that passes format validation', () => {
+      const user = buildFullUser();
+      user.tombstone(new Date('2026-05-19T12:00:00Z'));
+
+      expect(user.email.value).toMatch(/^deleted-[a-z0-9]+@deleted\.tribely\.local$/);
+    });
+
+    it('replaces displayName with a Deleted user placeholder', () => {
+      const user = buildFullUser();
+      user.tombstone(new Date('2026-05-19T12:00:00Z'));
+
+      expect(user.displayName.value).toMatch(/^Deleted user [a-z0-9]+$/i);
+    });
+
+    it('clears all PII fields to null / empty', () => {
+      const user = buildFullUser();
+      user.tombstone(new Date('2026-05-19T12:00:00Z'));
+
+      expect(user.bio).toBeNull();
+      expect(user.avatarUrl).toBeNull();
+      expect(user.currentCity).toBeNull();
+      expect(user.travelerType).toBeNull();
+      expect(user.phone).toBeNull();
+      expect(user.phoneVerifiedAt).toBeNull();
+      expect(user.emailVerifiedAt).toBeNull();
+      expect(user.selfieStatus).toBeNull();
+      expect(user.selfieLastFailureCategory).toBeNull();
+      expect(user.selfieAppealLockedAt).toBeNull();
+    });
+
+    it('resets selfieAttemptCount to 0 and clears language/interest arrays', () => {
+      const user = buildFullUser();
+      user.tombstone(new Date('2026-05-19T12:00:00Z'));
+
+      expect(user.selfieAttemptCount).toBe(0);
+      expect(user.languages).toHaveLength(0);
+      expect(user.interests).toHaveLength(0);
+    });
+
+    it('records users.userAccountDeleted with userId + deletedAt', () => {
+      const user = buildFullUser();
+      const now = new Date('2026-05-19T12:00:00Z');
+
+      user.tombstone(now);
+
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(USER_ACCOUNT_DELETED);
+      expect(events[0]?.payload).toMatchObject({
+        userId: 'user_1',
+        deletedAt: now.toISOString(),
+      });
+    });
+
+    it('double tombstone throws (defence-in-depth invariant)', () => {
+      const user = buildFullUser();
+      const now = new Date('2026-05-19T12:00:00Z');
+
+      user.tombstone(now);
+      user.pullEvents();
+
+      expect(() => user.tombstone(now)).toThrow();
+    });
+
+    it('preserves id and createdAt (non-PII identity anchor)', () => {
+      const user = buildFullUser();
+      const createdAt = user.createdAt;
+
+      user.tombstone(new Date('2026-05-19T12:00:00Z'));
+
+      expect(user.id).toBe('user_1');
+      expect(user.createdAt).toEqual(createdAt);
     });
   });
 });

@@ -23,6 +23,7 @@ const BASE_ROW: UserRow = {
   selfieAttemptCount: 0,
   selfieLastFailureCategory: null,
   selfieAppealLockedAt: null,
+  deletedAt: null,
 };
 
 describe('user mapper', () => {
@@ -128,6 +129,18 @@ describe('user mapper', () => {
       expect(row.selfieAttemptCount).toBe(0);
       expect(row.selfieLastFailureCategory).toBeNull();
       expect(row.selfieAppealLockedAt).toBeNull();
+    });
+
+    it('round-trips deletedAt=null (active account) through toUser → toRow', () => {
+      const row = toRow(toUser(BASE_ROW));
+      expect(row.deletedAt).toBeNull();
+    });
+
+    it('round-trips deletedAt non-null (tombstoned account) through toUser → toRow', () => {
+      const tombstonedAt = new Date('2026-05-19T12:00:00Z');
+      const input: UserRow = { ...BASE_ROW, deletedAt: tombstonedAt };
+      const row = toRow(toUser(input));
+      expect(row.deletedAt).toEqual(tombstonedAt);
     });
   });
 });

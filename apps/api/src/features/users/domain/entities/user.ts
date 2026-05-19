@@ -1,7 +1,10 @@
+import { createId } from '@paralleldrive/cuid2';
+import { AppError } from '@/core/errors/app-error.js';
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { selfieAppealApproved } from '../events/selfie-appeal-approved.event.js';
 import { selfieRejected } from '../events/selfie-rejected.event.js';
+import { userAccountDeleted } from '../events/user-account-deleted.event.js';
 import { userPhoneVerificationRevoked } from '../events/user-phone-verification-revoked.event.js';
 import { userPhoneVerified } from '../events/user-phone-verified.event.js';
 import { userEmailVerified } from '../events/user-email-verified.event.js';
@@ -76,6 +79,8 @@ export class User extends AggregateRoot {
     private _selfieAttemptCount: number,
     private _selfieLastFailureCategory: SelfieFailureCategory | null,
     private _selfieAppealLockedAt: Date | null,
+    // TRI-134 tombstone: null until account deletion is requested + confirmed
+    private _deletedAt: Date | null,
   ) {
     super();
   }
@@ -100,6 +105,7 @@ export class User extends AggregateRoot {
       0,
       null,
       null,
+      null, // deletedAt
     );
     user.record(
       userRegistered({
@@ -131,6 +137,7 @@ export class User extends AggregateRoot {
     selfieAttemptCount: number;
     selfieLastFailureCategory: SelfieFailureCategory | null;
     selfieAppealLockedAt: Date | null;
+    deletedAt: Date | null;
   }): User {
     return new User(
       state.id,
@@ -151,6 +158,7 @@ export class User extends AggregateRoot {
       state.selfieAttemptCount,
       state.selfieLastFailureCategory,
       state.selfieAppealLockedAt,
+      state.deletedAt,
     );
   }
 
@@ -218,12 +226,69 @@ export class User extends AggregateRoot {
     return this._selfieAppealLockedAt;
   }
 
+  get deletedAt(): Date | null {
+    return this._deletedAt;
+  }
+
   isEmailVerified(): boolean {
     return this._emailVerifiedAt !== null;
   }
 
   isPhoneVerified(): boolean {
     return this._phoneVerifiedAt !== null;
+  }
+
+  /**
+   * Tombstones the user account: clears all PII, replaces email with an
+   * opaque placeholder, sets `deletedAt`, and records `users.userAccountDeleted`.
+   *
+   * The email placeholder `deleted-{cuid2}@deleted.tribely.local` preserves
+   * the `users.email` UNIQUE constraint when multiple accounts are tombstoned.
+   * The displayName placeholder `Deleted user {cuid2-suffix}` similarly avoids
+   * any future partial-unique constraints on display names.
+   *
+   * Defence-in-depth invariant: throws if already tombstoned. The calling use
+   * case (DeleteAccountUseCase, Brief E) checks `deletedAt !== null` first and
+   * returns an appropriate error. This throw is the last-resort guard.
+   *
+   * Cleared fields: bio, avatarUrl, currentCity, travelerType, phone,
+   * phoneVerifiedAt, emailVerifiedAt, selfieStatus, selfieLastFailureCategory,
+   * selfieAppealLockedAt, selfieAttemptCount (→ 0), languages (→ []),
+   * interests (→ []).
+   */
+  tombstone(now: Date): void {
+    if (this._deletedAt !== null) {
+      throw AppError.conflict('User is already tombstoned', {
+        code: 'USER_ALREADY_DELETED',
+        userId: this.id,
+      });
+    }
+
+    const suffix = createId();
+    this._email = Email.create(`deleted-${suffix}@deleted.tribely.local`);
+    this._displayName = DisplayName.create(`Deleted user ${suffix.slice(0, 8)}`);
+    this._bio = null;
+    this._avatarUrl = null;
+    this._currentCity = null;
+    this._travelerType = null;
+    this._phone = null;
+    this._phoneVerifiedAt = null;
+    this._emailVerifiedAt = null;
+    this._selfieStatus = null;
+    this._selfieLastFailureCategory = null;
+    this._selfieAppealLockedAt = null;
+    this._selfieAttemptCount = 0;
+    this._languages = [];
+    this._interests = [];
+    this._deletedAt = now;
+    this._updatedAt = now;
+
+    this.record(
+      userAccountDeleted({
+        userId: this.id,
+        deletedAt: now.toISOString(),
+      }),
+    );
   }
 
   rename(newName: DisplayName, now: Date): void {
