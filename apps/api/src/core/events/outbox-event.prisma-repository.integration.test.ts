@@ -188,11 +188,15 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
       // Commit consumer offset at dispatched.seq → dispatched row is processed.
       await seedConsumerOffset(dispatched.seq);
 
-      // Purge any committedSeq=0 rows that the dev-server dispatcher may have
-      // re-inserted since beforeEach. These pull MIN to 0, making every row
-      // with seq >= 1 "un-dispatched" and defeating the boundary this test asserts.
-      // Safe: test-seeded rows are at dispatched.seq > 0, so they survive this wipe.
-      await db.consumerOffset.deleteMany({ where: { committedSeq: 0n } });
+      // Purge any consumer_offset rows the external dev-server dispatcher may
+      // have inserted since beforeEach — at committedSeq=0 (initial upsert) OR
+      // at any non-zero seq the long-running dispatcher has already advanced
+      // to. Any such row pulls MIN("committedSeq") below dispatched.seq,
+      // defeating the boundary this test asserts. We preserve only the
+      // test-seeded names tracked in `trackedConsumerNames` for this test.
+      await db.consumerOffset.deleteMany({
+        where: { consumerName: { notIn: [...trackedConsumerNames] } },
+      });
 
       const count = await unitOfWork.run((ctx) =>
         repo.pseudonymiseUndispatchedPayloadsForUser(userX, pseudonymX, ctx),
@@ -272,11 +276,15 @@ describe.skipIf(!dbUrl)('OutboxEventPrismaRepository (integration)', () => {
       // Mark as dispatched via consumer offset at dispatched.seq.
       await seedConsumerOffset(dispatched.seq);
 
-      // Purge any committedSeq=0 rows that the dev-server dispatcher may have
-      // re-inserted since beforeEach. These pull MIN to 0, making every row
-      // with seq >= 1 "un-dispatched" and defeating the dispatched-boundary
-      // assertion. Safe: test-seeded row is at dispatched.seq > 0.
-      await db.consumerOffset.deleteMany({ where: { committedSeq: 0n } });
+      // Purge any consumer_offset rows the external dev-server dispatcher may
+      // have inserted since beforeEach — at committedSeq=0 (initial upsert) OR
+      // at any non-zero seq the long-running dispatcher has already advanced
+      // to. Any such row pulls MIN("committedSeq") below dispatched.seq,
+      // defeating the dispatched-boundary assertion. We preserve only the
+      // test-seeded names tracked in `trackedConsumerNames` for this test.
+      await db.consumerOffset.deleteMany({
+        where: { consumerName: { notIn: [...trackedConsumerNames] } },
+      });
 
       await unitOfWork.run((ctx) =>
         repo.pseudonymiseUndispatchedPayloadsForUser(userId, pseudonym, ctx),
