@@ -110,6 +110,7 @@ describe('SubmitReviewUseCase', () => {
       findManyForListing: vi.fn(() => Promise.resolve({ events: [], nextCursor: null })),
       countCompletedByHost: vi.fn(() => Promise.resolve(0)),
       findCompletedForUserBetween: vi.fn(() => Promise.resolve([])),
+      pseudonymiseHostForUser: vi.fn(() => Promise.resolve(0)),
     };
     joinRequestRepo = {
       findById: vi.fn(() => Promise.resolve(null)),
@@ -119,6 +120,7 @@ describe('SubmitReviewUseCase', () => {
       findByEvent: joinRequestFindByEventSpy,
       listByRequester: vi.fn(() => Promise.resolve({ joinRequests: [], nextCursor: null })),
       listApprovedByEvents: vi.fn(() => Promise.resolve([])),
+      pseudonymiseAuthorForUser: vi.fn(() => Promise.resolve(0)),
     };
     unitOfWork = makeUnitOfWork();
     publisher = { publish: publishSpy };

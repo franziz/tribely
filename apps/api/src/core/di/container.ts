@@ -970,7 +970,6 @@ export const buildContainer = (): Container => {
     prunePostEventCheckInsJob,
     checkInsController,
     userBlockRepository,
-    reviewRepository,
     checkBlockedPort,
     blockUserUseCase,
     unblockUserUseCase,

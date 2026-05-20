@@ -121,105 +121,10 @@ Future<void> _pumpPage(WidgetTester tester) async {
 // ---------------------------------------------------------------------------
 
 void main() {
-  group('OwnProfilePage — sign-out affordance', () {
-    // -----------------------------------------------------------------------
-    // 1. Sign-out button is present
-    // -----------------------------------------------------------------------
-    testWidgets('sign-out IconButton is present in the AppBar', (tester) async {
-      await _pumpPage(tester);
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byIcon(Icons.logout),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Sign out'), findsOneWidget);
-    });
-
-    // -----------------------------------------------------------------------
-    // 2. Tapping the button opens the confirmation dialog
-    // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping sign-out button opens AlertDialog with correct title and actions',
-      (tester) async {
-        await _pumpPage(tester);
-        await tester.tap(
-          find.descendant(
-            of: find.byType(AppBar),
-            matching: find.byIcon(Icons.logout),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.byType(AlertDialog), findsOneWidget);
-        expect(find.text('Sign out of Tribely?'), findsOneWidget);
-        expect(find.text('Cancel'), findsOneWidget);
-        expect(
-          find.descendant(
-            of: find.byType(AlertDialog),
-            matching: find.text('Sign out'),
-          ),
-          findsOneWidget,
-        );
-      },
-    );
-
-    // -----------------------------------------------------------------------
-    // 3. Cancel dismisses without signing out
-    // -----------------------------------------------------------------------
-    testWidgets('tapping Cancel dismisses the dialog without calling signOut', (
-      tester,
-    ) async {
-      var signOutCalls = 0;
-      await _pumpPage(tester, onSignOut: () => signOutCalls++);
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byIcon(Icons.logout),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AlertDialog), findsOneWidget);
-
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(signOutCalls, equals(0));
-    });
-
-    // -----------------------------------------------------------------------
-    // 4. Confirming calls signOut exactly once
-    // -----------------------------------------------------------------------
-    testWidgets(
-      'tapping "Sign out" in the dialog calls SessionController.signOut once',
-      (tester) async {
-        var signOutCalls = 0;
-        await _pumpPage(tester, onSignOut: () => signOutCalls++);
-        await tester.tap(
-          find.descendant(
-            of: find.byType(AppBar),
-            matching: find.byIcon(Icons.logout),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.byType(AlertDialog), findsOneWidget);
-
-        await tester.tap(
-          find.descendant(
-            of: find.byType(AlertDialog),
-            matching: find.widgetWithText(TextButton, 'Sign out'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(signOutCalls, equals(1));
-      },
-    );
-  });
+  // Note: TRI-30 moved sign-out from the OwnProfilePage AppBar to the Settings
+  // page. The prior sign-out affordance tests (TRI-142) are superseded — sign-out
+  // is now covered by settings_page_test.dart. Only the Settings entry-point
+  // tests remain here.
 
   group('OwnProfilePage — Settings entry point', () {
     testWidgets('Settings gear IconButton is present in the AppBar', (

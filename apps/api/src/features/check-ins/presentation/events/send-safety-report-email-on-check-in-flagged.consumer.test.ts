@@ -44,6 +44,9 @@ class StubEventRepository implements EventRepository {
   pseudonymiseHostForUser(): never {
     throw new Error('not needed in this test');
   }
+  findCompletedForUserBetween(): never {
+    throw new Error('not needed in this test');
+  }
 }
 
 /** Minimal Event stand-in that satisfies the consumer's `.title` read. */
