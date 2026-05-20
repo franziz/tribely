@@ -2,35 +2,18 @@ import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
 import type { ReviewRepository } from '../../domain/repositories/review.repository.js';
 import { reviewVisibilityProjection } from '../projections/review-visibility.projection.js';
+import type {
+  ListReviewsForUserResult,
+  ReviewForUserRow,
+} from '../dto/list-reviews-for-user-result.dto.js';
+
+export type { ListReviewsForUserResult, ReviewForUserRow };
 
 export interface ListReviewsForUserInput {
   viewerId: string;
   targetUserId: string;
   cursor?: string;
   limit?: number;
-}
-
-/** A review row returned to the caller, shaped for the HTTP response. */
-export interface ReviewForUserRow {
-  id: string;
-  eventId: string;
-  raterUserId: string;
-  ratedUserId: string;
-  /** null when visibility === 'blind-mutual-pending' */
-  rating: number | null;
-  /** null when visibility === 'blind-mutual-pending' */
-  comment: string | null;
-  /** true when the review is hidden (only returned when viewer === author) */
-  hidden: boolean;
-  /** true when the review is in the mutual-window blind spot */
-  hiddenForMutualWindow: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ListReviewsForUserResult {
-  rows: ReviewForUserRow[];
-  nextCursor: string | null;
 }
 
 const DEFAULT_LIMIT = 20;

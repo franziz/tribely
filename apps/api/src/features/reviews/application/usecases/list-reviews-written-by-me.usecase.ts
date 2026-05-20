@@ -1,27 +1,15 @@
 import type { ReviewRepository } from '../../domain/repositories/review.repository.js';
+import type {
+  ListReviewsWrittenByMeResult,
+  MyReviewRow,
+} from '../dto/list-reviews-written-by-me-result.dto.js';
+
+export type { ListReviewsWrittenByMeResult, MyReviewRow };
 
 export interface ListReviewsWrittenByMeInput {
   raterUserId: string;
   cursor?: string;
   limit?: number;
-}
-
-export interface MyReviewRow {
-  id: string;
-  eventId: string;
-  raterUserId: string;
-  ratedUserId: string;
-  rating: number;
-  comment: string | null;
-  hidden: boolean;
-  hiddenAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ListReviewsWrittenByMeResult {
-  rows: MyReviewRow[];
-  nextCursor: string | null;
 }
 
 const DEFAULT_LIMIT = 20;
