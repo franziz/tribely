@@ -45,4 +45,23 @@ export interface ReportRepository {
     input: { reporterUserId: string; cursor?: string; limit?: number },
     ctx?: TxContext,
   ): Promise<{ rows: Report[]; nextCursor: string | null }>;
+
+  /**
+   * Bulk-delete all reports associated with a user as part of a PDPA erasure
+   * cascade. Deletes:
+   *   (a) reports filed BY the user (`reporterUserId = userId`), and
+   *   (b) reports where `targetType = 'review'` and `targetId` points at a
+   *       review the user authored or was rated in.
+   *
+   * NOTE: Polymorphic resolvers for `targetType IN ('user', 'event')` are
+   * deferred — see TRI-30 spec and TRI-155 PM brief. Add resolver branches
+   * here and in the Prisma repository implementation when those target types
+   * are implemented.
+   *
+   * Required ctx (non-optional): must be called from inside a caller-owned
+   * UnitOfWork transaction so the cascade is atomic with the user deletion.
+   *
+   * @returns The number of report rows deleted.
+   */
+  deleteAllForUser(userId: string, ctx: TxContext): Promise<number>;
 }

@@ -16,6 +16,7 @@ const makeReviewRepo = (review: unknown): ReviewRepository => ({
   listByRatedUser: vi.fn(),
   listWrittenBy: vi.fn(),
   aggregateForUser: vi.fn(),
+  deleteAllForUser: vi.fn(),
 });
 
 const makeDeps = (review: unknown) => {
@@ -33,6 +34,7 @@ const makeDeps = (review: unknown) => {
     listOlderThan: vi.fn(),
     listOpenOlderThan: vi.fn(),
     listByReporter: vi.fn(),
+    deleteAllForUser: vi.fn(),
   };
   const reviews = makeReviewRepo(review);
   const publisher: EventPublisher = { publish: publishSpy };

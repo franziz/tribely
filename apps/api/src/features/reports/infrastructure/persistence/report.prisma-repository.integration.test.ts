@@ -194,4 +194,133 @@ describe.skipIf(!dbUrl)('ReportPrismaRepository — integration', () => {
     const { rows } = await repo.listByReporter({ reporterUserId: reporterId });
     expect(rows.some((r) => r.id === report.id)).toBe(true);
   });
+
+  describe('deleteAllForUser', () => {
+    // Seed: deleter user, a second user, an event, a review authored by deleter,
+    // one report filed by deleter, one report by thirdUser targeting deleter's review,
+    // and one unrelated report (different reporter + different review) that must survive.
+    let deleterId: string;
+    let thirdUserId: string;
+    let eventId: string;
+    let deleterReviewId: string;
+    let reportByDeleter: ReturnType<typeof makeReport>;
+    let reportTargetingDeleterReview: ReturnType<typeof makeReport>;
+    let unrelatedReportId: string;
+
+    beforeAll(async () => {
+      if (!dbUrl) return;
+
+      deleterId = createId();
+      thirdUserId = createId();
+      eventId = createId();
+      deleterReviewId = createId();
+      unrelatedReportId = createId();
+
+      const now = new Date('2025-01-01T00:00:00Z');
+
+      await db.user.createMany({
+        data: [
+          {
+            id: deleterId,
+            email: `deleter-cascade-${deleterId}@example.com`,
+            displayName: 'Deleter',
+          },
+          {
+            id: thirdUserId,
+            email: `third-cascade-${thirdUserId}@example.com`,
+            displayName: 'Third',
+          },
+        ],
+      });
+
+      await db.event.create({
+        data: {
+          id: eventId,
+          hostUserId: thirdUserId,
+          title: 'Cascade test event',
+          venueAddress: '1 Test St',
+          venueCity: 'Singapore',
+          venueLatitude: 1.3521,
+          venueLongitude: 103.8198,
+          startsAt: now,
+          endsAt: new Date(now.getTime() + 3_600_000),
+          capacity: 5,
+          category: 'drinks',
+          costSplit: 'own',
+          approvalMode: 'auto',
+          status: 'completed',
+        },
+      });
+
+      // Review authored by deleter (raterUserId = deleterId).
+      await db.review.create({
+        data: {
+          id: deleterReviewId,
+          eventId,
+          raterUserId: deleterId,
+          ratedUserId: thirdUserId,
+          rating: 5,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+
+      // Report (a): filed by deleter.
+      reportByDeleter = makeReport({
+        reporterUserId: deleterId,
+        targetId: createId(), // arbitrary target — just needs to be saved
+      });
+      await uow.run(async (ctx) => {
+        await repo.save(reportByDeleter, ctx);
+      });
+
+      // Report (b): filed by thirdUser but targeting deleterReviewId.
+      reportTargetingDeleterReview = makeReport({
+        reporterUserId: thirdUserId,
+        targetId: deleterReviewId,
+      });
+      await uow.run(async (ctx) => {
+        await repo.save(reportTargetingDeleterReview, ctx);
+      });
+
+      // Unrelated report: thirdUser reporting a completely different review (no
+      // relation to the deleter at all). Must survive the cascade.
+      const unrelatedReviewId = createId(); // polymorphic — no FK required
+      const unrelatedReport = Report.file({
+        id: unrelatedReportId,
+        reporterUserId: thirdUserId,
+        target: ReportTarget.create('review', unrelatedReviewId),
+        reason: ReportReason.create('spam'),
+        comment: ReportComment.create(null),
+        now,
+      });
+      unrelatedReport.pullEvents();
+      await uow.run(async (ctx) => {
+        await repo.save(unrelatedReport, ctx);
+      });
+    });
+
+    afterAll(async () => {
+      if (!dbUrl) return;
+      // Clean up remaining rows (unrelated report + any residue).
+      await db.report.deleteMany({ where: { id: unrelatedReportId } });
+      await db.review.deleteMany({ where: { id: deleterReviewId } });
+      await db.event.deleteMany({ where: { id: eventId } });
+      await db.user.deleteMany({ where: { id: { in: [deleterId, thirdUserId] } } });
+    });
+
+    it('deletes reports filed by the deleter and reports targeting their reviews', async () => {
+      const count = await uow.run(async (ctx) => repo.deleteAllForUser(deleterId, ctx));
+
+      // Expect exactly 2 rows deleted: reportByDeleter + reportTargetingDeleterReview.
+      expect(count).toBe(2);
+
+      // Both deleter-related reports must be gone.
+      expect(await repo.findById(reportByDeleter.id)).toBeNull();
+      expect(await repo.findById(reportTargetingDeleterReview.id)).toBeNull();
+
+      // The unrelated report (different reporter + different review) must survive.
+      expect(await repo.findById(unrelatedReportId)).not.toBeNull();
+    });
+  });
 });

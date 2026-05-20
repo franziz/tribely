@@ -36,6 +36,7 @@ const makeDeps = (existingReport: Report | null) => {
     listOlderThan: vi.fn(),
     listOpenOlderThan: vi.fn(),
     listByReporter: vi.fn(),
+    deleteAllForUser: vi.fn(),
   };
   const clock: Clock = { now: vi.fn().mockReturnValue(new Date('2025-06-02T00:00:00Z')) };
   return { unitOfWork, reports, clock, runSpy, saveSpy };
