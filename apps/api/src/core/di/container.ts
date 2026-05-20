@@ -130,6 +130,7 @@ import { EditReviewUseCase } from '@/features/reviews/application/usecases/edit-
 import { HideReviewUseCase } from '@/features/reviews/application/usecases/hide-review.usecase.js';
 import { ListReviewsForUserUseCase } from '@/features/reviews/application/usecases/list-reviews-for-user.usecase.js';
 import { ListReviewsWrittenByMeUseCase } from '@/features/reviews/application/usecases/list-reviews-written-by-me.usecase.js';
+import { CascadeReviewsOnUserDeletionUseCase } from '@/features/reviews/application/usecases/cascade-reviews-on-user-deletion.usecase.js';
 import { ReviewController } from '@/features/reviews/presentation/http/controllers/review.controller.js';
 import { registerReviewsConsumers } from '@/features/reviews/presentation/events/index.js';
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
@@ -139,6 +140,7 @@ import { RepositoryCheckBlockedAdapter } from '@/features/user-blocks/infrastruc
 import { BlockUserUseCase } from '@/features/user-blocks/application/usecases/block-user.usecase.js';
 import { UnblockUserUseCase } from '@/features/user-blocks/application/usecases/unblock-user.usecase.js';
 import { ListMyBlocksUseCase } from '@/features/user-blocks/application/usecases/list-my-blocks.usecase.js';
+import { CascadeUserBlocksOnUserDeletionUseCase } from '@/features/user-blocks/application/usecases/cascade-user-blocks-on-user-deletion.usecase.js';
 import { UserBlockController } from '@/features/user-blocks/presentation/http/controllers/user-block.controller.js';
 import { registerUserBlocksConsumers } from '@/features/user-blocks/presentation/events/index.js';
 import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
@@ -148,6 +150,7 @@ import { ReportPrismaRepository } from '@/features/reports/infrastructure/persis
 import { FileReportUseCase } from '@/features/reports/application/usecases/file-report.usecase.js';
 import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
 import { ResolveReportUseCase } from '@/features/reports/application/usecases/resolve-report.usecase.js';
+import { CascadeReportsOnUserDeletionUseCase } from '@/features/reports/application/usecases/cascade-reports-on-user-deletion.usecase.js';
 import { ReportController } from '@/features/reports/presentation/http/controllers/report.controller.js';
 import { registerReportsConsumers } from '@/features/reports/presentation/events/index.js';
 import type { ReportRepository } from '@/features/reports/domain/repositories/report.repository.js';
@@ -765,28 +768,6 @@ export const buildContainer = (): Container => {
     flagCheckInUseCase,
   );
 
-  // --- TRI-134 — account-deletion cascade ---
-  // DeleteAccountUseCase is the outermost orchestrator for the PDPA erasure flow.
-  // All sub-use-cases use the two-arg execute(input, ctx) A7-exception pattern —
-  // they join this use case's UnitOfWork transaction rather than opening their own.
-  const deleteAccountUseCase = new DeleteAccountUseCase(
-    unitOfWork,
-    userRepository,
-    credentialRepository,
-    refreshTokenRepository,
-    emailVerificationTokenRepository,
-    passwordResetTokenRepository,
-    deleteSelfieForUserUseCase,
-    pseudonymiseCheckInsForUserUseCase,
-    pseudonymiseEventsHostForUserUseCase,
-    pseudonymiseJoinRequestsAuthorForUserUseCase,
-    outboxEventRepository,
-    httpAuditLogRepository,
-    recordAccountDeletionUseCase,
-    publisher,
-    clock,
-  );
-
   // --- User Blocks ---
   const userBlockRepository = new UserBlockPrismaRepository(db);
   const checkBlockedPort: CheckBlockedPort = new RepositoryCheckBlockedAdapter(userBlockRepository);
@@ -864,6 +845,38 @@ export const buildContainer = (): Container => {
     clock,
   );
   const reportController = new ReportController(fileReportUseCase);
+
+  // --- TRI-134 + TRI-155 — account-deletion cascade ---
+  // DeleteAccountUseCase is the outermost orchestrator for the PDPA erasure flow.
+  // All sub-use-cases use the two-arg execute(input, ctx) A7-exception pattern —
+  // they join this use case's UnitOfWork transaction rather than opening their own.
+  // Placed after User Blocks, Reviews, and Reports so all three repositories are in scope.
+
+  // TRI-155 — three new cascade adapters (reviews, reports, user-blocks).
+  const cascadeReviewsOnUserDeletionUseCase = new CascadeReviewsOnUserDeletionUseCase(reviewRepository);
+  const cascadeReportsOnUserDeletionUseCase = new CascadeReportsOnUserDeletionUseCase(reportRepository);
+  const cascadeUserBlocksOnUserDeletionUseCase = new CascadeUserBlocksOnUserDeletionUseCase(userBlockRepository);
+
+  const deleteAccountUseCase = new DeleteAccountUseCase(
+    unitOfWork,
+    userRepository,
+    credentialRepository,
+    refreshTokenRepository,
+    emailVerificationTokenRepository,
+    passwordResetTokenRepository,
+    deleteSelfieForUserUseCase,
+    pseudonymiseCheckInsForUserUseCase,
+    pseudonymiseEventsHostForUserUseCase,
+    pseudonymiseJoinRequestsAuthorForUserUseCase,
+    outboxEventRepository,
+    httpAuditLogRepository,
+    cascadeReportsOnUserDeletionUseCase,
+    cascadeReviewsOnUserDeletionUseCase,
+    cascadeUserBlocksOnUserDeletionUseCase,
+    recordAccountDeletionUseCase,
+    publisher,
+    clock,
+  );
 
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
