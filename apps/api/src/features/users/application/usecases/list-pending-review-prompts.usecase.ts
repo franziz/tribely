@@ -4,23 +4,11 @@ import type { JoinRequestRepository } from '@/features/join-requests/domain/repo
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
 import type { UserRepository } from '../../domain/repositories/user.repository.js';
+import type { ListPendingReviewPromptsResult } from '../dto/list-pending-review-prompts.dto.js';
 
 export interface ListPendingReviewPromptsInput {
   /** ID of the authenticated user requesting their pending review prompt. */
   viewerId: string;
-}
-
-export interface ReviewPrompt {
-  eventId: string;
-  eventTitle: string;
-  eventEndedAt: string;
-  ratedUserId: string;
-  ratedUserDisplayName: string;
-  ratedUserAvatarUrl: string | null;
-}
-
-export interface ListPendingReviewPromptsResult {
-  prompt: ReviewPrompt | null;
 }
 
 const DAYS_7_MS = 7 * 24 * 60 * 60 * 1000;
