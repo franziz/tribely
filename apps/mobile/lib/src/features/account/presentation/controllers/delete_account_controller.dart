@@ -16,6 +16,22 @@ class DeleteAccountController extends Notifier<DeleteAccountState> {
   DeleteAccountState build() => const DeleteAccountIdle();
 
   // ---------------------------------------------------------------------------
+  // Computed helpers
+  // ---------------------------------------------------------------------------
+
+  /// The token string held by the current state, regardless of which variant
+  /// the state is in.
+  String get _currentToken => switch (state) {
+    DeleteAccountIdle(:final token) => token,
+    DeleteAccountSubmitting(:final token) => token,
+    DeleteAccountFailure(:final token) => token,
+    DeleteAccountSuccess() => '',
+  };
+
+  /// Returns true iff the typed token exactly matches 'DELETE' (case-sensitive).
+  bool get isTokenValid => _currentToken == 'DELETE';
+
+  // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
@@ -35,19 +51,14 @@ class DeleteAccountController extends Notifier<DeleteAccountState> {
 
   /// Submits the deletion request.
   ///
-  /// No-op if [state.isTokenValid] is false (guards against programmatic calls
+  /// No-op if [isTokenValid] is false (guards against programmatic calls
   /// when the CTA should be disabled). Wraps the API call, handles failure
   /// classification, and on success attempts a best-effort sign-out before
   /// emitting [DeleteAccountSuccess].
   Future<void> submit() async {
-    if (!state.isTokenValid) return;
+    if (!isTokenValid) return;
 
-    final token = switch (state) {
-      DeleteAccountIdle(:final token) => token,
-      DeleteAccountSubmitting(:final token) => token,
-      DeleteAccountFailure(:final token) => token,
-      DeleteAccountSuccess() => '',
-    };
+    final token = _currentToken;
     state = DeleteAccountSubmitting(token: token);
 
     final result = await ref
