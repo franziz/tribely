@@ -159,7 +159,7 @@ import { ListJoinRequestsByRequesterUseCase } from '@/features/join-requests/app
 import { PseudonymiseJoinRequestsAuthorForUserUseCase } from '@/features/join-requests/application/usecases/pseudonymise-join-requests-author-for-user.usecase.js';
 import { RejectJoinRequestUseCase } from '@/features/join-requests/application/usecases/reject-join-request.usecase.js';
 import { RequestToJoinEventUseCase } from '@/features/join-requests/application/usecases/request-to-join-event.usecase.js';
-import { RepositoryCascadePendingBlocksAdapter } from '@/features/join-requests/application/adapters/repository-cascade-pending-blocks.adapter.js';
+import { RepositoryCascadePendingBlocksAdapter } from '@/features/join-requests/infrastructure/adapters/repository-cascade-pending-blocks.adapter.js';
 import { JoinRequestPrismaRepository } from '@/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
 import { registerJoinRequestsConsumers } from '@/features/join-requests/presentation/events/index.js';
 import type { JoinRequestRepository } from '@/features/join-requests/domain/repositories/join-request.repository.js';

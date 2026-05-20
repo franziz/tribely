@@ -2,7 +2,7 @@ import { unwrapTx } from '@/core/db/prisma-unit-of-work.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import { joinRequestCancelledBySystem } from '../../domain/events/cancelled-by-system.event.js';
-import type { CascadePendingBlocksPort } from '../ports/cascade-pending-blocks.port.js';
+import type { CascadePendingBlocksPort } from '../../application/ports/cascade-pending-blocks.port.js';
 
 /**
  * Concrete implementation of `CascadePendingBlocksPort`.
