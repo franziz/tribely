@@ -59,10 +59,13 @@ describe.skipIf(!dbUrl)('PostEventCheckInEventPrismaRepository (integration)', (
 
   beforeEach(async () => {
     if (!dbUrl) return;
-    if (trackedIds.size > 0) {
-      await db.postEventCheckInEvent.deleteMany({ where: { id: { in: [...trackedIds] } } });
-      trackedIds.clear();
-    }
+    // Full-table wipe before every test. Other integration test suites (e.g.
+    // delete-account.integration.test.ts) also write to post_event_check_in_events
+    // as a side-effect of the PDPA cascade; their rows survive across describe
+    // blocks in the same vitest run and would inflate pruneOlderThan counts.
+    // Wiping unconditionally here is cheaper than tracking cross-file IDs.
+    await db.postEventCheckInEvent.deleteMany({});
+    trackedIds.clear();
   });
 
   afterAll(async () => {

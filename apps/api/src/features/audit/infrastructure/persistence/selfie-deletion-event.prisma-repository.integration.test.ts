@@ -57,12 +57,13 @@ describe.skipIf(!dbUrl)('SelfieDeletionEventPrismaRepository (integration)', () 
 
   beforeEach(async () => {
     if (!dbUrl) return;
-    // Clean any rows left by a previous test in this run — guards against
-    // test ordering issues. Cleanup at afterAll handles the full teardown.
-    if (trackedIds.size > 0) {
-      await db.selfieDeletionEvent.deleteMany({ where: { id: { in: [...trackedIds] } } });
-      trackedIds.clear();
-    }
+    // Full-table wipe before every test. Other integration test suites (e.g.
+    // delete-account.integration.test.ts) also write to selfie_deletion_events
+    // as a side-effect of the PDPA cascade; their rows survive across describe
+    // blocks in the same vitest run and would inflate pruneOlderThan counts.
+    // Wiping unconditionally here is cheaper than tracking cross-file IDs.
+    await db.selfieDeletionEvent.deleteMany({});
+    trackedIds.clear();
   });
 
   afterAll(async () => {
