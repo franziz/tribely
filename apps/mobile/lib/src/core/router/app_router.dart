@@ -20,8 +20,10 @@ import '../../features/events/presentation/pages/create_event_page.dart';
 import '../../features/my_events/presentation/pages/my_events_page.dart';
 import '../../features/account/presentation/pages/account_deleted_page.dart';
 import '../../features/account/presentation/pages/delete_account_page.dart';
+import '../../features/user_blocks/presentation/pages/blocked_users_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
+import '../../features/users/presentation/pages/settings_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_page.dart';
@@ -212,6 +214,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'verificationFailure',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const VerificationFailurePage(),
+      ),
+      // Full-screen Settings page. No bottom nav — lives on root navigator.
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SettingsPage(),
+      ),
+      // Full-screen Blocked Users page (under Settings → Privacy & Safety).
+      // No bottom nav — lives on root navigator.
+      GoRoute(
+        path: '/settings/blocked-users',
+        name: 'blockedUsers',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const BlockedUsersPage(),
       ),
       // Full-screen create-event flow. Declared outside the shell with
       // parentNavigatorKey pointing at root so it renders without the bottom

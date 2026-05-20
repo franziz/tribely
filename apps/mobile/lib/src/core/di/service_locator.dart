@@ -73,6 +73,12 @@ import '../../features/reports/data/datasources/report_remote_datasource.dart';
 import '../../features/reports/data/repositories/report_repository_impl.dart';
 import '../../features/reports/domain/repositories/report_repository.dart';
 import '../../features/reports/domain/usecases/file_report_usecase.dart';
+import '../../features/user_blocks/data/datasources/user_block_remote_datasource.dart';
+import '../../features/user_blocks/data/repositories/user_block_repository_impl.dart';
+import '../../features/user_blocks/domain/repositories/user_block_repository.dart';
+import '../../features/user_blocks/domain/usecases/block_user_usecase.dart';
+import '../../features/user_blocks/domain/usecases/list_my_blocks_usecase.dart';
+import '../../features/user_blocks/domain/usecases/unblock_user_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -293,4 +299,26 @@ Future<void> configureDependencies() async {
 
   // Reports — use cases
   sl.registerLazySingleton(() => FileReportUseCase(sl<ReportRepository>()));
+
+  // UserBlocks — datasources
+  sl.registerLazySingleton<UserBlockRemoteDatasource>(
+    () => UserBlockRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // UserBlocks — repositories
+  // Injects UserProfileRemoteDatasource to enrich block list rows with
+  // display name + avatar via per-row GET /users/:id calls.
+  sl.registerLazySingleton<UserBlockRepository>(
+    () => UserBlockRepositoryImpl(
+      remote: sl<UserBlockRemoteDatasource>(),
+      profileRemote: sl<UserProfileRemoteDatasource>(),
+    ),
+  );
+
+  // UserBlocks — use cases
+  sl.registerLazySingleton(() => BlockUserUseCase(sl<UserBlockRepository>()));
+  sl.registerLazySingleton(() => UnblockUserUseCase(sl<UserBlockRepository>()));
+  sl.registerLazySingleton(
+    () => ListMyBlocksUseCase(sl<UserBlockRepository>()),
+  );
 }

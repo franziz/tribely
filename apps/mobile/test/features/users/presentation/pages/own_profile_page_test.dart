@@ -1,22 +1,23 @@
-// Widget tests for OwnProfilePage — sign-out affordance (TRI-28 smoke unblock).
+// Widget tests for OwnProfilePage — Settings entry point (updated in Brief 2C).
+//
+// Prior to Brief 2C, the OwnProfilePage had a sign-out IconButton directly in
+// the AppBar. Brief 2C moved sign-out to the Settings page (Settings → Sign out).
+// OwnProfilePage now shows a gear icon that navigates to /settings instead.
 //
 // Covers:
-//   1. Sign-out IconButton is present in the AppBar.
-//   2. Tapping it opens an AlertDialog with the correct title and action labels.
-//   3. Tapping Cancel dismisses the dialog without calling SessionController.signOut.
-//   4. Tapping "Sign out" calls SessionController.signOut() exactly once.
+//   1. Settings gear IconButton is present in the AppBar.
+//   2. Tapping it navigates to /settings.
 //
 // Mocking strategy:
 //   - `myProfileControllerProvider` is overridden with a fixed-state stub that
-//     returns `UserProfileLoading` immediately, bypassing GetIt / use-case calls.
-//   - `sessionControllerProvider` is overridden with a stub that tracks `signOut`
-//     invocations via a counter — no real network call is made.
-//   - GetIt / service locator is never initialised — all DI flows through
-//     ProviderScope overrides.
+//     returns `UserProfileLoaded` immediately, bypassing GetIt / use-case calls.
+//   - `sessionControllerProvider` is overridden with a stub session.
+//   - GoRouter is wired with a test config to verify navigation.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
 import 'package:tribely/src/features/auth/domain/entities/user.dart';
@@ -63,10 +64,6 @@ final _fakeSession = AuthSession(
 // Stubs
 // ---------------------------------------------------------------------------
 
-/// Returns `UserProfileLoaded` with a fake profile without hitting the use case
-/// or GetIt graph. Using `UserProfileLoaded` (not `UserProfileLoading`) is
-/// critical — `UserProfileLoading` renders a `CircularProgressIndicator` whose
-/// indeterminate animation never settles, causing `pumpAndSettle` to time out.
 class _FixedMyProfileController extends MyProfileController {
   @override
   UserProfileState build() => UserProfileLoaded(_fakeProfile);
@@ -75,45 +72,47 @@ class _FixedMyProfileController extends MyProfileController {
   Future<void> retry() async {}
 }
 
-/// Calls [onSignOut] when signOut is invoked; never calls the use case or
-/// mutates session state.
 class _SpySessionController extends SessionController {
-  _SpySessionController({this.onSignOut});
-
-  final VoidCallback? onSignOut;
-
   @override
   SessionState build() => SessionAuthenticated(_fakeSession);
 
   @override
-  Future<void> signOut() async {
-    onSignOut?.call();
-  }
+  Future<void> signOut() async {}
 }
 
 // ---------------------------------------------------------------------------
-// Pump helper
+// Pump helper (with GoRouter so context.push('/settings') works)
 // ---------------------------------------------------------------------------
 
-/// Pump [OwnProfilePage] under a [ProviderScope] with provider overrides.
-///
-/// [onSignOut] is forwarded to [_SpySessionController] so callers can assert
-/// on sign-out invocations via a local counter.
-Future<void> _pumpPage(WidgetTester tester, {VoidCallback? onSignOut}) async {
+Future<void> _pumpPage(WidgetTester tester) async {
+  // Minimal router: OwnProfilePage at /, a stub settings page at /settings.
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(path: '/', builder: (context, state) => const OwnProfilePage()),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) =>
+            const Scaffold(body: Text('Settings page')),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const Scaffold(body: Text('Edit profile')),
+      ),
+    ],
+  );
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         myProfileControllerProvider.overrideWith(
           () => _FixedMyProfileController(),
         ),
-        sessionControllerProvider.overrideWith(
-          () => _SpySessionController(onSignOut: onSignOut),
-        ),
+        sessionControllerProvider.overrideWith(() => _SpySessionController()),
       ],
-      child: const MaterialApp(home: OwnProfilePage()),
+      child: MaterialApp.router(routerConfig: router),
     ),
   );
-  // Drain the initial pump so the page layout settles.
   await tester.pump();
 }
 
@@ -220,5 +219,24 @@ void main() {
         expect(signOutCalls, equals(1));
       },
     );
+  });
+
+  group('OwnProfilePage — Settings entry point', () {
+    testWidgets('Settings gear IconButton is present in the AppBar', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+      expect(find.byTooltip('Settings'), findsOneWidget);
+    });
+
+    testWidgets('tapping gear icon navigates to /settings', (tester) async {
+      await _pumpPage(tester);
+      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.pumpAndSettle();
+
+      // The stub settings page is now visible.
+      expect(find.text('Settings page'), findsOneWidget);
+    });
   });
 }
