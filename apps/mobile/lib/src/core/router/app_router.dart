@@ -16,6 +16,8 @@ import '../../features/discover/presentation/pages/discover_page.dart';
 import '../../features/discover/presentation/pages/event_detail_page.dart';
 import '../../features/events/presentation/pages/create_event_page.dart';
 import '../../features/my_events/presentation/pages/my_events_page.dart';
+import '../../features/account/presentation/pages/account_deleted_page.dart';
+import '../../features/account/presentation/pages/delete_account_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
@@ -58,6 +60,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/sign-in',
         '/sign-up',
         '/reset-password',
+        // Terminal account-deleted screen — must be public so the post-signOut
+        // session change (SessionUnauthenticated) does not redirect mid-frame
+        // back to /welcome before the screen can render (AC4/AC5 race fix).
+        '/account-deleted',
       };
       final isPublic = publicRoutes.contains(loc);
       final isAuthFlow = isPublic; // alias for the authenticated-branch check
@@ -203,6 +209,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'safetyReportSubmitted',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const SafetyReportSubmittedPage(),
+      ),
+      // Full-screen account deletion confirmation — reached via context.push()
+      // from OwnProfilePage. Declared outside the shell so the bottom nav bar
+      // is hidden. Uses parentNavigatorKey: _rootNavigatorKey per the pattern
+      // established by /events/new and /verification/failure.
+      GoRoute(
+        path: '/account/delete',
+        name: 'deleteAccount',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const DeleteAccountPage(),
+      ),
+      // Terminal screen after successful account deletion — reached via
+      // context.go('/account-deleted') from the delete-account controller.
+      // Declared outside the shell AND listed in publicRoutes so the
+      // SessionUnauthenticated redirect does not bounce mid-frame to /welcome.
+      GoRoute(
+        path: '/account-deleted',
+        name: 'accountDeleted',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const AccountDeletedPage(),
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
       // OnResumedListener is mounted HERE — above the indexedStack — so a
