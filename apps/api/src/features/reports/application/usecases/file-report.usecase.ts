@@ -8,7 +8,7 @@ import { ReportComment } from '../../domain/value-objects/report-comment.js';
 import { ReportReason } from '../../domain/value-objects/report-reason.js';
 import { ReportTarget } from '../../domain/value-objects/report-target.js';
 import type { ReportRepository } from '../../domain/repositories/report.repository.js';
-import type { TargetResolver } from '../services/target-resolver.js';
+import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 
 export interface FileReportInput {
   reporterUserId: string;
@@ -25,8 +25,9 @@ export interface FileReportOutput {
 /**
  * File a new report against a piece of content (initially review only).
  *
- * Rejects with HTTP 422 (`reports.targetTypeNotImplemented`) if the resolver
- * returns `not-implemented` for the given targetType.
+ * Rejects with HTTP 422 (`reports.targetTypeNotImplemented`) for 'user' and
+ * 'event' target types — the HTTP schema already rejects these at the Zod
+ * layer, but the use case provides a clear defence-in-depth guard.
  * Rejects with HTTP 404 (`reports.targetNotFound`) if the target entity
  * does not exist.
  *
@@ -37,7 +38,7 @@ export class FileReportUseCase {
   constructor(
     private readonly unitOfWork: UnitOfWork,
     private readonly reports: ReportRepository,
-    private readonly resolver: TargetResolver,
+    private readonly reviews: ReviewRepository,
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
   ) {}
@@ -48,18 +49,23 @@ export class FileReportUseCase {
     const reason = ReportReason.create(input.reason);
     const comment = ReportComment.create(input.comment ?? null);
 
-    // Resolve the target entity.
-    const resolved = await this.resolver.resolve(target.type, target.id);
-    if (resolved.kind === 'not-implemented') {
-      throw AppError.unprocessable(
-        `Target type "${input.targetType}" is not yet supported for reports`,
-        { subcode: 'reports.targetTypeNotImplemented' },
-      );
-    }
-    if (resolved.kind === 'not-found') {
-      throw AppError.notFound(`Report target not found`, {
-        subcode: 'reports.targetNotFound',
-      });
+    // Inline target resolution — YAGNI on a separate TargetResolver service.
+    switch (target.type) {
+      case 'review': {
+        const review = await this.reviews.findById(target.id);
+        if (!review) {
+          throw AppError.notFound(`Report target not found`, {
+            subcode: 'reports.targetNotFound',
+          });
+        }
+        break;
+      }
+      case 'user':
+      case 'event':
+        throw AppError.unprocessable(
+          `Target type "${input.targetType}" is not yet supported for reports`,
+          { subcode: 'reports.targetTypeNotImplemented' },
+        );
     }
 
     const id = createId();

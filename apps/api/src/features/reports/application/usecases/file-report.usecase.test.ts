@@ -5,10 +5,20 @@ import type { UnitOfWork, TxContext } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { ReportRepository } from '../../domain/repositories/report.repository.js';
-import type { TargetResolver } from '../services/target-resolver.js';
+import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 import { FileReportUseCase } from './file-report.usecase.js';
 
-const makeDeps = (resolverResult: Awaited<ReturnType<TargetResolver['resolve']>>) => {
+const makeReviewRepo = (review: unknown): ReviewRepository => ({
+  findById: vi.fn().mockResolvedValue(review),
+  findByTriple: vi.fn(),
+  findExistingTriples: vi.fn().mockResolvedValue(new Set()),
+  save: vi.fn(),
+  listByRatedUser: vi.fn(),
+  listWrittenBy: vi.fn(),
+  aggregateForUser: vi.fn(),
+});
+
+const makeDeps = (review: unknown) => {
   const runSpy = vi.fn((work: (ctx: TxContext) => Promise<unknown>) =>
     work({} as TxContext),
   ) as UnitOfWork['run'];
@@ -24,13 +34,11 @@ const makeDeps = (resolverResult: Awaited<ReturnType<TargetResolver['resolve']>>
     listOpenOlderThan: vi.fn(),
     listByReporter: vi.fn(),
   };
-  const resolver: TargetResolver = {
-    resolve: vi.fn().mockResolvedValue(resolverResult),
-  } as unknown as TargetResolver;
+  const reviews = makeReviewRepo(review);
   const publisher: EventPublisher = { publish: publishSpy };
   const clock: Clock = { now: vi.fn().mockReturnValue(new Date('2025-06-01T00:00:00Z')) };
 
-  return { unitOfWork, reports, resolver, publisher, clock, runSpy, saveSpy, publishSpy };
+  return { unitOfWork, reports, reviews, publisher, clock, runSpy, saveSpy, publishSpy };
 };
 
 const validInput = {
@@ -43,11 +51,11 @@ const validInput = {
 describe('FileReportUseCase', () => {
   it('saves report and publishes event on success', async () => {
     const fakeReview = { id: validInput.targetId };
-    const deps = makeDeps({ kind: 'review', review: fakeReview as never });
+    const deps = makeDeps(fakeReview);
     const useCase = new FileReportUseCase(
       deps.unitOfWork,
       deps.reports,
-      deps.resolver,
+      deps.reviews,
       deps.publisher,
       deps.clock,
     );
@@ -60,12 +68,12 @@ describe('FileReportUseCase', () => {
     expect(deps.publishSpy).toHaveBeenCalledOnce();
   });
 
-  it('throws 422 when target type is not-implemented', async () => {
-    const deps = makeDeps({ kind: 'not-implemented' });
+  it('throws 422 when target type is user (not-implemented)', async () => {
+    const deps = makeDeps(null);
     const useCase = new FileReportUseCase(
       deps.unitOfWork,
       deps.reports,
-      deps.resolver,
+      deps.reviews,
       deps.publisher,
       deps.clock,
     );
@@ -76,12 +84,28 @@ describe('FileReportUseCase', () => {
     );
   });
 
-  it('throws 404 when target is not-found', async () => {
-    const deps = makeDeps({ kind: 'not-found' });
+  it('throws 422 when target type is event (not-implemented)', async () => {
+    const deps = makeDeps(null);
     const useCase = new FileReportUseCase(
       deps.unitOfWork,
       deps.reports,
-      deps.resolver,
+      deps.reviews,
+      deps.publisher,
+      deps.clock,
+    );
+
+    await expect(useCase.execute({ ...validInput, targetType: 'event' })).rejects.toThrow(AppError);
+    await expect(useCase.execute({ ...validInput, targetType: 'event' })).rejects.toThrow(
+      /not yet supported/,
+    );
+  });
+
+  it('throws 404 when review target is not-found', async () => {
+    const deps = makeDeps(null);
+    const useCase = new FileReportUseCase(
+      deps.unitOfWork,
+      deps.reports,
+      deps.reviews,
       deps.publisher,
       deps.clock,
     );
@@ -90,12 +114,12 @@ describe('FileReportUseCase', () => {
     await expect(useCase.execute(validInput)).rejects.toMatchObject({ status: 404 });
   });
 
-  it('does not save or publish when resolver rejects', async () => {
-    const deps = makeDeps({ kind: 'not-found' });
+  it('does not save or publish when review is not found', async () => {
+    const deps = makeDeps(null);
     const useCase = new FileReportUseCase(
       deps.unitOfWork,
       deps.reports,
-      deps.resolver,
+      deps.reviews,
       deps.publisher,
       deps.clock,
     );
@@ -107,11 +131,11 @@ describe('FileReportUseCase', () => {
 
   it('includes optional comment when provided', async () => {
     const fakeReview = { id: validInput.targetId };
-    const deps = makeDeps({ kind: 'review', review: fakeReview as never });
+    const deps = makeDeps(fakeReview);
     const useCase = new FileReportUseCase(
       deps.unitOfWork,
       deps.reports,
-      deps.resolver,
+      deps.reviews,
       deps.publisher,
       deps.clock,
     );

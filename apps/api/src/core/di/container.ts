@@ -145,7 +145,6 @@ import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/
 import type { UserBlockRepository } from '@/features/user-blocks/domain/repositories/user-block.repository.js';
 
 import { ReportPrismaRepository } from '@/features/reports/infrastructure/persistence/report.prisma-repository.js';
-import { TargetResolver } from '@/features/reports/application/services/target-resolver.js';
 import { FileReportUseCase } from '@/features/reports/application/usecases/file-report.usecase.js';
 import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
 import { ResolveReportUseCase } from '@/features/reports/application/usecases/resolve-report.usecase.js';
@@ -374,7 +373,6 @@ export interface Container {
 
   // Reports
   reportRepository: ReportRepository;
-  targetResolver: TargetResolver;
   fileReportUseCase: FileReportUseCase;
   touchReportUseCase: TouchReportUseCase;
   resolveReportUseCase: ResolveReportUseCase;
@@ -850,11 +848,10 @@ export const buildContainer = (): Container => {
 
   // --- Reports ---
   const reportRepository = new ReportPrismaRepository(db);
-  const targetResolver = new TargetResolver(reviewRepository);
   const fileReportUseCase = new FileReportUseCase(
     unitOfWork,
     reportRepository,
-    targetResolver,
+    reviewRepository,
     publisher,
     clock,
   );
@@ -987,7 +984,6 @@ export const buildContainer = (): Container => {
     listReviewsWrittenByMeUseCase,
     reviewController,
     reportRepository,
-    targetResolver,
     fileReportUseCase,
     touchReportUseCase,
     resolveReportUseCase,
