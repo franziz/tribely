@@ -26,5 +26,5 @@ final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>(
 /// [Notifier<T>] + [NotifierProvider.autoDispose] per CLAUDE.md.
 final deleteAccountControllerProvider =
     NotifierProvider.autoDispose<DeleteAccountController, DeleteAccountState>(
-  DeleteAccountController.new,
-);
+      DeleteAccountController.new,
+    );

@@ -22,8 +22,9 @@ class AccountDeletedPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final inkPrimary =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
+    final inkPrimary = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
     final inkSecondary = dark
         ? TribelyColors.nightInkSecondary
         : TribelyColors.paperInkSecondary;
@@ -48,10 +49,7 @@ class AccountDeletedPage extends ConsumerWidget {
                     // pinned to the exact viewport center on tall phones.
                     Padding(
                       padding: const EdgeInsets.only(top: 48),
-                      child: InkMark(
-                        size: 48,
-                        color: inkPrimary,
-                      ),
+                      child: InkMark(size: 48, color: inkPrimary),
                     ),
 
                     const SizedBox(height: 48),

@@ -43,7 +43,7 @@ class DeleteAccountController extends Notifier<DeleteAccountState> {
   void updateToken(String value) {
     state = switch (state) {
       DeleteAccountSubmitting() => state, // suppress edits during API call
-      DeleteAccountSuccess() => state,    // suppress edits after success
+      DeleteAccountSuccess() => state, // suppress edits after success
       DeleteAccountFailure() => DeleteAccountIdle(token: value),
       _ => DeleteAccountIdle(token: value),
     };
@@ -83,16 +83,36 @@ class DeleteAccountController extends Notifier<DeleteAccountState> {
   // ---------------------------------------------------------------------------
 
   Future<void> _onSuccess(String token) async {
-    // Best-effort sign-out: the server already deleted the account and cascaded
-    // the credentials. If signOut fails (e.g. network unavailable), the session
-    // will be invalidated on the next refresh anyway — we still proceed to the
-    // terminal screen.
-    try {
-      await ref.read(sessionControllerProvider.notifier).signOut();
-    } catch (_) {
-      // Intentionally swallowed — server delete already succeeded; clearance
-      // is best-effort only.
-    }
+    // Account-deletion success → terminal-screen navigation depends on three
+    // coupled invariants. Drift in any one will silently bounce the user away
+    // from /account-deleted (AC4/AC5 break).
+    //
+    //   1. /account-deleted is in `publicRoutes` in app_router.dart, so the
+    //      SessionUnauthenticated branch of the redirect returns null
+    //      (allow-through) for that location.
+    //   2. SessionController.signOut() does NOT throw. The auth repository
+    //      (AuthRepositoryImpl.signOut) catches DioException + generic
+    //      exceptions, always clears local token storage, and returns
+    //      Either<Failure, void>. SessionController awaits the use case,
+    //      ignores the Either, and unconditionally transitions state to
+    //      SessionUnauthenticated. We rely on that contract here: by the time
+    //      this await returns, the session has already become
+    //      SessionUnauthenticated, so the page's subsequent
+    //      context.go('/account-deleted') passes the redirect via invariant 1.
+    //   3. The SessionAuthenticated branch of the redirect bounces public
+    //      routes to /events (app_router.dart — `if (isSplash || isAuthFlow
+    //      || isVerify) return '/events';`). This is correct in isolation
+    //      (verified users shouldn't accidentally land on the terminal
+    //      screen), but it ALSO means invariant 2 is load-bearing: if signOut
+    //      ever throws or fails to transition state, the navigation lands
+    //      while still authenticated → bounce to /events → terminal screen
+    //      never rendered.
+    //
+    // No try/catch here on purpose. A catch would defend against an exception
+    // the auth contract forbids and would hide a real bug if SessionController
+    // .signOut() is ever refactored to surface failures. If that refactor
+    // happens, this method MUST be revisited.
+    await ref.read(sessionControllerProvider.notifier).signOut();
     if (!ref.mounted) return;
     state = const DeleteAccountSuccess();
   }

@@ -96,13 +96,15 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
     final controller = ref.read(deleteAccountControllerProvider.notifier);
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    final inkPrimary =
-        dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
+    final inkPrimary = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
     final inkSecondary = dark
         ? TribelyColors.nightInkSecondary
         : TribelyColors.paperInkSecondary;
-    final primaryColor =
-        dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final primaryColor = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
 
     // Navigate to the terminal screen on success. The route is registered in
     // Brief D. We emit the go() here so the page drives the nav transition.
@@ -201,8 +203,9 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: _onInputCommitted,
                     enabled: state is! DeleteAccountSubmitting,
-                    errorText:
-                        _showMismatchHint ? 'Type exactly: DELETE' : null,
+                    errorText: _showMismatchHint
+                        ? 'Type exactly: DELETE'
+                        : null,
                   ),
                 ),
 
@@ -273,9 +276,9 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
       action: action,
       variant: BannerVariant.accent,
       onDismiss: () {
-        ref.read(deleteAccountControllerProvider.notifier).updateToken(
-          state.token,
-        );
+        ref
+            .read(deleteAccountControllerProvider.notifier)
+            .updateToken(state.token);
       },
     );
   }

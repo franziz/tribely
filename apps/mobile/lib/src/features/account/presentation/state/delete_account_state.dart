@@ -45,10 +45,7 @@ class DeleteAccountSubmitting extends DeleteAccountState {
 /// retained across retries (Decision #4 in design spec — token must not be
 /// cleared on recoverable failures). [kind] drives the banner copy selection.
 class DeleteAccountFailure extends DeleteAccountState {
-  const DeleteAccountFailure({
-    required this.token,
-    required this.kind,
-  });
+  const DeleteAccountFailure({required this.token, required this.kind});
 
   final String token;
   final DeleteAccountFailureKind kind;

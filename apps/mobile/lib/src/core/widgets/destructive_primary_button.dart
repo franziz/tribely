@@ -50,10 +50,12 @@ class DestructivePrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    final activeBg =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
-    final activeFg =
-        dark ? TribelyColors.nightSurface : TribelyColors.paperSurfaceHigh;
+    final activeBg = dark
+        ? TribelyColors.nightAccent
+        : TribelyColors.paperAccent;
+    final activeFg = dark
+        ? TribelyColors.nightSurface
+        : TribelyColors.paperSurfaceHigh;
     final disabledBg = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;

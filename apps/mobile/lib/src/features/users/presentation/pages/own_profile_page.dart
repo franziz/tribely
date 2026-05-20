@@ -101,12 +101,7 @@ class OwnProfilePage extends ConsumerWidget {
               UserProfileLoaded(:final profile) => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: ProfileBody(
-                      profile: profile,
-                      isOwn: true,
-                    ),
-                  ),
+                  Expanded(child: ProfileBody(profile: profile, isOwn: true)),
                   _AccountSection(
                     ink: ink,
                     inkSecondary: inkSecondary,
@@ -118,13 +113,11 @@ class OwnProfilePage extends ConsumerWidget {
                           title: const Text('Sign out of Tribely?'),
                           actions: [
                             TextButton(
-                              onPressed: () =>
-                                  Navigator.of(context).pop(false),
+                              onPressed: () => Navigator.of(context).pop(false),
                               child: const Text('Cancel'),
                             ),
                             TextButton(
-                              onPressed: () =>
-                                  Navigator.of(context).pop(true),
+                              onPressed: () => Navigator.of(context).pop(true),
                               child: const Text('Sign out'),
                             ),
                           ],
@@ -136,8 +129,7 @@ class OwnProfilePage extends ConsumerWidget {
                             .signOut();
                       }
                     },
-                    onDeleteAccount: () =>
-                        context.push('/account/delete'),
+                    onDeleteAccount: () => context.push('/account/delete'),
                   ),
                 ],
               ),
@@ -183,8 +175,9 @@ class _AccountSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor =
-        dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final accentColor = dark
+        ? TribelyColors.nightAccent
+        : TribelyColors.paperAccent;
     final dividerColor = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;
