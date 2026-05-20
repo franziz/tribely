@@ -21,7 +21,8 @@ class BlocksController extends Notifier<BlocksState> {
     if (!ref.mounted) return;
 
     final useCase = ref.read(listMyBlocksUseCaseProvider);
-    final result = await useCase(const ListMyBlocksParams(limit: 20));
+    const params = ListMyBlocksParams(limit: 20);
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold((failure) => state = BlocksFailure(message: failure.message), (
@@ -44,9 +45,11 @@ class BlocksController extends Notifier<BlocksState> {
     state = current.copyWith(isLoadingMore: true, clearPaginationError: true);
 
     final useCase = ref.read(listMyBlocksUseCaseProvider);
-    final result = await useCase(
-      ListMyBlocksParams(cursor: current.page.nextCursor, limit: 20),
+    final params = ListMyBlocksParams(
+      cursor: current.page.nextCursor,
+      limit: 20,
     );
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold(

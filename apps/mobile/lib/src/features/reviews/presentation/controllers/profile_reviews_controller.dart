@@ -31,9 +31,8 @@ class ProfileReviewsController extends Notifier<ProfileReviewsState> {
     if (!ref.mounted) return;
 
     final useCase = ref.read(listReviewsForUserUseCaseProvider);
-    final result = await useCase(
-      ListReviewsForUserParams(userId: userId, limit: 20),
-    );
+    final params = ListReviewsForUserParams(userId: userId, limit: 20);
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold(
@@ -59,13 +58,12 @@ class ProfileReviewsController extends Notifier<ProfileReviewsState> {
     state = current.copyWith(isLoadingMore: true);
 
     final useCase = ref.read(listReviewsForUserUseCaseProvider);
-    final result = await useCase(
-      ListReviewsForUserParams(
-        userId: userId,
-        cursor: current.reviewsPage.nextCursor,
-        limit: 20,
-      ),
+    final params = ListReviewsForUserParams(
+      userId: userId,
+      cursor: current.reviewsPage.nextCursor,
+      limit: 20,
     );
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold(

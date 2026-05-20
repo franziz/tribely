@@ -20,7 +20,8 @@ class MyReviewsWrittenController extends Notifier<MyReviewsWrittenState> {
     if (!ref.mounted) return;
 
     final useCase = ref.read(listReviewsWrittenByMeUseCaseProvider);
-    final result = await useCase(const ListReviewsWrittenByMeParams(limit: 20));
+    const params = ListReviewsWrittenByMeParams(limit: 20);
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold(
@@ -44,9 +45,11 @@ class MyReviewsWrittenController extends Notifier<MyReviewsWrittenState> {
     state = current.copyWith(isLoadingMore: true);
 
     final useCase = ref.read(listReviewsWrittenByMeUseCaseProvider);
-    final result = await useCase(
-      ListReviewsWrittenByMeParams(cursor: current.page.nextCursor, limit: 20),
+    final params = ListReviewsWrittenByMeParams(
+      cursor: current.page.nextCursor,
+      limit: 20,
     );
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold(
