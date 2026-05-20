@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../domain/entities/pending_review_prompt.dart';
 import '../../domain/entities/review.dart';
 import '../../domain/entities/review_list_page.dart';
 import '../../domain/repositories/review_repository.dart';
@@ -87,6 +88,18 @@ class ReviewRepositoryImpl implements ReviewRepository {
         limit: limit,
       );
       return Right(model.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, PendingReviewPrompt?>> getPendingReviewPrompt() async {
+    try {
+      final model = await _remote.getPendingReviewPrompt();
+      return Right(model?.toEntity());
     } on DioException catch (e) {
       return Left(_mapDioError(e));
     } catch (e) {

@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/failures.dart';
+import '../entities/pending_review_prompt.dart';
 import '../entities/review.dart'; // used by submitReview
 import '../entities/review_list_page.dart';
 
@@ -50,4 +51,13 @@ abstract class ReviewRepository {
     String? cursor,
     int limit = 20,
   });
+
+  /// Fetch the oldest eligible pending review prompt for the authenticated user.
+  ///
+  /// GET /me/pending-review-prompts
+  ///
+  /// Returns null when there are no pending prompts (the server returned
+  /// `{ "prompt": null }`). All eligibility filtering (≥24h / ≤7d post-event,
+  /// already-reviewed exclusion, blocked-user exclusion) is handled server-side.
+  Future<Either<Failure, PendingReviewPrompt?>> getPendingReviewPrompt();
 }

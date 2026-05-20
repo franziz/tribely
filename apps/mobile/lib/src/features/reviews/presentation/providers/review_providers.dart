@@ -4,6 +4,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/review_remote_datasource.dart';
 import '../../domain/repositories/review_repository.dart';
 import '../../domain/usecases/edit_review_usecase.dart';
+import '../../domain/usecases/get_pending_review_prompt_usecase.dart';
 import '../../domain/usecases/list_reviews_for_user_usecase.dart';
 import '../../domain/usecases/list_reviews_written_by_me_usecase.dart';
 import '../../domain/usecases/submit_review_usecase.dart';
@@ -46,6 +47,11 @@ final listReviewsForUserUseCaseProvider = Provider<ListReviewsForUserUseCase>(
 final listReviewsWrittenByMeUseCaseProvider =
     Provider<ListReviewsWrittenByMeUseCase>(
       (_) => sl<ListReviewsWrittenByMeUseCase>(),
+    );
+
+final getPendingReviewPromptUseCaseProvider =
+    Provider<GetPendingReviewPromptUseCase>(
+      (_) => sl<GetPendingReviewPromptUseCase>(),
     );
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/pending_review_prompt_model.dart';
 import '../models/review_list_page_model.dart';
 import '../models/review_model.dart';
 
@@ -36,6 +37,11 @@ abstract class ReviewRemoteDatasource {
     String? cursor,
     int limit = 20,
   });
+
+  /// GET /me/pending-review-prompts
+  ///
+  /// Returns null when the server responds with `{ "prompt": null }`.
+  Future<PendingReviewPromptModel?> getPendingReviewPrompt();
 }
 
 class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
@@ -97,5 +103,17 @@ class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
       queryParameters: {'limit': limit, 'cursor': ?cursor},
     );
     return ReviewListPageModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<PendingReviewPromptModel?> getPendingReviewPrompt() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/me/pending-review-prompts',
+    );
+    final promptJson = response.data!['prompt'];
+    if (promptJson == null) return null;
+    return PendingReviewPromptModel.fromPromptJson(
+      promptJson as Map<String, dynamic>,
+    );
   }
 }
