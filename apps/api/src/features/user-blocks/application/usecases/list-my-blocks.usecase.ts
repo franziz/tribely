@@ -1,15 +1,12 @@
 import type { UserBlockRepository } from '../../domain/repositories/user-block.repository.js';
-import type { UserBlock } from '../../domain/entities/user-block.js';
+import type { ListMyBlocksResult } from '../dto/list-my-blocks.dto.js';
+
+export type { ListMyBlocksResult } from '../dto/list-my-blocks.dto.js';
 
 export interface ListMyBlocksInput {
   initiatorUserId: string;
   cursor?: string;
   limit?: number;
-}
-
-export interface ListMyBlocksResult {
-  rows: UserBlock[];
-  nextCursor: string | null;
 }
 
 const DEFAULT_LIMIT = 20;
