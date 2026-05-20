@@ -68,8 +68,8 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
 
   void _onInputCommitted(String _) {
     // Show mismatch hint after user submits the input via keyboard action.
-    final controller = ref.read(deleteAccountControllerProvider.notifier);
-    if (!controller.isTokenValid && _tokenController.text.isNotEmpty) {
+    final state = ref.read(deleteAccountControllerProvider);
+    if (!state.isTokenValid && _tokenController.text.isNotEmpty) {
       setState(() => _showMismatchHint = true);
     } else {
       setState(() => _showMismatchHint = false);
@@ -116,8 +116,8 @@ class _DeleteAccountPageState extends ConsumerState<DeleteAccountPage> {
 
     // CTA is enabled only when token is valid AND we're not submitting.
     final bool ctaEnabled = switch (state) {
-      DeleteAccountIdle() => controller.isTokenValid,
-      DeleteAccountFailure() => controller.isTokenValid,
+      DeleteAccountIdle(:final isTokenValid) => isTokenValid,
+      DeleteAccountFailure(:final isTokenValid) => isTokenValid,
       DeleteAccountSubmitting() => false,
       DeleteAccountSuccess() => false,
     };
