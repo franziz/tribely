@@ -5,12 +5,16 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../user_blocks/presentation/providers/user_block_providers.dart';
 import '../../domain/entities/report_reason.dart';
 import '../controllers/report_composer_controller.dart';
 import '../providers/reports_providers.dart';
 import '../state/report_composer_state.dart';
 import '../string_assets/report_copy.dart';
 import 'block_opt_in_sheet.dart';
+// One-widget cross-feature reference: reports/ → user_blocks/
+// Sanctioned per Brief 2C: BlockOptInSheet needs to invoke BlockActionController
+// when the user taps "Block [name]" after filing a report.
 
 /// Bottom sheet for reporting a review.
 ///
@@ -93,6 +97,12 @@ class _ReportReviewSheetState extends ConsumerState<ReportReviewSheet> {
   }
 
   void _handleSuccess(BuildContext context) {
+    // Capture the block callback before pop so the closure captures a
+    // stable function reference rather than [ref] (which becomes invalid
+    // after the state is disposed by the pop below).
+    final blockedUserId = widget.reportedUserId;
+    final blockFn = ref.read(blockActionControllerProvider.notifier).block;
+
     // 1. Dismiss the sheet.
     Navigator.of(context).pop();
 
@@ -105,13 +115,17 @@ class _ReportReviewSheetState extends ConsumerState<ReportReviewSheet> {
     );
 
     // 3. Open the block opt-in sheet.
+    // Pass the real block callback — invokes BlockActionController.block(userId)
+    // so "Block [name]" in the opt-in sheet fires the actual block API call.
+    // One-widget cross-feature reference: reports/ → user_blocks/
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => BlockOptInSheet(
-        reportedUserId: widget.reportedUserId,
+        reportedUserId: blockedUserId,
         reportedUserDisplayName: widget.reportedUserDisplayName,
+        onBlockTap: () => blockFn(blockedUserId),
       ),
     );
   }
