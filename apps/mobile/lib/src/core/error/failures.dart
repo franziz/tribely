@@ -80,6 +80,34 @@ class SmsRateLimitedFailure extends Failure {
   const SmsRateLimitedFailure(super.message, {super.code});
 }
 
+/// 409 with code `reviews.editWindowExpired`. The 24-hour edit window for the
+/// review has passed; the review is now locked.
+class EditWindowExpiredFailure extends Failure {
+  const EditWindowExpiredFailure(super.message, {super.code});
+}
+
+/// 404 when the report target (e.g. a review) does not exist or is not visible
+/// to the reporting user. Distinct from the generic [NotFoundFailure] so the
+/// reports UI can show context-specific copy ("This review no longer exists").
+class TargetNotFoundFailure extends Failure {
+  const TargetNotFoundFailure(super.message, {super.code});
+}
+
+/// 422 when the report target type is not yet supported by the backend
+/// (e.g. reporting a message — only 'review' is implemented in MVP).
+/// The UI uses this to show a graceful "not supported yet" message.
+class TargetTypeNotImplementedFailure extends Failure {
+  const TargetTypeNotImplementedFailure(super.message, {super.code});
+}
+
+/// 422 UNPROCESSABLE when the user attempts to block themselves.
+///
+/// The backend returns 422 with an error code indicating self-block is not
+/// allowed. The UI renders a short inline error message.
+class SelfBlockFailure extends Failure {
+  const SelfBlockFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event

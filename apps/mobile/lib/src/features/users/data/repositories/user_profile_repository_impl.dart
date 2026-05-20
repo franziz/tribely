@@ -4,11 +4,13 @@ import 'package:fpdart/fpdart.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/user_profile.dart';
+import '../../domain/ports/user_profile_port.dart';
 import '../../domain/repositories/user_profile_repository.dart';
 import '../datasources/user_profile_remote_datasource.dart';
 import '../models/update_profile_params_model.dart';
 
-class UserProfileRepositoryImpl implements UserProfileRepository {
+class UserProfileRepositoryImpl
+    implements UserProfileRepository, UserProfilePort {
   UserProfileRepositoryImpl({required UserProfileRemoteDatasource remote})
     : _remote = remote;
 

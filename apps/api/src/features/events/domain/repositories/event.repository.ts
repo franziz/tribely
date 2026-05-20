@@ -91,4 +91,21 @@ export interface EventRepository {
    * Returns the number of rows updated.
    */
   pseudonymiseHostForUser(userId: string, pseudonymHostId: string, ctx: TxContext): Promise<number>;
+
+  /**
+   * Returns all completed events where `userId` was an accepted participant
+   * (either as host OR as an approved joiner) within the given time window.
+   *
+   * Used by the pending-review-prompts use case to find events eligible for
+   * post-event review prompts.
+   *
+   * Implementation note: this performs a single SQL query joining events +
+   * join_requests to determine host/joiner roles. Returns events ordered by
+   * `endsAt ASC` so callers get the oldest-event-first ordering needed for
+   * the "oldest unreviewed" prompt.
+   */
+  findCompletedForUserBetween(
+    input: { userId: string; completedAfter: Date; completedBefore: Date },
+    ctx?: TxContext,
+  ): Promise<Event[]>;
 }

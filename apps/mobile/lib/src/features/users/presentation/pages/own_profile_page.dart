@@ -13,6 +13,10 @@ import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
 import '../widgets/profile_body.dart';
 
+// Settings is the user's own account surface — lives in this feature per
+// the brief spec. OwnProfilePage exposes the entry point as a gear-icon
+// action in the AppBar.
+
 // Verbatim designer copy — do not paraphrase (TRI-142 Brief D).
 const _kSectionLabel = 'ACCOUNT';
 const _kSignOutLabel = 'Sign out';
@@ -44,29 +48,9 @@ class OwnProfilePage extends ConsumerWidget {
         scrolledUnderElevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Sign out of Tribely?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Text('Sign out'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed == true) {
-                await ref.read(sessionControllerProvider.notifier).signOut();
-              }
-            },
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),

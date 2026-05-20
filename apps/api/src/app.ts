@@ -14,8 +14,17 @@ import { buildEventScopedJoinRequestRoutes } from './features/join-requests/pres
 import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
 import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation/http/routes/my-join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
+import { buildPendingReviewPromptsRoutes } from './features/users/presentation/http/routes/pending-review-prompts.routes.js';
 import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
 import { buildCheckInsRoutes } from './features/check-ins/presentation/http/routes/check-ins.routes.js';
+import {
+  buildEventScopedReviewRoutes,
+  buildMyReviewRoutes,
+  buildReviewRoutes,
+  buildUserScopedReviewRoutes,
+} from './features/reviews/presentation/http/routes/review.routes.js';
+import { buildReportRoutes } from './features/reports/presentation/http/routes/report.routes.js';
+import { buildUserBlockRoutes } from './features/user-blocks/presentation/http/routes/user-block.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -128,6 +137,55 @@ export const buildApp = (): { app: Hono; container: Container } => {
     '/me',
     buildMyJoinRequestsRoutes({
       controller: joinRequestController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+    }),
+  );
+
+  // Reviews: four routers, four mount points.
+  //   /events/:eventId/reviews     — POST: submit a review (merged with /events)
+  //   /reviews/:reviewId           — PATCH: edit a review
+  //   /users/:userId/reviews       — GET: list reviews about a user (merged with /users)
+  //   /me/reviews/written          — GET: list reviews written by me (merged with /me)
+  // All additive Hono mounts — no existing routes are overridden (CLAUDE.md gotcha).
+  const reviewDeps = {
+    controller: container.reviewController,
+    accessTokens: container.accessTokens,
+    userRepository: container.userRepository,
+  };
+  app.route('/events', buildEventScopedReviewRoutes(reviewDeps));
+  app.route('/reviews', buildReviewRoutes(reviewDeps));
+  app.route('/users', buildUserScopedReviewRoutes(reviewDeps));
+  app.route('/me', buildMyReviewRoutes(reviewDeps));
+
+  // Reports: POST /reports — file a content-moderation report.
+  app.route(
+    '/reports',
+    buildReportRoutes({
+      controller: container.reportController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+      rateLimiter: container.rateLimiter,
+    }),
+  );
+
+  // User blocks: POST/DELETE/GET /me/blocks — additive mount at /me.
+  app.route(
+    '/me',
+    buildUserBlockRoutes({
+      controller: container.userBlockController,
+      accessTokens: container.accessTokens,
+      userRepository: container.userRepository,
+      rateLimiter: container.rateLimiter,
+    }),
+  );
+
+  // GET /me/pending-review-prompts — returns the next unreviewed counterpart
+  // for the authenticated user's completed events. Additive mount at /me.
+  app.route(
+    '/me',
+    buildPendingReviewPromptsRoutes({
+      listPendingReviewPrompts: container.listPendingReviewPromptsUseCase,
       accessTokens: container.accessTokens,
       userRepository: container.userRepository,
     }),

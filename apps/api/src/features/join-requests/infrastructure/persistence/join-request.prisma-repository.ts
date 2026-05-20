@@ -169,4 +169,14 @@ export class JoinRequestPrismaRepository implements JoinRequestRepository {
 
     return { joinRequests: page.map(toJoinRequest), nextCursor };
   }
+
+  async listApprovedByEvents(eventIds: string[], ctx?: TxContext): Promise<JoinRequest[]> {
+    if (eventIds.length === 0) return [];
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    const rows = await client.joinRequest.findMany({
+      where: { eventId: { in: eventIds }, status: 'approved' },
+      orderBy: { requestedAt: 'asc' },
+    });
+    return rows.map(toJoinRequest);
+  }
 }

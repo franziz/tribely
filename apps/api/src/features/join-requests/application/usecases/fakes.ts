@@ -131,6 +131,15 @@ export class FakeJoinRequestRepository implements JoinRequestRepository {
     return Promise.resolve(count);
   }
 
+  listApprovedByEvents(eventIds: string[], _ctx?: TxContext): Promise<JoinRequest[]> {
+    if (eventIds.length === 0) return Promise.resolve([]);
+    const idSet = new Set(eventIds);
+    const rows = Array.from(this.byId.values()).filter(
+      (jr) => idSet.has(jr.eventId) && jr.status === 'approved',
+    );
+    return Promise.resolve(rows);
+  }
+
   listByRequester(
     requesterUserId: string,
     eventId: string | undefined,

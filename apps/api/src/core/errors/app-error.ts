@@ -30,8 +30,8 @@ export class AppError extends Error {
     return new AppError('UNAUTHORIZED', message, 401);
   }
 
-  static forbidden(message = 'Forbidden'): AppError {
-    return new AppError('FORBIDDEN', message, 403);
+  static forbidden(message = 'Forbidden', details?: unknown): AppError {
+    return new AppError('FORBIDDEN', message, 403, details);
   }
 
   static emailNotVerified(message = 'Email not verified'): AppError {
@@ -42,8 +42,8 @@ export class AppError extends Error {
     return new AppError('PHONE_NOT_VERIFIED', message, 403);
   }
 
-  static notFound(message = 'Not found'): AppError {
-    return new AppError('NOT_FOUND', message, 404);
+  static notFound(message = 'Not found', details?: unknown): AppError {
+    return new AppError('NOT_FOUND', message, 404, details);
   }
 
   static conflict(message: string, details?: unknown): AppError {

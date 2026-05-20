@@ -16,6 +16,14 @@ const TRAVELER_TYPE_VALUES = ['local', 'traveling', 'expat'] as const;
 // Response schema (GET /users/:id + PATCH /users/me response body)
 // ---------------------------------------------------------------------------
 
+export const recentVisibleCommentSchema = z.object({
+  excerpt: z.string(),
+  raterDisplayName: z.string(),
+  rating: z.number(),
+  eventTitle: z.string(),
+  createdAt: z.string(),
+});
+
 export const userResponseSchema = z.object({
   id: z.string(),
   email: z.string().email(),
@@ -30,6 +38,9 @@ export const userResponseSchema = z.object({
   travelerType: z.enum(TRAVELER_TYPE_VALUES).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  averageRating: z.number().nullable(),
+  reviewCount: z.number().int().nonnegative(),
+  recentVisibleComments: z.array(recentVisibleCommentSchema),
 });
 
 export type UserResponse = z.infer<typeof userResponseSchema>;

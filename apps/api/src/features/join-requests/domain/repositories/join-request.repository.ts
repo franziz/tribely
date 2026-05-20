@@ -145,4 +145,15 @@ export interface JoinRequestRepository {
     pseudonymAuthorId: string,
     ctx: TxContext,
   ): Promise<number>;
+
+  /**
+   * Returns all approved join requests for a set of events in a single query.
+   *
+   * Used by the pending-review-prompts use case to determine counterpart IDs
+   * (approved joiners) for events where the viewer is the host. Batched over
+   * `eventIds` to avoid N+1 queries.
+   *
+   * Returns only requests with `status = 'approved'`.
+   */
+  listApprovedByEvents(eventIds: string[], ctx?: TxContext): Promise<JoinRequest[]>;
 }

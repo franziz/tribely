@@ -13,6 +13,25 @@ import type { DeleteAccountUseCase } from '../../../application/usecases/delete-
 import { UserController } from '../controllers/user.controller.js';
 import { updateUserProfileSchema } from '../schemas/user.schemas.js';
 
+/**
+ * Extract the caller's userId from a `Bearer` token without throwing.
+ * Returns `undefined` when no token is present or the token is invalid.
+ * Used by the unauthenticated `GET /users/:id` route to optionally apply
+ * viewer-aware block/visibility filtering on the review aggregate.
+ */
+const tryExtractViewerId = async (
+  accessTokens: AccessTokenIssuer,
+  authHeader: string | undefined,
+): Promise<string | undefined> => {
+  if (!authHeader?.startsWith('Bearer ')) return undefined;
+  try {
+    const subject = await accessTokens.verify(authHeader.slice('Bearer '.length).trim());
+    return subject.userId;
+  } catch {
+    return undefined;
+  }
+};
+
 export interface UserRouteDeps {
   getUser: GetUserUseCase;
   updateUserProfile: UpdateUserProfileUseCase;
@@ -49,6 +68,9 @@ export const buildUserRoutes = (deps: UserRouteDeps): Hono<{ Variables: AuthVari
         (c) => controller.patchMe(c, c.req.valid('json')),
       )
       .get('/me/capabilities', auth, (c) => controller.getMyCapabilities(c))
-      .get('/:id', (c) => controller.get(c, c.req.param('id')))
+      .get('/:id', async (c) => {
+        const viewerId = await tryExtractViewerId(deps.accessTokens, c.req.header('Authorization'));
+        return controller.get(c, c.req.param('id'), viewerId);
+      })
   );
 };

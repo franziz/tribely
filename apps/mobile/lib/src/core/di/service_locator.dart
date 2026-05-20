@@ -48,6 +48,7 @@ import '../../features/users/data/datasources/user_capabilities_remote_datasourc
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_capabilities_repository_impl.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
+import '../../features/users/domain/ports/user_profile_port.dart';
 import '../../features/users/domain/repositories/user_capabilities_repository.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
 import '../../features/check_ins/data/datasources/check_ins_remote_datasource.dart';
@@ -62,6 +63,24 @@ import '../../features/account/data/repositories/account_repository_impl.dart';
 import '../../features/account/domain/repositories/account_repository.dart';
 import '../../features/account/domain/usecases/delete_account_usecase.dart';
 import '../storage/intro_flag_storage.dart';
+import '../../features/reviews/data/datasources/review_remote_datasource.dart';
+import '../../features/reviews/data/repositories/review_repository_impl.dart';
+import '../../features/reviews/domain/repositories/review_repository.dart';
+import '../../features/reviews/domain/usecases/get_pending_review_prompt_usecase.dart';
+import '../../features/reviews/domain/usecases/submit_review_usecase.dart';
+import '../../features/reviews/domain/usecases/edit_review_usecase.dart';
+import '../../features/reviews/domain/usecases/list_reviews_for_user_usecase.dart';
+import '../../features/reviews/domain/usecases/list_reviews_written_by_me_usecase.dart';
+import '../../features/reports/data/datasources/report_remote_datasource.dart';
+import '../../features/reports/data/repositories/report_repository_impl.dart';
+import '../../features/reports/domain/repositories/report_repository.dart';
+import '../../features/reports/domain/usecases/file_report_usecase.dart';
+import '../../features/user_blocks/data/datasources/user_block_remote_datasource.dart';
+import '../../features/user_blocks/data/repositories/user_block_repository_impl.dart';
+import '../../features/user_blocks/domain/repositories/user_block_repository.dart';
+import '../../features/user_blocks/domain/usecases/block_user_usecase.dart';
+import '../../features/user_blocks/domain/usecases/list_my_blocks_usecase.dart';
+import '../../features/user_blocks/domain/usecases/unblock_user_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -120,8 +139,14 @@ Future<void> configureDependencies() async {
   );
 
   // Users — repositories
-  sl.registerLazySingleton<UserProfileRepository>(
+  sl.registerLazySingleton<UserProfileRepositoryImpl>(
     () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
+  );
+  sl.registerLazySingleton<UserProfileRepository>(
+    () => sl<UserProfileRepositoryImpl>(),
+  );
+  sl.registerLazySingleton<UserProfilePort>(
+    () => sl<UserProfileRepositoryImpl>(),
   );
   sl.registerLazySingleton<UserCapabilitiesRepository>(
     () => UserCapabilitiesRepositoryImpl(
@@ -249,4 +274,63 @@ Future<void> configureDependencies() async {
 
   // Account — use cases
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl<AccountRepository>()));
+
+  // Reviews — datasources
+  sl.registerLazySingleton<ReviewRemoteDatasource>(
+    () => ReviewRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Reviews — repositories
+  sl.registerLazySingleton<ReviewRepository>(
+    () => ReviewRepositoryImpl(remote: sl<ReviewRemoteDatasource>()),
+  );
+
+  // Reviews — use cases
+  sl.registerLazySingleton(() => SubmitReviewUseCase(sl<ReviewRepository>()));
+  sl.registerLazySingleton(() => EditReviewUseCase(sl<ReviewRepository>()));
+  sl.registerLazySingleton(
+    () => ListReviewsForUserUseCase(sl<ReviewRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ListReviewsWrittenByMeUseCase(sl<ReviewRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => GetPendingReviewPromptUseCase(sl<ReviewRepository>()),
+  );
+
+  // Reports — datasources
+  sl.registerLazySingleton<ReportRemoteDatasource>(
+    () => ReportRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Reports — repositories
+  sl.registerLazySingleton<ReportRepository>(
+    () => ReportRepositoryImpl(remote: sl<ReportRemoteDatasource>()),
+  );
+
+  // Reports — use cases
+  sl.registerLazySingleton(() => FileReportUseCase(sl<ReportRepository>()));
+
+  // UserBlocks — datasources
+  sl.registerLazySingleton<UserBlockRemoteDatasource>(
+    () => UserBlockRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // UserBlocks — repositories
+  // Injects UserProfilePort to enrich block list rows with display name +
+  // avatar via per-row GET /users/:id calls, decoupled from the concrete
+  // datasource.
+  sl.registerLazySingleton<UserBlockRepository>(
+    () => UserBlockRepositoryImpl(
+      remote: sl<UserBlockRemoteDatasource>(),
+      profilePort: sl<UserProfilePort>(),
+    ),
+  );
+
+  // UserBlocks — use cases
+  sl.registerLazySingleton(() => BlockUserUseCase(sl<UserBlockRepository>()));
+  sl.registerLazySingleton(() => UnblockUserUseCase(sl<UserBlockRepository>()));
+  sl.registerLazySingleton(
+    () => ListMyBlocksUseCase(sl<UserBlockRepository>()),
+  );
 }

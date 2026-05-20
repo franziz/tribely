@@ -66,6 +66,13 @@ export class FakeEventRepository implements EventRepository {
   ): Promise<number> {
     return Promise.resolve(0);
   }
+
+  findCompletedForUserBetween(
+    _input: { userId: string; completedAfter: Date; completedBefore: Date },
+    _ctx?: TxContext,
+  ): Promise<Event[]> {
+    return Promise.resolve([]);
+  }
 }
 
 /**
