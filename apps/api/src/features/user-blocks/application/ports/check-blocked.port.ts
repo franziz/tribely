@@ -6,7 +6,7 @@
  * all consumers now import from here.
  *
  * The concrete implementation is `RepositoryCheckBlockedAdapter` in
- * `user-blocks/application/adapters/`. Block checks are BIDIRECTIONAL:
+ * `user-blocks/infrastructure/adapters/`. Block checks are BIDIRECTIONAL:
  * A blocks B and B blocks A are both caught.
  */
 export interface CheckBlockedPort {

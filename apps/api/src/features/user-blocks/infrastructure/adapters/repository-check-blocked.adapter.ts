@@ -1,5 +1,5 @@
 import type { UserBlockRepository } from '../../domain/repositories/user-block.repository.js';
-import type { CheckBlockedPort } from '../ports/check-blocked.port.js';
+import type { CheckBlockedPort } from '../../application/ports/check-blocked.port.js';
 
 /**
  * Concrete implementation of `CheckBlockedPort` that delegates to the

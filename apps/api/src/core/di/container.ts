@@ -135,7 +135,7 @@ import { registerReviewsConsumers } from '@/features/reviews/presentation/events
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 
 import { UserBlockPrismaRepository } from '@/features/user-blocks/infrastructure/persistence/user-block.prisma-repository.js';
-import { RepositoryCheckBlockedAdapter } from '@/features/user-blocks/application/adapters/repository-check-blocked.adapter.js';
+import { RepositoryCheckBlockedAdapter } from '@/features/user-blocks/infrastructure/adapters/repository-check-blocked.adapter.js';
 import { BlockUserUseCase } from '@/features/user-blocks/application/usecases/block-user.usecase.js';
 import { UnblockUserUseCase } from '@/features/user-blocks/application/usecases/unblock-user.usecase.js';
 import { ListMyBlocksUseCase } from '@/features/user-blocks/application/usecases/list-my-blocks.usecase.js';
