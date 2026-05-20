@@ -48,6 +48,7 @@ import '../../features/users/data/datasources/user_capabilities_remote_datasourc
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
 import '../../features/users/data/repositories/user_capabilities_repository_impl.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
+import '../../features/users/domain/ports/user_profile_port.dart';
 import '../../features/users/domain/repositories/user_capabilities_repository.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
 import '../../features/check_ins/data/datasources/check_ins_remote_datasource.dart';
@@ -138,8 +139,14 @@ Future<void> configureDependencies() async {
   );
 
   // Users — repositories
-  sl.registerLazySingleton<UserProfileRepository>(
+  sl.registerLazySingleton<UserProfileRepositoryImpl>(
     () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
+  );
+  sl.registerLazySingleton<UserProfileRepository>(
+    () => sl<UserProfileRepositoryImpl>(),
+  );
+  sl.registerLazySingleton<UserProfilePort>(
+    () => sl<UserProfileRepositoryImpl>(),
   );
   sl.registerLazySingleton<UserCapabilitiesRepository>(
     () => UserCapabilitiesRepositoryImpl(
@@ -310,12 +317,13 @@ Future<void> configureDependencies() async {
   );
 
   // UserBlocks — repositories
-  // Injects UserProfileRemoteDatasource to enrich block list rows with
-  // display name + avatar via per-row GET /users/:id calls.
+  // Injects UserProfilePort to enrich block list rows with display name +
+  // avatar via per-row GET /users/:id calls, decoupled from the concrete
+  // datasource.
   sl.registerLazySingleton<UserBlockRepository>(
     () => UserBlockRepositoryImpl(
       remote: sl<UserBlockRemoteDatasource>(),
-      profileRemote: sl<UserProfileRemoteDatasource>(),
+      profilePort: sl<UserProfilePort>(),
     ),
   );
 

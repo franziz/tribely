@@ -3,7 +3,7 @@ import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
-import '../../../users/data/datasources/user_profile_remote_datasource.dart';
+import '../../../users/domain/ports/user_profile_port.dart';
 import '../../domain/entities/blocked_user_summary.dart';
 import '../../domain/entities/user_block.dart';
 import '../../domain/entities/user_block_list_page.dart';
@@ -15,20 +15,20 @@ import '../models/user_block_model.dart';
 ///
 /// The backend [GET /me/blocks] returns only [blockedUserId] without display
 /// data. This repository enriches each row by calling [GET /users/:id] per
-/// row via [UserProfileRemoteDatasource], with a best-effort pattern: if the
-/// profile fetch fails the row still renders with null display data.
+/// row via [UserProfilePort], with a best-effort pattern: if the profile fetch
+/// fails the row still renders with null display data.
 ///
 /// Block count is expected to be low (MVP users ≤ ~20 blocks), so per-row
 /// fetches are acceptable. Revisit with a server-side join if list sizes grow.
 class UserBlockRepositoryImpl implements UserBlockRepository {
   const UserBlockRepositoryImpl({
     required UserBlockRemoteDatasource remote,
-    required UserProfileRemoteDatasource profileRemote,
+    required UserProfilePort profilePort,
   }) : _remote = remote,
-       _profileRemote = profileRemote;
+       _profilePort = profilePort;
 
   final UserBlockRemoteDatasource _remote;
-  final UserProfileRemoteDatasource _profileRemote;
+  final UserProfilePort _profilePort;
 
   @override
   Future<Either<Failure, UserBlock>> blockUser({
@@ -84,28 +84,26 @@ class UserBlockRepositoryImpl implements UserBlockRepository {
   // ---------------------------------------------------------------------------
 
   /// Attempts to fetch the blocked user's display name + avatar via
-  /// [UserProfileRemoteDatasource.getUserProfile].
+  /// [UserProfilePort.getUserProfile].
   ///
   /// On failure (any error), falls back to a [BlockedUserSummary] with null
   /// display-data fields. The Blocked Users page renders a graceful fallback.
   Future<BlockedUserSummary> _enrichRow(UserBlockModel model) async {
-    try {
-      final profile = await _profileRemote.getUserProfile(model.blockedUserId);
-      return BlockedUserSummary(
+    final result = await _profilePort.getUserProfile(model.blockedUserId);
+    return result.fold(
+      (_) => BlockedUserSummary(
+        blockId: model.id,
+        blockedUserId: model.blockedUserId,
+        createdAt: model.createdAt,
+      ),
+      (profile) => BlockedUserSummary(
         blockId: model.id,
         blockedUserId: model.blockedUserId,
         createdAt: model.createdAt,
         displayName: profile.displayName,
         avatarUrl: profile.avatarUrl,
-      );
-    } catch (_) {
-      // Profile fetch failed — return partial row with null display data.
-      return BlockedUserSummary(
-        blockId: model.id,
-        blockedUserId: model.blockedUserId,
-        createdAt: model.createdAt,
-      );
-    }
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
