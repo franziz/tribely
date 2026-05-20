@@ -117,6 +117,16 @@ export class FakeEmailVerificationTokenRepository implements EmailVerificationTo
     this.byId.set(token.id, token);
     return Promise.resolve();
   }
+
+  deleteAllForUser(userId: string): Promise<number> {
+    let count = 0;
+    for (const [id, token] of this.byId.entries()) {
+      if (token.userId !== userId) continue;
+      this.byId.delete(id);
+      count++;
+    }
+    return Promise.resolve(count);
+  }
 }
 
 export class FakePasswordResetTokenRepository implements PasswordResetTokenRepository {
@@ -148,6 +158,16 @@ export class FakePasswordResetTokenRepository implements PasswordResetTokenRepos
   save(token: PasswordResetToken): Promise<void> {
     this.byId.set(token.id, token);
     return Promise.resolve();
+  }
+
+  deleteAllForUser(userId: string): Promise<number> {
+    let count = 0;
+    for (const [id, token] of this.byId.entries()) {
+      if (token.userId !== userId) continue;
+      this.byId.delete(id);
+      count++;
+    }
+    return Promise.resolve(count);
   }
 }
 
@@ -183,6 +203,11 @@ export class FakeCredentialRepository implements CredentialRepository {
 
   save(credential: Credential): Promise<void> {
     this.byUserId.set(credential.userId, credential);
+    return Promise.resolve();
+  }
+
+  deleteForUser(userId: string): Promise<void> {
+    this.byUserId.delete(userId);
     return Promise.resolve();
   }
 }
@@ -229,6 +254,17 @@ export class FakeRefreshTokenRepository implements RefreshTokenRepository {
       revoked.push(token);
     }
     return Promise.resolve(revoked);
+  }
+
+  deleteAllForUser(userId: string): Promise<number> {
+    let count = 0;
+    for (const [id, token] of this.byId.entries()) {
+      if (token.userId !== userId) continue;
+      this.byHash.delete(token.tokenHash);
+      this.byId.delete(id);
+      count++;
+    }
+    return Promise.resolve(count);
   }
 }
 

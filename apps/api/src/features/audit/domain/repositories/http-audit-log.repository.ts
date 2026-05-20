@@ -27,4 +27,17 @@ export interface HttpAuditLogRecord {
 
 export interface HttpAuditLogRepository {
   record(entry: HttpAuditLogRecord, ctx?: TxContext): Promise<void>;
+
+  /**
+   * Replace all `actorUserId` values that equal `userId` with `actorHash`
+   * (a deterministic one-way hash of the original id).
+   *
+   * Called as part of the PDPA account-deletion cascade. The caller (Brief E
+   * DeleteAccountUseCase) supplies `actorHash = sha256Hex(userId)`, which is
+   * the SAME value written to `account_deletion_events.userIdHash`, so the
+   * forensic cross-table join remains intact without retaining plaintext PII.
+   *
+   * Returns the number of rows updated.
+   */
+  hashActorForUser(userId: string, actorHash: string, ctx: TxContext): Promise<number>;
 }

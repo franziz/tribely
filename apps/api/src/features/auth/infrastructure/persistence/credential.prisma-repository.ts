@@ -27,4 +27,9 @@ export class CredentialPrismaRepository implements CredentialRepository {
       },
     });
   }
+
+  async deleteForUser(userId: string, ctx: TxContext): Promise<void> {
+    const client = unwrapTx(ctx);
+    await client.credential.delete({ where: { userId } });
+  }
 }

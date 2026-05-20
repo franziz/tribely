@@ -58,6 +58,14 @@ export class FakeEventRepository implements EventRepository {
   countCompletedByHost(_hostUserId: string, _ctx?: TxContext): Promise<number> {
     return Promise.resolve(0);
   }
+
+  pseudonymiseHostForUser(
+    _userId: string,
+    _pseudonymHostId: string,
+    _ctx: TxContext,
+  ): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 /**

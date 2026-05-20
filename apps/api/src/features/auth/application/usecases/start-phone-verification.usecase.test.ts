@@ -40,6 +40,7 @@ const buildUser = (
     selfieAttemptCount: 0,
     selfieLastFailureCategory: null,
     selfieAppealLockedAt: null,
+    deletedAt: null,
   });
 
 interface FakeVerifier extends PhoneVerifier {

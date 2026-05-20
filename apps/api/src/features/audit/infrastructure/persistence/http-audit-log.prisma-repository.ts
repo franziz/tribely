@@ -27,4 +27,20 @@ export class HttpAuditLogPrismaRepository implements HttpAuditLogRepository {
       },
     });
   }
+
+  async hashActorForUser(userId: string, actorHash: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    // Raw UPDATE so we get the affected row count in one round-trip without
+    // loading and re-saving individual rows.
+    //
+    // Column is `"actorUserId"` (camelCase — Prisma's default; no @map on the
+    // model field, so the DB column retains the camelCase name as confirmed by
+    // the migration SQL: `"actorUserId" TEXT`).
+    const result = await client.$executeRaw`
+      UPDATE http_audit_logs
+      SET    "actorUserId" = ${actorHash}
+      WHERE  "actorUserId" = ${userId}
+    `;
+    return result;
+  }
 }

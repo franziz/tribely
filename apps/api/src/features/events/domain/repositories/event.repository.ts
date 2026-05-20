@@ -79,4 +79,16 @@ export interface EventRepository {
    * earned private-venue posting access.
    */
   countCompletedByHost(hostUserId: string, ctx?: TxContext): Promise<number>;
+
+  /**
+   * Bulk-rewrites `hostUserId` to `pseudonymHostId` for every event hosted by
+   * `userId`. Part of the PDPA erasure cascade — events remain queryable with
+   * an opaque cuid2 pseudonym in place of the real user id.
+   *
+   * Required-ctx: caller MUST supply a TxContext so the rewrite commits
+   * atomically with the rest of the account-deletion cascade.
+   *
+   * Returns the number of rows updated.
+   */
+  pseudonymiseHostForUser(userId: string, pseudonymHostId: string, ctx: TxContext): Promise<number>;
 }

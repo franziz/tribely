@@ -41,4 +41,10 @@ export class PasswordResetTokenPrismaRepository implements PasswordResetTokenRep
       },
     });
   }
+
+  async deleteAllForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.passwordResetToken.deleteMany({ where: { userId } });
+    return result.count;
+  }
 }

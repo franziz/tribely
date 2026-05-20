@@ -125,4 +125,24 @@ export interface JoinRequestRepository {
     limit: number,
     ctx?: TxContext,
   ): Promise<ListByRequesterPage>;
+
+  /**
+   * Bulk-rewrites `requesterUserId` to `pseudonymAuthorId` for every join
+   * request authored by `userId`. Part of the PDPA erasure cascade — requests
+   * remain visible to the host with an opaque cuid2 pseudonym in place of the
+   * real requester user id.
+   *
+   * "Author" is the domain term (Brief E contract); `requesterUserId` is the
+   * underlying schema column name.
+   *
+   * Required-ctx: caller MUST supply a TxContext so the rewrite commits
+   * atomically with the rest of the account-deletion cascade.
+   *
+   * Returns the number of rows updated.
+   */
+  pseudonymiseAuthorForUser(
+    userId: string,
+    pseudonymAuthorId: string,
+    ctx: TxContext,
+  ): Promise<number>;
 }

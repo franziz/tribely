@@ -58,4 +58,10 @@ export class RefreshTokenPrismaRepository implements RefreshTokenRepository {
       return token;
     });
   }
+
+  async deleteAllForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.refreshToken.deleteMany({ where: { userId } });
+    return result.count;
+  }
 }

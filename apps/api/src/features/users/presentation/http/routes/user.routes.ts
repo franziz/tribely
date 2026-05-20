@@ -9,6 +9,7 @@ import type { UserRepository } from '@/features/users/domain/repositories/user.r
 import type { GetUserUseCase } from '../../../application/usecases/get-user.usecase.js';
 import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
 import type { UpdateUserProfileUseCase } from '../../../application/usecases/update-user-profile.usecase.js';
+import type { DeleteAccountUseCase } from '../../../application/usecases/delete-account.usecase.js';
 import { UserController } from '../controllers/user.controller.js';
 import { updateUserProfileSchema } from '../schemas/user.schemas.js';
 
@@ -16,6 +17,7 @@ export interface UserRouteDeps {
   getUser: GetUserUseCase;
   updateUserProfile: UpdateUserProfileUseCase;
   getUserCapabilities: GetUserCapabilitiesUseCase;
+  deleteAccount: DeleteAccountUseCase;
   accessTokens: AccessTokenIssuer;
   clock: Clock;
   userRepository: UserRepository;
@@ -27,6 +29,7 @@ export const buildUserRoutes = (deps: UserRouteDeps): Hono<{ Variables: AuthVari
     deps.updateUserProfile,
     deps.clock,
     deps.getUserCapabilities,
+    deps.deleteAccount,
   );
   const auth = requireAuth(deps.accessTokens);
   const verifiedEmail = requireVerifiedEmail(deps.userRepository);
@@ -34,8 +37,9 @@ export const buildUserRoutes = (deps: UserRouteDeps): Hono<{ Variables: AuthVari
 
   return (
     new Hono<{ Variables: AuthVariables }>()
-      // /me/* routes MUST come before /:id — Hono v4 is first-registered-wins;
-      // registering /:id first would swallow GET /me/capabilities as id="me".
+      // /me/* and DELETE /me routes MUST come before /:id — Hono v4 is
+      // first-registered-wins; registering /:id first would swallow these as id="me".
+      .delete('/me', auth, (c) => controller.deleteMe(c))
       .patch(
         '/me',
         auth,

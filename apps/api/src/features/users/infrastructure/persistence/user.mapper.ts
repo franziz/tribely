@@ -54,6 +54,8 @@ export const toUser = (row: UserRow): User =>
         ? row.selfieLastFailureCategory
         : null,
     selfieAppealLockedAt: row.selfieAppealLockedAt,
+    // TRI-134 tombstone: null for active accounts, non-null for tombstoned ones.
+    deletedAt: row.deletedAt,
   });
 
 export const toRow = (user: User): UserRow => ({
@@ -75,4 +77,5 @@ export const toRow = (user: User): UserRow => ({
   selfieAttemptCount: user.selfieAttemptCount,
   selfieLastFailureCategory: user.selfieLastFailureCategory,
   selfieAppealLockedAt: user.selfieAppealLockedAt,
+  deletedAt: user.deletedAt,
 });

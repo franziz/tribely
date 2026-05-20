@@ -16,6 +16,7 @@ const makeEventRepo = (completedCount: number): EventRepository => {
     findByIdForUpdate: vi.fn(),
     save: vi.fn(),
     findManyForListing: vi.fn(),
+    pseudonymiseHostForUser: vi.fn().mockResolvedValue(0),
   };
   return mock;
 };

@@ -18,7 +18,9 @@ import {
   OutboxDispatcher,
   OutboxEventPublisher,
   type EventPublisher,
+  type OutboxEventRepository,
 } from '../events/index.js';
+import { OutboxEventPrismaRepository } from '../events/outbox-event.prisma-repository.js';
 import type { Logger } from '../observability/logger.port.js';
 import { PinoLogger } from '../observability/pino-logger.js';
 import { InMemoryRateLimiter } from '../security/in-memory-rate-limiter.js';
@@ -56,6 +58,7 @@ import type { EmailVerificationTokenRepository } from '@/features/auth/domain/re
 import type { PasswordResetTokenRepository } from '@/features/auth/domain/repositories/password-reset-token.repository.js';
 import type { RefreshTokenRepository } from '@/features/auth/domain/repositories/refresh-token.repository.js';
 
+import { DeleteAccountUseCase } from '@/features/users/application/usecases/delete-account.usecase.js';
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
@@ -67,13 +70,16 @@ import { registerUsersConsumers } from '@/features/users/presentation/events/ind
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 
 import { PruneSelfieDeletionEventsUseCase } from '@/features/audit/application/usecases/prune-selfie-deletion-events.usecase.js';
+import { RecordAccountDeletionUseCase } from '@/features/audit/application/usecases/record-account-deletion.usecase.js';
 import { RecordEventDispatchUseCase } from '@/features/audit/application/usecases/record-event-dispatch.usecase.js';
 import { RecordEventPublishedUseCase } from '@/features/audit/application/usecases/record-event-published.usecase.js';
 import { RecordHttpCallUseCase } from '@/features/audit/application/usecases/record-http-call.usecase.js';
 import { RecordSelfieDeletionUseCase } from '@/features/audit/application/usecases/record-selfie-deletion.usecase.js';
+import { AccountDeletionEventPrismaRepository } from '@/features/audit/infrastructure/persistence/account-deletion-event.prisma-repository.js';
 import { EventAuditLogPrismaRepository } from '@/features/audit/infrastructure/persistence/event-audit-log.prisma-repository.js';
 import { HttpAuditLogPrismaRepository } from '@/features/audit/infrastructure/persistence/http-audit-log.prisma-repository.js';
 import { SelfieDeletionEventPrismaRepository } from '@/features/audit/infrastructure/persistence/selfie-deletion-event.prisma-repository.js';
+import type { AccountDeletionEventRepository } from '@/features/audit/domain/repositories/account-deletion-event.repository.js';
 import type { EventAuditLogRepository } from '@/features/audit/domain/repositories/event-audit-log.repository.js';
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
 import type { SelfieDeletionEventRepository } from '@/features/audit/domain/repositories/selfie-deletion-event.repository.js';
@@ -84,6 +90,7 @@ import { CancelEventUseCase } from '@/features/events/application/usecases/cance
 import { CreateEventUseCase } from '@/features/events/application/usecases/create-event.usecase.js';
 import { GetEventUseCase } from '@/features/events/application/usecases/get-event.usecase.js';
 import { ListEventsUseCase } from '@/features/events/application/usecases/list-events.usecase.js';
+import { PseudonymiseEventsHostForUserUseCase } from '@/features/events/application/usecases/pseudonymise-events-host-for-user.usecase.js';
 import { UpdateEventUseCase } from '@/features/events/application/usecases/update-event.usecase.js';
 import { EventPrismaRepository } from '@/features/events/infrastructure/persistence/event.prisma-repository.js';
 import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
@@ -120,6 +127,7 @@ import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
 import { ListJoinRequestsByRequesterUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-requester.usecase.js';
+import { PseudonymiseJoinRequestsAuthorForUserUseCase } from '@/features/join-requests/application/usecases/pseudonymise-join-requests-author-for-user.usecase.js';
 import { RejectJoinRequestUseCase } from '@/features/join-requests/application/usecases/reject-join-request.usecase.js';
 import { RequestToJoinEventUseCase } from '@/features/join-requests/application/usecases/request-to-join-event.usecase.js';
 import { JoinRequestPrismaRepository } from '@/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
@@ -231,6 +239,7 @@ export interface Container {
   getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
   rejectSelfieUseCase: RejectSelfieUseCase;
   approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
+  deleteAccountUseCase: DeleteAccountUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -260,11 +269,13 @@ export interface Container {
   eventAuditLogRepository: EventAuditLogRepository;
   selfieDeletionEventRepository: SelfieDeletionEventRepository;
   postEventCheckInEventRepository: PostEventCheckInEventRepository;
+  accountDeletionEventRepository: AccountDeletionEventRepository;
   recordHttpCallUseCase: RecordHttpCallUseCase;
   recordEventPublishedUseCase: RecordEventPublishedUseCase;
   recordEventDispatchUseCase: RecordEventDispatchUseCase;
   recordSelfieDeletionUseCase: RecordSelfieDeletionUseCase;
   recordPostEventCheckInEventUseCase: RecordPostEventCheckInEventUseCase;
+  recordAccountDeletionUseCase: RecordAccountDeletionUseCase;
   pruneSelfieDeletionEventsUseCase: PruneSelfieDeletionEventsUseCase;
   pruneSelfieDeletionEventsJob: PruneSelfieDeletionEventsJob;
   prunePostEventCheckInEventsUseCase: PrunePostEventCheckInEventsUseCase;
@@ -295,6 +306,7 @@ export interface Container {
   getEventUseCase: GetEventUseCase;
   updateEventUseCase: UpdateEventUseCase;
   cancelEventUseCase: CancelEventUseCase;
+  pseudonymiseEventsHostForUserUseCase: PseudonymiseEventsHostForUserUseCase;
 
   // Join Requests
   joinRequestRepository: JoinRequestRepository;
@@ -304,6 +316,10 @@ export interface Container {
   cancelJoinRequestByRequesterUseCase: CancelJoinRequestByRequesterUseCase;
   listJoinRequestsByEventUseCase: ListJoinRequestsByEventUseCase;
   listJoinRequestsByRequesterUseCase: ListJoinRequestsByRequesterUseCase;
+  pseudonymiseJoinRequestsAuthorForUserUseCase: PseudonymiseJoinRequestsAuthorForUserUseCase;
+
+  // Core — outbox (exposed for account-deletion cascade DI)
+  outboxEventRepository: OutboxEventRepository;
 }
 
 export const buildContainer = (): Container => {
@@ -317,6 +333,8 @@ export const buildContainer = (): Container => {
   const emailSender = buildEmailSender();
   const phoneVerifier = buildPhoneVerifier();
   const fileStorage = buildFileStorage();
+  // Outbox event repository — used only for the account-deletion cascade (TRI-134).
+  const outboxEventRepository = new OutboxEventPrismaRepository(db);
   // Zod's superRefine on env guarantees PHONE_HASH_SALT is set when
   // NODE_ENV=production. In development/test it defaults to a fixed 32-char
   // sentinel so local dev works without manual env editing.
@@ -467,11 +485,15 @@ export const buildContainer = (): Container => {
   const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
   const eventAuditLogRepository = new EventAuditLogPrismaRepository(db);
   const selfieDeletionEventRepository = new SelfieDeletionEventPrismaRepository(db);
+  const accountDeletionEventRepository = new AccountDeletionEventPrismaRepository(db);
   const recordHttpCallUseCase = new RecordHttpCallUseCase(httpAuditLogRepository);
   const recordEventPublishedUseCase = new RecordEventPublishedUseCase(eventAuditLogRepository);
   const recordEventDispatchUseCase = new RecordEventDispatchUseCase(eventAuditLogRepository);
   const recordSelfieDeletionUseCase = new RecordSelfieDeletionUseCase(
     selfieDeletionEventRepository,
+  );
+  const recordAccountDeletionUseCase = new RecordAccountDeletionUseCase(
+    accountDeletionEventRepository,
   );
   const pruneSelfieDeletionEventsUseCase = new PruneSelfieDeletionEventsUseCase(
     unitOfWork,
@@ -574,6 +596,9 @@ export const buildContainer = (): Container => {
     getUserCapabilitiesUseCase,
   );
   const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
+  const pseudonymiseEventsHostForUserUseCase = new PseudonymiseEventsHostForUserUseCase(
+    eventRepository,
+  );
 
   // --- Join Requests ---
   const joinRequestRepository = new JoinRequestPrismaRepository(db);
@@ -613,6 +638,8 @@ export const buildContainer = (): Container => {
     joinRequestRepository,
     eventRepository,
   );
+  const pseudonymiseJoinRequestsAuthorForUserUseCase =
+    new PseudonymiseJoinRequestsAuthorForUserUseCase(joinRequestRepository);
 
   // --- Check-ins ---
   // PostEventCheckInAuditPort is satisfied by RecordPostEventCheckInEventUseCase
@@ -665,6 +692,28 @@ export const buildContainer = (): Container => {
     flagCheckInUseCase,
   );
 
+  // --- TRI-134 — account-deletion cascade ---
+  // DeleteAccountUseCase is the outermost orchestrator for the PDPA erasure flow.
+  // All sub-use-cases use the two-arg execute(input, ctx) A7-exception pattern —
+  // they join this use case's UnitOfWork transaction rather than opening their own.
+  const deleteAccountUseCase = new DeleteAccountUseCase(
+    unitOfWork,
+    userRepository,
+    credentialRepository,
+    refreshTokenRepository,
+    emailVerificationTokenRepository,
+    passwordResetTokenRepository,
+    deleteSelfieForUserUseCase,
+    pseudonymiseCheckInsForUserUseCase,
+    pseudonymiseEventsHostForUserUseCase,
+    pseudonymiseJoinRequestsAuthorForUserUseCase,
+    outboxEventRepository,
+    httpAuditLogRepository,
+    recordAccountDeletionUseCase,
+    publisher,
+    clock,
+  );
+
   // --- Consumers (per-consumer offsets registry) ---
   registerUsersConsumers(consumerRegistry);
   registerAuthConsumers(consumerRegistry, {
@@ -697,6 +746,7 @@ export const buildContainer = (): Container => {
     getUserCapabilitiesUseCase,
     rejectSelfieUseCase,
     approveSelfieAppealUseCase,
+    deleteAccountUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,
@@ -722,11 +772,13 @@ export const buildContainer = (): Container => {
     eventAuditLogRepository,
     selfieDeletionEventRepository,
     postEventCheckInEventRepository,
+    accountDeletionEventRepository,
     recordHttpCallUseCase,
     recordEventPublishedUseCase,
     recordEventDispatchUseCase,
     recordSelfieDeletionUseCase,
     recordPostEventCheckInEventUseCase,
+    recordAccountDeletionUseCase,
     pruneSelfieDeletionEventsUseCase,
     pruneSelfieDeletionEventsJob,
     prunePostEventCheckInEventsUseCase,
@@ -743,6 +795,7 @@ export const buildContainer = (): Container => {
     getEventUseCase,
     updateEventUseCase,
     cancelEventUseCase,
+    pseudonymiseEventsHostForUserUseCase,
     joinRequestRepository,
     requestToJoinEventUseCase,
     approveJoinRequestUseCase,
@@ -750,6 +803,8 @@ export const buildContainer = (): Container => {
     cancelJoinRequestByRequesterUseCase,
     listJoinRequestsByEventUseCase,
     listJoinRequestsByRequesterUseCase,
+    pseudonymiseJoinRequestsAuthorForUserUseCase,
+    outboxEventRepository,
     postEventCheckInRepository,
     surfacePendingCheckInsUseCase,
     acknowledgeCheckInUseCase,

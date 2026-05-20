@@ -11,4 +11,10 @@ export interface PasswordResetTokenRepository {
    */
   findOpenByUserId(userId: string, ctx?: TxContext): Promise<PasswordResetToken | null>;
   save(token: PasswordResetToken, ctx?: TxContext): Promise<void>;
+  /**
+   * Hard-delete ALL password reset tokens for the given user.
+   * Used exclusively in the account-deletion cascade.
+   * Returns the count of deleted rows.
+   */
+  deleteAllForUser(userId: string, ctx: TxContext): Promise<number>;
 }

@@ -8,3 +8,5 @@ export {
   type DispatchOutcomeReporter,
   type OutboxDispatcherOptions,
 } from './outbox-dispatcher.js';
+export type { OutboxEventRepository } from './outbox-event.repository.js';
+export { OutboxEventPrismaRepository } from './outbox-event.prisma-repository.js';

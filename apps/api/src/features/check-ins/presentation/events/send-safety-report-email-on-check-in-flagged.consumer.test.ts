@@ -41,6 +41,9 @@ class StubEventRepository implements EventRepository {
   countCompletedByHost(): never {
     throw new Error('not needed in this test');
   }
+  pseudonymiseHostForUser(): never {
+    throw new Error('not needed in this test');
+  }
 }
 
 /** Minimal Event stand-in that satisfies the consumer's `.title` read. */

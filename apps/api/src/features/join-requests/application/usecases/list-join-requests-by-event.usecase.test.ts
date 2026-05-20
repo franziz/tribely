@@ -63,6 +63,7 @@ const seedUser = (repo: FakeUserRepository, id: string): User => {
     selfieAttemptCount: 0,
     selfieLastFailureCategory: null,
     selfieAppealLockedAt: null,
+    deletedAt: null,
   });
   repo.put(user);
   return user;
