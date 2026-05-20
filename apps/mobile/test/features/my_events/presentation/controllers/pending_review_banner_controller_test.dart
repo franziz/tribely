@@ -79,7 +79,7 @@ ProviderContainer _makeContainer({
   // scheduled microtask in build() completes.
   final subscription = container.listen(
     pendingReviewBannerControllerProvider,
-    (_, __) {},
+    (prev, next) {},
   );
   addTearDown(subscription.close);
   return container;
