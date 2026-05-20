@@ -57,6 +57,10 @@ import '../../features/check_ins/domain/usecases/acknowledge_check_in_usecase.da
 import '../../features/check_ins/domain/usecases/flag_check_in_usecase.dart';
 import '../../features/check_ins/domain/usecases/surface_pending_check_ins_usecase.dart';
 import '../../features/users/domain/usecases/get_user_profile_usecase.dart';
+import '../../features/account/data/datasources/account_remote_datasource.dart';
+import '../../features/account/data/repositories/account_repository_impl.dart';
+import '../../features/account/domain/repositories/account_repository.dart';
+import '../../features/account/domain/usecases/delete_account_usecase.dart';
 import '../storage/intro_flag_storage.dart';
 
 final GetIt sl = GetIt.instance;
@@ -232,4 +236,17 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(
     () => ListMyJoinRequestsUseCase(sl<JoinRequestRepository>()),
   );
+
+  // Account — datasources
+  sl.registerLazySingleton<AccountRemoteDatasource>(
+    () => AccountRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Account — repositories
+  sl.registerLazySingleton<AccountRepository>(
+    () => AccountRepositoryImpl(remote: sl<AccountRemoteDatasource>()),
+  );
+
+  // Account — use cases
+  sl.registerLazySingleton(() => DeleteAccountUseCase(sl<AccountRepository>()));
 }

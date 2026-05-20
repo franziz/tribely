@@ -13,6 +13,11 @@ import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
 import '../widgets/profile_body.dart';
 
+// Verbatim designer copy — do not paraphrase (TRI-142 Brief D).
+const _kSectionLabel = 'ACCOUNT';
+const _kSignOutLabel = 'Sign out';
+const _kDeleteAccountLabel = 'Delete account';
+
 class OwnProfilePage extends ConsumerWidget {
   const OwnProfilePage({super.key});
 
@@ -93,9 +98,40 @@ class OwnProfilePage extends ConsumerWidget {
               UserProfileLoading() => const Center(
                 child: CircularProgressIndicator(),
               ),
-              UserProfileLoaded(:final profile) => ProfileBody(
-                profile: profile,
-                isOwn: true,
+              UserProfileLoaded(:final profile) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: ProfileBody(profile: profile, isOwn: true)),
+                  _AccountSection(
+                    ink: ink,
+                    inkSecondary: inkSecondary,
+                    dark: dark,
+                    onSignOut: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Sign out of Tribely?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('Sign out'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true && context.mounted) {
+                        await ref
+                            .read(sessionControllerProvider.notifier)
+                            .signOut();
+                      }
+                    },
+                    onDeleteAccount: () => context.push('/account/delete'),
+                  ),
+                ],
               ),
               UserProfileError(:final message) => _ErrorView(
                 message: message,
@@ -107,6 +143,123 @@ class OwnProfilePage extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Account section displayed below the profile body on [OwnProfilePage].
+///
+/// Contains two list rows — Sign out and Delete account — separated by a
+/// hairline divider, under an "ACCOUNT" caption section label.
+///
+/// Design spec §Screen 1 (TRI-142):
+///   - Sign out row: inkSecondary color, Icons.logout, chevron.
+///   - Delete account row: paperAccent/nightAccent color, Icons.delete_forever, chevron.
+///   - Each row: 56dp min height, 24dp horizontal padding, 12dp icon→label gap,
+///     bodyM label weight.
+///   - Section divider: caption weight, centered, with hairline rules.
+class _AccountSection extends StatelessWidget {
+  const _AccountSection({
+    required this.ink,
+    required this.inkSecondary,
+    required this.dark,
+    required this.onSignOut,
+    required this.onDeleteAccount,
+  });
+
+  final Color ink;
+  final Color inkSecondary;
+  final bool dark;
+  final VoidCallback onSignOut;
+  final VoidCallback onDeleteAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = dark
+        ? TribelyColors.nightAccent
+        : TribelyColors.paperAccent;
+    final dividerColor = dark
+        ? TribelyColors.nightBorderSubtle
+        : TribelyColors.paperBorderSubtle;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Section divider — "ACCOUNT" caption with hairline rules.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(child: Divider(color: dividerColor, thickness: 0.5)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  _kSectionLabel,
+                  style: TribelyType.caption(inkSecondary),
+                ),
+              ),
+              Expanded(child: Divider(color: dividerColor, thickness: 0.5)),
+            ],
+          ),
+        ),
+
+        // Sign out row.
+        InkWell(
+          onTap: onSignOut,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: inkSecondary, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _kSignOutLabel,
+                      style: TribelyType.bodyM(inkSecondary),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: inkSecondary, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Hairline divider between rows.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Divider(color: dividerColor, thickness: 0.5, height: 0),
+        ),
+
+        // Delete account row.
+        InkWell(
+          onTap: onDeleteAccount,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  Icon(Icons.delete_forever, color: accentColor, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _kDeleteAccountLabel,
+                      style: TribelyType.bodyM(accentColor),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: inkSecondary, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

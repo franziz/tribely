@@ -46,6 +46,14 @@ const String kContestedPhoneBannerCopy =
 /// Set to false once the Tribely-branded Twilio sender ID is live.
 const bool kPhoneVerificationBridgeCopyEnabled = true;
 
+/// Privacy Policy URL. Used by the account-deletion confirmation surface and
+/// any future PDPA disclosure linking.
+///
+/// TODO(TRI-142-followup): confirm the gotribely.com Privacy Policy section is
+/// live before App Store submission. Section existence is the App Store 5.1.1(v)
+/// gate; PR ship-ability is not blocked on it.
+const String kPrivacyPolicyUrl = 'https://gotribely.com/privacy';
+
 /// Substitutes {{COMPANY_NAME}} in a legal copy template with [kLegalEntityName].
 String resolveLegalCopy(String template) =>
     template.replaceAll('{{COMPANY_NAME}}', kLegalEntityName);

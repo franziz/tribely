@@ -128,7 +128,13 @@ void main() {
     // -----------------------------------------------------------------------
     testWidgets('sign-out IconButton is present in the AppBar', (tester) async {
       await _pumpPage(tester);
-      expect(find.byIcon(Icons.logout), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.logout),
+        ),
+        findsOneWidget,
+      );
       expect(find.byTooltip('Sign out'), findsOneWidget);
     });
 
@@ -139,13 +145,24 @@ void main() {
       'tapping sign-out button opens AlertDialog with correct title and actions',
       (tester) async {
         await _pumpPage(tester);
-        await tester.tap(find.byIcon(Icons.logout));
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.byIcon(Icons.logout),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.text('Sign out of Tribely?'), findsOneWidget);
         expect(find.text('Cancel'), findsOneWidget);
-        expect(find.text('Sign out'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.text('Sign out'),
+          ),
+          findsOneWidget,
+        );
       },
     );
 
@@ -157,7 +174,12 @@ void main() {
     ) async {
       var signOutCalls = 0;
       await _pumpPage(tester, onSignOut: () => signOutCalls++);
-      await tester.tap(find.byIcon(Icons.logout));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.logout),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsOneWidget);
@@ -177,12 +199,22 @@ void main() {
       (tester) async {
         var signOutCalls = 0;
         await _pumpPage(tester, onSignOut: () => signOutCalls++);
-        await tester.tap(find.byIcon(Icons.logout));
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.byIcon(Icons.logout),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.byType(AlertDialog), findsOneWidget);
 
-        await tester.tap(find.text('Sign out'));
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(TextButton, 'Sign out'),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(signOutCalls, equals(1));
