@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
@@ -247,18 +248,21 @@ class _AuthorReviewRow extends StatelessWidget {
 
 extension _ReviewNavigation on BuildContext {
   void navigateToEditReview(Review review) {
-    // Route is mounted in app_router.dart; push with query params.
-    // Using Navigator.of for simplicity — the route handles the params.
-    Navigator.of(this).pushNamed(
-      '/reviews/write',
-      arguments: {
+    // Route is mounted in app_router.dart; use go_router context.push so
+    // the route is resolved correctly (Navigator named-routes are not
+    // registered by go_router and throw RouteNotFoundException at runtime).
+    final uri = Uri(
+      path: '/reviews/write',
+      queryParameters: {
         'reviewId': review.id,
         'eventId': review.eventId,
         'ratedUserId': review.ratedUserId,
-        'prefillRating': review.rating,
-        'prefillComment': review.comment,
+        'prefillRating': review.rating.toString(),
+        if (review.comment != null)
+          'prefillComment': Uri.encodeQueryComponent(review.comment!),
         'reviewCreatedAt': review.createdAt.toIso8601String(),
       },
     );
+    push(uri.toString());
   }
 }
