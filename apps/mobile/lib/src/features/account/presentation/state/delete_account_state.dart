@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+const String _kDeleteToken = 'DELETE';
+
 /// Failure kinds the [DeleteAccountController] can surface.
 ///
 /// - [network] — no connectivity or request timeout.
@@ -15,6 +17,11 @@ enum DeleteAccountFailureKind { network, sessionExpired, server }
 sealed class DeleteAccountState extends Equatable {
   const DeleteAccountState();
 
+  /// Whether the typed-confirmation gate is satisfied. True iff the user
+  /// has typed 'DELETE' exactly (case-sensitive). The CTA enable state and
+  /// the mismatch hint both derive from this value.
+  bool get isTokenValid;
+
   @override
   List<Object?> get props => [];
 }
@@ -27,6 +34,9 @@ class DeleteAccountIdle extends DeleteAccountState {
   final String token;
 
   @override
+  bool get isTokenValid => token == _kDeleteToken;
+
+  @override
   List<Object?> get props => [token];
 }
 
@@ -36,6 +46,9 @@ class DeleteAccountSubmitting extends DeleteAccountState {
   const DeleteAccountSubmitting({required this.token});
 
   final String token;
+
+  @override
+  bool get isTokenValid => token == _kDeleteToken;
 
   @override
   List<Object?> get props => [token];
@@ -51,6 +64,9 @@ class DeleteAccountFailure extends DeleteAccountState {
   final DeleteAccountFailureKind kind;
 
   @override
+  bool get isTokenValid => token == _kDeleteToken;
+
+  @override
   List<Object?> get props => [token, kind];
 }
 
@@ -59,4 +75,7 @@ class DeleteAccountFailure extends DeleteAccountState {
 /// consumer reacts via [ref.listen] and calls [context.go('/account-deleted')].
 class DeleteAccountSuccess extends DeleteAccountState {
   const DeleteAccountSuccess();
+
+  @override
+  bool get isTokenValid => false;
 }
