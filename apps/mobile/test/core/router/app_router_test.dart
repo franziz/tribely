@@ -43,9 +43,11 @@ import 'package:tribely/src/features/join_requests/presentation/state/my_join_re
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/my_events_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/pending_review_banner_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/pages/my_events_page.dart';
 import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
 import 'package:tribely/src/features/my_events/presentation/state/my_events_state.dart';
+import 'package:tribely/src/features/my_events/presentation/state/pending_review_banner_state.dart';
 
 // ---------------------------------------------------------------------------
 // Keys for stub widgets — used as primary finders in assertions.
@@ -135,6 +137,21 @@ class _FixedMyEventsController extends MyEventsController {
 
   @override
   Future<void> refresh() async {}
+}
+
+/// Bypasses PendingReviewBannerController's async _fetchIfEligible() which
+/// reads getPendingReviewPromptUseCaseProvider → sl<>. Returns None
+/// immediately so MyEventsPage renders without crashing on GetIt access.
+class _FixedPendingReviewBannerController
+    extends PendingReviewBannerController {
+  @override
+  PendingReviewBannerState build() => const PendingReviewBannerNone();
+
+  @override
+  void dismiss() {}
+
+  @override
+  void onComposerNavigated() {}
 }
 
 // ---------------------------------------------------------------------------
@@ -314,6 +331,12 @@ Future<void> pumpRouter(
         // listMyHostedEventsUseCaseProvider → sl<>, crashing tests that don't
         // initialise GetIt. Override with an empty loaded-state stub.
         myEventsControllerProvider.overrideWith(_FixedMyEventsController.new),
+        // PendingReviewBannerController's _fetchIfEligible() reads
+        // getPendingReviewPromptUseCaseProvider → sl<>. Override with a None
+        // stub so MyEventsPage renders without crashing on GetIt access.
+        pendingReviewBannerControllerProvider.overrideWith(
+          _FixedPendingReviewBannerController.new,
+        ),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),

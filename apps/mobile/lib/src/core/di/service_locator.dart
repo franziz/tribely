@@ -65,6 +65,7 @@ import '../storage/intro_flag_storage.dart';
 import '../../features/reviews/data/datasources/review_remote_datasource.dart';
 import '../../features/reviews/data/repositories/review_repository_impl.dart';
 import '../../features/reviews/domain/repositories/review_repository.dart';
+import '../../features/reviews/domain/usecases/get_pending_review_prompt_usecase.dart';
 import '../../features/reviews/domain/usecases/submit_review_usecase.dart';
 import '../../features/reviews/domain/usecases/edit_review_usecase.dart';
 import '../../features/reviews/domain/usecases/list_reviews_for_user_usecase.dart';
@@ -285,6 +286,9 @@ Future<void> configureDependencies() async {
   );
   sl.registerLazySingleton(
     () => ListReviewsWrittenByMeUseCase(sl<ReviewRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => GetPendingReviewPromptUseCase(sl<ReviewRepository>()),
   );
 
   // Reports — datasources

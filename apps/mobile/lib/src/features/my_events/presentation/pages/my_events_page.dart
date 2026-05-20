@@ -7,6 +7,7 @@ import '../../../../core/design/typography.dart';
 import '../controllers/hosting_pending_count_controller.dart';
 import '../controllers/my_events_controller.dart';
 import '../state/my_events_state.dart';
+import '../widgets/pending_review_banner.dart';
 import 'hosting_tab.dart';
 import 'my_join_requests_tab.dart';
 
@@ -90,6 +91,10 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
       ),
       body: Column(
         children: [
+          // Review-prompt banner — shown above the segmented control when the
+          // server returns a pending review for the current user. Renders
+          // SizedBox.shrink for all non-Visible states (Loading/None/Dismissed).
+          const PendingReviewBanner(),
           // Segmented control with notification dot on Hosting tab.
           _SegmentedControl(
             selectedIndex: _selectedTab,
