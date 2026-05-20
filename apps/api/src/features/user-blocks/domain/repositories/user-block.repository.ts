@@ -62,4 +62,16 @@ export interface UserBlockRepository {
     },
     ctx?: TxContext,
   ): Promise<{ rows: UserBlock[]; nextCursor: string | null }>;
+
+  /**
+   * Bulk-delete all block rows where `userId` appears as either the
+   * initiator OR the blocked party.
+   *
+   * Used by the account-deletion cascade. `ctx` is required — this method
+   * MUST be called from within an existing UnitOfWork transaction so the
+   * deletion commits atomically with the rest of the cascade.
+   *
+   * Returns the number of rows deleted.
+   */
+  deleteAllForUser(userId: string, ctx: TxContext): Promise<number>;
 }

@@ -141,4 +141,67 @@ describe.skipIf(!dbUrl)('UserBlockPrismaRepository — integration', () => {
       repo.delete({ initiatorUserId: userA, blockedUserId: userB }),
     ).resolves.toBeUndefined();
   });
+
+  describe('deleteAllForUser', () => {
+    // Separate set of users so these tests don't interfere with the outer suite.
+    let u1: string;
+    let u2: string;
+    let u3: string;
+
+    beforeAll(async () => {
+      if (!dbUrl) return;
+      u1 = createId();
+      u2 = createId();
+      u3 = createId();
+
+      await db.user.createMany({
+        data: [
+          { id: u1, email: `daf-u1-${u1}@test.com`, displayName: 'DAF_U1' },
+          { id: u2, email: `daf-u2-${u2}@test.com`, displayName: 'DAF_U2' },
+          { id: u3, email: `daf-u3-${u3}@test.com`, displayName: 'DAF_U3' },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      if (!dbUrl) return;
+      await db.userBlock.deleteMany({
+        where: { OR: [{ initiatorUserId: u1 }, { blockedUserId: u1 }, { initiatorUserId: u2 }, { blockedUserId: u2 }, { initiatorUserId: u3 }, { blockedUserId: u3 }] },
+      });
+      await db.user.deleteMany({ where: { id: { in: [u1, u2, u3] } } });
+    });
+
+    it('deletes all block rows involving userId (as initiator or blocked party) and returns count, leaving unrelated rows intact', async () => {
+      // Seed: u1 blocks u2, u3 blocks u1 — both involve u1.
+      await db.userBlock.createMany({
+        data: [
+          { id: createId(), initiatorUserId: u1, blockedUserId: u2, createdAt: new Date() },
+          { id: createId(), initiatorUserId: u3, blockedUserId: u1, createdAt: new Date() },
+        ],
+      });
+
+      // Unrelated block: u2 blocks u3 — must survive.
+      const unrelatedId = createId();
+      await db.userBlock.create({
+        data: { id: unrelatedId, initiatorUserId: u2, blockedUserId: u3, createdAt: new Date() },
+      });
+
+      let deletedCount = 0;
+      await uow.run(async (ctx) => {
+        deletedCount = await repo.deleteAllForUser(u1, ctx);
+      });
+
+      expect(deletedCount).toBe(2);
+
+      // Both rows involving u1 are gone.
+      const u1Rows = await db.userBlock.findMany({
+        where: { OR: [{ initiatorUserId: u1 }, { blockedUserId: u1 }] },
+      });
+      expect(u1Rows).toHaveLength(0);
+
+      // The unrelated row between u2 and u3 is intact.
+      const unrelated = await db.userBlock.findUnique({ where: { id: unrelatedId } });
+      expect(unrelated).not.toBeNull();
+    });
+  });
 });
