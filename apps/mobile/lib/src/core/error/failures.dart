@@ -100,6 +100,14 @@ class TargetTypeNotImplementedFailure extends Failure {
   const TargetTypeNotImplementedFailure(super.message, {super.code});
 }
 
+/// 422 UNPROCESSABLE when the user attempts to block themselves.
+///
+/// The backend returns 422 with an error code indicating self-block is not
+/// allowed. The UI renders a short inline error message.
+class SelfBlockFailure extends Failure {
+  const SelfBlockFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event

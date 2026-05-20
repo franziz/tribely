@@ -67,6 +67,7 @@ String _bannerFor(Failure failure) {
     EditWindowExpiredFailure() => failure.message,
     TargetNotFoundFailure() => failure.message,
     TargetTypeNotImplementedFailure() => failure.message,
+    SelfBlockFailure() => failure.message,
     UnknownFailure() => failure.message,
   };
 }
