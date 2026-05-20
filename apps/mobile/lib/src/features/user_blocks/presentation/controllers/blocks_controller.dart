@@ -89,9 +89,8 @@ class BlocksController extends Notifier<BlocksState> {
         : current.copyWith(page: updatedPage, clearPaginationError: true);
 
     final useCase = ref.read(unblockUserUseCaseProvider);
-    final result = await useCase(
-      UnblockUserParams(blockedUserId: blockedUserId),
-    );
+    final params = UnblockUserParams(blockedUserId: blockedUserId);
+    final result = await useCase(params);
 
     if (!ref.mounted) return;
     result.fold(
