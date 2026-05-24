@@ -495,6 +495,51 @@ model AccountDeletionEvent {
   @@map("account_deletion_events")
 }
 
+/// Append-only audit log for moderation actions taken via the operator CLI
+/// (apps/api/scripts/moderation.ts). Bounded context: `audit` feature.
+///
+/// PDPA s24 evidence integrity driver: audit row commits ATOMICALLY with the
+/// triggering report state transition (and any cascaded review hide). Caller
+/// MUST pass TxContext to the repository — see SelfieDeletionEvent precedent.
+///
+/// `operatorUserId` is captured by the CLI from --operator flag or env var;
+/// plain String, NOT a relation — audit row must outlive any user-record
+/// tombstoning (PDPA s24).
+///
+/// `targetType` / `action` are plain String columns with CHECK constraints in
+/// the migration (cf. Report, Event, JoinRequest convention — TEXT + CHECK,
+/// not Postgres enums).
+///
+/// `contentSnapshot` captures the verbatim review text at action time when
+/// action == 'resolve_hidden' (chain-of-custody evidence). NULL for 'touch'
+/// and 'resolve_kept' (no content removed, original remains in live table).
+///
+/// `requestId` discriminates channel via `system:cli.moderation.<verb>:*`
+/// pattern (mirrors account-deletion-sla.md §4 PDPC inspection posture).
+///
+/// No application-layer UPDATE or prune path — append-only by contract.
+/// Read access is out-of-band SQL only — no public-port read methods.
+model ModerationActionAudit {
+  id              String   @id @default(cuid())
+  operatorUserId  String
+  action          String   // touch | resolve_hidden | resolve_kept — CHECK enforced
+  reportId        String
+  targetType      String   // review | user | event — CHECK enforced
+  targetId        String
+  reason          String?  @db.VarChar(500)  // required for resolve_*, null for touch
+  contentSnapshot String?  @db.Text          // verbatim target content at action time
+  reporterUserId  String   // denormalised from Report at action time
+  actedAt         DateTime
+  requestId       String?
+  recordedAt      DateTime @default(now())
+
+  @@index([reportId])
+  @@index([operatorUserId, actedAt])
+  @@index([actedAt])
+  @@index([requestId])
+  @@map("moderation_action_audit")
+}
+
 /// Aggregate root in the `selfies` bounded context.
 /// Tracks a user's selfie submitted for identity verification.
 ///
