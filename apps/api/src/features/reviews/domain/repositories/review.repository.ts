@@ -144,4 +144,16 @@ export interface ReviewRepository {
     input: { ratedUserId: string; viewerId: string },
     ctx?: TxContext,
   ): Promise<ReviewAggregateForUser>;
+
+  /**
+   * Bulk-delete all reviews where the given user is either the rater or the
+   * rated party, as part of a PDPA erasure cascade on account deletion.
+   *
+   * Required ctx (non-optional) — this method MUST be invoked inside the
+   * caller's UnitOfWork transaction to guarantee atomicity with the broader
+   * account-deletion cascade.
+   *
+   * Returns the count of deleted rows.
+   */
+  deleteAllForUser(userId: string, ctx: TxContext): Promise<number>;
 }

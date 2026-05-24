@@ -125,6 +125,28 @@ export class ReportPrismaRepository implements ReportRepository {
     return rows.map(toReport);
   }
 
+  async deleteAllForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    // Self-contained: deletes reports filed by the user AND reports targeting
+    // reviews the user authored or was rated in. Order-independent w.r.t. the
+    // reviews cascade — reads `reviews` to expand the target set even though
+    // a sibling adapter will also delete from `reviews` in the same tx.
+    //
+    // NOTE: Polymorphic resolvers for targetType IN ('user', 'event') are
+    // deferred — see TRI-30 spec and TRI-155 PM brief. Add resolver branches
+    // for those target types when they are implemented.
+    return await client.$executeRaw`
+      DELETE FROM "reports"
+       WHERE "reporterUserId" = ${userId}
+          OR ("targetType" = 'review'
+              AND "targetId" IN (
+                SELECT "id" FROM "reviews"
+                 WHERE "raterUserId" = ${userId}
+                    OR "ratedUserId" = ${userId}
+              ))
+    `;
+  }
+
   async listByReporter(
     input: { reporterUserId: string; cursor?: string; limit?: number },
     ctx?: TxContext,

@@ -16,6 +16,9 @@ import type { EventHostPseudonymisationPort } from '@/features/events/applicatio
 import type { JoinRequestAuthorPseudonymisationPort } from '@/features/join-requests/application/ports/join-request-author-pseudonymisation.port.js';
 import type { OutboxEventRepository } from '@/core/events/outbox-event.repository.js';
 import type { HttpAuditLogRepository } from '@/features/audit/domain/repositories/http-audit-log.repository.js';
+import type { CascadeOnUserDeletionPort as ReportsCascadeOnUserDeletionPort } from '@/features/reports/application/ports/cascade-on-user-deletion.port.js';
+import type { CascadeOnUserDeletionPort as ReviewsCascadeOnUserDeletionPort } from '@/features/reviews/application/ports/cascade-on-user-deletion.port.js';
+import type { CascadeOnUserDeletionPort as UserBlocksCascadeOnUserDeletionPort } from '@/features/user-blocks/application/ports/cascade-on-user-deletion.port.js';
 import type {
   RecordAccountDeletionInput,
   RecordAccountDeletionUseCase,
@@ -164,6 +167,30 @@ class FakeRecordAccountDeletion {
   }
 }
 
+class FakeReportsCascade implements ReportsCascadeOnUserDeletionPort {
+  calls: string[] = [];
+  execute(input: { userId: string }, _ctx: TxContext): Promise<void> {
+    this.calls.push(input.userId);
+    return Promise.resolve();
+  }
+}
+
+class FakeReviewsCascade implements ReviewsCascadeOnUserDeletionPort {
+  calls: string[] = [];
+  execute(input: { userId: string }, _ctx: TxContext): Promise<void> {
+    this.calls.push(input.userId);
+    return Promise.resolve();
+  }
+}
+
+class FakeUserBlocksCascade implements UserBlocksCascadeOnUserDeletionPort {
+  calls: string[] = [];
+  execute(input: { userId: string }, _ctx: TxContext): Promise<void> {
+    this.calls.push(input.userId);
+    return Promise.resolve();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers to build a live User aggregate (not tombstoned)
 // ---------------------------------------------------------------------------
@@ -208,6 +235,9 @@ describe('DeleteAccountUseCase', () => {
   let joinRequestAuthorPseudonymisation: FakeJoinRequestAuthorPseudonymisation;
   let outboxRepo: FakeOutboxEventRepository;
   let httpAuditLogRepo: FakeHttpAuditLogRepository;
+  let reportsCascade: FakeReportsCascade;
+  let reviewsCascade: FakeReviewsCascade;
+  let userBlocksCascade: FakeUserBlocksCascade;
   let recordAccountDeletion: FakeRecordAccountDeletion;
   let publisher: FakeEventPublisher;
   let clock: FixedClock;
@@ -226,6 +256,9 @@ describe('DeleteAccountUseCase', () => {
     joinRequestAuthorPseudonymisation = new FakeJoinRequestAuthorPseudonymisation();
     outboxRepo = new FakeOutboxEventRepository();
     httpAuditLogRepo = new FakeHttpAuditLogRepository();
+    reportsCascade = new FakeReportsCascade();
+    reviewsCascade = new FakeReviewsCascade();
+    userBlocksCascade = new FakeUserBlocksCascade();
     recordAccountDeletion = new FakeRecordAccountDeletion();
     publisher = new FakeEventPublisher();
     clock = new FixedClock(FIXED_TIME);
@@ -243,6 +276,9 @@ describe('DeleteAccountUseCase', () => {
       joinRequestAuthorPseudonymisation,
       outboxRepo,
       httpAuditLogRepo as unknown as HttpAuditLogRepository,
+      reportsCascade,
+      reviewsCascade,
+      userBlocksCascade,
       recordAccountDeletion as unknown as RecordAccountDeletionUseCase,
       publisher,
       clock,
@@ -273,6 +309,9 @@ describe('DeleteAccountUseCase', () => {
       expect(outboxRepo.calls).toEqual([USER_ID]);
       expect(httpAuditLogRepo.calls).toHaveLength(1);
       expect(httpAuditLogRepo.calls[0]?.userId).toBe(USER_ID);
+      expect(reportsCascade.calls).toEqual([USER_ID]);
+      expect(reviewsCascade.calls).toEqual([USER_ID]);
+      expect(userBlocksCascade.calls).toEqual([USER_ID]);
     });
 
     it('uses the same pseudonym for eventHost and joinRequestAuthor pseudonymisations', async () => {
@@ -318,7 +357,7 @@ describe('DeleteAccountUseCase', () => {
       expect(publishedTypes).toContain('users.userAccountDeleted');
     });
 
-    it('writes the audit row with outcome=completed and all 11 cascadeScope values', async () => {
+    it('writes the audit row with outcome=completed and all 14 cascadeScope values', async () => {
       const user = await buildActiveUser(USER_ID);
       userRepo.seed(user);
 
@@ -340,10 +379,13 @@ describe('DeleteAccountUseCase', () => {
         'join_requests_authored',
         'outbox_events_redacted',
         'http_audit_logs_actor_hashed',
+        'reports_deleted',
+        'reviews_deleted',
+        'user_blocks_deleted',
         'users',
       ];
       expect(auditInput?.cascadeScope).toEqual(expectedScopes);
-      expect(auditInput?.cascadeScope).toHaveLength(11);
+      expect(auditInput?.cascadeScope).toHaveLength(14);
     });
 
     it('writes the audit row inside the same transaction context (A7 exception)', async () => {

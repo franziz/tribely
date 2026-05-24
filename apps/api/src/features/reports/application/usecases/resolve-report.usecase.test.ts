@@ -40,6 +40,7 @@ const makeDeps = (existingReport: Report | null) => {
     listOlderThan: vi.fn(),
     listOpenOlderThan: vi.fn(),
     listByReporter: vi.fn(),
+    deleteAllForUser: vi.fn(),
   };
   const hideReview = { execute: hideExecuteSpy } as unknown as HideReviewUseCase;
   const publisher: EventPublisher = { publish: publishSpy };

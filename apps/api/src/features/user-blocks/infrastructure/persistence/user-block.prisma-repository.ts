@@ -132,6 +132,14 @@ export class UserBlockPrismaRepository implements UserBlockRepository {
     return blocked;
   }
 
+  async deleteAllForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.userBlock.deleteMany({
+      where: { OR: [{ initiatorUserId: userId }, { blockedUserId: userId }] },
+    });
+    return result.count;
+  }
+
   async listInitiatedBy(
     input: { initiatorUserId: string; cursor?: string; limit: number },
     ctx?: TxContext,

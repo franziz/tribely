@@ -323,6 +323,14 @@ export class ReviewPrismaRepository implements ReviewRepository {
     };
   }
 
+  async deleteAllForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.review.deleteMany({
+      where: { OR: [{ raterUserId: userId }, { ratedUserId: userId }] },
+    });
+    return result.count;
+  }
+
   async findExistingTriples(
     input: {
       raterUserId: string;

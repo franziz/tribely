@@ -30,6 +30,10 @@ export class CredentialPrismaRepository implements CredentialRepository {
 
   async deleteForUser(userId: string, ctx: TxContext): Promise<void> {
     const client = unwrapTx(ctx);
-    await client.credential.delete({ where: { userId } });
+    // deleteMany is intentional: a user may have no credential row (e.g. OAuth
+    // signup path, or integration tests that seed users without credentials).
+    // Prisma's delete() throws P2025 when the row is absent; deleteMany is a
+    // safe no-op in that case, matching the "delete if exists" contract.
+    await client.credential.deleteMany({ where: { userId } });
   }
 }

@@ -10,7 +10,8 @@ export type AccountDeletionOutcome = 'completed' | 'failed_rolled_back';
  * Closed enum of cascade scopes touched during account deletion.
  * Each value represents a class of data that was pseudonymised or deleted.
  *
- * Locked at TRI-134. Do NOT extend without a new ticket + legal review.
+ * Extended in TRI-155 — three new scopes added for the reviews/reports/user-blocks
+ * cascade. No semantic shift in PDPA s24 evidence schema, just additional scope tags.
  *
  * NOTE: `event_audit_logs_actor_hashed` was removed in Brief E adjudication.
  * `EventAuditLog` has no `actorUserId` column — it joins to `http_audit_logs`
@@ -29,7 +30,10 @@ export type AccountDeletionCascadeScope =
   | 'events_hosted'
   | 'join_requests_authored'
   | 'http_audit_logs_actor_hashed'
-  | 'outbox_events_redacted';
+  | 'outbox_events_redacted'
+  | 'reports_deleted'
+  | 'reviews_deleted'
+  | 'user_blocks_deleted';
 
 export interface AccountDeletionEventRecord {
   id: string;

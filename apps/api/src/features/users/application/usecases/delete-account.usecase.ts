@@ -16,6 +16,9 @@ import type { DeleteSelfieForUserUseCase } from '@/features/selfies/application/
 import type { PseudonymiseCheckInsForUserUseCase } from '@/features/check-ins/application/usecases/pseudonymise-check-ins-for-user.usecase.js';
 import type { OutboxEventRepository } from '@/core/events/outbox-event.repository.js';
 import type { AccountDeletionCascadeScope } from '@/features/audit/domain/repositories/account-deletion-event.repository.js';
+import type { CascadeOnUserDeletionPort as ReportsCascadeOnUserDeletionPort } from '@/features/reports/application/ports/cascade-on-user-deletion.port.js';
+import type { CascadeOnUserDeletionPort as ReviewsCascadeOnUserDeletionPort } from '@/features/reviews/application/ports/cascade-on-user-deletion.port.js';
+import type { CascadeOnUserDeletionPort as UserBlocksCascadeOnUserDeletionPort } from '@/features/user-blocks/application/ports/cascade-on-user-deletion.port.js';
 import type { UserRepository } from '../../domain/repositories/user.repository.js';
 
 export interface DeleteAccountInput {
@@ -43,6 +46,9 @@ export interface DeleteAccountInput {
  *   6. Pseudonymise join-request requesterUserId references.
  *   7. Pseudonymise un-dispatched outbox-event payload + actorUserId column.
  *   8. Hash actorUserId in http_audit_logs rows.
+ *   8.5. Cascade-delete reports filed by / targeting user's reviews.
+ *   8.6. Cascade-delete reviews authored by or about user.
+ *   8.7. Cascade-delete user_blocks involving user.
  *   9. Tombstone User aggregate (clears PII, records UserAccountDeletedEvent).
  *  10. Save User + publish domain events.
  *  11. Record account-deletion audit row (required-ctx atomicity contract).
@@ -68,6 +74,10 @@ export class DeleteAccountUseCase {
     private readonly joinRequestAuthorPseudonymisation: JoinRequestAuthorPseudonymisationPort,
     private readonly outboxRepository: OutboxEventRepository,
     private readonly httpAuditLogRepository: HttpAuditLogRepository,
+    // A7-exception pattern — joins outer UoW
+    private readonly reportsCascade: ReportsCascadeOnUserDeletionPort, // from reports/
+    private readonly reviewsCascade: ReviewsCascadeOnUserDeletionPort, // from reviews/
+    private readonly userBlocksCascade: UserBlocksCascadeOnUserDeletionPort, // from user-blocks/
     private readonly recordAccountDeletion: RecordAccountDeletionUseCase,
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
@@ -141,6 +151,18 @@ export class DeleteAccountUseCase {
         // ── 8. Hash actorUserId in http_audit_logs rows ────────────────────────
         await this.httpAuditLogRepository.hashActorForUser(userId, actorHash, ctx);
         cascadeScope.push('http_audit_logs_actor_hashed');
+
+        // ── 8.5. Cascade-delete reports filed by user + targeting user's reviews
+        await this.reportsCascade.execute({ userId }, ctx);
+        cascadeScope.push('reports_deleted');
+
+        // ── 8.6. Cascade-delete reviews authored by or about user ───────────────
+        await this.reviewsCascade.execute({ userId }, ctx);
+        cascadeScope.push('reviews_deleted');
+
+        // ── 8.7. Cascade-delete user_blocks involving user ──────────────────────
+        await this.userBlocksCascade.execute({ userId }, ctx);
+        cascadeScope.push('user_blocks_deleted');
 
         // ── 9. Tombstone the User aggregate ────────────────────────────────────
         // Intentionally LAST: sub-steps above can still resolve the original

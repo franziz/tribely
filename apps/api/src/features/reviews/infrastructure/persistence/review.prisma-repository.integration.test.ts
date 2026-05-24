@@ -133,6 +133,99 @@ describe.skipIf(!dbUrl)('ReviewPrismaRepository — integration', () => {
     expect(found?.id).toBe(review.id);
   });
 
+  it('deleteAllForUser removes reviews where user is rater or rated and returns the count', async () => {
+    // Seed two additional users and two Review rows for this sub-test.
+    const deletionTargetId = createId();
+    const counterpartId = createId();
+    const deleteEventId = createId();
+
+    await db.user.createMany({
+      data: [
+        {
+          id: deletionTargetId,
+          email: `del-target-${deletionTargetId}@example.com`,
+          displayName: 'DeleteTarget',
+        },
+        {
+          id: counterpartId,
+          email: `del-counter-${counterpartId}@example.com`,
+          displayName: 'DeleteCounterpart',
+        },
+      ],
+    });
+
+    await db.event.create({
+      data: {
+        id: deleteEventId,
+        hostUserId: deletionTargetId,
+        title: 'Deletion Test Event',
+        venueAddress: '2 Delete St',
+        venueCity: 'Singapore',
+        venueLatitude: 1.3,
+        venueLongitude: 103.8,
+        startsAt: new Date('2025-03-01T18:00:00Z'),
+        endsAt: new Date('2025-03-01T20:00:00Z'),
+        capacity: 5,
+        category: 'food',
+        venueCategory: 'cafe',
+        costSplit: 'own',
+        approvalMode: 'manual',
+        status: 'completed',
+      },
+    });
+
+    // Review 1: deletionTarget is the rater.
+    const review1 = Review.submit({
+      id: createId(),
+      eventId: deleteEventId,
+      raterUserId: deletionTargetId,
+      ratedUserId: counterpartId,
+      rating: Rating.create(4),
+      comment: null,
+      now: new Date(),
+    });
+    review1.pullEvents();
+
+    // Review 2: deletionTarget is the rated party.
+    const review2 = Review.submit({
+      id: createId(),
+      eventId: deleteEventId,
+      raterUserId: counterpartId,
+      ratedUserId: deletionTargetId,
+      rating: Rating.create(5),
+      comment: null,
+      now: new Date(),
+    });
+    review2.pullEvents();
+
+    await uow.run(async (ctx) => {
+      await repo.save(review1, ctx);
+      await repo.save(review2, ctx);
+    });
+
+    // Verify both rows were seeded.
+    const before = await db.review.findMany({
+      where: { OR: [{ raterUserId: deletionTargetId }, { ratedUserId: deletionTargetId }] },
+    });
+    expect(before).toHaveLength(2);
+
+    let deletedCount: number | undefined;
+    await uow.run(async (ctx) => {
+      deletedCount = await repo.deleteAllForUser(deletionTargetId, ctx);
+    });
+
+    expect(deletedCount).toBe(2);
+
+    const after = await db.review.findMany({
+      where: { OR: [{ raterUserId: deletionTargetId }, { ratedUserId: deletionTargetId }] },
+    });
+    expect(after).toHaveLength(0);
+
+    // Clean up seeded data for this sub-test.
+    await db.event.delete({ where: { id: deleteEventId } });
+    await db.user.deleteMany({ where: { id: { in: [deletionTargetId, counterpartId] } } });
+  });
+
   it('save updates existing review (upsert)', async () => {
     const now = new Date();
     // Use secondGuestId to avoid a unique-triple conflict with the
