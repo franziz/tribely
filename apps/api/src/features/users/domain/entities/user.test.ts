@@ -30,6 +30,11 @@ describe('User aggregate', () => {
     expect(user.isEmailVerified()).toBe(false);
   });
 
+  it('register() produces isAdmin=false', () => {
+    const user = buildUser();
+    expect(user.isAdmin).toBe(false);
+  });
+
   describe('verifyEmail', () => {
     it('sets emailVerifiedAt + bumps updatedAt + records event', () => {
       const user = buildUser();
@@ -89,6 +94,7 @@ describe('User aggregate', () => {
         selfieLastFailureCategory: null,
         selfieAppealLockedAt: null,
         deletedAt: null,
+        isAdmin: false,
       });
       expect(user.isEmailVerified()).toBe(true);
       expect(user.emailVerifiedAt).toEqual(verifiedAt);
@@ -116,6 +122,7 @@ describe('User aggregate', () => {
         selfieLastFailureCategory: null,
         selfieAppealLockedAt: null,
         deletedAt: null,
+        isAdmin: false,
       });
       expect(user.phone?.value).toBe('+6591234567');
       expect(user.phoneVerifiedAt).toEqual(verifiedAt);
@@ -144,11 +151,39 @@ describe('User aggregate', () => {
         selfieLastFailureCategory: 'poor_lighting',
         selfieAppealLockedAt: lockedAt,
         deletedAt: null,
+        isAdmin: false,
       });
       expect(user.selfieStatus).toBe('rejected');
       expect(user.selfieAttemptCount).toBe(3);
       expect(user.selfieLastFailureCategory).toBe('poor_lighting');
       expect(user.selfieAppealLockedAt).toEqual(lockedAt);
+    });
+
+    it('rehydrate with isAdmin=true produces an admin user', () => {
+      const now = new Date('2026-01-01T00:00:00Z');
+      const user = User.rehydrate({
+        id: 'user_admin',
+        email: Email.create('admin@b.co'),
+        displayName: DisplayName.create('Admin'),
+        createdAt: now,
+        updatedAt: now,
+        emailVerifiedAt: null,
+        bio: null,
+        avatarUrl: null,
+        languages: [],
+        interests: [],
+        currentCity: null,
+        travelerType: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        selfieStatus: null,
+        selfieAttemptCount: 0,
+        selfieLastFailureCategory: null,
+        selfieAppealLockedAt: null,
+        deletedAt: null,
+        isAdmin: true,
+      });
+      expect(user.isAdmin).toBe(true);
     });
   });
 
