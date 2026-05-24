@@ -67,8 +67,7 @@ describe('CascadeUserBlocksOnUserDeletionUseCase', () => {
     repo.deleteAllForUserResult = 5;
     const useCase = new CascadeUserBlocksOnUserDeletionUseCase(repo);
 
-    const result = await useCase.execute({ userId: createId() }, TEST_TX);
-
-    expect(result).toBeUndefined();
+    // The port contract is Promise<void> — callers cannot observe the row count.
+    await expect(useCase.execute({ userId: createId() }, TEST_TX)).resolves.toBeUndefined();
   });
 });

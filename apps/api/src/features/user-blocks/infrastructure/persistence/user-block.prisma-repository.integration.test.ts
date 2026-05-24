@@ -166,7 +166,16 @@ describe.skipIf(!dbUrl)('UserBlockPrismaRepository — integration', () => {
     afterAll(async () => {
       if (!dbUrl) return;
       await db.userBlock.deleteMany({
-        where: { OR: [{ initiatorUserId: u1 }, { blockedUserId: u1 }, { initiatorUserId: u2 }, { blockedUserId: u2 }, { initiatorUserId: u3 }, { blockedUserId: u3 }] },
+        where: {
+          OR: [
+            { initiatorUserId: u1 },
+            { blockedUserId: u1 },
+            { initiatorUserId: u2 },
+            { blockedUserId: u2 },
+            { initiatorUserId: u3 },
+            { blockedUserId: u3 },
+          ],
+        },
       });
       await db.user.deleteMany({ where: { id: { in: [u1, u2, u3] } } });
     });

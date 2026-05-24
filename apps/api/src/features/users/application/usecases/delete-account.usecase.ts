@@ -75,8 +75,8 @@ export class DeleteAccountUseCase {
     private readonly outboxRepository: OutboxEventRepository,
     private readonly httpAuditLogRepository: HttpAuditLogRepository,
     // A7-exception pattern — joins outer UoW
-    private readonly reportsCascade: ReportsCascadeOnUserDeletionPort,  // from reports/
-    private readonly reviewsCascade: ReviewsCascadeOnUserDeletionPort,  // from reviews/
+    private readonly reportsCascade: ReportsCascadeOnUserDeletionPort, // from reports/
+    private readonly reviewsCascade: ReviewsCascadeOnUserDeletionPort, // from reviews/
     private readonly userBlocksCascade: UserBlocksCascadeOnUserDeletionPort, // from user-blocks/
     private readonly recordAccountDeletion: RecordAccountDeletionUseCase,
     private readonly publisher: EventPublisher,

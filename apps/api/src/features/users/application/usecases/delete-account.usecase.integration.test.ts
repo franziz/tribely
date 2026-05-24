@@ -45,16 +45,16 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
   let subjectEventId: string;
 
   // Review rows
-  let reviewBySubjectId: string;  // subject is rater
-  let reviewAboutSubjectId: string;  // subject is rated
+  let reviewBySubjectId: string; // subject is rater
+  let reviewAboutSubjectId: string; // subject is rated
 
   // Report rows
-  let reportBySubjectId: string;       // subject is reporter
-  let reportTargetingSubjectReviewId: string;  // counterparty reports one of subject's reviews
+  let reportBySubjectId: string; // subject is reporter
+  let reportTargetingSubjectReviewId: string; // counterparty reports one of subject's reviews
 
   // UserBlock rows
-  let userBlockSubjectInitiatorId: string;  // subject blocks counterparty1
-  let userBlockSubjectBlockedId: string;    // counterparty2 blocks subject
+  let userBlockSubjectInitiatorId: string; // subject blocks counterparty1
+  let userBlockSubjectBlockedId: string; // counterparty2 blocks subject
 
   // Unrelated rows (must survive after cascade)
   let unrelatedReviewId: string;
@@ -258,17 +258,39 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
 
     // reports (some may already be deleted by cascade)
     await db.report
-      .deleteMany({ where: { id: { in: [reportBySubjectId, reportTargetingSubjectReviewId, unrelatedReportId].filter(Boolean) } } })
+      .deleteMany({
+        where: {
+          id: {
+            in: [reportBySubjectId, reportTargetingSubjectReviewId, unrelatedReportId].filter(
+              Boolean,
+            ),
+          },
+        },
+      })
       .catch(() => null);
 
     // reviews (some may already be deleted by cascade)
     await db.review
-      .deleteMany({ where: { id: { in: [reviewBySubjectId, reviewAboutSubjectId, unrelatedReviewId].filter(Boolean) } } })
+      .deleteMany({
+        where: {
+          id: { in: [reviewBySubjectId, reviewAboutSubjectId, unrelatedReviewId].filter(Boolean) },
+        },
+      })
       .catch(() => null);
 
     // user_blocks (some may already be deleted by cascade)
     await db.userBlock
-      .deleteMany({ where: { id: { in: [userBlockSubjectInitiatorId, userBlockSubjectBlockedId, unrelatedUserBlockId].filter(Boolean) } } })
+      .deleteMany({
+        where: {
+          id: {
+            in: [
+              userBlockSubjectInitiatorId,
+              userBlockSubjectBlockedId,
+              unrelatedUserBlockId,
+            ].filter(Boolean),
+          },
+        },
+      })
       .catch(() => null);
 
     // events
@@ -278,7 +300,9 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
 
     // users (subject has deletedAt set after cascade — delete by id)
     await db.user
-      .deleteMany({ where: { id: { in: [subjectId, counterparty1Id, counterparty2Id].filter(Boolean) } } })
+      .deleteMany({
+        where: { id: { in: [subjectId, counterparty1Id, counterparty2Id].filter(Boolean) } },
+      })
       .catch(() => null);
 
     await db.$disconnect();

@@ -853,9 +853,15 @@ export const buildContainer = (): Container => {
   // Placed after User Blocks, Reviews, and Reports so all three repositories are in scope.
 
   // TRI-155 — three new cascade adapters (reviews, reports, user-blocks).
-  const cascadeReviewsOnUserDeletionUseCase = new CascadeReviewsOnUserDeletionUseCase(reviewRepository);
-  const cascadeReportsOnUserDeletionUseCase = new CascadeReportsOnUserDeletionUseCase(reportRepository);
-  const cascadeUserBlocksOnUserDeletionUseCase = new CascadeUserBlocksOnUserDeletionUseCase(userBlockRepository);
+  const cascadeReviewsOnUserDeletionUseCase = new CascadeReviewsOnUserDeletionUseCase(
+    reviewRepository,
+  );
+  const cascadeReportsOnUserDeletionUseCase = new CascadeReportsOnUserDeletionUseCase(
+    reportRepository,
+  );
+  const cascadeUserBlocksOnUserDeletionUseCase = new CascadeUserBlocksOnUserDeletionUseCase(
+    userBlockRepository,
+  );
 
   const deleteAccountUseCase = new DeleteAccountUseCase(
     unitOfWork,

@@ -41,6 +41,10 @@ class FakeUserBlockRepository implements UserBlockRepository {
     this.lastListInput = input;
     return Promise.resolve(this.stubbedResult);
   }
+
+  deleteAllForUser(_userId: string, _ctx: unknown): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 describe('ListMyBlocksUseCase', () => {

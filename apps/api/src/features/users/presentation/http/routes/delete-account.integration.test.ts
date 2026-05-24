@@ -28,7 +28,8 @@ const dbUrl = process.env.DATABASE_URL;
  *   - join_requests: requesterUserId rewritten to same pseudonym.
  *   - http_audit_logs: actorUserId rewritten to SHA-256 hash of original userId.
  *   - outbox_events: un-dispatched row's payload pseudonymised; dispatched rows untouched.
- *   - account_deletion_events: one row, outcome=completed, 11 cascadeScope values,
+ *   - account_deletion_events: one row, outcome=completed, 14 cascadeScope values
+ *     (11 original + 3 TRI-155: reports_deleted, reviews_deleted, user_blocks_deleted),
  *     userIdHash = sha256Hex(original userId).
  *   - 409 ACCOUNT_ALREADY_DELETED on second DELETE with the same JWT.
  *   - auth failure after deletion: refresh token row is gone.
@@ -438,7 +439,7 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
   // Re-introducing the assertion here would require isolating consumer_offsets
   // from buildApp() transitively touching them — see follow-up ticket.
 
-  it('account_deletion_events: one row with outcome=completed and 11 cascadeScope values', async () => {
+  it('account_deletion_events: one row with outcome=completed and 14 cascadeScope values', async () => {
     const rows = await db.accountDeletionEvent.findMany({
       where: { userIdHash: sha256Hex(userId) },
     });
@@ -448,6 +449,9 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
     expect(row?.userIdHash).toBe(sha256Hex(userId));
     expect(row?.failureReason).toBeNull();
 
+    // 11 original scopes + 3 new TRI-155 cascade scopes = 14 total.
+    // Order: reports → reviews → user_blocks are inserted after
+    // http_audit_logs_actor_hashed and before the tombstone 'users' scope.
     const expectedScopes = [
       'credentials',
       'refresh_tokens',
@@ -459,10 +463,13 @@ describe.skipIf(!dbUrl)('DELETE /users/me — account-deletion cascade (integrat
       'join_requests_authored',
       'outbox_events_redacted',
       'http_audit_logs_actor_hashed',
+      'reports_deleted',
+      'reviews_deleted',
+      'user_blocks_deleted',
       'users',
     ];
     expect(row?.cascadeScope).toEqual(expectedScopes);
-    expect(row?.cascadeScope).toHaveLength(11);
+    expect(row?.cascadeScope).toHaveLength(14);
   });
 
   // ──────────────────────────────────────────────────────────────────────────

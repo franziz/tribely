@@ -43,6 +43,10 @@ class FakeUserBlockRepository implements UserBlockRepository {
   listInitiatedBy(): Promise<{ rows: UserBlock[]; nextCursor: string | null }> {
     return Promise.resolve({ rows: [], nextCursor: null });
   }
+
+  deleteAllForUser(_userId: string, _ctx: unknown): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 class FakeCascadePendingBlocksPort implements CascadePendingBlocksPort {

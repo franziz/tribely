@@ -102,6 +102,9 @@ describe('SubmitReviewUseCase', () => {
           recentVisibleComments: [],
         }),
       ),
+      deleteAllForUser: vi.fn(
+        (_userId: string, _ctx: unknown): Promise<number> => Promise.resolve(0),
+      ),
     };
     eventRepo = {
       findById: eventFindByIdSpy,

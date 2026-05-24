@@ -28,9 +28,7 @@ describe('CascadeReviewsOnUserDeletionUseCase', () => {
       return Promise.resolve(1);
     };
 
-    const useCase = new CascadeReviewsOnUserDeletionUseCase(
-      repo as unknown as ReviewRepository,
-    );
+    const useCase = new CascadeReviewsOnUserDeletionUseCase(repo as unknown as ReviewRepository);
     const userId = createId();
 
     await useCase.execute({ userId }, TEST_TX);
@@ -43,14 +41,10 @@ describe('CascadeReviewsOnUserDeletionUseCase', () => {
     const repo = makeFakeRepo();
     repo.deleteAllForUser = (_userId, _ctx) => Promise.resolve(42);
 
-    const useCase = new CascadeReviewsOnUserDeletionUseCase(
-      repo as unknown as ReviewRepository,
-    );
-
-    const result = await useCase.execute({ userId: createId() }, TEST_TX);
+    const useCase = new CascadeReviewsOnUserDeletionUseCase(repo as unknown as ReviewRepository);
 
     // The port contract is Promise<void> — callers cannot observe the count.
-    expect(result).toBeUndefined();
+    await expect(useCase.execute({ userId: createId() }, TEST_TX)).resolves.toBeUndefined();
   });
 
   it('does NOT open its own UoW — no UnitOfWork injected and no error thrown (A7 exception)', async () => {
@@ -58,9 +52,7 @@ describe('CascadeReviewsOnUserDeletionUseCase', () => {
     // dependency. Constructing the use case without one (and receiving no
     // injection error) verifies the A7-exception shape is in place.
     const repo = makeFakeRepo();
-    const useCase = new CascadeReviewsOnUserDeletionUseCase(
-      repo as unknown as ReviewRepository,
-    );
+    const useCase = new CascadeReviewsOnUserDeletionUseCase(repo as unknown as ReviewRepository);
 
     // Should resolve cleanly with no UnitOfWork available.
     await expect(useCase.execute({ userId: createId() }, TEST_TX)).resolves.toBeUndefined();
