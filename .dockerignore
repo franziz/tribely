@@ -1,0 +1,38 @@
+# Dependencies and build output — never copy into the image
+**/node_modules
+**/dist
+**/build
+**/coverage
+
+# Flutter app — ~500MB of Dart/Android/iOS tooling, not needed for the API image
+apps/mobile/
+
+# Dart/Flutter tooling artifacts
+**/.dart_tool
+
+# Next.js (future web app — keep this ignore ahead of time)
+**/.next
+
+# Test files — not needed at runtime
+**/*.test.ts
+**/*.spec.ts
+
+# Git history and CI config
+.git/
+.github/
+
+# Secrets and local env files — never bake into the image
+**/.env
+**/.env.*
+
+# macOS noise
+**/.DS_Store
+
+# TypeScript incremental build info
+**/*.tsbuildinfo
+
+# Claude Code agent config
+.claude/
+
+# Documentation (no runtime value)
+docs/
