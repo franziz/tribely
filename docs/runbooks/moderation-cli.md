@@ -1,0 +1,295 @@
+> **About this runbook.** This document describes Tribely's operational moderation process: how user-submitted reports are received, triaged, resolved, escalated, and audited. The **process itself** — the response SLAs, the escalation path, the evidence-preservation rules, the audit discipline — is the operational commitment Tribely makes to its users, to the App Store and Google Play, and to the Singapore Personal Data Protection Commission. It is in force at launch and is not provisional.
+>
+> The **interface** used to operate the process is currently a command-line script at `apps/api/scripts/moderation.ts`, intended for the solo-operator stage of Tribely's launch. The interface will be replaced under a planned upgrade (tracked internally as TRI-159) with an HTTP-based operator tool that exposes the same audit-logged actions over an authenticated API. The replacement is a **tooling iteration**, not a process change: the SLAs, escalation categories, evidence rules, and audit guarantees described below carry over verbatim. This runbook will be updated to reference the new interface at the moment of cutover; the policy content will not.
+>
+> An operator reading this runbook today should follow it as authoritative. A reviewer (App Store, Google Play, PDPC, external counsel) reading this runbook should understand it as describing the current operational state, with the interface evolution flagged transparently rather than concealed.
+
+# Moderation CLI Operator Runbook
+
+## 1. Scope
+
+This runbook governs operator handling of user-filed content moderation reports for Tribely's Singapore launch, via the in-process CLI at `apps/api/scripts/moderation.ts`. The CLI is a stop-gap tool — it is retired in the same PR as TRI-159, which replaces it with HTTP-based admin endpoints (TRI-156 admin auth + TRI-157 admin endpoints). The process described here (SLAs, escalation categories, evidence rules, audit posture) carries over verbatim to the HTTP-based replacement; only the interface changes.
+
+The contract for PII handling on resolved-hidden content is in `docs/policy/pii-cascade-contract.md`.
+
+## 2. Response SLAs
+
+Tribely commits to the following response times for user-submitted reports against reviews, users, and events. These are operational commitments — an operator opening this runbook is responsible for honouring them, and a missed SLA is treated as an internal incident requiring root-cause review.
+
+**First-touch — within 72 hours of report submission.**
+The operator must acknowledge the report by running the `ack` command, which records the acknowledgement (reviewer ID + timestamp) in the moderation action audit. Acknowledgement is **not** a determination on the merits of the report; it confirms the report has been received and entered the active queue.
+
+**Resolution — within 7 days of report submission.**
+The operator must resolve the report via either `resolve-hidden` (the offending content is hidden from public view) or `resolve-kept` (the report does not warrant action, with a recorded reason). The resolution timestamp is recorded in the moderation action audit.
+
+**Clock start.** Both SLAs are measured from the timestamp the user tapped **Submit** in-app — recorded as `reportedAt` on the report row — **not** from the time the operator next opens the CLI. The CLI surfaces reports approaching the 72h or 7d boundary in its startup banner so the operator can prioritise accordingly.
+
+**SLA exclusions.**
+- Reports that escalate out-of-band (to the Singapore Police Force, to external counsel, to a regulator, or to a partner reporting channel) **stop the resolution clock** at the moment of escalation. The operator records the escalation in the audit log; resolution resumes when external input is received or the operator determines no further external input is required.
+- Reports classified as **Egregious Content** (CSAM, terrorism, content promoting suicide or self-harm with imminent risk indicators) are handled on a **same-business-day** posture via the [Escalation Path](#4-escalation-path), not the general queue. The 72h/7d SLAs do not apply — they are minimums for the general queue, not ceilings for harm response.
+
+**What "honoured" means.** The SLA is honoured when the corresponding audit row exists within the time window. The SLA is breached when no audit row exists. Breach is an internal operational matter — it does not, by itself, constitute a Personal Data Protection Act incident or a store-policy violation. Operators encountering a breach should record root cause in the post-incident log and adjust capacity or escalate to a second operator if recurrent.
+
+## 3. CLI Invocation
+
+All sub-commands are invoked via:
+
+```
+npm run --workspace=@tribely/api moderation <sub-command> [flags]
+```
+
+**Operator identity.** Every state-changing command requires an operator user ID. Supply it via:
+- `--operator <userId>` flag on any command, or
+- `$TRIBELY_OPERATOR_USER_ID` environment variable, set once per shell session:
+  ```
+  export TRIBELY_OPERATOR_USER_ID=usr_abc123
+  ```
+
+The CLI prints `Acting as <userId>` before every state-changing command. **Sanity-check this line on every invocation** before proceeding.
+
+---
+
+### `list-reports`
+
+Lists open moderation reports ordered by SLA urgency.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation list-reports
+```
+
+**Optional flags:**
+- `--status <status>` — filter by status (`pending`, `acknowledged`, `escalated`). Defaults to all open statuses.
+- `--limit <n>` — maximum rows returned. Defaults to 50.
+
+**Startup SLA banner.** The command prints a banner before the report table when breaches or approaching deadlines are present:
+
+```
+[!] 2 reports approaching 72h breach
+[BREACH] 1 report past 7d hard ceiling
+```
+
+- `[!]` — one or more reports are within 24 hours of the 72h first-touch deadline.
+- `[BREACH]` — one or more reports have exceeded the 7d resolution ceiling.
+
+**SLA Flag column.** Each row in the report table includes a `SLA Flag` column:
+
+| Value | Meaning |
+|---|---|
+| `OK` | Both the 72h and 7d clocks have headroom. No immediate action required. |
+| `APPROACHING-72H` | The 72h first-touch deadline is within 24 hours. Acknowledge via `touch`. |
+| `OVERDUE-72H` | The 72h first-touch deadline has passed without an `ack` record. |
+| `APPROACHING-7D` | The 7d resolution deadline is within 24 hours. Resolve via `resolve --hide` or `resolve --keep`. |
+| `BREACH-7D` | The 7d resolution deadline has passed without a resolution record. Internal incident; record root cause. |
+
+**On success:** Tabular output with columns `reportId`, `targetType`, `targetId`, `category`, `reportedAt`, `status`, `SLA Flag`.
+
+**On failure (no open reports):** `No open reports.` — no further action required.
+
+---
+
+### `touch`
+
+Acknowledges a report (maps to the legal-prose `ack` vocabulary in §2). Records the operator ID and timestamp in the moderation action audit. Does not make a determination on the merits.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation touch <reportId> [--operator <userId>]
+```
+
+**Required:**
+- `<reportId>` — the report ID from `list-reports` output.
+
+**Optional:**
+- `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
+
+**On success:**
+```
+Acting as usr_abc123
+Report rpt_xyz acknowledged. Audit row written.
+```
+
+**On failure:**
+- `Report rpt_xyz not found.` — verify the reportId from `list-reports`.
+- `Report rpt_xyz is already acknowledged (or resolved).` — no-op; check if a prior operator acted.
+- Any database error — cascade did not run; re-run after diagnosing.
+
+---
+
+### `resolve --hide`
+
+Hides the reported content from public view and resolves the report. Maps to the legal-prose `resolve-hidden` vocabulary in §2. Captures an evidence snapshot atomically with the state transition (see §5). Requires a mandatory reason string.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation resolve <reportId> --hide --reason "<text>" [--operator <userId>]
+```
+
+**Required:**
+- `<reportId>` — the report ID from `list-reports` output.
+- `--hide` — flag selecting the hide resolution path.
+- `--reason "<text>"` — operator-supplied reason string; recorded verbatim in the audit row.
+
+**Optional:**
+- `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
+
+**On success:**
+```
+Acting as usr_abc123
+Report rpt_xyz resolved (hidden). Content hidden. Audit row written.
+```
+
+**On failure:**
+- `Report rpt_xyz not found.` — verify the reportId.
+- `--reason is required for resolve.` — supply a reason string.
+- `Report rpt_xyz is already resolved.` — idempotent; check prior audit row.
+- Any database error — state transition did not run; audit row was NOT written; re-run after diagnosing.
+
+---
+
+### `resolve --keep`
+
+Resolves the report without hiding the reported content (the report does not warrant action). Maps to the legal-prose `resolve-kept` vocabulary in §2. Requires a mandatory reason string.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason "<text>" [--operator <userId>]
+```
+
+**Required:**
+- `<reportId>` — the report ID from `list-reports` output.
+- `--keep` — flag selecting the keep resolution path.
+- `--reason "<text>"` — operator-supplied reason string; recorded verbatim in the audit row.
+
+**Optional:**
+- `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
+
+**On success:**
+```
+Acting as usr_abc123
+Report rpt_xyz resolved (kept). No content change. Audit row written.
+```
+
+**On failure:**
+- `Report rpt_xyz not found.` — verify the reportId.
+- `--reason is required for resolve.` — supply a reason string.
+- `Report rpt_xyz is already resolved.` — idempotent; check prior audit row.
+- Any database error — state transition did not run; audit row was NOT written; re-run after diagnosing.
+
+## 4. Escalation Path
+
+A report is **ambiguous** when its category does not fit cleanly into the general `resolve-hidden` / `resolve-kept` flow. The categories below define the escalation responses for the highest-duty-of-care report types. When in doubt, escalate — over-escalation is recoverable; under-escalation is not.
+
+The operator must **never** make legal determinations on the merits of escalated content. The operator's role at escalation is: preserve evidence, contain harm, and route to the right external party.
+
+### Category 1 — Self-harm or suicidal ideation
+
+**Recognition signals.** Statements of intent to self-harm; references to method, time, or place; explicit suicidal ideation; goodbye-pattern language; reports from concerned parties flagging the same.
+
+**Immediate actions, in order:**
+1. **Preserve-then-hide.** Run `hide` (which captures the snapshot — see [Evidence Preservation](#5-evidence-preservation)). The content is removed from public view but retained in the snapshot.
+2. **Surface the in-app safety copy to the affected user via the support channel.** Send the verbatim copy: *"If you're in immediate danger, please call Samaritans of Singapore at 1767 or the Singapore Police at 999. We are not an emergency service."* Do not paraphrase. Do not promise follow-up Tribely will not deliver.
+3. **Do not contact the reporter** with content-specific information. A neutral acknowledgement of receipt is acceptable.
+4. **Record in audit log** with category tag `self_harm`. Do not run `resolve-*` until 24 hours have elapsed and no further escalation indicators emerge.
+
+### Category 2 — Criminal content, violence, or threats
+
+**Recognition signals.** Credible threats of violence against an identifiable person; depiction or solicitation of illegal activity (drugs, weapons trafficking, prostitution); doxxing; extortion.
+
+**Immediate actions, in order:**
+1. **Preserve only — do NOT hide yet.** Run the snapshot capture without the hide transition. Hiding content before law enforcement engagement can destroy chain-of-custody for evidence. The CLI provides a `preserve` action separate from `hide` for this purpose.
+2. **Assess imminence.** If there is credible indication of imminent physical harm to an identified person, call the Singapore Police Force at **999**. For non-imminent matters, file via the SPF e-services portal at police.gov.sg.
+3. **Engage external counsel** before responding to any SPF request that asks for user data, account history, or content disclosure. Do not respond directly to a Criminal Procedure Code request without counsel review — see [External Counsel Triggers](#external-counsel-triggers).
+4. **Hide the content only after SPF engagement** (or, if no SPF engagement is warranted, after counsel sign-off). Record both the preserve action and the eventual hide action in the audit log with category tag `criminal`.
+
+### Category 3 — Minor involved
+
+**Recognition signals.** Any indication — explicit or contextual — that a person depicted in or referenced by the reported content is under 18. Includes self-reports by the minor, third-party reports, photo subjects who appear under 18, references to school year / grade, references to age.
+
+**Immediate actions, in order:**
+1. **IMMEDIATE hide.** Run `hide` without delay. Minor-protection duty overrides the preserve-first rule for criminal-category content.
+2. **Preserve the snapshot.** The `hide` action automatically captures the snapshot; verify the audit row exists.
+3. **Do NOT engage with reporter or reported.** Any direct contact risks revictimisation or evidence contamination.
+4. **Escalate to external counsel within 24 hours** of recognition. Counsel routes onward — to SPF, to IMDA, to the partner CSAM reporting channel (channel pending — see [External Counsel Triggers](#external-counsel-triggers)).
+5. **For suspected Child Sexual Abuse Material (CSAM) specifically:** do NOT view the content further than necessary to confirm the category. Do NOT download. Do NOT distribute internally beyond the operator + named counsel. Record category tag `minor_csam_suspected` and treat the audit row as legally privileged.
+6. **Do not run `resolve-*` until counsel confirms.**
+
+### Category 4 — Imminent real-world harm (reported user has scheduled meet-up)
+
+**Recognition signals.** The reported user is the host of, or has an approved join request to, an Event scheduled within the next 72 hours. The reported behaviour suggests safety risk to other attendees (threats, predatory pattern, history correlating with the current report).
+
+**Immediate actions, in order:**
+1. **Hide the reported content** via `hide`.
+2. **Cancel the scheduled Event.** Use the event-cancellation action surfaced in the CLI (`cancel-event <eventId> --reason=safety`). This is the only escalation category where the moderation flow cascades into Event lifecycle.
+3. **Notify all RSVPed users** via the cancellation copy: *"This event has been cancelled for safety reasons. Please do not attend."* Do not name the reported user. Do not provide details that would identify the reporter.
+4. **If the meet-up window is under 6 hours away and credible physical threat is indicated,** call SPF at 999 and proceed under [Category 2](#category-2--criminal-content-violence-or-threats) in parallel.
+5. **Record in audit log** with category tag `imminent_real_world_harm` and cross-reference the cancelled Event ID.
+
+### When in genuine doubt
+
+If a report fits two categories, apply the more protective rule. If a report fits no category but feels load-bearing, **acknowledge within 72h, do not resolve, and surface to the CEO** in the daily ops channel for a second pair of eyes. Under-escalation is the failure mode this runbook is designed to prevent.
+
+---
+
+**Operational note (EL TRI-141):** When facing a criminal-category report, DO NOT touch / resolve / hide via the CLI. Immediately escalate via the documented escalation channel above and preserve evidence by leaving the report in `open` state until founder + counsel direct otherwise.
+
+## 5. Evidence Preservation
+
+The moderation CLI captures evidence atomically with the state transition. This section documents **what** is captured, **where** it is stored, **how long** it is retained, and **what triggers purge**. The rules below reconcile the Personal Data Protection Act's data-minimisation obligation (Section 25 — retain only as long as necessary for the purpose) with the operational need to produce evidence on request from law enforcement, the App Store / Play reviewer probe, or external counsel.
+
+### What is captured
+
+When the operator runs `hide` or `preserve`, the system writes the following — atomically with the state transition, in the same database transaction — to the moderation evidence audit:
+
+1. **Content snapshot.** The reported content as it appeared at the moment of report: full text, image URLs (if applicable), structural metadata (reviewId / userId / eventId, version, edit history if any).
+2. **Reporter identity.** User ID of the reporter, the timestamp of report submission, and the reporter's stated reason / category.
+3. **Reported identity.** User ID of the author of the reported content (and, where the report is against a user rather than content, the user ID of the reported user).
+4. **Action metadata.** Operator (reviewer ID) running the command, command issued (`ack` / `hide` / `preserve` / `resolve-hidden` / `resolve-kept` / `escalate`), timestamp, and the operator-supplied reason string (mandatory for `resolve-*` and `escalate`).
+5. **Escalation linkage.** If the report is escalated under the [Escalation Path](#4-escalation-path), the category tag and any external reference (SPF report number, counsel matter reference, partner channel ticket ID) are appended to the audit row.
+
+The capture is **atomic** with the state transition: if the audit write fails, the state transition rolls back. This is enforced at the database layer — there is no operator action that can produce a hidden-but-unaudited report, by design. (Pattern reference: the same required-`TxContext` discipline used by selfie-deletion evidence integrity.)
+
+### Where it is stored
+
+- **Primary store:** the project Postgres instance, in the `moderation_evidence_snapshots` and `moderation_action_audit` tables. **Region: Singapore (ap-southeast-1).** No cross-border transfer.
+- **Backups:** project standard backup policy applies. Snapshots are NOT excluded from backup.
+- **Access control:** Access to moderation evidence at this stage is via operational CLI + direct DB access only. Role-based gating, read-audit on evidence tables, and reviewer-scoped query interfaces land with the HTTP admin surface (TRI-156 admin auth + TRI-157 admin endpoints), at which point evidence access transitions to authenticated reviewer-role with full read-audit. Operators handling moderation evidence during this stop-gap window MUST treat all evidence reads as personally attributable and log out-of-band any read performed for non-action purposes (e.g., legal review, founder briefing).
+
+### How long it is retained
+
+| State | Retention window | Rationale |
+|---|---|---|
+| Report open (`pending` / `acknowledged` / `escalated`) | Retained while open, no cap | Active matter; no PDPA Section 25 trigger to purge yet |
+| Report resolved (`resolve-hidden` / `resolve-kept`) | 12 months from resolution timestamp | Industry-standard short tail for civil-claim and reviewer-audit window |
+| Egregious-content-tagged reports (`self_harm`, `criminal`, `minor_*`, `imminent_real_world_harm`) | 12 months from resolution **or counsel-directed longer**, whichever later | Higher-duty-of-care matters may require multi-year retention pending external proceedings |
+| Hidden content (the underlying record marked `hiddenAt`) | 12 months from resolution, then physical delete on sweep | Content is not deleted at hide-time so the snapshot remains verifiable against the source |
+
+### When it is purged
+
+Purge is performed by a **scheduled sweep job** against the 12-month boundary. There is no early-purge override on operator initiative. Specifically:
+
+- A reporter requesting deletion of their report **does not** trigger early purge. The report is evidence of an action the reporter took on the platform; preserving it is a legitimate interest under PDPA Section 17 (1) and the related deemed-consent provisions for evidence retention.
+- A reported user requesting account deletion (Apple Guideline 5.1.1(v) flow) **does not** delete the moderation evidence in which they are referenced. Direct identifiers (the reported user's display name, email) are pseudonymised on the evidence row; the underlying user-ID linkage is retained. (Mirror of the selfie-deletion + checkin-flagged-report pattern.)
+- A reported user's request under PDPA Section 21 (Access Request) **does** entitle them to know that reports exist about them, but does **not** entitle them to the reporter's identity or the report contents — evidentiary integrity and reporter safety are documented exceptions under the Personal Data Protection (Access) Regulations.
+
+The sweep runs on a scheduled cadence (see [Operational Cadence](#operational-cadence)). Sweep deletions are themselves audit-logged (one row per purge batch, with the row count and the cutoff timestamp).
+
+### What is NOT captured
+
+To stay within the data-minimisation bar of PDPA Section 18 (Purpose Limitation) and Section 25, the evidence audit does **not** capture:
+
+- IP address or device identifier of the reporter or reported (these would expand the audit scope beyond the moderation purpose; if law enforcement requests these, they are sourced from `http_audit_logs` under a separate disclosure protocol).
+- Free-text operator notes beyond the mandatory `reason` string on `resolve-*` and `escalate` actions. Operators who need to record investigative thinking use the separate ops journal, not the audit row.
+- Any data about uninvolved third parties referenced incidentally in the reported content (these are subject to standard content-moderation handling but are not separately indexed).
+
+## 6. Audit and PDPC Inspection Posture
+
+All state-changing CLI commands write to the `moderation_action_audit` table atomically with the state transition — the same required-`TxContext` pattern used by `account_deletion_events` (see `docs/runbooks/account-deletion-sla.md` §4). There is no operator action that changes report state without a corresponding audit row; the database transaction enforces this guarantee by construction.
+
+Channel attribution for PDPC inspection uses the AsyncLocalStorage request-context label. The moderation CLI wraps every command invocation in `runAsSystem('cli.moderation.<subcommand>', fn)`. The audit row's `requestId` field will contain a value matching `system:cli.moderation.*`; PDPC inspection queries can discriminate CLI-originated actions via `requestId LIKE 'system:cli.moderation:%'`. This is the same discriminator pattern as the privacy-mailbox operator path in `account-deletion-sla.md` §4 — `system:<label>:*` as the audit channel fingerprint.
+
+The `moderation_action_audit` table is **append-only by contract** — no UPDATE or DELETE is issued by any application path. Rows are immutable once written. Purge of resolved-report rows at the 12-month boundary is performed by the scheduled sweep (§5), which itself writes an audit row recording the batch count and cutoff timestamp. If PDPC requests evidence that a specific report was handled: query `moderation_action_audit` by `reportId` to produce the full action history (touch → hide / keep → optional escalation linkage), ordered by `timestamp`. The `requestId` on each row confirms the operator channel; the `operatorUserId` column confirms the acting operator.
+
+## 7. Retirement
+
+This CLI is retired in the same PR as TRI-159, which replaces it with HTTP-based admin commands (TRI-156 admin auth + TRI-157 admin endpoints). At the moment of that cutover, operators MUST switch to the HTTP-based interface — the CLI script will no longer be present in the repository. The process described in this runbook (SLAs, escalation categories, evidence rules, audit posture) carries over verbatim; the interface does not. This runbook will be rewritten by TRI-159 to reference the new HTTP-based interface; the policy content will not change.
