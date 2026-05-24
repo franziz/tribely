@@ -24,6 +24,7 @@ const BASE_ROW: UserRow = {
   selfieLastFailureCategory: null,
   selfieAppealLockedAt: null,
   deletedAt: null,
+  isAdmin: false,
 };
 
 describe('user mapper', () => {
@@ -141,6 +142,17 @@ describe('user mapper', () => {
       const input: UserRow = { ...BASE_ROW, deletedAt: tombstonedAt };
       const row = toRow(toUser(input));
       expect(row.deletedAt).toEqual(tombstonedAt);
+    });
+
+    it('round-trips isAdmin=false (default) through toUser → toRow', () => {
+      const row = toRow(toUser(BASE_ROW));
+      expect(row.isAdmin).toBe(false);
+    });
+
+    it('round-trips isAdmin=true (admin account) through toUser → toRow', () => {
+      const input: UserRow = { ...BASE_ROW, isAdmin: true };
+      const row = toRow(toUser(input));
+      expect(row.isAdmin).toBe(true);
     });
   });
 });

@@ -41,6 +41,10 @@ model User {
   selfieAttemptCount        Int       @default(0)
   selfieLastFailureCategory String?   // SelfieFailureCategory — CHECK enforced by migration
   selfieAppealLockedAt      DateTime?
+  /// TRI-132 admin role: set to true out-of-band via SQL by an operator.
+  /// The aggregate has no grantAdmin/revokeAdmin method — admin-ness is not a
+  /// business invariant the app enforces; it is a DB-level operational grant.
+  isAdmin                   Boolean   @default(false)
   /// TRI-134 tombstone: set to non-null by User.tombstone(now). A tombstoned user has had all
   /// PII columns cleared and email replaced with a placeholder. The row is retained (not hard-
   /// deleted) so FK constraints on events/join_requests are intentionally absent post-TRI-134

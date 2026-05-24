@@ -81,6 +81,8 @@ export class User extends AggregateRoot {
     private _selfieAppealLockedAt: Date | null,
     // TRI-134 tombstone: null until account deletion is requested + confirmed
     private _deletedAt: Date | null,
+    // TRI-132 admin role: read-only from DB. Set out-of-band via SQL.
+    private readonly _isAdmin: boolean,
   ) {
     super();
   }
@@ -106,6 +108,7 @@ export class User extends AggregateRoot {
       null,
       null,
       null, // deletedAt
+      false, // isAdmin — new registrations are never admins
     );
     user.record(
       userRegistered({
@@ -138,6 +141,7 @@ export class User extends AggregateRoot {
     selfieLastFailureCategory: SelfieFailureCategory | null;
     selfieAppealLockedAt: Date | null;
     deletedAt: Date | null;
+    isAdmin: boolean;
   }): User {
     return new User(
       state.id,
@@ -159,6 +163,7 @@ export class User extends AggregateRoot {
       state.selfieLastFailureCategory,
       state.selfieAppealLockedAt,
       state.deletedAt,
+      state.isAdmin,
     );
   }
 
@@ -228,6 +233,10 @@ export class User extends AggregateRoot {
 
   get deletedAt(): Date | null {
     return this._deletedAt;
+  }
+
+  get isAdmin(): boolean {
+    return this._isAdmin;
   }
 
   isEmailVerified(): boolean {

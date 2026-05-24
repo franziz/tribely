@@ -38,6 +38,7 @@ const buildUser = (verifiedAt: Date | null = null): User =>
     selfieLastFailureCategory: null,
     selfieAppealLockedAt: null,
     deletedAt: null,
+    isAdmin: false,
   });
 
 const buildToken = (

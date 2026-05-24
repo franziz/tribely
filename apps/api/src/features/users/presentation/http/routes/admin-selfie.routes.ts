@@ -1,11 +1,5 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-// TODO(TRI-70 follow-up): replace with a real admin-role middleware once the
-// admin identity model is designed and implemented. Until then, these endpoints
-// are unauthenticated at the middleware level — they MUST be network-restricted
-// (private subnet / VPN / internal load balancer) before production use.
-// Flag this to the orchestrator/engineering-lead for an explicit admin-auth
-// ticket before the Singapore launch.
 import type { RejectSelfieUseCase } from '../../../application/usecases/reject-selfie.usecase.js';
 import type { ApproveSelfieAppealUseCase } from '../../../application/usecases/approve-selfie-appeal.usecase.js';
 import { rejectSelfieBodySchema } from '../schemas/admin-selfie.schemas.js';
@@ -18,14 +12,14 @@ export interface AdminSelfieRouteDeps {
 /**
  * Admin routes for selfie moderation (TRI-70).
  *
- * Mounted at /admin/users/:id/selfie/* in app.ts.
+ * Composed as a sub-router mounted at /users inside the /admin Hono sub-app
+ * in app.ts. Final URL paths:
  *
  * POST /admin/users/:id/selfie/reject          — reject a pending selfie
  * POST /admin/users/:id/selfie/appeal/approve  — approve a locked user's appeal
  *
- * SECURITY NOTE: No admin-role middleware is in place yet — see the TODO above.
- * These routes must NOT be publicly reachable without network-level protection
- * until an admin-auth ticket lands.
+ * Admin enforcement (requireAuth + requireAdmin) is applied at the /admin/*
+ * mount point in app.ts — not here. This router contains only the handler logic.
  */
 export const buildAdminSelfieRoutes = (deps: AdminSelfieRouteDeps): Hono => {
   return new Hono()

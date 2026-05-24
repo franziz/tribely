@@ -16,6 +16,8 @@ import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
 import { buildPendingReviewPromptsRoutes } from './features/users/presentation/http/routes/pending-review-prompts.routes.js';
 import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
+import { requireAuth } from './core/middleware/require-auth.js';
+import { requireAdmin } from './core/middleware/require-admin.js';
 import { buildCheckInsRoutes } from './features/check-ins/presentation/http/routes/check-ins.routes.js';
 import {
   buildEventScopedReviewRoutes,
@@ -191,16 +193,21 @@ export const buildApp = (): { app: Hono; container: Container } => {
     }),
   );
 
-  // Admin routes — selfie moderation (TRI-70).
-  // SECURITY NOTE: no admin-role middleware yet — network-restrict before production.
-  // See TODO in admin-selfie.routes.ts for the follow-up ticket scope.
-  app.route(
-    '/admin/users',
+  // Admin routes — requireAuth + requireAdmin applied once at the /admin/* mount.
+  // All sub-routes inherit these guards; no per-route auth boilerplate is needed.
+  // Registration order: app.use BEFORE app.route so the middleware is in the
+  // matcher before routes attach (Hono middleware registration order rule).
+  const auth = requireAuth(container.accessTokens);
+  const admin = requireAdmin(container.userRepository);
+  app.use('/admin/*', auth, admin);
+  const adminRoutes = new Hono().route(
+    '/users',
     buildAdminSelfieRoutes({
       rejectSelfie: container.rejectSelfieUseCase,
       approveSelfieAppeal: container.approveSelfieAppealUseCase,
     }),
   );
+  app.route('/admin', adminRoutes);
 
   // Post-event check-ins (TRI-29). Mounted under /me — no requireVerifiedEmail/Phone
   // guard (check-ins surface on foreground-resume; must not block on verification).

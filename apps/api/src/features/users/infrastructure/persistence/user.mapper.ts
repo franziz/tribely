@@ -56,6 +56,8 @@ export const toUser = (row: UserRow): User =>
     selfieAppealLockedAt: row.selfieAppealLockedAt,
     // TRI-134 tombstone: null for active accounts, non-null for tombstoned ones.
     deletedAt: row.deletedAt,
+    // TRI-132 admin role: read from DB; never modified by the aggregate.
+    isAdmin: row.isAdmin,
   });
 
 export const toRow = (user: User): UserRow => ({
@@ -78,4 +80,5 @@ export const toRow = (user: User): UserRow => ({
   selfieLastFailureCategory: user.selfieLastFailureCategory,
   selfieAppealLockedAt: user.selfieAppealLockedAt,
   deletedAt: user.deletedAt,
+  isAdmin: user.isAdmin,
 });

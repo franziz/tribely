@@ -71,6 +71,7 @@ const buildUserWithAttempts = (attemptCount: number): User =>
     selfieLastFailureCategory: attemptCount > 0 ? 'poor_lighting' : null,
     selfieAppealLockedAt: attemptCount >= 3 ? NOW : null,
     deletedAt: null,
+    isAdmin: false,
   });
 
 const buildFreshUser = (): User =>
@@ -94,6 +95,7 @@ const buildFreshUser = (): User =>
     selfieLastFailureCategory: null,
     selfieAppealLockedAt: null,
     deletedAt: null,
+    isAdmin: false,
   });
 
 const buildSut = () => {
@@ -164,6 +166,7 @@ describe('RejectSelfieUseCase', () => {
         selfieLastFailureCategory: 'face_not_visible', // differs from upcoming call
         selfieAppealLockedAt: null,
         deletedAt: null,
+        isAdmin: false,
       }),
     );
 
@@ -232,6 +235,7 @@ describe('RejectSelfieUseCase', () => {
         selfieLastFailureCategory: 'poor_lighting',
         selfieAppealLockedAt: null,
         deletedAt: null,
+        isAdmin: false,
       }),
     );
 

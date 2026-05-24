@@ -74,6 +74,7 @@ const buildAlreadyApprovedUser = (): User =>
     selfieLastFailureCategory: 'quality_too_low', // preserved for audit
     selfieAppealLockedAt: null, // already cleared by prior approval
     deletedAt: null,
+    isAdmin: false,
   });
 
 /** A locked user: 3 rejections, selfieAppealLockedAt set. */
@@ -98,6 +99,7 @@ const buildLockedUser = (): User =>
     selfieLastFailureCategory: 'quality_too_low',
     selfieAppealLockedAt: LOCKED_AT,
     deletedAt: null,
+    isAdmin: false,
   });
 
 const buildSut = () => {
