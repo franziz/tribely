@@ -29,7 +29,8 @@ Cross-language type sharing (TS ↔ Dart) isn't possible via direct import. The 
 │       ├── design/login/ # Login design spec + photo brief
 │       └── lib/src/      # Source
 ├── .claude/skills/       # Project-scoped scaffolding + review skills (api-*, mobile-*)
-├── scripts/              # Helper scripts (port killer, etc.)
+├── scripts/              # JS dev helpers run by humans during local dev (kill-port.mjs, etc.)
+├── tools/                # POSIX-shell build/ops chain invoked by CI and Docker build
 ├── package.json          # npm workspaces — TS packages
 ├── pubspec.yaml          # Dart Pub Workspace + Melos 7.x config — Flutter packages
 ├── CLAUDE.md             # Architecture conventions for future Claude sessions

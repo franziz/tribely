@@ -1,7 +1,7 @@
 # Reusable workflow: Neon ephemeral-branch migration gate (AC3 — TRI-2).
 #
-# Operator setup: see docs/runbooks/tri-2-cloud-run-bringup.md Step 7 for
-# provisioning NEON_API_KEY and NEON_PROJECT_ID as repository secrets.
+# Operator setup: NEON_API_KEY and NEON_PROJECT_ID provisioning is tracked in
+# TRI-183 (VPS-deploy follow-up). See that ticket for setup steps.
 #
 # Two jobs, guarded by github.event.action:
 #   migrate  — runs on any PR event that is NOT 'closed'; creates an ephemeral

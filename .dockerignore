@@ -36,3 +36,6 @@ apps/mobile/
 
 # Documentation (no runtime value)
 docs/
+
+# Build/ops shell tooling (no runtime value — invoked by CI, not by the image)
+tools/

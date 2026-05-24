@@ -1,3 +1,5 @@
+# Build config for the API container image (franziz/tribely-api).
+# When a second containerized service appears, add its own config (e.g., tools/config.<service>.yml) and invoke via CONFIG_FILE=tools/config.<service>.yml bash tools/build.sh.
 image: "franziz/tribely-api"
 platforms: "linux/amd64,linux/arm64"
 context: "."
