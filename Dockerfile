@@ -62,7 +62,7 @@ COPY --from=builder /app/apps/api/prisma/      apps/api/prisma/
 # Run as non-root for least-privilege.
 USER node
 
-# Documentary; Cloud Run overrides the port via the PORT env var at runtime.
+# Documentary; the runtime host typically overrides the listen port via the PORT env var.
 EXPOSE 3000
 
 CMD ["node", "apps/api/dist/index.js"]
