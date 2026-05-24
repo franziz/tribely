@@ -5,17 +5,11 @@ import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { ReportRepository } from '../../domain/repositories/report.repository.js';
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 import type { RecordModerationActionUseCase } from '@/features/audit/application/usecases/record-moderation-action.usecase.js';
-
-// SLA constants — hardcoded until TRI-156 moves them to env/config.
-// Mirror these in scripts/moderation.ts.
-export const SLA_FIRST_TOUCH_HOURS = 72;
-export const SLA_HARD_CEILING_HOURS = 168; // 7 days
-export const APPROACHING_FIRST_TOUCH_HOURS = 48; // 24h warning window before 72h
-export const APPROACHING_HARD_CEILING_HOURS = 120; // 48h warning window before 7d
+import type { ModerationAction } from '@/features/audit/domain/types/moderation-action.js';
 
 export interface PerformModerationActionInput {
   operatorUserId: string;
-  action: 'touch' | 'resolve_hidden' | 'resolve_kept';
+  action: ModerationAction;
   reportId: string;
   reason: string | null; // required for resolve_*; null for touch
 }

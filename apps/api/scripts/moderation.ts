@@ -13,13 +13,12 @@
 import { buildContainer } from '@/core/di/container.js';
 import { runAsSystem } from '@/core/context/system-context.js';
 import type { Report } from '@/features/reports/domain/entities/report.js';
-
-// SLA constants — mirror those in PerformModerationActionUseCase.
-// Hardcoded until TRI-156 moves them to env/config.
-const SLA_FIRST_TOUCH_HOURS = 72;
-const SLA_HARD_CEILING_HOURS = 168; // 7 days
-const APPROACHING_FIRST_TOUCH_HOURS = 48; // 24h warning window before 72h
-const APPROACHING_HARD_CEILING_HOURS = 120; // 48h warning window before 7d
+import {
+  SLA_FIRST_TOUCH_HOURS,
+  SLA_HARD_CEILING_HOURS,
+  APPROACHING_FIRST_TOUCH_HOURS,
+  APPROACHING_HARD_CEILING_HOURS,
+} from '@/features/reports/application/sla-constants.js';
 
 // ---------------------------------------------------------------------------
 // SLA flag computation

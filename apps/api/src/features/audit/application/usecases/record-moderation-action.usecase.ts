@@ -4,6 +4,8 @@ import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type {
   ModerationAction,
   ModerationTargetType,
+} from '../../domain/types/moderation-action.js';
+import type {
   ModerationActionAuditRecord,
   ModerationActionAuditRepository,
 } from '../../domain/repositories/moderation-action-audit.repository.js';

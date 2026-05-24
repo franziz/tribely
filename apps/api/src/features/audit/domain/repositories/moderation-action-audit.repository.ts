@@ -1,7 +1,7 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
+import type { ModerationAction, ModerationTargetType } from '../types/moderation-action.js';
 
-export type ModerationAction = 'touch' | 'resolve_hidden' | 'resolve_kept';
-export type ModerationTargetType = 'review' | 'user' | 'event';
+export type { ModerationAction, ModerationTargetType };
 
 export interface ModerationActionAuditRecord {
   id: string;

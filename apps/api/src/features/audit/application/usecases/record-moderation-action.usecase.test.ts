@@ -57,7 +57,9 @@ describe('RecordModerationActionUseCase', () => {
     await useCase.execute(TOUCH_INPUT, TEST_TX);
 
     expect(repo.recorded).toHaveLength(1);
-    const row = repo.recorded[0]!;
+    const row = repo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) return; // type-narrows for subsequent assertions; unreachable due to expect above
     expect(row.action).toBe('touch');
     expect(row.reason).toBeNull();
     expect(row.contentSnapshot).toBeNull();
@@ -75,7 +77,9 @@ describe('RecordModerationActionUseCase', () => {
     await useCase.execute(RESOLVE_HIDDEN_INPUT, TEST_TX);
 
     expect(repo.recorded).toHaveLength(1);
-    const row = repo.recorded[0]!;
+    const row = repo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) return; // type-narrows for subsequent assertions; unreachable due to expect above
     expect(row.action).toBe('resolve_hidden');
     expect(row.reason).toBe('Content violates community guidelines');
     expect(row.contentSnapshot).toBe('{"rating":1,"body":"offensive text"}');
