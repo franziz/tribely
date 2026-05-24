@@ -2,6 +2,7 @@
 # npm workspaces hoist node_modules here; both stages copy from apps/api/... paths.
 
 # ─── Stage 1: builder ────────────────────────────────────────────────────────
+# keep in sync with .nvmrc
 FROM node:22-alpine AS builder
 
 WORKDIR /app
@@ -28,6 +29,7 @@ RUN npm run build --workspace=@tribely/api
 # ─── Stage 1b: deps (production only) ────────────────────────────────────────
 # Install a clean production-only node_modules so the runtime stage doesn't
 # carry TypeScript, Vitest, ESLint, tsx, and other dev tooling (~500MB savings).
+# keep in sync with .nvmrc
 FROM node:22-alpine AS deps
 
 WORKDIR /app
@@ -45,6 +47,7 @@ COPY --from=builder /app/node_modules/@prisma/client/ node_modules/@prisma/clien
 COPY --from=builder /app/node_modules/.prisma/        node_modules/.prisma/
 
 # ─── Stage 2: runtime ────────────────────────────────────────────────────────
+# keep in sync with .nvmrc
 FROM node:22-alpine AS runtime
 
 WORKDIR /app

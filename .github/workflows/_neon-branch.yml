@@ -9,13 +9,18 @@
 #   cleanup  — runs ONLY on 'closed'; deletes the ephemeral branch so the Neon
 #              project doesn't accumulate stale branches.
 #
-# The workflow is dispatched from ci.yml with `secrets: inherit` so both jobs
-# can access NEON_API_KEY and NEON_PROJECT_ID without re-declaring them here.
+# The workflow is dispatched from ci.yml with explicit secret passing so both
+# jobs can access NEON_API_KEY and NEON_PROJECT_ID.
 
 name: Neon migration check
 
 on:
   workflow_call:
+    secrets:
+      NEON_API_KEY:
+        required: true
+      NEON_PROJECT_ID:
+        required: true
 
 # Default-deny at workflow level so this reusable workflow is self-defending
 # regardless of caller. Each job grants only the permissions it needs.
@@ -70,8 +75,7 @@ jobs:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    permissions:
-      contents: read
+    permissions: {}
 
     steps:
       - name: Delete Neon branch

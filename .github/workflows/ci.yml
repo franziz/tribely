@@ -51,6 +51,7 @@ jobs:
               - '.dockerignore'
               - 'package.json'
               - 'package-lock.json'
+              - 'tsconfig.base.json'
               - '.nvmrc'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_docker-build.yml'
@@ -61,6 +62,8 @@ jobs:
               - '.github/workflows/_mobile.yml'
             neon-branch:
               - 'apps/api/prisma/**'
+              - 'package.json'
+              - 'package-lock.json'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_neon-branch.yml'
               - '.github/actions/setup-api/**'
@@ -94,7 +97,9 @@ jobs:
     needs: detect-changes
     if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.neon-branch == 'true' || github.event.action == 'closed')
     uses: ./.github/workflows/_neon-branch.yml
-    secrets: inherit
+    secrets:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
     permissions:
       contents: read
 

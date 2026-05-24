@@ -316,11 +316,10 @@ Retrieve the production connection string from GCP Secret Manager (avoid re-typi
 PROD_DB_URL=$(gcloud secrets versions access latest --secret=DATABASE_URL)
 ```
 
-Run migrations from the `apps/api/` directory (where `prisma/` and `package.json` live):
+Run migrations from the repo root:
 
 ```bash
-cd /path/to/repo/apps/api
-DATABASE_URL="$PROD_DB_URL" npm run db:migrate:deploy
+DATABASE_URL="$PROD_DB_URL" npm run api:db:migrate:deploy
 ```
 
 **Success signal:** Prisma prints:
