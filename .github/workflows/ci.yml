@@ -24,6 +24,8 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       mobile: ${{ steps.filter.outputs.mobile }}
+      docker: ${{ steps.filter.outputs.docker }}
+      neon-branch: ${{ steps.filter.outputs.neon-branch }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -43,11 +45,28 @@ jobs:
               - '.github/actions/setup-api/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_api.yml'
+            docker:
+              - 'apps/api/**'
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.base.json'
+              - '.nvmrc'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/_docker-build.yml'
             mobile:
               - 'apps/mobile/**'
               - '.github/actions/setup-mobile/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_mobile.yml'
+            neon-branch:
+              - 'apps/api/prisma/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/_neon-branch.yml'
+              - '.github/actions/setup-api/**'
 
   api:
     name: API
@@ -62,6 +81,25 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.mobile == 'true' || github.event_name == 'push'
     uses: ./.github/workflows/_mobile.yml
+    permissions:
+      contents: read
+
+  docker:
+    name: Docker build
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docker == 'true' || github.event_name == 'push'
+    uses: ./.github/workflows/_docker-build.yml
+    permissions:
+      contents: read
+
+  neon-branch:
+    name: Neon migration check
+    needs: detect-changes
+    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.neon-branch == 'true' || github.event.action == 'closed')
+    uses: ./.github/workflows/_neon-branch.yml
+    secrets:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
     permissions:
       contents: read
 
@@ -100,7 +138,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [detect-changes, api, mobile, pr-title]
+    needs: [detect-changes, api, mobile, docker, neon-branch, pr-title]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     permissions: {}
@@ -112,6 +150,8 @@ jobs:
             [detect-changes]="${{ needs.detect-changes.result }}"
             [api]="${{ needs.api.result }}"
             [mobile]="${{ needs.mobile.result }}"
+            [docker]="${{ needs.docker.result }}"
+            [neon-branch]="${{ needs.neon-branch.result }}"
             [pr-title]="${{ needs.pr-title.result }}"
           )
           fail=0
