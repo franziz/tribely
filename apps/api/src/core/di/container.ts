@@ -150,10 +150,14 @@ import { ReportPrismaRepository } from '@/features/reports/infrastructure/persis
 import { FileReportUseCase } from '@/features/reports/application/usecases/file-report.usecase.js';
 import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
 import { ResolveReportUseCase } from '@/features/reports/application/usecases/resolve-report.usecase.js';
+import { PerformModerationActionUseCase } from '@/features/reports/application/usecases/perform-moderation-action.usecase.js';
 import { CascadeReportsOnUserDeletionUseCase } from '@/features/reports/application/usecases/cascade-reports-on-user-deletion.usecase.js';
 import { ReportController } from '@/features/reports/presentation/http/controllers/report.controller.js';
 import { registerReportsConsumers } from '@/features/reports/presentation/events/index.js';
 import type { ReportRepository } from '@/features/reports/domain/repositories/report.repository.js';
+
+import { ModerationActionAuditPrismaRepository } from '@/features/audit/infrastructure/persistence/moderation-action-audit.prisma-repository.js';
+import { RecordModerationActionUseCase } from '@/features/audit/application/usecases/record-moderation-action.usecase.js';
 
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
@@ -379,6 +383,7 @@ export interface Container {
   fileReportUseCase: FileReportUseCase;
   touchReportUseCase: TouchReportUseCase;
   resolveReportUseCase: ResolveReportUseCase;
+  performModerationActionUseCase: PerformModerationActionUseCase;
   reportController: ReportController;
 }
 
@@ -844,6 +849,24 @@ export const buildContainer = (): Container => {
     publisher,
     clock,
   );
+
+  // --- Moderation CLI orchestrator (TRI-141 Brief C) ---
+  // Bypasses TouchReportUseCase / ResolveReportUseCase so the audit row
+  // can be inserted in the SAME UnitOfWork transaction as the state transition
+  // (PDPA s24 evidence integrity). See PerformModerationActionUseCase docstring.
+  const moderationActionAuditRepository = new ModerationActionAuditPrismaRepository(db);
+  const recordModerationActionUseCase = new RecordModerationActionUseCase(
+    moderationActionAuditRepository,
+  );
+  const performModerationActionUseCase = new PerformModerationActionUseCase(
+    unitOfWork,
+    reportRepository,
+    reviewRepository,
+    publisher,
+    recordModerationActionUseCase,
+    clock,
+  );
+
   const reportController = new ReportController(fileReportUseCase);
 
   // --- TRI-134 + TRI-155 — account-deletion cascade ---
@@ -1005,6 +1028,7 @@ export const buildContainer = (): Container => {
     fileReportUseCase,
     touchReportUseCase,
     resolveReportUseCase,
+    performModerationActionUseCase,
     reportController,
   };
 };
