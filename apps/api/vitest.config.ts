@@ -24,7 +24,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'integration',
-          include: ['src/**/*.integration.test.ts'],
+          include: ['src/**/*.integration.test.ts', 'scripts/**/*.integration.test.ts'],
           fileParallelism: false,
         },
       },
