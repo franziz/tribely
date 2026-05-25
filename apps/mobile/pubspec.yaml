@@ -25,7 +25,7 @@ dependencies:
   json_annotation: ^4.11.0
   latlong2: ^0.9.1
   logger: ^2.7.0
-  package_info_plus: ^8.3.0
+  package_info_plus: ^9.0.1
   pretty_dio_logger: ^1.4.0
   riverpod_annotation: ^4.0.2
   shared_preferences: ^2.5.3
