@@ -182,6 +182,8 @@ A report is **ambiguous** when its category does not fit cleanly into the genera
 
 The operator must **never** make legal determinations on the merits of escalated content. The operator's role at escalation is: preserve evidence, contain harm, and route to the right external party.
 
+**Law-enforcement disclosure requests are out of scope for this runbook.** When an SPF officer, court, or other authority requests user data — whether by request letter, CPC s20/s39 notice, or court-issued warrant — follow [`docs/legal/law-enforcement-internal.md`](../legal/law-enforcement-internal.md) instead. That protocol governs the disclosure-scope posture, SLA, counsel-trigger checklist, and authorised-extraction path. The moderation CLI is the sanctioned extraction surface for authorised disclosures; the legal protocol governs *when* and *what*.
+
 ### Category 1 — Self-harm or suicidal ideation
 
 **Recognition signals.** Statements of intent to self-harm; references to method, time, or place; explicit suicidal ideation; goodbye-pattern language; reports from concerned parties flagging the same.
