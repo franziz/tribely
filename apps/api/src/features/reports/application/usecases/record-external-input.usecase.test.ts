@@ -154,7 +154,9 @@ describe('RecordExternalInputUseCase', () => {
 
       // External input fields
       expect(recorded!.input.externalSource).toBe('counsel');
-      expect(recorded!.input.externalDisposition).toBe('Counsel advises no further action required.');
+      expect(recorded!.input.externalDisposition).toBe(
+        'Counsel advises no further action required.',
+      );
 
       // actedAt = clock.now(); externalReceivedAt = input.receivedAt — DISTINCT times
       expect(recorded!.input.actedAt).toEqual(NOW);

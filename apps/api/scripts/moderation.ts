@@ -2,21 +2,30 @@
 // Operator moderation CLI — stop-gap. Retired by TRI-159 (HTTP admin commands).
 //
 // Usage:
-//   npm run --workspace=@tribely/api moderation list-reports
+//   npm run --workspace=@tribely/api moderation list-reports [--state <open|under_review|escalated>]
 //   npm run --workspace=@tribely/api moderation touch <reportId> [--operator <userId>]
-//   npm run --workspace=@tribely/api moderation resolve <reportId> --hide --reason <text> [--operator <userId>]
-//   npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason <text> [--operator <userId>]
+//   npm run --workspace=@tribely/api moderation resolve <reportId> --hide|--keep --reason <text> \
+//     [--override-reason "<text>"] [--operator <userId>]
 //   npm run --workspace=@tribely/api moderation cancel-event-for-safety <eventId> \
 //     --reason=safety --justification "<text>" [--report-id <reportId>] [--operator <userId>]
 //   npm run --workspace=@tribely/api moderation sweep-resolved-reports
+//   npm run --workspace=@tribely/api moderation escalate <reportId> \
+//     --category <criminal-content|imminent-harm|ambiguous-policy|external-jurisdiction> \
+//     --external-ref "<text>" [--note "<text>"] [--operator <userId>]
+//   npm run --workspace=@tribely/api moderation record-external-input <reportId> \
+//     --source <counsel|partner|imda|other> --disposition "<text>" --received-at <ISO8601> \
+//     [--operator <userId>]
+//   npm run --workspace=@tribely/api moderation show <reportId>
 //
 // Operator identity: --operator flag OR $TRIBELY_OPERATOR_USER_ID env var.
-// list-reports and sweep-resolved-reports do not require an operator identity (system actions).
+// list-reports, sweep-resolved-reports, and show do not require an operator identity.
 
 import { buildContainer } from '@/core/di/container.js';
 import { runAsSystem } from '@/core/context/system-context.js';
 import { AppError } from '@/core/errors/app-error.js';
 import type { Report } from '@/features/reports/domain/entities/report.js';
+import type { EscalationCategory } from '@/features/reports/domain/entities/report.js';
+import type { ExternalInputSource } from '@/features/audit/domain/types/moderation-action.js';
 import {
   SLA_FIRST_TOUCH_HOURS,
   SLA_HARD_CEILING_HOURS,
@@ -28,12 +37,19 @@ import {
 // SLA flag computation
 // ---------------------------------------------------------------------------
 
-type SlaFlag = 'OK' | 'APPROACHING-72H' | 'OVERDUE-72H' | 'APPROACHING-7D' | 'BREACH-7D';
+type SlaFlag =
+  | 'OK'
+  | 'APPROACHING-72H'
+  | 'OVERDUE-72H'
+  | 'APPROACHING-7D'
+  | 'BREACH-7D'
+  | 'PAUSED-AT-ESC';
 
 /**
  * Compute the SLA flag for a single unresolved report.
  *
- * Precedence (most severe wins):
+ * Precedence (most severe / most specific wins):
+ *   PAUSED-AT-ESC       escalatedAt !== null && resolvedAt === null
  *   BREACH-7D           ageHours >= SLA_HARD_CEILING_HOURS
  *   APPROACHING-7D      ageHours >= APPROACHING_HARD_CEILING_HOURS
  *   OVERDUE-72H         ageHours >= SLA_FIRST_TOUCH_HOURS && firstReviewedAt === null
@@ -41,6 +57,9 @@ type SlaFlag = 'OK' | 'APPROACHING-72H' | 'OVERDUE-72H' | 'APPROACHING-7D' | 'BR
  *   OK                  otherwise
  */
 const computeSlaFlag = (report: Report, now: Date): SlaFlag => {
+  // Escalated-and-unresolved takes top precedence — SLA is paused.
+  if (report.escalatedAt !== null && report.resolvedAt === null) return 'PAUSED-AT-ESC';
+
   const ageMs = now.getTime() - report.createdAt.getTime();
   const ageHours = ageMs / (1000 * 60 * 60);
 
@@ -74,7 +93,17 @@ const formatDate = (d: Date): string => d.toISOString().slice(0, 16).replace('T'
 // Sub-command implementations
 // ---------------------------------------------------------------------------
 
-async function cmdListReports(): Promise<void> {
+async function cmdListReports(stateFilter: string | null): Promise<void> {
+  if (
+    stateFilter !== null &&
+    stateFilter !== 'open' &&
+    stateFilter !== 'under_review' &&
+    stateFilter !== 'escalated'
+  ) {
+    console.error('Invalid --state: must be one of open, under_review, escalated');
+    process.exit(1);
+  }
+
   const container = buildContainer();
 
   await runAsSystem('cli.moderation.list-reports', async () => {
@@ -83,9 +112,6 @@ async function cmdListReports(): Promise<void> {
     // Compute SLA thresholds.
     const approachingFirstTouchBefore = new Date(
       now.getTime() - APPROACHING_FIRST_TOUCH_HOURS * 60 * 60 * 1000,
-    );
-    const approachingHardCeilingBefore = new Date(
-      now.getTime() - APPROACHING_HARD_CEILING_HOURS * 60 * 60 * 1000,
     );
     const hardCeilingBefore = new Date(now.getTime() - SLA_HARD_CEILING_HOURS * 60 * 60 * 1000);
 
@@ -104,19 +130,38 @@ async function cmdListReports(): Promise<void> {
 
     const allReports = unresolvedResult.rows;
 
+    // Apply in-process state filter if requested.
+    const filteredReports =
+      stateFilter === null
+        ? allReports
+        : allReports.filter((r) => {
+            if (stateFilter === 'open') {
+              return r.firstReviewedAt === null && r.escalatedAt === null;
+            }
+            if (stateFilter === 'under_review') {
+              return r.firstReviewedAt !== null && r.escalatedAt === null;
+            }
+            // stateFilter === 'escalated'
+            return r.escalatedAt !== null && r.resolvedAt === null;
+          });
+
     // Compute SLA flags per row.
-    const rows = allReports.map((r) => ({
+    const rows = filteredReports.map((r) => ({
       report: r,
       flag: computeSlaFlag(r, now),
     }));
 
     // Count banners using the SLA bucket queries.
+    // Escalated rows are EXCLUDED from banner counts — SLA is paused for them.
     // "approaching 72h" = open for >=48h (older than approachingFirstTouchBefore)
-    //   but not yet >=7d and firstReviewedAt null.
+    //   but not yet >=7d, firstReviewedAt null, and NOT escalated.
     const approaching72hReports = approachingFirstTouch.filter(
-      (r) => r.firstReviewedAt === null && computeSlaFlag(r, now) === 'APPROACHING-72H',
+      (r) =>
+        r.firstReviewedAt === null &&
+        r.escalatedAt === null &&
+        computeSlaFlag(r, now) === 'APPROACHING-72H',
     );
-    const breach7dCount = breach7d.length;
+    const breach7dCount = breach7d.filter((r) => r.escalatedAt === null).length;
     const approaching72hCount = approaching72hReports.length;
 
     // Banner header — only printed when there are reports to flag.
@@ -131,18 +176,24 @@ async function cmdListReports(): Promise<void> {
     }
 
     if (rows.length === 0) {
-      console.log('No unresolved reports.');
+      console.log(
+        stateFilter !== null
+          ? `No unresolved reports matching --state ${stateFilter}.`
+          : 'No unresolved reports.',
+      );
       return;
     }
 
     // Print table header.
+    // COL_SLA is 14 to accommodate 'PAUSED-AT-ESC' (13 chars) with one pad.
     const COL_ID = 26;
     const COL_REPORTER = 28;
     const COL_TARGET = 28;
     const COL_REASON = 14;
     const COL_CREATED = 17;
     const COL_AGE = 6;
-    const COL_SLA = 16;
+    const COL_SLA = 14;
+    const COL_STATE = 14;
     const COL_FIRST_REVIEWED = 17;
 
     const header = [
@@ -153,6 +204,7 @@ async function cmdListReports(): Promise<void> {
       padRight('Created', COL_CREATED),
       padRight('Age', COL_AGE),
       padRight('SLA Flag', COL_SLA),
+      padRight('State', COL_STATE),
       padRight('First-Reviewed', COL_FIRST_REVIEWED),
     ].join(' | ');
 
@@ -162,6 +214,14 @@ async function cmdListReports(): Promise<void> {
     console.log(separator);
 
     for (const { report: r, flag } of rows) {
+      // Derive human-readable state for the State column.
+      const state =
+        r.escalatedAt !== null && r.resolvedAt === null
+          ? 'escalated'
+          : r.firstReviewedAt !== null
+            ? 'under_review'
+            : 'open';
+
       const row = [
         padRight(truncate(r.id, COL_ID), COL_ID),
         padRight(truncate(r.reporterUserId, COL_REPORTER), COL_REPORTER),
@@ -170,6 +230,7 @@ async function cmdListReports(): Promise<void> {
         padRight(formatDate(r.createdAt), COL_CREATED),
         padRight(formatAge(r, now), COL_AGE),
         padRight(flag, COL_SLA),
+        padRight(state, COL_STATE),
         padRight(r.firstReviewedAt ? formatDate(r.firstReviewedAt) : '-', COL_FIRST_REVIEWED),
       ].join(' | ');
       console.log(row);
@@ -203,20 +264,50 @@ async function cmdResolve(
   isHide: boolean,
   reason: string,
   operatorUserId: string,
+  overrideReason: string | null,
 ): Promise<void> {
   const container = buildContainer();
   const action = isHide ? 'resolve_hidden' : ('resolve_kept' as const);
   const systemLabel = isHide ? 'cli.moderation.resolve-hidden' : 'cli.moderation.resolve-kept';
 
   console.log(`Acting as ${operatorUserId}`);
-  await runAsSystem(systemLabel, async () => {
-    await container.performModerationActionUseCase.execute({
-      action,
-      reportId,
-      operatorUserId,
-      reason,
+
+  try {
+    await runAsSystem(systemLabel, async () => {
+      await container.performModerationActionUseCase.execute({
+        action,
+        reportId,
+        operatorUserId,
+        reason,
+        overrideReason,
+      });
     });
-  });
+  } catch (err) {
+    if (err instanceof AppError) {
+      const subcode = (err.details as Record<string, unknown> | undefined)?.subcode;
+      if (subcode === 'reports.overrideForbiddenForCategory') {
+        console.error(
+          `${err.message}. Resolve requires a record-external-input row for criminal-content / imminent-harm.`,
+        );
+        process.exit(1);
+      }
+      if (subcode === 'reports.escalationResolveBlocked') {
+        console.error(
+          'Report is escalated. Resolve requires either a record-external-input row OR --override-reason "<text>".',
+        );
+        process.exit(1);
+      }
+      if (subcode === 'reports.overrideRequiresEscalation') {
+        console.error('--override-reason only valid on escalated reports.');
+        process.exit(1);
+      }
+      if (err.status === 400 || err.status === 404 || err.status === 409 || err.status === 422) {
+        console.error(err.message);
+        process.exit(1);
+      }
+    }
+    throw err;
+  }
 
   if (isHide) {
     console.log(`Resolved report ${reportId} (hidden)`);
@@ -293,6 +384,119 @@ async function cmdSweepResolvedReports(): Promise<void> {
   console.log(`Duration: ${String(durationMs)}ms`);
 }
 
+async function cmdEscalate(
+  reportId: string,
+  category: string,
+  externalRef: string,
+  note: string | null,
+  operatorUserId: string,
+): Promise<void> {
+  const container = buildContainer();
+
+  console.log(`Acting as ${operatorUserId}`);
+
+  try {
+    await runAsSystem('cli.moderation.escalate', async () => {
+      await container.escalateReportUseCase.execute({
+        operatorUserId,
+        reportId,
+        category: category as EscalationCategory,
+        externalRef,
+        note,
+      });
+    });
+  } catch (err) {
+    if (
+      err instanceof AppError &&
+      (err.status === 400 || err.status === 404 || err.status === 409 || err.status === 422)
+    ) {
+      console.error(err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  console.log(`Report ${reportId} escalated.`);
+  console.log(`Category: ${category}`);
+  console.log(`External ref: ${externalRef}`);
+  console.log('Audit row written. SLA paused at escalation.');
+}
+
+async function cmdRecordExternalInput(
+  reportId: string,
+  source: string,
+  disposition: string,
+  receivedAt: Date,
+  operatorUserId: string,
+): Promise<void> {
+  const container = buildContainer();
+
+  console.log(`Acting as ${operatorUserId}`);
+
+  try {
+    await runAsSystem('cli.moderation.record-external-input', async () => {
+      await container.recordExternalInputUseCase.execute({
+        operatorUserId,
+        reportId,
+        source: source as ExternalInputSource,
+        disposition,
+        receivedAt,
+      });
+    });
+  } catch (err) {
+    if (
+      err instanceof AppError &&
+      (err.status === 400 || err.status === 404 || err.status === 409 || err.status === 422)
+    ) {
+      console.error(err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  console.log(`External-input recorded for report ${reportId}.`);
+  console.log(`Source: ${source}`);
+  console.log(`Received-at: ${receivedAt.toISOString()}`);
+  console.log('Audit row written.');
+}
+
+async function cmdShow(reportId: string): Promise<void> {
+  const container = buildContainer();
+
+  await runAsSystem('cli.moderation.show', async () => {
+    const now = new Date();
+    const report = await container.reportRepository.findById(reportId);
+
+    if (!report) {
+      console.error(`Report ${reportId} not found.`);
+      process.exit(1);
+    }
+
+    const sla = computeSlaFlag(report, now);
+    const elapsed = formatAge(report, now);
+
+    const label = (l: string): string => l.padEnd(18, ' ');
+    const iso16 = (d: Date): string => d.toISOString().slice(0, 16);
+    const orDash = (v: string | null | undefined): string => v ?? '-';
+
+    console.log(`${label('Report:')}${report.id}`);
+    console.log(`${label('Reporter:')}${report.reporterUserId}`);
+    console.log(`${label('Target:')}${report.target.type}:${report.target.id}`);
+    console.log(`${label('Reason:')}${report.reason.value}`);
+    console.log(`${label('Submitted:')}${iso16(report.createdAt)}   (elapsed: ${elapsed})`);
+    console.log(
+      `${label('First-reviewed:')}${report.firstReviewedAt ? iso16(report.firstReviewedAt) : '-'}`,
+    );
+    console.log(`${label('Escalated:')}${report.escalatedAt ? iso16(report.escalatedAt) : '-'}`);
+    console.log(`${label('Category:')}${orDash(report.escalationCategory)}`);
+    console.log(`${label('External ref:')}${orDash(report.externalRef)}`);
+    console.log(`${label('External inputs:')}${String(report.externalInputCount)} row(s)`);
+    console.log(`${label('Resolved:')}${report.resolvedAt ? iso16(report.resolvedAt) : '-'}`);
+    console.log(`${label('Resolution:')}${orDash(report.resolution)}`);
+    console.log(`${label('SLA:')}${sla}`);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // CLI helpers
 // ---------------------------------------------------------------------------
@@ -318,7 +522,8 @@ async function main(): Promise<void> {
 
   switch (subcommand) {
     case 'list-reports': {
-      await cmdListReports();
+      const stateFilter = extractFlagValue(args, '--state');
+      await cmdListReports(stateFilter);
       break;
     }
 
@@ -360,6 +565,7 @@ async function main(): Promise<void> {
         console.error('Missing --reason <text>');
         process.exit(1);
       }
+      const overrideReason = extractFlagValue(args, '--override-reason');
       const operatorUserId = parseOperator(args);
       if (!operatorUserId) {
         console.error(
@@ -367,7 +573,7 @@ async function main(): Promise<void> {
         );
         process.exit(1);
       }
-      await cmdResolve(reportId, isHide, reason, operatorUserId);
+      await cmdResolve(reportId, isHide, reason, operatorUserId, overrideReason);
       break;
     }
 
@@ -412,10 +618,103 @@ async function main(): Promise<void> {
       break;
     }
 
+    case 'escalate': {
+      const reportId = args[1];
+      if (!reportId) {
+        console.error('Missing <reportId>');
+        console.error(
+          'Usage: moderation escalate <reportId> --category <criminal-content|imminent-harm|ambiguous-policy|external-jurisdiction> --external-ref "<text>" [--note "<text>"] [--operator <userId>]',
+        );
+        process.exit(1);
+      }
+      const validCategories = [
+        'criminal-content',
+        'imminent-harm',
+        'ambiguous-policy',
+        'external-jurisdiction',
+      ];
+      const category = extractFlagValue(args, '--category');
+      if (!category || !validCategories.includes(category)) {
+        console.error(
+          'Invalid --category: must be one of criminal-content, imminent-harm, ambiguous-policy, external-jurisdiction',
+        );
+        process.exit(1);
+      }
+      const externalRef = extractFlagValue(args, '--external-ref');
+      if (!externalRef || externalRef.trim().length === 0) {
+        console.error('External reference required (--external-ref "<text>")');
+        process.exit(1);
+      }
+      const note = extractFlagValue(args, '--note');
+      const operatorUserId = parseOperator(args);
+      if (!operatorUserId) {
+        console.error(
+          'Missing operator identity: pass --operator <userId> or set TRIBELY_OPERATOR_USER_ID',
+        );
+        process.exit(1);
+      }
+      await cmdEscalate(reportId, category, externalRef, note, operatorUserId);
+      break;
+    }
+
+    case 'record-external-input': {
+      const reportId = args[1];
+      if (!reportId) {
+        console.error('Missing <reportId>');
+        console.error(
+          'Usage: moderation record-external-input <reportId> --source <counsel|partner|imda|other> --disposition "<text>" --received-at <ISO8601> [--operator <userId>]',
+        );
+        process.exit(1);
+      }
+      const validSources = ['counsel', 'partner', 'imda', 'other'];
+      const source = extractFlagValue(args, '--source');
+      if (!source || !validSources.includes(source)) {
+        console.error('Invalid --source: must be one of counsel, partner, imda, other');
+        process.exit(1);
+      }
+      const disposition = extractFlagValue(args, '--disposition');
+      if (!disposition || disposition.trim().length === 0) {
+        console.error(
+          'Usage: moderation record-external-input <reportId> --source <counsel|partner|imda|other> --disposition "<text>" --received-at <ISO8601> [--operator <userId>]',
+        );
+        process.exit(1);
+      }
+      const receivedAtRaw = extractFlagValue(args, '--received-at');
+      if (!receivedAtRaw) {
+        console.error('Missing --received-at (must be ISO8601, e.g. 2026-05-26T10:30:00Z)');
+        process.exit(1);
+      }
+      const receivedAt = new Date(receivedAtRaw);
+      if (isNaN(receivedAt.getTime())) {
+        console.error('Invalid --received-at (must be ISO8601, e.g. 2026-05-26T10:30:00Z)');
+        process.exit(1);
+      }
+      const operatorUserId = parseOperator(args);
+      if (!operatorUserId) {
+        console.error(
+          'Missing operator identity: pass --operator <userId> or set TRIBELY_OPERATOR_USER_ID',
+        );
+        process.exit(1);
+      }
+      await cmdRecordExternalInput(reportId, source, disposition, receivedAt, operatorUserId);
+      break;
+    }
+
+    case 'show': {
+      const reportId = args[1];
+      if (!reportId) {
+        console.error('Missing <reportId>');
+        console.error('Usage: moderation show <reportId>');
+        process.exit(1);
+      }
+      await cmdShow(reportId);
+      break;
+    }
+
     default: {
       console.error(`Unknown subcommand: ${subcommand ?? '(none)'}`);
       console.error(
-        'Valid: list-reports | touch | resolve | cancel-event-for-safety | sweep-resolved-reports',
+        'Valid: list-reports | touch | resolve | cancel-event-for-safety | sweep-resolved-reports | escalate | record-external-input | show',
       );
       process.exit(1);
     }
