@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **Conventions are _enforced_ by skills in `.claude/skills/`.** CLAUDE.md is for the _why_; skills are the _how_. Skills are namespaced by target — `/api-*` for backend, `/mobile-*` for Flutter. Never use a backend skill on Flutter code or vice versa.
 
+> **Stack-specific architecture and gotchas live in `.claude/rules/`**, path-scoped to load only when Claude works on matching files:
+> - [`.claude/rules/api-architecture.md`](./.claude/rules/api-architecture.md) — backend layering, outbox/events, backend gotchas. Loads on `apps/api/**`.
+> - [`.claude/rules/mobile-architecture.md`](./.claude/rules/mobile-architecture.md) — Flutter 3-layer, sanctioned cross-feature imports, mobile gotchas. Loads on `apps/mobile/**`.
+
 ## What Tribely is
 
 A mobile app where solo travelers create events (drinks, hike, museum, dinner) and others request to join. Launching in **Singapore first**. Some architectural decisions hinge on this — single-user mobile view, English-only MVP, deferred payments. Don't recommend Bali/Lisbon-first launch strategies.
@@ -45,9 +49,11 @@ The mobile package is a single Flutter app at `apps/mobile/`. There is **no Melo
 cd apps/mobile && flutter pub get                                              # fetch deps
 cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # REQUIRED on first run — repo ships without ios/android folders
 npm run mobile:run                                                              # reads apps/mobile/.env.json (use http://10.0.2.2:<port> on Android emulator)
-npm run mobile:analyze                                                          # cd apps/mobile && flutter analyze
-npm run mobile:test                                                             # cd apps/mobile && flutter test
-npm run mobile:codegen                                                          # cd apps/mobile && dart run build_runner build --delete-conflicting-outputs
+npm run mobile:analyze                                                          # flutter analyze
+npm run mobile:test                                                             # flutter test
+npm run mobile:format                                                           # dart format .
+npm run mobile:format:check                                                     # CI gate — fails on any unformatted file
+npm run mobile:codegen                                                          # dart run build_runner build --delete-conflicting-outputs
 cd apps/mobile && dart run build_runner watch --delete-conflicting-outputs     # watch mode
 cd apps/mobile && flutter test test/path/to/foo_test.dart                      # single test
 ```
@@ -81,152 +87,6 @@ GitHub Actions workflows live in `.github/workflows/`:
 When adding a new check surface (deploy, e2e, web): create a new reusable workflow + composite action, dispatch from `ci.yml`. Don't touch existing files.
 
 All third-party actions are SHA-pinned with `# vX.Y.Z` comments — Dependabot only alerts on SHA-pinned actions.
-
-## Architecture — backend (`apps/api`)
-
-Sources: [Robert Martin's Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html), [Eric Evans's DDD layered architecture](https://www.domainlanguage.com/ddd/), [Domain-Driven Hexagon](https://github.com/Sairyss/domain-driven-hexagon), [Ardalis Clean Architecture](https://github.com/ardalis/cleanarchitecture).
-
-### Layers (per feature)
-
-```
-features/<name>/
-  domain/                              # Enterprise business rules. ZERO infra imports.
-    entities/                          # Aggregate roots — extend AggregateRoot, methods not data bags
-    value-objects/                     # Email, Password — private ctor + create() factory
-    events/                            # Domain events this feature emits
-    services/                          # ONLY true domain services (stateless ops across aggregates)
-    repositories/                      # Interfaces — methods accept optional TxContext
-    ports/                             # Outbound interfaces: PasswordHasher, TokenIssuer, Mailer, Clock
-  application/                         # Application business rules — orchestration only
-    usecases/                          # One class per user intent. Constructor injection.
-                                       # Wraps state-changing work in unitOfWork.run(...)
-    projections/                       # Pure read-model derivations from domain state (e.g., is-verified.projection.ts).
-                                       # Canonical example + placement rationale: docs/specs/user-is-verified-projection.md §6.
-  infrastructure/                      # Driven adapters
-    persistence/                       # <aggregate>.prisma-repository.ts + <aggregate>.mapper.ts
-    adapters/                          # Concrete impls of domain ports — JWT, argon2, mailer, clock
-  presentation/                        # Driving adapters
-    http/  controllers/  routes/  schemas/   # Zod schemas
-    events/                            # Subscribers — translate bus events into use case calls
-```
-
-### Why `application/` and `domain/` are separate (4-layer)
-
-Robert Martin's Clean Architecture defines two distinct kinds of business rules:
-
-- **Enterprise Business Rules** (Evans's Domain Layer) — exist regardless of any application. "A user has an email." Embodied as Entities, Value Objects, Aggregates.
-- **Application Business Rules** (Evans's Application Layer) — specific to _this_ application's flows. "Sign-up creates a credential AND a user atomically and emits two events." Embodied as use cases.
-
-The split gives reusability (domain works for API + ops CLI + scheduled jobs), testability (domain tests are pure), and future extraction (domain travels untouched when extracting a service).
-
-### Why `infrastructure/` and `presentation/` are separate (driven vs. driving adapters)
-
-Hexagonal architecture: every adapter either _receives_ a call from outside (driving — HTTP controller, event subscriber, CLI) or _makes_ a call outside (driven — DB repository, mailer, payment gateway). They sit on opposite sides of the application core.
-
-A subscriber listens for an event and calls a use case — same role as a controller, just for the bus instead of HTTP. So subscribers live in `presentation/events/`, not `application/`.
-
-### Aggregates and events
-
-Aggregates extend `AggregateRoot` (in `core/domain/`). State-changing methods record events. Application services pull events off the aggregate after a successful operation and publish them via `EventPublisher` inside the same `UnitOfWork`:
-
-```typescript
-const credential = Credential.issue({ userId, passwordHash, now }); // records event
-await unitOfWork.run(async (ctx) => {
-  await credentials.save(credential, ctx);
-  await events.publish(ctx, ...credential.pullEvents()); // atomic with save
-});
-```
-
-IDs are generated by the use case via `createId()` from `@paralleldrive/cuid2`, NOT by the database. This keeps the domain authoritative over identity. `Aggregate.create({ id, ... })` accepts its id explicitly.
-
-### Transactional outbox + per-consumer offsets (TRI-38)
-
-`EventPublisher.publish(ctx, ...events)` writes to `outbox_events` in the supplied transaction. Each event gets a monotonic `seq BIGSERIAL`. The `OutboxDispatcher` polls and delivers events to each registered `Consumer` independently — Kafka-shaped fan-out, Postgres-backed.
-
-```typescript
-// A consumer reacts to another feature's event:
-export const issueEmailVerificationOnUserRegistered = (deps): Consumer<UserRegisteredEvent> => ({
-  name: 'auth.issueEmailVerificationOnUserRegistered', // PK in consumer_offsets — stable across deploys
-  topic: USER_REGISTERED,
-  async handle(event, ctx) {
-    await deps.issueEmailVerification.execute({ userId: event.payload.userId });
-  },
-});
-```
-
-**Each Consumer is a Kafka consumer group of one.** `Consumer.name` is the primary key in `consumer_offsets` — must be globally unique and stable across deploys (Convention: `<feature>.<verbPresentImperativeOnSourceEvent>`). Independent progress per consumer; a failing consumer head-of-line blocks **only itself**, never sibling consumers of the same topic. Bounded retry (default 5 attempts) → `blockedAt` is set; ops manually unblocks.
-
-**Use `/api-new-producer` and `/api-new-consumer` skills.** Scaffolding enforces the naming + idempotency contract. Don't subscribe inline.
-
-**Handlers MUST be idempotent.** At-least-once delivery; transient failures retry the same event with the same `ConsumerContext`.
-
-### Request-context propagation (AsyncLocalStorage)
-
-`requestId` + `actorUserId` flow through every async boundary inside a single HTTP request via `AsyncLocalStorage`. The `requestContext` middleware opens the frame; `requireAuth` upgrades `actorUserId` after JWT verify; `OutboxEventPublisher` reads the frame and persists both onto the outbox row; the dispatcher re-establishes the frame at dispatch time so downstream events the consumer publishes inherit the same correlation chain (Kafka headers semantics in Postgres form).
-
-**Use cases stay clean** — no `meta` parameter threading. Just `useCase.execute(input)`. The publisher reads ALS automatically.
-
-**Non-HTTP callers (boot, future cron jobs, CLI) MUST wrap in `runAsSystem(label, fn)`** from `core/context/system-context.ts`. Without it, the publisher logs WARN and persists `requestId=null`, rotting the audit chain. The `label` is your audit-visible identity (`boot.dispatcher-warmup`, `cron.prune-refresh-tokens`).
-
-### Audit (HTTP + event lifecycle)
-
-Two narrow audit tables, both keyed by `requestId` for cross-table joins:
-
-- `http_audit_logs` — one row per inbound HTTP request. Method, path, status, duration, actor, IP, UA, errorCode. **No body content stored** (PDPA-friendly for the Singapore launch).
-- `event_audit_logs` — one row per event lifecycle phase: `published` (producer-side, atomic with outbox row), `dispatched` / `failed` / `blocked` (consumer-side).
-
-Lives in `features/audit/` (bounded context with its own verbs + retention policy, not in `core/`).
-
-### TxContext is opaque to the domain
-
-`UnitOfWork.run(work)` passes a `TxContext` to the closure. Domain code treats it as an opaque marker — only infrastructure adapters (via `unwrapTx` in `core/db/prisma-unit-of-work.ts`) can extract the underlying Prisma transaction client. **No Prisma type leaks into the domain.**
-
-### Bounded-context rule
-
-Feature B never queries feature A's tables directly. It either:
-
-1. Calls A's repository through its public interface (cross-feature import allowed for _interfaces_, never impls).
-2. Subscribes to A's domain events and maintains its own read model (preferred for true decoupling).
-
-## Architecture — mobile (`apps/mobile`)
-
-Sources: [TDD Clean Architecture for Flutter (Reso Coder)](https://github.com/ResoCoder/flutter-tdd-clean-architecture-course), [Flutter Clean Architecture with Riverpod](https://github.com/uuttssaavv/flutter-clean-architecture-riverpod).
-
-### Layers (per feature) — 3 layers, NOT 4
-
-```
-features/<snake_name>/
-  domain/                              # Pure Dart — no Flutter, no Dio, no Riverpod
-    entities/                          # Equatable classes
-    repositories/                      # Abstract interfaces returning Either<Failure, T>
-    services/                          # Pure-Dart domain services — stateless ops, no Flutter/Riverpod imports.
-                                       # Use sparingly; most logic belongs on entities or in use cases.
-    usecases/                          # Implements UseCase<T, Params>; Future<Either<Failure, T>>
-    validators/                        # Per-field input validation — pure functions returning ValidationResult
-  data/
-    models/                            # JSON serialization + toEntity()
-    datasources/                       # RemoteDataSource (interface + impl colocated)
-    repositories/                      # Concrete impls — catch DioException → Failure
-  presentation/
-    pages/                             # ConsumerWidget screens
-    widgets/                           # Feature-scoped widgets
-    providers/                         # Riverpod providers wiring use cases
-    controllers/                       # StateNotifier — owns state transitions
-    state/                             # Sealed state classes
-```
-
-### Why Flutter is 3-layer (NOT 4-layer like the API)
-
-Flutter use cases are thin wrappers: `call(params) => repository.method()`. They don't orchestrate transactions, multiple aggregates, or events. Adding an `application/` layer for thin wrappers is over-engineering on the client. Reso Coder's tutorial and the Riverpod community examples both keep use cases in `domain/usecases/` — we follow that convention. **The asymmetry is intentional**, not an inconsistency to "fix."
-
-### Why mobile keeps `data/datasources/` (the API doesn't)
-
-On the API, Prisma is the persistence layer — a separate datasource layer adds dead weight. On the mobile, the datasource layer is meaningful (REST + cache + local DB are genuinely different sources, and the repository orchestrates them). The Flutter community convention earns its keep here.
-
-### Why repositories return `Either<Failure, T>` on mobile but throw on API
-
-- API: throwing `AppError` flows into Hono's `onError` middleware producing a uniform HTTP shape.
-- Mobile: UI needs to render error states declaratively; failures are part of the type signature, eliminating uncaught-exception UI bugs.
 
 ## Common conventions across both stacks
 
@@ -286,41 +146,14 @@ After scaffolding, you must:
 3. Backend subscribers: call `register<Name>Subscribers(bus)` from `buildContainer()`.
 4. Backend schema changes: use `/api-create-migration`.
 
-## Common gotchas
+## Cross-cutting gotchas
 
-- **Events must be past-tense** (`event-created`, not `create-event` — that's a use case).
-- **No `data/datasources/` on the API.** Backend uses `infrastructure/persistence/<aggregate>.prisma-repository.ts` directly.
-- **No Prisma types in `domain/` or `application/` (backend).** Only `@/core/db/unit-of-work.port` is allowed. The opaque `TxContext` is intentional.
-- **`application/ports/` is the home for cross-feature use-case-shaped abstractions.** When feature B needs to consume a use-case-shaped operation owned by feature A (e.g., `UserCapabilitiesPort.execute({userId}) → UserCapabilitiesResult`), the port lives in feature A's `application/ports/<name>.port.ts` — NOT in `domain/ports/`. Domain ports describe outbound dependencies the *domain itself* needs (Clock, Mailer, PasswordHasher). Application ports describe the structural shape of another feature's application service. Both are legitimate cross-feature import surfaces per A11.
-- **Synthetic-aggregate domain events.** Domain events that fire BEFORE any aggregate exists (e.g., `events.privateVenueAttempted` from TRI-33's policy gate — fires when the use case rejects venue input, before any `Event` is created) are synthesized in the use case and published directly via `EventPublisher.publish(ctx, ...)` with a fresh `createId()` as the synthetic `aggregateId` and a synthetic `aggregateType` (e.g., `'PolicyRejection'`). This is a documented exception to the standard "events recorded inside aggregate methods" rule — there is no aggregate to call `.record()` on. The use case opens a short-lived `unitOfWork.run` to commit the audit event, then throws the rejection error.
-- **Mobile session-state is the first sanctioned cross-feature `presentation/` import** (unless explicitly sanctioned below). Features may import `auth/presentation/providers/auth_providers.dart` to read `sessionControllerProvider` for current-user identity; every other cross-feature `presentation/`-to-`presentation/` import violates the bounded-context rule unless explicitly listed below. Session identity is genuinely app-global state, not feature state — duplicating it per feature would fragment auth and invite drift on logout/refresh.
-- **The `join_requests/presentation/` layer is the second sanctioned cross-feature import.** Features may import from `join_requests/presentation/{controllers,providers,state,widgets}/` directly (e.g., `discover/` event-detail importing `ConfirmJoinSheet` + `joinRequestController`; `my_events/` Requests tab importing `MyJoinRequestRow` + `myJoinRequestsController`; `my_events/` hosting badge reading `hostingPendingCountProvider`). Join-request is a request-pattern primitive shared by `events`, `discover`, and `my_events` — relocating its widgets/controllers/state/providers into `core/` would surface every primitive each consumer already needs without adding information-hiding.
-- **`users/presentation/providers/capability_providers.dart` is the third sanctioned cross-feature import.** Features may import `myCapabilitiesProvider` to read app-global host capabilities (e.g., `events/` create-event controller reading `canPostPrivateVenue` to drive TRI-33 warning copy), and `selfieGatingStateProvider` to read the authenticated user's selfie gate state (e.g., the `events/` and `join_requests/` disabled-CTA hint widgets reading it to decide which hint copy to show — TRI-70 Brief E). Both are session-scoped app-global state — like `auth_providers.dart`, not feature state. Moving them to `core/` would invert layering (`core/` → `users/data/UserCapabilitiesRepository`); inlining thin duplicates per feature fragments Riverpod cache keys and breaks `ref.invalidate` propagation on refresh. The auth precedent deliberately kept session-scoped providers in their owning feature; capabilities and selfie-gating follow the same pattern. This exception also covers two transitive companion files that are inseparable from the sanctioned providers' consumption surface: `users/presentation/state/selfie_gating_state.dart` (the sealed-class return type of `selfieGatingStateProvider` — required by any consumer that pattern-matches on the gating value) and `users/presentation/string_assets/verification_failure_copy.dart` (the Designer-mandated copy SoT for disabled-CTA hints rendered alongside the sanctioned providers' state — required by `events/` and `join_requests/` per TRI-70 Brief F). The state-class and copy-SoT companion imports are covered under the same exception because they are inseparable from the sanctioned provider's consumption surface — pattern-matching on a sealed return type requires importing the class; rendering Designer-mandated verbatim copy requires importing the SoT constants. Do NOT extend this exception to a FIFTH feature without orchestrator + engineering-lead sign-off; the bar remains "would `core/` extraction produce meaningful information-hiding?" and "is this a primitive or a feature?".
-- **`reviews/presentation/{providers,controllers,state}/` is the fourth sanctioned cross-feature import.** Features may import `reviewRepositoryProvider`, `getPendingReviewPromptUseCaseProvider`, `pendingReviewBannerControllerProvider`, and the review-aggregate widget directly. Reviews are app-global state on every profile and integrate with `users/` (profile aggregate render), `events/` (post-event composer entry), and `my_events/` (foreground banner + edit list). Relocating to `core/` would force every consumer to import the use-case-shaped provider surface without information-hiding (3 consumers crossing the threshold). The state/controller/provider exception covers what's needed for ConsumerWidget renders and ref.listen wiring; do NOT extend to widget imports without explicit orchestrator + engineering-lead sign-off (Brief 2A/2B exceptions are inline one-widget references, not blanket cross-feature widget imports).
-- **Mobile `flutter create` is required on first run** — repo ships without `ios/`/`android/` folders.
-- **Prisma migration generation bundles schema drift.** When `prisma migrate dev` (or `--create-only`) creates a new migration, verify the generated SQL does NOT include `ALTER TABLE` statements on tables you didn't intentionally touch. Schema drift between `schema.prisma` (the declared shape) and the live DB (the actual shape) gets BAKED INTO the new migration as unrelated ALTER statements. This pollutes the PR scope and bundles surprise behavior changes. Resolve drift at source before commit: either update `schema.prisma` to match the DB intent (preferred when prior migrations were correct and the schema declaration lagged) or strip the unrelated SQL and reset the DB to match the schema. Don't ship a migration named for feature X that also rewrites table Y.
-- **`prisma migrate reset` should auto-run `prisma generate`, but verify.** Reset normally regenerates the client as a final step, but on interruption or certain failure modes it can skip the regen. After any migration application (reset, dev, deploy), verify `prisma generate` ran by checking that the new columns appear in the Prisma client types. Stale client surfaces as typecheck failures on the new column properties — quietly different from "code is wrong" and often misdiagnosed as such.
-- **`outbox_events` is append-only.** Per-consumer progress lives in `consumer_offsets`, not on the event row. Migrations that drop the outbox table lose in-flight events for every consumer.
-- **Consumers must register with a stable, globally-unique `name`.** It's the primary key in `consumer_offsets`. Renaming a Consumer in code without a migration that renames the offset row resets it to `committedSeq=0` and replays all history — usually NOT what you want.
-- **AsyncLocalStorage is invisible state — easy to lose across the outbox boundary.** The publisher persists `requestId` on the outbox row at publish time and the dispatcher re-establishes the frame at dispatch time, so consumers see correlation. But any publish path NOT inside a `runWithContext` / `runAsSystem` frame (boot, cron, CLI, tests that bypass middleware) silently writes `requestId=null` and logs WARN. Wrap non-HTTP entry points in `runAsSystem('label', fn)`.
-- **Two features can share an HTTP route prefix via additive `app.route()` mounts.** When feature B needs endpoints under feature A's prefix (e.g., `join-requests` adds `POST /events/:id/join-requests` while `events` already owns `app.route('/events', buildEventRoutes(...))`), keep B's routes in B's router file and add a second `app.route('/events', buildJoinRequestsRoutes(...))` in `apps/api/src/app.ts`. Hono v4 `app.route()` at the same prefix merges — it does NOT override the first mount. Do not shoehorn B's endpoints into A's router file (bounded-context violation). Only path-level collisions need avoiding; Hono's first-registered-wins on exact ties.
 - **Don't apply API skills to mobile or vice versa.** They have intentionally different layering. Skills carry scope guards but the AI should also reject misapplied invocations on its own.
-- **Mobile lint plugin: top-level `plugins:`, NOT `analyzer.plugins: - custom_lint`.** `riverpod_lint` uses the Dart 3.5+ `analysis_server_plugin` mechanism in `apps/mobile/analysis_options.yaml`. The `analyzer.plugins:` form (custom_lint host) has an upstream synthesizer bug that breaks resolution.
-- **Mobile controllers use `Notifier<T>`, auto-dispose lives on the provider.** Riverpod 3 controllers in this codebase extend `Notifier<FooState>` (never `AutoDisposeNotifier` — not exported in our Riverpod 3.x version). Autodispose is configured on the provider chain: `NotifierProvider.autoDispose<FooController, FooState>(FooController.new)`. Pairing `Notifier<T>` with `NotifierProvider.autoDispose` is the established convention (verified across `hosting_pending_count_controller`, `my_join_requests_controller`, `host_pending_list_controller`, `request_to_join_controller`, the auth controllers, and post-TRI-28 `hosting_tab_controller` and `my_events_controller`). Do NOT introduce `AutoDisposeNotifier<T>` — analyzer will reject it.
 - **Branch protection on `main` is NOT enforced** (GitHub free-tier private repo limitation). CI checks are advisory; manual discipline replaces automated gating until plan upgrade. `ruleset-main.json` at repo root is uploaded but inert.
 - **For pub.dev / npm version ground truth, query the registry API, not git tags.** `curl https://pub.dev/api/packages/<pkg>` returns actual published versions plus analyzer/sdk constraints. Git tags can include unreleased prereleases (e.g., `0.10.0+1` exists as a tag but not on pub.dev).
 - **Lint configs are deliberately strict.** API uses `tseslint.configs.strictTypeChecked`; mobile uses `flutter_lints` + 8 added rules + Dart's `strict-casts/inference/raw-types`. Tighten code to satisfy lints — don't loosen the lint config.
-- **Email auth uses 6-digit codes, not magic-link URLs.** Mobile-first; universal-links wait on production deployment (TRI-2). `EmailSender.sendVerification` / `sendPasswordReset` take `{ to, code }`, not `{ to, url }`.
-- **Production sender domain is `gotribely.com`** (verified in Resend: DKIM at `resend._domainkey`, SPF at `send.gotribely.com` via Amazon SES, return-path MX → `feedback-smtp.ap-northeast-1.amazonses.com`, DMARC `p=none` at `_dmarc`). `apps/api/.env.example` defaults `EMAIL_FROM=onboarding@resend.dev` so new contributors can run dev without being added to the Resend account; production env sets `EMAIL_FROM=noreply@gotribely.com` (or another `@gotribely.com` mailbox). Dev `.env` can mirror production once you're a member of the Resend account.
-- **CI test steps need `DATABASE_URL` + `JWT_SECRET` set as placeholders.** `env.ts` parses `process.env` at module load and throws on missing required vars; any test that transitively imports the logger (or anything from `core/`) fails to collect. `_api.yml`'s test step sets dummy values — copy that pattern when adding new test surfaces.
-- **Vitest does not auto-load `.env`.** Integration tests that need real env vars (e.g., `RESEND_API_KEY`) must `import 'dotenv/config'` at the top of the test file. Without it, `process.env.X` is `undefined` and `it.skipIf(!process.env.X)` silently skips the suite even when `apps/api/.env` is present.
-- **Flutter golden tests are macOS-baseline; Linux CI must skip them.** Goldens generated on macOS will not match CI's Linux FreeType rendering (~1-2% pixel diff from font hinting/anti-aliasing). Guard golden test bodies with `skip: Platform.isLinux ? 'skip reason' : null` so they run on developer machines (catching real layout regressions at PR-author time) but skip in CI. Cross-platform baselines or font-normalization harnesses (alchemist, golden_toolkit) are deferred — revisit when goldens become a recurring pattern, not a one-off.
-- **Backend tests are co-located, not in `__test__/` subdirectories.** A test file lives next to the source it exercises (`foo.ts` + `foo.test.ts` in the same directory). Vitest's default include glob (`**/*.{test,spec}.{ts,tsx,js,jsx}`) picks up `*.test.ts` at any depth, so placement is convention-driven, not framework-driven. The singular `__test__/` legacy was idiosyncratic relative to both Jest's `__tests__/` (plural) historical default and the modern Vitest community norm — it was fully removed in TRI-77. Do NOT recreate `__test__/` subdirectories under `apps/api/src/**` when adding new test files. Mobile follows Flutter's standard `apps/mobile/test/` mirror-of-`lib/` convention — out of scope for this rule.
 - **Cloud-provisioning tickets follow agents-draft / human-executes.** For tickets that require real cloud-account credentials (S3 bucket create, IAM user/policy, DNS, Resend domain verification, etc.), agents author the selection decision + a copy-pasteable CLI runbook under `docs/runbooks/<slug>.md`; the repo owner executes provisioning against the real cloud account out-of-band. The PR ships the SELECTION + code stubs + runbook; the resource itself is provisioned after merge. Don't try to have the orchestrator or SWE run `aws s3 mb` / `gcloud` / `wrangler` — they don't have credentials and shouldn't. TRI-77 (selfie storage) is the precedent.
-- **Pluggable-vendor adapter ports use vendor-neutral env naming.** When a port has multiple potential implementations across providers (storage, email, SMS, etc.), env vars use the port name as namespace (`STORAGE_*`, `EMAIL_*`, `SMS_*`) — NOT the provider name (`AWS_*`, `RESEND_*`, `TWILIO_*`). For S3-compatible storage specifically: `STORAGE_BUCKET` / `STORAGE_REGION` / `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` + optional `STORAGE_ENDPOINT` + `STORAGE_FORCE_PATH_STYLE` lets a deploy swap AWS↔R2↔B2↔MinIO↔Wasabi via env alone. The adapter passes `endpoint` to the S3 client only when set; defaults to AWS regional endpoint otherwise. **Provider swap is still a PDPA/legal review for any user-data class** — vendor-neutral naming is technical optionality, not jurisdictional permission. Document the legal trigger loudly in the runbook and the policy doc, not just in env comments.
-- **Evidence-integrity required-ctx audit pattern.** Most audit repositories follow the standard `record(entry, ctx?: TxContext)` shape — `ctx` is optional with a `ctx ? unwrapTx(ctx) : this.db` fallback (matches `HttpAuditLogRepository`, `EventAuditLogRepository`). The `SelfieDeletionEventRepository` is the deliberate exception: `record(entry, ctx: TxContext)` and `pruneOlderThan(cutoff, ctx: TxContext)` require non-optional `ctx`. The atomicity guarantee is the design requirement — the audit row MUST commit atomically with the triggering selfie-deletion mutation, because PDPA s25 evidence integrity treats "selfie deleted but audit row absent" as a legal incident. Making `ctx` required turns the atomicity contract into a compile-time property rather than a runbook footnote. Knock-on effect: `RecordSelfieDeletionUseCase.execute(input, ctx)` carries a non-standard two-arg signature (other use cases use the standard one-arg `execute(input)` and open their own UoW). The two-arg shape is the visible signal that the use case must be invoked from inside an existing transaction. **Heuristic for when to apply this pattern to future audit surfaces:** would a row written outside the triggering mutation's tx be a *legal incident* (vs. merely an observability gap)? If yes, use required `ctx` + two-arg `execute`. If no, the standard `ctx?` pattern is correct. **Corollary — A7 exception for event publishing inside the required-ctx pattern.** When a use case adopts the two-arg `execute(input, ctx)` shape, it may also call `EventPublisher.publish(ctx, ...)` using that same caller-provided `ctx`. This does NOT violate the standard A7 rule ("publish must originate from an enclosing `unitOfWork.run` in the same method"): the use case intentionally has no local `unitOfWork.run` because it joins the caller's transaction — opening a nested UoW here would defeat the required-atomicity design. The `ctx` contract is still honoured because the caller's `unitOfWork.run` frame IS the enclosing UoW. Code that follows this pattern: `DeleteSelfieForUserUseCase` (TRI-79). This is a documented A7 exception, not a violation; flag it as accepted-with-rationale in architecture review.
 - **`scripts/` and `tools/` are a deliberate split, not duplication.** `scripts/` holds Node-based dev helpers run by humans during local dev (`kill-port.mjs` etc); `tools/` holds the POSIX-shell build/ops chain (`build.sh`, `config.yml`, shared `lib/*.sh`) invoked by CI and the Docker image build. The split is by executable-language and consumer, not by feature — keep dev ergonomics out of the buildchain and vice versa.
-- **TypeScript path aliases (`@/*`) need `tsc-alias` at build time for runtime use.** `tsc` does NOT rewrite path aliases in emitted JS — the compiled `dist/*.js` retains literal `import ... from '@/features/...'`. `tsx` (dev workflow) resolves these at runtime; `node apps/api/dist/index.js` (production / Docker image) does NOT and crashes with `ERR_MODULE_NOT_FOUND`. The API `build` script chains `tsc && tsc-alias -p tsconfig.json` to rewrite aliases to concrete relative paths before the image runs. Don't remove `tsc-alias` from the chain. When adding new path aliases to `apps/api/tsconfig.json`, verify they survive the rewrite by running `npm run --workspace=@tribely/api build && grep -rn "from '@/" apps/api/dist/` — expected output is empty. The bug class is invisible until `node dist/index.js` runs directly; the `_docker-build.yml` CI gate only verifies the image BUILDS, not that it RUNS (TRI-186 tracks adding a docker-run smoke step).
 
 ## Agent orchestration & role boundaries
 
@@ -330,6 +163,7 @@ This repo uses a multi-agent workflow (definitions in `.claude/agents/`). The or
 
 - **`ceo`** — strategic direction, scope alignment with the Singapore launch. Non-technical. No code, no Linear.
 - **`product-manager`** — sole authority on Linear writes (Tribely team only). Decomposes business goals into product requirements with acceptance criteria. No code.
+- **`legal-compliance`** — jurisdictional/regulatory analysis (PDPA, App Store / Play Store policy, UGC moderation triggers, payments/marketplace rules). Directed by `ceo`. Produces compliance memos and runbook deltas. No code, no Linear.
 - **`ui-ux-designer`** — UI/UX design specifications, competitor pattern research, layout/hierarchy/flow decisions. Consulted ONLY when an issue has user-facing design surface (new screens, flows, design-system additions). Produces specs and rationale, NOT code. Skipped for backend, tooling, or UI work that follows an already-specified design.
 - **`engineering-lead`** — translates PRODUCT requirements into TECHNICAL requirements. Triages reviews, signs off on architecture. Surfaces follow-up items to PM; does NOT create Linear tickets directly.
 - **`software-engineer`** — code, CLI, migrations, tests, debugging only. No Linear, no PR creation, no stakeholder comms.
