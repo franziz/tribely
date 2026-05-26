@@ -1,6 +1,6 @@
 import type { Report as ReportRow, Prisma } from '@prisma/client';
 import { Report } from '../../domain/entities/report.js';
-import type { EscalationCategory } from '../../domain/entities/report.js';
+import type { EscalationCategory } from '@/features/audit/domain/types/moderation-action.js';
 import { ReportComment } from '../../domain/value-objects/report-comment.js';
 import { ReportReason } from '../../domain/value-objects/report-reason.js';
 import { ReportTarget } from '../../domain/value-objects/report-target.js';

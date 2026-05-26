@@ -4,7 +4,10 @@
  * Shared by:
  *   - audit/domain/repositories/moderation-action-audit.repository.ts
  *   - audit/application/usecases/record-moderation-action.usecase.ts
+ *   - reports/domain/entities/report.ts
+ *   - reports/application/usecases/escalate-report.usecase.ts
  *   - reports/application/usecases/perform-moderation-action.usecase.ts
+ *   - reports/infrastructure/persistence/report.mapper.ts
  *   - scripts/moderation.ts (CLI)
  *
  * Lives in audit/domain/types/ (not value-objects/) because these are

@@ -3,7 +3,7 @@ import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { ReportRepository } from '../../domain/repositories/report.repository.js';
-import type { EscalationCategory } from '../../domain/entities/report.js';
+import type { EscalationCategory } from '@/features/audit/domain/types/moderation-action.js';
 import type { RecordModerationActionUseCase } from '@/features/audit/application/usecases/record-moderation-action.usecase.js';
 
 export interface EscalateReportInput {

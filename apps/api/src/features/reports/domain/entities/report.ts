@@ -3,15 +3,10 @@ import { AppError } from '@/core/errors/app-error.js';
 import { reportEscalated } from '../events/report-escalated.event.js';
 import { reportFiled } from '../events/report-filed.event.js';
 import { reportResolved } from '../events/report-resolved.event.js';
+import type { EscalationCategory } from '@/features/audit/domain/types/moderation-action.js';
 import type { ReportComment } from '../value-objects/report-comment.js';
 import type { ReportReason } from '../value-objects/report-reason.js';
 import type { ReportTarget } from '../value-objects/report-target.js';
-
-export type EscalationCategory =
-  | 'criminal-content'
-  | 'imminent-harm'
-  | 'ambiguous-policy'
-  | 'external-jurisdiction';
 
 /**
  * Report aggregate root — a user-filed content-moderation report targeting

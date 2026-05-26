@@ -43,26 +43,26 @@ const decodeCursor = (raw: string): { lastCreatedAt: Date; lastReportId: string 
 /**
  * Prisma-backed implementation of ReportRepository.
  *
- * Cross-feature infrastructure dependency — A11 documented exception:
- * `auditRepository` is `ModerationActionAuditRepository` from the audit bounded
- * context. Both are infrastructure/persistence adapters, so this is a
- * infrastructure-layer cross-feature import (not a domain-layer import).
- * The dependency is needed to hydrate `Report.externalInputCount` at load time,
- * which drives the escalation-resolve guard (AC5: an escalated report requires
+ * A11 cross-feature import — sanctioned exception:
+ * `auditRepository` is typed as `ModerationActionAuditRepository`, which is a
+ * **domain repository interface** defined in audit/domain/repositories/ — NOT a
+ * concrete infrastructure adapter. The concrete impl
+ * (`ModerationActionAuditPrismaRepository`) is wired by the DI container; it is
+ * never imported here.
+ *
+ * A11 allows cross-feature imports of domain interfaces (first exception clause).
+ * Cross-feature imports of concrete infrastructure adapters are NOT sanctioned.
+ *
+ * The dependency hydrates `Report.externalInputCount` at load time, which drives
+ * the escalation-resolve guard (AC5: an escalated report requires
  * externalInputCount > 0 OR an overrideReason before resolution is permitted).
- * The count cannot be stored as a denormalised column on `reports` because it
- * is derived from the audit event-log (append-only contract); reading at load
- * time is the only PDPA-sound shape.
+ * The count cannot be stored as a denormalised column on `reports` because it is
+ * derived from the audit event-log (append-only contract); reading at load time
+ * is the only PDPA-sound shape.
  *
- * This dependency is intentionally NOT injected into list paths (listUnresolved,
+ * This is intentionally NOT injected into list paths (listUnresolved,
  * listOlderThan, listOpenOlderThan, listByReporter) — those paths don't invoke
- * resolve() and therefore don't need the guard value. Hydrating N counts for a
- * page of 20 reports would be wasteful and is deferred until a use case actually
- * needs it.
- *
- * NOTE: container.ts wiring for this new constructor param is intentionally
- * deferred to Brief G (DI wiring). Typecheck of container.ts will fail until G
- * lands — this is expected and documented in the Brief D commit.
+ * resolve() and therefore don't need the guard value.
  */
 export class ReportPrismaRepository implements ReportRepository {
   constructor(
