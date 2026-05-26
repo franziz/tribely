@@ -147,6 +147,25 @@ export class ReportPrismaRepository implements ReportRepository {
     `;
   }
 
+  async deleteById(id: string, ctx: TxContext): Promise<void> {
+    const client = unwrapTx(ctx);
+    await client.report.delete({ where: { id } });
+  }
+
+  async findOrphanedOriginatingReportIds(ctx?: TxContext): Promise<string[]> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    // Anti-join: audit rows referencing a reportId that no longer exists in reports.
+    // Quoted identifiers are mandatory — Postgres folds unquoted identifiers to lowercase.
+    // Same cross-feature SELECT pattern as deleteAllForUser reading from reviews (A11 carve-out).
+    const rows = await client.$queryRaw<Array<{ originatingReportId: string }>>`
+      SELECT DISTINCT "originatingReportId"
+        FROM "moderation_action_audit"
+       WHERE "originatingReportId" IS NOT NULL
+         AND "originatingReportId" NOT IN (SELECT "id" FROM "reports")
+    `;
+    return rows.map((r) => r.originatingReportId);
+  }
+
   async listByReporter(
     input: { reporterUserId: string; cursor?: string; limit?: number },
     ctx?: TxContext,

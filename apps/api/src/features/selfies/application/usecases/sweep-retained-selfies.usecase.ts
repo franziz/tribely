@@ -233,6 +233,7 @@ export class SweepRetainedSelfiesUseCase {
         reaperRetried: params.reaperRetried,
         reaperSucceeded: params.reaperSucceeded,
         error: params.error,
+        auditRowsSevered: null,
       })
       .catch((writeErr: unknown) => {
         this.logger.warn(

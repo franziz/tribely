@@ -324,7 +324,17 @@ Purge is performed by a **scheduled sweep job** against the 12-month boundary. T
 - A reported user requesting account deletion (Apple Guideline 5.1.1(v) flow) **does not** delete the moderation evidence in which they are referenced. Direct identifiers (the reported user's display name, email) are pseudonymised on the evidence row; the underlying user-ID linkage is retained. (Mirror of the selfie-deletion + checkin-flagged-report pattern.)
 - A reported user's request under PDPA Section 21 (Access Request) **does** entitle them to know that reports exist about them, but does **not** entitle them to the reporter's identity or the report contents — evidentiary integrity and reporter safety are documented exceptions under the Personal Data Protection (Access) Regulations.
 
-The sweep runs on a scheduled cadence (see [Operational Cadence](#operational-cadence)). Sweep deletions are themselves audit-logged (one row per purge batch, with the row count and the cutoff timestamp).
+The sweep is implemented as `SweepResolvedReportsJob`, boot-wired in `apps/api/src/index.ts`. It runs on the interval configured by `MODERATION_REPORT_SWEEP_INTERVAL_MS` (default 86400000 ms = 24h). For manual one-shot runs, use `npm run --workspace=@tribely/api moderation sweep-resolved-reports`. Sweep deletions are themselves audit-logged (one `sweep_runs` row per tick, with the row count and the cutoff timestamp).
+
+### How to run the sweep manually
+
+To trigger the report retention sweep outside its scheduled cadence (e.g., for an immediate post-incident purge or to confirm the sweep is operational):
+
+```
+npm run --workspace=@tribely/api moderation sweep-resolved-reports
+```
+
+The command requires no operator identity — it is a system action, not an operator action. The scheduled job already runs this sweep every 24h by default; manual invocation is for exceptional circumstances only.
 
 ### What is NOT captured
 

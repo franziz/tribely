@@ -18,6 +18,9 @@ class FakeModerationActionAuditRepository implements ModerationActionAuditReposi
     this.recorded.push(entry);
     return Promise.resolve();
   }
+  severOriginatingReportId(_id: string, _ctx: TxContext): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 describe('RecordModerationActionUseCase', () => {
@@ -129,6 +132,9 @@ describe('RecordModerationActionUseCase', () => {
       record(entry, ctx) {
         contexts.push(ctx);
         return Promise.resolve();
+      },
+      severOriginatingReportId(_id, _ctx) {
+        return Promise.resolve(0);
       },
     };
     const sut = new RecordModerationActionUseCase(capturingRepo);

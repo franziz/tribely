@@ -27,10 +27,28 @@ export interface ModerationActionAuditRecord {
 }
 
 /**
- * Append-only by contract. PDPA s24 evidence integrity requires no UPDATE /
- * repair / backfill path. Mirrors SelfieDeletionEventRepository — required
- * TxContext, single `record(...)` method.
+ * Append-only by contract for evidence fields (operatorUserId, action, reason,
+ * contentSnapshot, etc. — never UPDATEable). The ONLY mutation method is
+ * `severOriginatingReportId`, a PDPA s25 cross-reference minimisation operation
+ * triggered by the 12-month report-retention sweep (runbook §5). No other
+ * UPDATE / DELETE / repair / backfill path exists.
  */
 export interface ModerationActionAuditRepository {
   record(entry: ModerationActionAuditRecord, ctx: TxContext): Promise<void>;
+
+  /**
+   * Severs the cross-reference from audit rows to a purged moderation_reports
+   * row by NULLing originatingReportId. Triggered by the 12-month report-
+   * retention sweep (runbook §5).
+   *
+   * Returns the number of audit rows updated.
+   *
+   * PDPA s25 minimisation operation — the SOLE permitted mutation on this
+   * otherwise-append-only table. All other UPDATE/DELETE paths remain
+   * forbidden by design.
+   *
+   * Required `ctx`: the severance MUST commit atomically with the
+   * moderation_reports row deletion that triggered it (TRI-198 AC: no partial sever).
+   */
+  severOriginatingReportId(reportId: string, ctx: TxContext): Promise<number>;
 }

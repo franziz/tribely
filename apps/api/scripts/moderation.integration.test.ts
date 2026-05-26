@@ -27,6 +27,8 @@ import { PerformModerationActionUseCase } from '../src/features/reports/applicat
 import { EventPrismaRepository } from '../src/features/events/infrastructure/persistence/event.prisma-repository.js';
 import { JoinRequestPrismaRepository } from '../src/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
 import { CancelEventForSafetyUseCase } from '../src/features/reports/application/usecases/cancel-event-for-safety.usecase.js';
+import { SweepResolvedReportsUseCase } from '../src/features/reports/application/usecases/sweep-resolved-reports.usecase.js';
+import { SweepRunPrismaRepository } from '../src/features/selfies/infrastructure/persistence/sweep-run.prisma-repository.js';
 
 const dbUrl = process.env.DATABASE_URL;
 
@@ -493,9 +495,7 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
       .catch(() => null);
     await db.outboxEvent.deleteMany({}).catch(() => null);
     await db.event.deleteMany({ where: { hostUserId } }).catch(() => null);
-    await db.user
-      .deleteMany({ where: { id: { in: [operatorId, hostUserId] } } })
-      .catch(() => null);
+    await db.user.deleteMany({ where: { id: { in: [operatorId, hostUserId] } } }).catch(() => null);
     await db.$disconnect();
   });
 
@@ -528,9 +528,7 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
   };
 
   const cleanupEvent = async (eventId: string): Promise<void> => {
-    await db.moderationActionAudit
-      .deleteMany({ where: { targetId: eventId } })
-      .catch(() => null);
+    await db.moderationActionAudit.deleteMany({ where: { targetId: eventId } }).catch(() => null);
     await db.outboxEvent.deleteMany({}).catch(() => null);
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
   };
@@ -576,9 +574,7 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
       expect(auditRow?.reportId).toBeNull();
       expect(auditRow?.originatingReportId).toBeNull();
       // requestId carries the system: prefix from runAsSystem
-      expect(auditRow?.requestId).toMatch(
-        /^system:cli\.moderation\.cancel-event-for-safety:/,
-      );
+      expect(auditRow?.requestId).toMatch(/^system:cli\.moderation\.cancel-event-for-safety:/);
 
       await cleanupEvent(eventId);
     });
@@ -642,6 +638,208 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
       expect(eventRow?.status).toBe('published');
 
       await cleanupEvent(eventId);
+    });
+  });
+});
+
+/**
+ * Integration test for SweepResolvedReportsUseCase against a real DB.
+ *
+ * Seed: reporter user, review (target), resolved report >12 months old,
+ * and an audit row with originatingReportId pointing at that report.
+ *
+ * Tests: report is deleted; audit row's originatingReportId is NULL'd.
+ * Mirrors the PerformModerationActionUseCase integration test harness shape.
+ */
+describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
+  let db: PrismaClient;
+  let unitOfWork: PrismaUnitOfWork;
+  let useCase: SweepResolvedReportsUseCase;
+
+  // Seeded IDs
+  let reporterUserId: string;
+  let ratedUserId: string;
+  let hostUserId: string;
+  let operatorUserId: string;
+  let eventId: string;
+
+  beforeAll(async () => {
+    if (!dbUrl) return;
+
+    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+    unitOfWork = new PrismaUnitOfWork(db);
+
+    const reportRepository = new ReportPrismaRepository(db);
+    const auditRepository = new ModerationActionAuditPrismaRepository(db);
+    const sweepRunRepository = new SweepRunPrismaRepository(db);
+    const clock = new SystemClock();
+    const logger = {
+      info: (): void => undefined,
+      warn: (): void => undefined,
+      error: (): void => undefined,
+    };
+
+    useCase = new SweepResolvedReportsUseCase(
+      unitOfWork,
+      reportRepository,
+      auditRepository,
+      sweepRunRepository,
+      clock,
+      logger,
+    );
+
+    // Seed users + event
+    reporterUserId = createId();
+    ratedUserId = createId();
+    hostUserId = createId();
+    operatorUserId = createId();
+    eventId = createId();
+
+    await db.user.createMany({
+      data: [
+        {
+          id: reporterUserId,
+          email: `reporter-sweep-int-${reporterUserId}@example.com`,
+          displayName: 'Reporter',
+        },
+        {
+          id: ratedUserId,
+          email: `rated-sweep-int-${ratedUserId}@example.com`,
+          displayName: 'Rated',
+        },
+        {
+          id: hostUserId,
+          email: `host-sweep-int-${hostUserId}@example.com`,
+          displayName: 'Host',
+        },
+        {
+          id: operatorUserId,
+          email: `op-sweep-int-${operatorUserId}@example.com`,
+          displayName: 'Operator',
+        },
+      ],
+    });
+
+    await db.event.create({
+      data: {
+        id: eventId,
+        hostUserId,
+        title: 'Sweep Integration Test Event',
+        venueAddress: '1 Test St',
+        venueCity: 'Singapore',
+        venueLatitude: 1.3,
+        venueLongitude: 103.8,
+        startsAt: new Date('2026-05-01T18:00:00Z'),
+        endsAt: new Date('2026-05-01T20:00:00Z'),
+        capacity: 5,
+        category: 'food',
+        venueCategory: 'cafe',
+        costSplit: 'own',
+        approvalMode: 'manual',
+        status: 'completed',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    if (!dbUrl) return;
+    // Clean up in FK-safe order.
+    await db.sweepRun.deleteMany({ where: { kind: 'report-retention-sweep' } }).catch(() => null);
+    await db.moderationActionAudit.deleteMany({ where: { operatorUserId } }).catch(() => null);
+    await db.report.deleteMany({ where: { reporterUserId } }).catch(() => null);
+    await db.review.deleteMany({ where: { eventId } }).catch(() => null);
+    await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
+    await db.user
+      .deleteMany({
+        where: { id: { in: [reporterUserId, ratedUserId, hostUserId, operatorUserId] } },
+      })
+      .catch(() => null);
+    await db.$disconnect();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Success path
+  // ---------------------------------------------------------------------------
+
+  describe('success path', () => {
+    it('deletes resolved report >12 months old and NULLs audit originatingReportId', async () => {
+      // Seed a review as the report target.
+      const reviewId = createId();
+      await db.review.create({
+        data: {
+          id: reviewId,
+          eventId,
+          raterUserId: reporterUserId,
+          ratedUserId,
+          rating: 3,
+          comment: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          hidden: false,
+          hiddenAt: null,
+          hiddenReason: null,
+        },
+      });
+
+      // Seed a resolved report with resolvedAt > 12 months ago.
+      const reportId = createId();
+      const thirteenMonthsAgo = new Date();
+      thirteenMonthsAgo.setMonth(thirteenMonthsAgo.getMonth() - 13);
+
+      await db.report.create({
+        data: {
+          id: reportId,
+          reporterUserId,
+          targetType: 'review',
+          targetId: reviewId,
+          reason: 'harassment',
+          comment: null,
+          createdAt: thirteenMonthsAgo,
+          firstReviewedAt: thirteenMonthsAgo,
+          resolvedAt: thirteenMonthsAgo,
+          resolution: 'kept',
+          resolvedByUserId: operatorUserId,
+        },
+      });
+
+      // Seed an audit row referencing the report via originatingReportId.
+      const auditRowId = createId();
+      await db.moderationActionAudit.create({
+        data: {
+          id: auditRowId,
+          operatorUserId,
+          action: 'cancel_event_for_safety',
+          reportId: null,
+          targetType: 'event',
+          targetId: eventId,
+          reason: null,
+          contentSnapshot: null,
+          reporterUserId: null,
+          reasonCode: 'safety',
+          justificationText: 'Safety cancellation referencing the seeded report.',
+          originatingReportId: reportId,
+          actedAt: new Date(),
+          requestId: 'system:test:sweep-integration',
+        },
+      });
+
+      // Run the sweep.
+      await runAsSystem('cli.moderation.sweep-resolved-reports', async () => {
+        await useCase.execute();
+      });
+
+      // Assert: report row is gone.
+      const reportRow = await db.report.findUnique({ where: { id: reportId } });
+      expect(reportRow).toBeNull();
+
+      // Assert: audit row's originatingReportId is NULL'd (severed).
+      const auditRow = await db.moderationActionAudit.findUnique({ where: { id: auditRowId } });
+      expect(auditRow).not.toBeNull();
+      expect(auditRow?.originatingReportId).toBeNull();
+
+      // Cleanup.
+      await db.moderationActionAudit.deleteMany({ where: { id: auditRowId } }).catch(() => null);
+      await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);
     });
   });
 });

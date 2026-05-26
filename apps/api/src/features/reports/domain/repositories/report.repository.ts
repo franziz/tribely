@@ -47,6 +47,12 @@ export interface ReportRepository {
   ): Promise<{ rows: Report[]; nextCursor: string | null }>;
 
   /**
+   * PDPA-deletion method. MUST be invoked inside a UnitOfWork.run(...) closure;
+   * `ctx` is required (not optional) because this method's only legitimate
+   * callers are retention/sweep use cases that own the transaction boundary.
+   * Documented A6 carve-out: see CLAUDE.md "evidence-integrity required-ctx"
+   * — extended to cover PDPA-deletion repository methods.
+   *
    * Bulk-delete all reports associated with a user as part of a PDPA erasure
    * cascade. Deletes:
    *   (a) reports filed BY the user (`reporterUserId = userId`), and
@@ -58,10 +64,37 @@ export interface ReportRepository {
    * here and in the Prisma repository implementation when those target types
    * are implemented.
    *
-   * Required ctx (non-optional): must be called from inside a caller-owned
-   * UnitOfWork transaction so the cascade is atomic with the user deletion.
-   *
    * @returns The number of report rows deleted.
    */
   deleteAllForUser(userId: string, ctx: TxContext): Promise<number>;
+
+  /**
+   * PDPA-deletion method. MUST be invoked inside a UnitOfWork.run(...) closure;
+   * `ctx` is required (not optional) because this method's only legitimate
+   * callers are retention/sweep use cases that own the transaction boundary.
+   * Documented A6 carve-out: see CLAUDE.md "evidence-integrity required-ctx"
+   * — extended to cover PDPA-deletion repository methods.
+   *
+   * Delete a single report row by its primary key. The deletion is atomic with
+   * the upstream audit reference severance (TRI-198 report-retention sweep).
+   */
+  deleteById(id: string, ctx: TxContext): Promise<void>;
+
+  /**
+   * Returns the distinct set of `originatingReportId` values present in
+   * `moderation_action_audit` that have no corresponding row in
+   * `moderation_reports` (anti-join).
+   *
+   * Used by the report-retention sweep's orphan-reference defensive pass to
+   * NULL-out dangling foreign references left by prior partial failures or
+   * out-of-order deletions.
+   *
+   * Placement: the report bounded context owns "what is a valid report"; the
+   * anti-join reads both `moderation_action_audit` and `moderation_reports`,
+   * which is the same cross-table pattern already present in `deleteAllForUser`
+   * (reads `reviews` to expand the report target set). Documented A11 carve-out.
+   *
+   * Optional ctx — orphan severance runs outside the per-report transaction.
+   */
+  findOrphanedOriginatingReportIds(ctx?: TxContext): Promise<string[]>;
 }

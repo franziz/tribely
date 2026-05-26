@@ -23,6 +23,7 @@ export class SweepRunPrismaRepository implements SweepRunRepository {
         reaperRetried: entry.reaperRetried,
         reaperSucceeded: entry.reaperSucceeded,
         error: entry.error,
+        auditRowsSevered: entry.auditRowsSevered,
       },
     });
   }

@@ -35,6 +35,8 @@ const makeDeps = (review: unknown) => {
     listOpenOlderThan: vi.fn(),
     listByReporter: vi.fn(),
     deleteAllForUser: vi.fn(),
+    deleteById: vi.fn(),
+    findOrphanedOriginatingReportIds: vi.fn(),
   };
   const reviews = makeReviewRepo(review);
   const publisher: EventPublisher = { publish: publishSpy };
