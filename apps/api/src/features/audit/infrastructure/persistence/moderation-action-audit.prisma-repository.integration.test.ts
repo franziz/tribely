@@ -193,14 +193,11 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
         reasonCode: null,
         justificationText: null,
       });
-      await runWithContext(
-        { requestId: entry.requestId, actorUserId: null },
-        () => unitOfWork.run((ctx) => repo.record(entry, ctx)),
+      await runWithContext({ requestId: entry.requestId ?? 'system:test', actorUserId: null }, () =>
+        unitOfWork.run((ctx) => repo.record(entry, ctx)),
       );
 
-      const count = await unitOfWork.run((ctx) =>
-        repo.severOriginatingReportId(reportId, ctx),
-      );
+      const count = await unitOfWork.run((ctx) => repo.severOriginatingReportId(reportId, ctx));
 
       expect(count).toBe(1);
 
@@ -233,9 +230,7 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
         await unitOfWork.run((ctx) => repo.record(e, ctx));
       }
 
-      const count = await unitOfWork.run((ctx) =>
-        repo.severOriginatingReportId(reportId, ctx),
-      );
+      const count = await unitOfWork.run((ctx) => repo.severOriginatingReportId(reportId, ctx));
 
       expect(count).toBe(3);
 
@@ -254,9 +249,7 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
       await unitOfWork.run((ctx) => repo.record(targetEntry, ctx));
       await unitOfWork.run((ctx) => repo.record(untouchedEntry, ctx));
 
-      await unitOfWork.run((ctx) =>
-        repo.severOriginatingReportId(targetReportId, ctx),
-      );
+      await unitOfWork.run((ctx) => repo.severOriginatingReportId(targetReportId, ctx));
 
       const untouchedRow = await db.moderationActionAudit.findUnique({
         where: { id: untouchedEntry.id },
