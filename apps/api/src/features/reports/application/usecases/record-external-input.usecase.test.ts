@@ -139,40 +139,44 @@ describe('RecordExternalInputUseCase', () => {
       });
 
       expect(audit.recorded).toHaveLength(1);
-      const recorded = audit.recorded[0];
-      expect(recorded).toBeDefined();
+      // Vitest's expect().toBeDefined() narrows the type post-assertion.
+      // Destructure to avoid repeated non-null assertions throughout the block.
+      const firstEntry = audit.recorded[0];
+      expect(firstEntry).toBeDefined();
+      // Safety: toBeDefined() above guarantees this is non-null; the type system
+      // does not propagate that narrowing so we use a local alias after the
+      // assertion. This avoids the @typescript-eslint/no-non-null-assertion rule.
+      const { input: recordedInput } = firstEntry as NonNullable<typeof firstEntry>;
 
       // Action type
-      expect(recorded!.input.action).toBe('record_external_input');
+      expect(recordedInput.action).toBe('record_external_input');
 
       // Operator and report linkage
-      expect(recorded!.input.operatorUserId).toBe('op-1');
-      expect(recorded!.input.reportId).toBe(report.id);
-      expect(recorded!.input.targetType).toBe(report.target.type);
-      expect(recorded!.input.targetId).toBe(report.target.id);
-      expect(recorded!.input.reporterUserId).toBe(report.reporterUserId);
+      expect(recordedInput.operatorUserId).toBe('op-1');
+      expect(recordedInput.reportId).toBe(report.id);
+      expect(recordedInput.targetType).toBe(report.target.type);
+      expect(recordedInput.targetId).toBe(report.target.id);
+      expect(recordedInput.reporterUserId).toBe(report.reporterUserId);
 
       // External input fields
-      expect(recorded!.input.externalSource).toBe('counsel');
-      expect(recorded!.input.externalDisposition).toBe(
-        'Counsel advises no further action required.',
-      );
+      expect(recordedInput.externalSource).toBe('counsel');
+      expect(recordedInput.externalDisposition).toBe('Counsel advises no further action required.');
 
       // actedAt = clock.now(); externalReceivedAt = input.receivedAt — DISTINCT times
-      expect(recorded!.input.actedAt).toEqual(NOW);
-      expect(recorded!.input.externalReceivedAt).toEqual(RECEIVED_AT);
-      expect(recorded!.input.actedAt).not.toEqual(recorded!.input.externalReceivedAt);
+      expect(recordedInput.actedAt).toEqual(NOW);
+      expect(recordedInput.externalReceivedAt).toEqual(RECEIVED_AT);
+      expect(recordedInput.actedAt).not.toEqual(recordedInput.externalReceivedAt);
 
       // Escalation category carried forward from report
-      expect(recorded!.input.escalationCategory).toBe('external-jurisdiction');
+      expect(recordedInput.escalationCategory).toBe('external-jurisdiction');
 
       // Fields that are null by design for this action
-      expect(recorded!.input.reason).toBeNull();
-      expect(recorded!.input.contentSnapshot).toBeNull();
-      expect(recorded!.input.reasonCode).toBeNull();
-      expect(recorded!.input.justificationText).toBeNull();
-      expect(recorded!.input.originatingReportId).toBeNull();
-      expect(recorded!.input.externalRef).toBeNull();
+      expect(recordedInput.reason).toBeNull();
+      expect(recordedInput.contentSnapshot).toBeNull();
+      expect(recordedInput.reasonCode).toBeNull();
+      expect(recordedInput.justificationText).toBeNull();
+      expect(recordedInput.originatingReportId).toBeNull();
+      expect(recordedInput.externalRef).toBeNull();
     });
 
     it('passes the TxContext from the UnitOfWork to recordAudit', async () => {
@@ -187,7 +191,10 @@ describe('RecordExternalInputUseCase', () => {
         receivedAt: RECEIVED_AT,
       });
 
-      expect(audit.recorded[0]?.ctx).toBe(TEST_TX);
+      const firstRecorded = audit.recorded[0];
+      expect(firstRecorded).toBeDefined();
+      const { ctx: recordedCtx } = firstRecorded as NonNullable<typeof firstRecorded>;
+      expect(recordedCtx).toBe(TEST_TX);
     });
 
     it('does NOT mutate the Report aggregate (no save call)', async () => {
@@ -258,8 +265,10 @@ describe('RecordExternalInputUseCase', () => {
           receivedAt: RECEIVED_AT,
         });
 
-        const last = audit.recorded[audit.recorded.length - 1];
-        expect(last?.input.escalationCategory).toBe(category);
+        const lastEntry = audit.recorded[audit.recorded.length - 1];
+        expect(lastEntry).toBeDefined();
+        const { input: lastInput } = lastEntry as NonNullable<typeof lastEntry>;
+        expect(lastInput.escalationCategory).toBe(category);
       }
     });
   });
