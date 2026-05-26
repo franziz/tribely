@@ -13,6 +13,18 @@ import { ReportReason } from '../../domain/value-objects/report-reason.js';
 import { ReportTarget } from '../../domain/value-objects/report-target.js';
 import { ReportComment } from '../../domain/value-objects/report-comment.js';
 import { ReportPrismaRepository } from './report.prisma-repository.js';
+import type { ModerationActionAuditRepository } from '@/features/audit/domain/repositories/moderation-action-audit.repository.js';
+
+/**
+ * Minimal stub satisfying the ModerationActionAuditRepository interface
+ * for integration tests that don't exercise the escalation-resolve guard path.
+ * The real implementation is wired in container.ts (Brief G).
+ */
+const stubAuditRepository: ModerationActionAuditRepository = {
+  record: () => Promise.resolve(),
+  severOriginatingReportId: () => Promise.resolve(0),
+  countExternalInputs: () => Promise.resolve(0),
+};
 
 const dbUrl = process.env.DATABASE_URL;
 
@@ -30,7 +42,7 @@ describe.skipIf(!dbUrl)('ReportPrismaRepository — integration', () => {
   beforeAll(async () => {
     if (!dbUrl) return;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
-    repo = new ReportPrismaRepository(db);
+    repo = new ReportPrismaRepository(db, stubAuditRepository);
     uow = new PrismaUnitOfWork(db);
 
     // Seed minimal User row for reporterUserId FK.

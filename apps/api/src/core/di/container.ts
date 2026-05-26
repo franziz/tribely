@@ -151,6 +151,8 @@ import { FileReportUseCase } from '@/features/reports/application/usecases/file-
 import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
 import { ResolveReportUseCase } from '@/features/reports/application/usecases/resolve-report.usecase.js';
 import { PerformModerationActionUseCase } from '@/features/reports/application/usecases/perform-moderation-action.usecase.js';
+import { EscalateReportUseCase } from '@/features/reports/application/usecases/escalate-report.usecase.js';
+import { RecordExternalInputUseCase } from '@/features/reports/application/usecases/record-external-input.usecase.js';
 import { CancelEventForSafetyUseCase } from '@/features/reports/application/usecases/cancel-event-for-safety.usecase.js';
 import { CascadeReportsOnUserDeletionUseCase } from '@/features/reports/application/usecases/cascade-reports-on-user-deletion.usecase.js';
 import { SweepResolvedReportsUseCase } from '@/features/reports/application/usecases/sweep-resolved-reports.usecase.js';
@@ -387,6 +389,8 @@ export interface Container {
   touchReportUseCase: TouchReportUseCase;
   resolveReportUseCase: ResolveReportUseCase;
   performModerationActionUseCase: PerformModerationActionUseCase;
+  escalateReportUseCase: EscalateReportUseCase;
+  recordExternalInputUseCase: RecordExternalInputUseCase;
   cancelEventForSafetyUseCase: CancelEventForSafetyUseCase;
   sweepResolvedReportsUseCase: SweepResolvedReportsUseCase;
   sweepResolvedReportsJob: SweepResolvedReportsJob;
@@ -838,8 +842,14 @@ export const buildContainer = (): Container => {
     clock,
   );
 
+  // --- Moderation action audit repository ---
+  // Constructed before reportRepository because ReportPrismaRepository's
+  // constructor requires it (Brief D change). It is the canonical instance
+  // shared by all consumers that need it in this wiring block.
+  const moderationActionAuditRepository = new ModerationActionAuditPrismaRepository(db);
+
   // --- Reports ---
-  const reportRepository = new ReportPrismaRepository(db);
+  const reportRepository = new ReportPrismaRepository(db, moderationActionAuditRepository);
   const fileReportUseCase = new FileReportUseCase(
     unitOfWork,
     reportRepository,
@@ -860,7 +870,8 @@ export const buildContainer = (): Container => {
   // Bypasses TouchReportUseCase / ResolveReportUseCase so the audit row
   // can be inserted in the SAME UnitOfWork transaction as the state transition
   // (PDPA s24 evidence integrity). See PerformModerationActionUseCase docstring.
-  const moderationActionAuditRepository = new ModerationActionAuditPrismaRepository(db);
+  // moderationActionAuditRepository is already constructed above (moved up to
+  // satisfy ReportPrismaRepository's constructor requirement — Brief D).
   const recordModerationActionUseCase = new RecordModerationActionUseCase(
     moderationActionAuditRepository,
   );
@@ -869,6 +880,23 @@ export const buildContainer = (): Container => {
     reportRepository,
     reviewRepository,
     publisher,
+    recordModerationActionUseCase,
+    clock,
+  );
+
+  // --- Escalation CLI orchestrators (TRI-165 Brief D/E) ---
+  // escalateReportUseCase and recordExternalInputUseCase are atomic-audit use
+  // cases following the same required-TxContext pattern as PerformModerationActionUseCase.
+  const escalateReportUseCase = new EscalateReportUseCase(
+    unitOfWork,
+    reportRepository,
+    publisher,
+    recordModerationActionUseCase,
+    clock,
+  );
+  const recordExternalInputUseCase = new RecordExternalInputUseCase(
+    unitOfWork,
+    reportRepository,
     recordModerationActionUseCase,
     clock,
   );
@@ -1071,6 +1099,8 @@ export const buildContainer = (): Container => {
     touchReportUseCase,
     resolveReportUseCase,
     performModerationActionUseCase,
+    escalateReportUseCase,
+    recordExternalInputUseCase,
     cancelEventForSafetyUseCase,
     sweepResolvedReportsUseCase,
     sweepResolvedReportsJob,

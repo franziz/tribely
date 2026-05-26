@@ -3,6 +3,7 @@ import type { Db } from '@/core/db/prisma.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { Report } from '../../domain/entities/report.js';
 import type { ReportRepository } from '../../domain/repositories/report.repository.js';
+import type { ModerationActionAuditRepository } from '@/features/audit/domain/repositories/moderation-action-audit.repository.js';
 import { toReport, toRow } from './report.mapper.js';
 
 const DEFAULT_LIST_LIMIT = 20;
@@ -39,8 +40,35 @@ const decodeCursor = (raw: string): { lastCreatedAt: Date; lastReportId: string 
   }
 };
 
+/**
+ * Prisma-backed implementation of ReportRepository.
+ *
+ * A11 cross-feature import — sanctioned exception:
+ * `auditRepository` is typed as `ModerationActionAuditRepository`, which is a
+ * **domain repository interface** defined in audit/domain/repositories/ — NOT a
+ * concrete infrastructure adapter. The concrete impl
+ * (`ModerationActionAuditPrismaRepository`) is wired by the DI container; it is
+ * never imported here.
+ *
+ * A11 allows cross-feature imports of domain interfaces (first exception clause).
+ * Cross-feature imports of concrete infrastructure adapters are NOT sanctioned.
+ *
+ * The dependency hydrates `Report.externalInputCount` at load time, which drives
+ * the escalation-resolve guard (AC5: an escalated report requires
+ * externalInputCount > 0 OR an overrideReason before resolution is permitted).
+ * The count cannot be stored as a denormalised column on `reports` because it is
+ * derived from the audit event-log (append-only contract); reading at load time
+ * is the only PDPA-sound shape.
+ *
+ * This is intentionally NOT injected into list paths (listUnresolved,
+ * listOlderThan, listOpenOlderThan, listByReporter) — those paths don't invoke
+ * resolve() and therefore don't need the guard value.
+ */
 export class ReportPrismaRepository implements ReportRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly auditRepository: ModerationActionAuditRepository,
+  ) {}
 
   async save(report: Report, ctx?: TxContext): Promise<void> {
     const client = ctx ? unwrapTx(ctx) : this.db;
@@ -52,6 +80,10 @@ export class ReportPrismaRepository implements ReportRepository {
         resolvedAt: report.resolvedAt,
         resolution: report.resolution,
         resolvedByUserId: report.resolvedByUserId,
+        escalatedAt: report.escalatedAt,
+        escalationCategory: report.escalationCategory,
+        externalRef: report.externalRef,
+        escalatedByUserId: report.escalatedByUserId,
       },
     });
   }
@@ -59,7 +91,12 @@ export class ReportPrismaRepository implements ReportRepository {
   async findById(id: string, ctx?: TxContext): Promise<Report | null> {
     const client = ctx ? unwrapTx(ctx) : this.db;
     const row = await client.report.findUnique({ where: { id } });
-    return row ? toReport(row) : null;
+    if (!row) return null;
+    // Hydrate externalInputCount BEFORE rehydrating the aggregate so that
+    // resolve() has the correct count for the escalation-resolve guard (AC5).
+    // See class-level comment for why this is not done for list paths.
+    const externalInputCount = await this.auditRepository.countExternalInputs(id, ctx);
+    return toReport(row, externalInputCount);
   }
 
   async listUnresolved(

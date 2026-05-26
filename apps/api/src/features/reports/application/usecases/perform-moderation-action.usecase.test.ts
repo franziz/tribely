@@ -33,6 +33,37 @@ const makeReport = (targetType: 'review' | 'user' = 'review'): Report => {
   return report;
 };
 
+/**
+ * Build an escalated report rehydrated with the given category and externalInputCount.
+ * Used to test the resolve-with-override and escalation-resolve-guard branches.
+ */
+const makeEscalatedReport = (
+  options: {
+    targetType?: 'review' | 'user';
+    category?: 'ambiguous-policy' | 'external-jurisdiction' | 'criminal-content' | 'imminent-harm';
+    externalInputCount?: number;
+  } = {},
+): Report => {
+  const base = makeReport(options.targetType ?? 'review');
+  return Report.rehydrate({
+    id: base.id,
+    reporterUserId: base.reporterUserId,
+    target: base.target,
+    reason: base.reason,
+    comment: base.comment,
+    createdAt: base.createdAt,
+    firstReviewedAt: null,
+    resolvedAt: null,
+    resolution: null,
+    resolvedByUserId: null,
+    escalatedAt: new Date('2026-05-22T00:00:00Z'),
+    escalationCategory: options.category ?? 'ambiguous-policy',
+    externalRef: 'CASE-100',
+    escalatedByUserId: createId(),
+    externalInputCount: options.externalInputCount ?? 0,
+  });
+};
+
 const makeReview = (comment = 'Nice event!'): Review => {
   return Review.rehydrate({
     id: createId(),
@@ -456,6 +487,28 @@ describe('PerformModerationActionUseCase', () => {
       ).rejects.toMatchObject({ status: 409 });
     });
 
+    it('throws 409 when resolving an escalated report with no externalInputs and no overrideReason', async () => {
+      const report = makeEscalatedReport({ category: 'ambiguous-policy', externalInputCount: 0 });
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        new FakeReportRepository(report),
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        new FakeRecordModerationActionUseCase() as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      await expect(
+        useCase.execute({
+          operatorUserId: 'op-1',
+          action: 'resolve_kept',
+          reportId: report.id,
+          reason: 'Does not violate guidelines',
+          // overrideReason intentionally omitted — escalationResolveBlocked
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
     it('throws 404 when target review not found during resolve_hidden', async () => {
       const report = makeReport('review');
       // Pre-snapshot read returns a review, but in-tx read returns null
@@ -496,6 +549,177 @@ describe('PerformModerationActionUseCase', () => {
           reason: 'Violation',
         }),
       ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe('resolve_with_override action (AC5)', () => {
+    it('resolves an ambiguous-policy escalated report with overrideReason and writes resolve_with_override audit row', async () => {
+      const report = makeEscalatedReport({ category: 'ambiguous-policy', externalInputCount: 0 });
+      const reports = new FakeReportRepository(report);
+      const audit = new FakeRecordModerationActionUseCase();
+
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        reports,
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        audit as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      await useCase.execute({
+        operatorUserId: 'op-1',
+        action: 'resolve_kept',
+        reportId: report.id,
+        reason: 'Standard resolution reason',
+        overrideReason: 'Policy team reviewed; no violation found on balance',
+      });
+
+      expect(report.isResolved).toBe(true);
+      expect(report.resolution).toBe('kept');
+      expect(reports.saved).toHaveLength(1);
+      expect(audit.recorded).toHaveLength(1);
+
+      const auditEntry = audit.recorded[0];
+      expect(auditEntry).toBeDefined();
+      if (!auditEntry) throw new Error('unreachable');
+      const auditRow = auditEntry.input;
+      expect(auditRow.action).toBe('resolve_with_override');
+      // reason carries the overrideReason text, not the standard reason
+      expect(auditRow.reason).toBe('Policy team reviewed; no violation found on balance');
+      // escalationCategory is carried forward for traceability
+      expect(auditRow.escalationCategory).toBe('ambiguous-policy');
+      // externalRef/externalSource/etc. remain null for resolve actions
+      expect(auditRow.externalRef).toBeUndefined();
+    });
+
+    it('resolves an external-jurisdiction escalated report with overrideReason', async () => {
+      const report = makeEscalatedReport({
+        category: 'external-jurisdiction',
+        externalInputCount: 0,
+      });
+      const audit = new FakeRecordModerationActionUseCase();
+
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        new FakeReportRepository(report),
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        audit as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      // Use resolve_kept (not resolve_hidden) so no review-lookup is needed;
+      // this test exercises the audit-action branch, not the review-hide path.
+      await useCase.execute({
+        operatorUserId: 'op-1',
+        action: 'resolve_kept',
+        reportId: report.id,
+        reason: 'Keep the content',
+        overrideReason: 'Jurisdiction analysis: no applicable local law',
+      });
+
+      expect(report.isResolved).toBe(true);
+      const extJurisdEntry = audit.recorded[0];
+      expect(extJurisdEntry).toBeDefined();
+      if (!extJurisdEntry) throw new Error('unreachable');
+      expect(extJurisdEntry.input.action).toBe('resolve_with_override');
+      expect(extJurisdEntry.input.escalationCategory).toBe('external-jurisdiction');
+    });
+
+    it('resolves an escalated report that already has an external-input row (no override needed) — audit action stays resolve_kept', async () => {
+      const report = makeEscalatedReport({ category: 'ambiguous-policy', externalInputCount: 1 });
+      const audit = new FakeRecordModerationActionUseCase();
+
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        new FakeReportRepository(report),
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        audit as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      await useCase.execute({
+        operatorUserId: 'op-1',
+        action: 'resolve_kept',
+        reportId: report.id,
+        reason: 'External input received; no violation',
+        // overrideReason omitted — external-input satisfies the guard
+      });
+
+      expect(report.isResolved).toBe(true);
+      const extInputEntry = audit.recorded[0];
+      expect(extInputEntry).toBeDefined();
+      if (!extInputEntry) throw new Error('unreachable');
+      expect(extInputEntry.input.action).toBe('resolve_kept');
+      expect(extInputEntry.input.escalationCategory).toBeNull();
+    });
+
+    it('throws 400 when overrideReason is supplied on a non-escalated report (domain rejects)', async () => {
+      const report = makeReport(); // not escalated
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        new FakeReportRepository(report),
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        new FakeRecordModerationActionUseCase() as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      await expect(
+        useCase.execute({
+          operatorUserId: 'op-1',
+          action: 'resolve_kept',
+          reportId: report.id,
+          reason: 'Some reason',
+          overrideReason: 'This should be rejected',
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+    });
+
+    it('throws 400 when overrideReason is supplied on a criminal-content escalation (prohibited by domain)', async () => {
+      const report = makeEscalatedReport({ category: 'criminal-content', externalInputCount: 0 });
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        new FakeReportRepository(report),
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        new FakeRecordModerationActionUseCase() as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      await expect(
+        useCase.execute({
+          operatorUserId: 'op-1',
+          action: 'resolve_kept',
+          reportId: report.id,
+          reason: 'Some reason',
+          overrideReason: 'Should not be allowed for criminal-content',
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+    });
+
+    it('throws 400 when overrideReason is supplied on an imminent-harm escalation (prohibited by domain)', async () => {
+      const report = makeEscalatedReport({ category: 'imminent-harm', externalInputCount: 0 });
+      const useCase = new PerformModerationActionUseCase(
+        new FakeUnitOfWork(),
+        new FakeReportRepository(report),
+        new FakeReviewRepository(),
+        new FakeEventPublisher(),
+        new FakeRecordModerationActionUseCase() as unknown as RecordModerationActionUseCase,
+        new FixedClock(NOW),
+      );
+
+      await expect(
+        useCase.execute({
+          operatorUserId: 'op-1',
+          action: 'resolve_kept',
+          reportId: report.id,
+          reason: 'Some reason',
+          overrideReason: 'Should not be allowed for imminent-harm',
+        }),
+      ).rejects.toMatchObject({ status: 400 });
     });
   });
 });

@@ -143,6 +143,10 @@ class FakeAuditRepository implements ModerationActionAuditRepository {
     this.severanceCalls.push({ reportId, ctx });
     return Promise.resolve(this.severanceCountByReportId.get(reportId) ?? 0);
   }
+
+  countExternalInputs(_reportId: string): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 /** In-memory SweepRunRepository fake. */

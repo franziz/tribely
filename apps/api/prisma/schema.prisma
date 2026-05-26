@@ -303,23 +303,28 @@ model Review {
 /// hard-deleted their filed reports are also deleted (PDPA minimum-retention
 /// for personal data the user themselves generated).
 model Report {
-  id               String    @id @default(cuid())
-  reporterUserId   String
-  targetType       String    // review | user | event — CHECK enforced by migration
-  targetId         String
-  reason           String    // harassment | hate_speech | ... — CHECK enforced by migration
-  comment          String?   @db.VarChar(500)
-  createdAt        DateTime  @default(now())
-  firstReviewedAt  DateTime?
-  resolvedAt       DateTime?
-  resolution       String?   // hidden | kept — CHECK enforced by migration
-  resolvedByUserId String?
+  id                   String    @id @default(cuid())
+  reporterUserId       String
+  targetType           String    // review | user | event — CHECK enforced by migration
+  targetId             String
+  reason               String    // harassment | hate_speech | ... — CHECK enforced by migration
+  comment              String?   @db.VarChar(500)
+  createdAt            DateTime  @default(now())
+  firstReviewedAt      DateTime?
+  resolvedAt           DateTime?
+  resolution           String?   // hidden | kept — CHECK enforced by migration
+  resolvedByUserId     String?
+  escalatedAt          DateTime? // null = not escalated; non-null = escalated
+  escalationCategory   String?   // criminal-content | imminent-harm | ambiguous-policy | external-jurisdiction — CHECK enforced; paired-null with escalatedAt
+  externalRef          String?   @db.VarChar(500) // operator-supplied external reference; paired-null with escalatedAt
+  escalatedByUserId    String?   // operator user ID who escalated; paired-null with escalatedAt
 
   reporter User @relation("ReportsAsReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
 
   @@index([resolvedAt])
   @@index([targetType, targetId])
   @@index([reporterUserId])
+  @@index([escalatedAt])
   @@map("reports")
 }
 
@@ -533,27 +538,33 @@ model AccountDeletionEvent {
 /// No application-layer UPDATE or prune path — append-only by contract.
 /// Read access is out-of-band SQL only — no public-port read methods.
 model ModerationActionAudit {
-  id                  String   @id @default(cuid())
-  operatorUserId      String
-  action              String   // touch | resolve_hidden | resolve_kept | cancel_event_for_safety — CHECK enforced
-  reportId            String?  // nullable: Cat 4 cancellations may have no upstream report (TRI-193)
-  targetType          String   // review | user | event — CHECK enforced
-  targetId            String
-  reason              String?  @db.VarChar(500)  // required for resolve_*, null for touch
-  contentSnapshot     String?  @db.Text          // verbatim target content at action time
-  reporterUserId      String?  // nullable: no reporter when there is no upstream report (TRI-193)
-  reasonCode          String?              // machine-readable safety code, e.g. 'safety' — CHECK enforced
-  justificationText   String?  @db.VarChar(500)  // operator free-text narrative for cancel_event_for_safety
-  originatingReportId String?              // nullable link to a moderation_reports row (TRI-141 sweep join)
-  actedAt             DateTime
-  requestId           String?
-  recordedAt          DateTime @default(now())
+  id                   String    @id @default(cuid())
+  operatorUserId       String
+  action               String    // touch | resolve_hidden | resolve_kept | cancel_event_for_safety | escalate | record_external_input | resolve_with_override — CHECK enforced
+  reportId             String?   // nullable: Cat 4 cancellations may have no upstream report (TRI-193)
+  targetType           String    // review | user | event — CHECK enforced
+  targetId             String
+  reason               String?   @db.VarChar(500)  // required for resolve_*, null for touch
+  contentSnapshot      String?   @db.Text          // verbatim target content at action time
+  reporterUserId       String?   // nullable: no reporter when there is no upstream report (TRI-193)
+  reasonCode           String?              // machine-readable safety code, e.g. 'safety' — CHECK enforced
+  justificationText    String?   @db.VarChar(500)  // operator free-text narrative for cancel_event_for_safety
+  originatingReportId  String?              // nullable link to a moderation_reports row (TRI-141 sweep join)
+  escalationCategory   String?              // criminal-content | imminent-harm | ambiguous-policy | external-jurisdiction — CHECK enforced; populated when action='escalate' or 'resolve_with_override'
+  externalRef          String?   @db.VarChar(500)  // populated when action='escalate'
+  externalSource       String?              // counsel | partner | imda | other — CHECK enforced; populated when action='record_external_input'
+  externalDisposition  String?   @db.VarChar(500)  // populated when action='record_external_input'
+  externalReceivedAt   DateTime?            // operator-supplied ISO8601, distinct from actedAt; populated when action='record_external_input'
+  actedAt              DateTime
+  requestId            String?
+  recordedAt           DateTime  @default(now())
 
   @@index([reportId])
   @@index([operatorUserId, actedAt])
   @@index([actedAt])
   @@index([requestId])
   @@index([originatingReportId])
+  @@index([reportId, action])
   @@map("moderation_action_audit")
 }
 
