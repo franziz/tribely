@@ -6,12 +6,15 @@
 //   npm run --workspace=@tribely/api moderation touch <reportId> [--operator <userId>]
 //   npm run --workspace=@tribely/api moderation resolve <reportId> --hide --reason <text> [--operator <userId>]
 //   npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason <text> [--operator <userId>]
+//   npm run --workspace=@tribely/api moderation cancel-event-for-safety <eventId> \
+//     --reason=safety --justification "<text>" [--report-id <reportId>] [--operator <userId>]
 //
 // Operator identity: --operator flag OR $TRIBELY_OPERATOR_USER_ID env var.
 // list-reports does not require an operator identity (read-only command).
 
 import { buildContainer } from '@/core/di/container.js';
 import { runAsSystem } from '@/core/context/system-context.js';
+import { AppError } from '@/core/errors/app-error.js';
 import type { Report } from '@/features/reports/domain/entities/report.js';
 import {
   SLA_FIRST_TOUCH_HOURS,
@@ -231,6 +234,43 @@ async function cmdResolve(
   }
 }
 
+async function cmdCancelEventForSafety(
+  eventId: string,
+  justification: string,
+  reportId: string | null,
+  operatorUserId: string,
+): Promise<void> {
+  const container = buildContainer();
+
+  console.log(`Acting as ${operatorUserId}`);
+
+  let result: { auditRowId: string; notifiedCount: number };
+
+  try {
+    await runAsSystem('cli.moderation.cancel-event-for-safety', async () => {
+      result = await container.cancelEventForSafetyUseCase.execute({
+        operatorUserId,
+        eventId,
+        justificationText: justification,
+        originatingReportId: reportId,
+      });
+    });
+  } catch (err) {
+    if (err instanceof AppError && (err.status === 409 || err.status === 404 || err.status === 422)) {
+      console.error(err.message);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  // result is guaranteed assigned if runAsSystem did not throw.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { auditRowId, notifiedCount } = result!;
+  console.log(`Event ${eventId} cancelled for safety.`);
+  console.log(`Audit row: ${auditRowId}`);
+  console.log(`Notified attendees: ${String(notifiedCount)}`);
+}
+
 // ---------------------------------------------------------------------------
 // CLI helpers
 // ---------------------------------------------------------------------------
@@ -309,9 +349,47 @@ async function main(): Promise<void> {
       break;
     }
 
+    case 'cancel-event-for-safety': {
+      const eventId = args[1];
+      if (!eventId) {
+        console.error('Missing <eventId>');
+        console.error(
+          'Usage: moderation cancel-event-for-safety <eventId> --reason=safety --justification "<text>" [--report-id <reportId>] [--operator <userId>]',
+        );
+        process.exit(1);
+      }
+      // --reason must be present and equal to the literal string "safety".
+      // Support both --reason=safety and --reason safety forms.
+      const reason =
+        extractFlagValue(args, '--reason') ??
+        args
+          .find((a) => a.startsWith('--reason='))
+          ?.slice('--reason='.length) ??
+        null;
+      if (reason !== 'safety') {
+        console.error('Missing or invalid --reason: only --reason=safety is supported');
+        process.exit(1);
+      }
+      const justification = extractFlagValue(args, '--justification');
+      if (!justification || justification.trim().length === 0) {
+        console.error('Missing --justification "<text>"');
+        process.exit(1);
+      }
+      const reportId = extractFlagValue(args, '--report-id');
+      const operatorUserId = parseOperator(args);
+      if (!operatorUserId) {
+        console.error(
+          'Missing operator identity: pass --operator <userId> or set TRIBELY_OPERATOR_USER_ID',
+        );
+        process.exit(1);
+      }
+      await cmdCancelEventForSafety(eventId, justification, reportId, operatorUserId);
+      break;
+    }
+
     default: {
       console.error(`Unknown subcommand: ${subcommand ?? '(none)'}`);
-      console.error('Valid: list-reports | touch | resolve');
+      console.error('Valid: list-reports | touch | resolve | cancel-event-for-safety');
       process.exit(1);
     }
   }

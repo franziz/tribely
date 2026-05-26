@@ -16,6 +16,13 @@ export class UserPrismaRepository implements UserRepository {
     return row ? toUser(row) : null;
   }
 
+  async findByIds(ids: string[], ctx?: TxContext): Promise<User[]> {
+    if (ids.length === 0) return [];
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    const rows = await client.user.findMany({ where: { id: { in: ids } } });
+    return rows.map(toUser);
+  }
+
   async findByEmail(email: Email, ctx?: TxContext): Promise<User | null> {
     const client = ctx ? unwrapTx(ctx) : this.db;
     const row = await client.user.findUnique({ where: { email: email.value } });

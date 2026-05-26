@@ -11,14 +11,28 @@ import type {
 } from '../../domain/repositories/moderation-action-audit.repository.js';
 
 export interface RecordModerationActionInput {
+  /**
+   * Optional caller-supplied ID. When provided (e.g. CancelEventForSafetyUseCase
+   * needs to return the auditRowId before the transaction commits), the supplied
+   * value is used as the record's PK; otherwise a fresh cuid2 is generated here.
+   */
+  id?: string;
   operatorUserId: string;
   action: ModerationAction;
-  reportId: string;
+  /** Nullable: Cat 4 cancel_event_for_safety may have no upstream report row (TRI-193). */
+  reportId: string | null;
   targetType: ModerationTargetType;
   targetId: string;
   reason: string | null;
   contentSnapshot: string | null;
-  reporterUserId: string;
+  /** Nullable: no reporter when there is no upstream report (TRI-193). */
+  reporterUserId: string | null;
+  /** Machine-readable safety code, e.g. 'safety'. Null for non-Cat-4 actions. */
+  reasonCode: string | null;
+  /** Operator free-text narrative for cancel_event_for_safety (≤500 chars). Null for other actions. */
+  justificationText: string | null;
+  /** Nullable link to a moderation_reports row. Used by TRI-141 sweep severance join. */
+  originatingReportId: string | null;
   actedAt: Date;
 }
 
@@ -43,7 +57,7 @@ export class RecordModerationActionUseCase {
   async execute(input: RecordModerationActionInput, ctx: TxContext): Promise<void> {
     const requestId = getRequestContext()?.requestId ?? null;
     const record: ModerationActionAuditRecord = {
-      id: createId(),
+      id: input.id ?? createId(),
       operatorUserId: input.operatorUserId,
       action: input.action,
       reportId: input.reportId,
@@ -52,6 +66,9 @@ export class RecordModerationActionUseCase {
       reason: input.reason,
       contentSnapshot: input.contentSnapshot,
       reporterUserId: input.reporterUserId,
+      reasonCode: input.reasonCode,
+      justificationText: input.justificationText,
+      originatingReportId: input.originatingReportId,
       actedAt: input.actedAt,
       requestId,
       recordedAt: new Date(),

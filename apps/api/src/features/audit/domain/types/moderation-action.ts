@@ -11,5 +11,9 @@
  * primitive closed-set string unions with no behaviour or invariants,
  * not classes. See A17.
  */
-export type ModerationAction = 'touch' | 'resolve_hidden' | 'resolve_kept';
+export type ModerationAction =
+  | 'touch'
+  | 'resolve_hidden'
+  | 'resolve_kept'
+  | 'cancel_event_for_safety';
 export type ModerationTargetType = 'review' | 'user' | 'event';

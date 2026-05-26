@@ -151,6 +151,7 @@ import { FileReportUseCase } from '@/features/reports/application/usecases/file-
 import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
 import { ResolveReportUseCase } from '@/features/reports/application/usecases/resolve-report.usecase.js';
 import { PerformModerationActionUseCase } from '@/features/reports/application/usecases/perform-moderation-action.usecase.js';
+import { CancelEventForSafetyUseCase } from '@/features/reports/application/usecases/cancel-event-for-safety.usecase.js';
 import { CascadeReportsOnUserDeletionUseCase } from '@/features/reports/application/usecases/cascade-reports-on-user-deletion.usecase.js';
 import { ReportController } from '@/features/reports/presentation/http/controllers/report.controller.js';
 import { registerReportsConsumers } from '@/features/reports/presentation/events/index.js';
@@ -384,6 +385,7 @@ export interface Container {
   touchReportUseCase: TouchReportUseCase;
   resolveReportUseCase: ResolveReportUseCase;
   performModerationActionUseCase: PerformModerationActionUseCase;
+  cancelEventForSafetyUseCase: CancelEventForSafetyUseCase;
   reportController: ReportController;
 }
 
@@ -867,6 +869,19 @@ export const buildContainer = (): Container => {
     clock,
   );
 
+  // --- Cancel-event-for-safety CLI orchestrator (TRI-193 Brief C) ---
+  // Performs the safety cancellation of an event AND records the audit row in ONE
+  // UnitOfWork, mirroring PerformModerationActionUseCase. Cross-feature deps on
+  // EventRepository + JoinRequestRepository are A11-legal (interface imports only).
+  const cancelEventForSafetyUseCase = new CancelEventForSafetyUseCase(
+    unitOfWork,
+    eventRepository,
+    joinRequestRepository,
+    publisher,
+    recordModerationActionUseCase,
+    clock,
+  );
+
   const reportController = new ReportController(fileReportUseCase);
 
   // --- TRI-134 + TRI-155 — account-deletion cascade ---
@@ -916,7 +931,12 @@ export const buildContainer = (): Container => {
     issueEmailVerification: issueEmailVerificationUseCase,
     signOutAll: signOutAllUseCase,
   });
-  registerEventsConsumers(consumerRegistry);
+  registerEventsConsumers(consumerRegistry, {
+    emailSender,
+    eventRepository,
+    joinRequestRepository,
+    userRepository,
+  });
   registerJoinRequestsConsumers(consumerRegistry);
   registerSelfiesConsumers(consumerRegistry);
   registerCheckInsConsumers(consumerRegistry, {
@@ -1029,6 +1049,7 @@ export const buildContainer = (): Container => {
     touchReportUseCase,
     resolveReportUseCase,
     performModerationActionUseCase,
+    cancelEventForSafetyUseCase,
     reportController,
   };
 };

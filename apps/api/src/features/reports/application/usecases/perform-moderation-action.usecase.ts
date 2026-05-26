@@ -119,6 +119,10 @@ export class PerformModerationActionUseCase {
             reason: input.reason,
             contentSnapshot,
             reporterUserId: report.reporterUserId,
+            // Non-Cat-4 actions have no safety code, narrative, or originating report.
+            reasonCode: null,
+            justificationText: null,
+            originatingReportId: null,
             actedAt: now,
           },
           ctx,

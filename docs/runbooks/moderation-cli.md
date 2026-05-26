@@ -176,6 +176,52 @@ Report rpt_xyz resolved (kept). No content change. Audit row written.
 - `Report rpt_xyz is already resolved.` — idempotent; check prior audit row.
 - Any database error — state transition did not run; audit row was NOT written; re-run after diagnosing.
 
+---
+
+### `cancel-event-for-safety`
+
+Cancels a scheduled Event for safety reasons and notifies all active RSVPed users. The ONLY moderation action that cascades into Event lifecycle. Maps to Category 4 (Imminent real-world harm) in the Escalation Path.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation cancel-event-for-safety <eventId> \
+  --reason=safety \
+  --justification "<text>" \
+  [--report-id <reportId>] \
+  [--operator <userId>]
+```
+
+**Required:**
+- `<eventId>` — the event ID being cancelled.
+- `--reason=safety` — moderation reason code; the ONLY value accepted (distinct from host-initiated cancellation).
+- `--justification "<text>"` — operator-supplied narrative explaining the cancellation, ≤500 chars. Recorded in the audit row. **Do NOT paste user content verbatim into justification** — paraphrase or reference. **Do NOT include the reporter's identity in the justification** — keep it operator-fact-only.
+
+**Optional:**
+- `--report-id <reportId>` — originating report ID (Cat 4 cross-reference). Omit if no upstream report exists (e.g., out-of-band intelligence).
+- `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID`.
+
+**On success:**
+```
+Acting as usr_abc123
+Event evt_xyz cancelled for safety.
+Audit row: mac_abc
+Notified attendees: 4
+```
+
+**On failure:**
+- `Event evt_xyz not found.`
+- `Event already cancelled.`
+- `Event already completed.`
+- `Event has ended.`
+- `Missing --justification.`
+- `Missing or invalid --reason: only --reason=safety is supported.`
+- Any database error — state transition did not run; re-run after diagnosing.
+
+**Behavioural contract:**
+- Reuses the same cancellation pathway as host-initiated cancellation; downstream notification, calendar surfaces, and join-request invalidation behave identically.
+- Notifications use the host-tone copy (TRI-194 may introduce a moderation-tone variant post-launch). Reporter identity, operator justification, and report ID are NEVER surfaced to attendees.
+- The audit row carries the safety context (`reasonCode='safety'`, `justificationText`, `originatingReportId`); the Event aggregate's `cancellationReason` field carries the neutral string `"Cancelled by Tribely safety team"` — distinguishable from host reasons in the DB if needed for forensic analysis but not in user-visible copy.
+
 ## 4. Escalation Path
 
 A report is **ambiguous** when its category does not fit cleanly into the general `resolve-hidden` / `resolve-kept` flow. The categories below define the escalation responses for the highest-duty-of-care report types. When in doubt, escalate — over-escalation is recoverable; under-escalation is not.
@@ -222,10 +268,11 @@ The operator must **never** make legal determinations on the merits of escalated
 
 **Immediate actions, in order:**
 1. **Hide the reported content** via `hide`.
-2. **Cancel the scheduled Event.** Use the event-cancellation action surfaced in the CLI (`cancel-event <eventId> --reason=safety`). This is the only escalation category where the moderation flow cascades into Event lifecycle.
-3. **Notify all RSVPed users** via the cancellation copy: *"This event has been cancelled for safety reasons. Please do not attend."* Do not name the reported user. Do not provide details that would identify the reporter.
-4. **If the meet-up window is under 6 hours away and credible physical threat is indicated,** call SPF at 999 and proceed under [Category 2](#category-2--criminal-content-violence-or-threats) in parallel.
-5. **Record in audit log** with category tag `imminent_real_world_harm` and cross-reference the cancelled Event ID.
+2. **Cancel the scheduled Event.** Use the event-cancellation action surfaced in the CLI: `cancel-event-for-safety <eventId> --reason=safety --justification "..." [--report-id=...]`. This is the only escalation category where the moderation flow cascades into Event lifecycle.
+3. **Notify all RSVPed users.** The `cancel-event-for-safety` command fans out the cancellation notification automatically. The notification copy is: *"This event has been cancelled. We're sorry for the inconvenience."* Do not name the reported user. Do not provide details that would identify the reporter. *The notification copy is identical for host-initiated and moderator-initiated cancellations at launch. This is a deliberate non-inference guarantee (legal review). Post-launch TRI-194 may introduce a safety-tone variant.*
+4. **Cat 4 ∩ Cat 2 sequencing:** If the report is criminal-grade (credible threats, weapons trafficking, etc.) AND falls under Cat 4, **call SPF 999 BEFORE running `cancel-event-for-safety`**. Evidence chain-of-custody requires SPF engagement first; cancelling the event removes the active venue and may complicate response. The notification fan-out itself does not constitute a "disclosure" under the [SPF First-Incident Protocol](spf-first-incident.md), but the sequencing of platform action versus law-enforcement notification does materially affect SPF's response capacity. When in doubt: SPF first, then cancel.
+5. **If the meet-up window is under 6 hours away and credible physical threat is indicated,** call SPF at 999 and proceed under [Category 2](#category-2--criminal-content-violence-or-threats) in parallel.
+6. **Record in audit log** with category tag `imminent_real_world_harm` and cross-reference the cancelled Event ID.
 
 ### When in genuine doubt
 
@@ -251,6 +298,8 @@ When the operator runs `hide` or `preserve`, the system writes the following —
 
 The capture is **atomic** with the state transition: if the audit write fails, the state transition rolls back. This is enforced at the database layer — there is no operator action that can produce a hidden-but-unaudited report, by design. (Pattern reference: the same required-`TxContext` discipline used by selfie-deletion evidence integrity.)
 
+For `cancel-event-for-safety` actions, the audit row additionally carries (a) `reasonCode='safety'` (distinguishes from host-cancel; future moderation reason codes are additive), (b) `justificationText` (≤500 chars; operator narrative; PDPA s24 minimisation gate enforced at write time), and (c) `originatingReportId` (nullable cross-reference to `moderation_reports`).
+
 ### Where it is stored
 
 - **Primary store:** the project Postgres instance, in the `moderation_evidence_snapshots` and `moderation_action_audit` tables. **Region: Singapore (ap-southeast-1).** No cross-border transfer.
@@ -265,6 +314,7 @@ The capture is **atomic** with the state transition: if the audit write fails, t
 | Report resolved (`resolve-hidden` / `resolve-kept`) | 12 months from resolution timestamp | Industry-standard short tail for civil-claim and reviewer-audit window |
 | Egregious-content-tagged reports (`self_harm`, `criminal`, `minor_*`, `imminent_real_world_harm`) | 12 months from resolution **or counsel-directed longer**, whichever later | Higher-duty-of-care matters may require multi-year retention pending external proceedings |
 | Hidden content (the underlying record marked `hiddenAt`) | 12 months from resolution, then physical delete on sweep | Content is not deleted at hide-time so the snapshot remains verifiable against the source |
+| `moderation_action_audit.originatingReportId` cross-reference | Severed (NULL'd) when the referenced `moderation_reports` row is purged by the §5 sweep | PDPA s25 cross-reference minimisation — the audit row outlives the report row by design, but the cross-reference does not |
 
 ### When it is purged
 
