@@ -2,6 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { getRequestContext } from '@/core/context/request-context.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type {
+  EscalationCategory,
+  ExternalInputSource,
   ModerationAction,
   ModerationTargetType,
 } from '../../domain/types/moderation-action.js';
@@ -33,6 +35,23 @@ export interface RecordModerationActionInput {
   justificationText: string | null;
   /** Nullable link to a moderation_reports row. Used by TRI-141 sweep severance join. */
   originatingReportId: string | null;
+  /**
+   * Populated when action='escalate' or action='resolve_with_override'.
+   * Carried forward on resolve_with_override for end-to-end traceability.
+   */
+  escalationCategory?: EscalationCategory | null;
+  /** Operator-supplied external reference (ticket ID, case number, etc.). Populated when action='escalate'. */
+  externalRef?: string | null;
+  /** Source of an external input. Populated when action='record_external_input'. */
+  externalSource?: ExternalInputSource | null;
+  /** Free-text disposition from external party (≤500 chars). Populated when action='record_external_input'. */
+  externalDisposition?: string | null;
+  /**
+   * Operator-supplied ISO8601 timestamp for when the external input was received.
+   * Distinct from actedAt (operator's CLI invocation clock). Both required for PDPC inspection.
+   * Populated when action='record_external_input'.
+   */
+  externalReceivedAt?: Date | null;
   actedAt: Date;
 }
 
@@ -69,6 +88,11 @@ export class RecordModerationActionUseCase {
       reasonCode: input.reasonCode,
       justificationText: input.justificationText,
       originatingReportId: input.originatingReportId,
+      escalationCategory: input.escalationCategory ?? null,
+      externalRef: input.externalRef ?? null,
+      externalSource: input.externalSource ?? null,
+      externalDisposition: input.externalDisposition ?? null,
+      externalReceivedAt: input.externalReceivedAt ?? null,
       actedAt: input.actedAt,
       requestId,
       recordedAt: new Date(),

@@ -1,7 +1,12 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
-import type { ModerationAction, ModerationTargetType } from '../types/moderation-action.js';
+import type {
+  EscalationCategory,
+  ExternalInputSource,
+  ModerationAction,
+  ModerationTargetType,
+} from '../types/moderation-action.js';
 
-export type { ModerationAction, ModerationTargetType };
+export type { EscalationCategory, ExternalInputSource, ModerationAction, ModerationTargetType };
 
 export interface ModerationActionAuditRecord {
   id: string;
@@ -21,6 +26,23 @@ export interface ModerationActionAuditRecord {
   justificationText: string | null;
   /** Nullable link to a moderation_reports row. Used by TRI-141 sweep severance join. */
   originatingReportId: string | null;
+  /**
+   * Populated when action='escalate' or action='resolve_with_override'.
+   * Carried forward on resolve_with_override for end-to-end traceability.
+   */
+  escalationCategory: EscalationCategory | null;
+  /** Operator-supplied external reference (ticket ID, case number, etc.). Populated when action='escalate'. */
+  externalRef: string | null;
+  /** Source of an external input. Populated when action='record_external_input'. */
+  externalSource: ExternalInputSource | null;
+  /** Free-text disposition from external party (≤500 chars). Populated when action='record_external_input'. */
+  externalDisposition: string | null;
+  /**
+   * Operator-supplied ISO8601 timestamp for when the external input was received.
+   * Distinct from actedAt (operator's CLI invocation clock). Both are required for PDPC inspection.
+   * Populated when action='record_external_input'.
+   */
+  externalReceivedAt: Date | null;
   actedAt: Date;
   requestId: string | null;
   recordedAt: Date;
@@ -51,4 +73,18 @@ export interface ModerationActionAuditRepository {
    * moderation_reports row deletion that triggered it (TRI-198 AC: no partial sever).
    */
   severOriginatingReportId(reportId: string, ctx: TxContext): Promise<number>;
+
+  /**
+   * Count of `record_external_input` audit rows for a given report.
+   * Read-only — consumed by ReportPrismaRepository.findById to hydrate
+   * Report.externalInputCount for the resolve-guard rule (AC5).
+   *
+   * This is the ONLY public read on this otherwise-write-only repository.
+   * Justification: the count is a derived property of the report aggregate
+   * but its source-of-truth lives in audit (append-only event-log shape).
+   * Per CLAUDE.md A11 application-ports rule, a sibling-feature read accessor
+   * on the audit repository is the bounded-context-correct surface — NOT
+   * a denormalized count column on `reports`.
+   */
+  countExternalInputs(reportId: string, ctx?: TxContext): Promise<number>;
 }

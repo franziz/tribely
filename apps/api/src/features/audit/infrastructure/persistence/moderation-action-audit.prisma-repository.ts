@@ -25,6 +25,11 @@ export class ModerationActionAuditPrismaRepository implements ModerationActionAu
         reasonCode: entry.reasonCode,
         justificationText: entry.justificationText,
         originatingReportId: entry.originatingReportId,
+        escalationCategory: entry.escalationCategory,
+        externalRef: entry.externalRef,
+        externalSource: entry.externalSource,
+        externalDisposition: entry.externalDisposition,
+        externalReceivedAt: entry.externalReceivedAt,
         actedAt: entry.actedAt,
         requestId: entry.requestId,
         recordedAt: entry.recordedAt,
@@ -39,5 +44,12 @@ export class ModerationActionAuditPrismaRepository implements ModerationActionAu
       data: { originatingReportId: null },
     });
     return result.count;
+  }
+
+  async countExternalInputs(reportId: string, ctx?: TxContext): Promise<number> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    return client.moderationActionAudit.count({
+      where: { reportId, action: 'record_external_input' },
+    });
   }
 }

@@ -21,6 +21,9 @@ class FakeModerationActionAuditRepository implements ModerationActionAuditReposi
   severOriginatingReportId(_id: string, _ctx: TxContext): Promise<number> {
     return Promise.resolve(0);
   }
+  countExternalInputs(_reportId: string, _ctx?: TxContext): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 describe('RecordModerationActionUseCase', () => {
@@ -55,6 +58,57 @@ describe('RecordModerationActionUseCase', () => {
     justificationText: null,
     originatingReportId: null,
     actedAt: new Date('2026-05-24T11:00:00Z'),
+  };
+
+  const ESCALATE_INPUT: RecordModerationActionInput = {
+    operatorUserId: 'op_3',
+    action: 'escalate',
+    reportId: 'report_3',
+    targetType: 'review',
+    targetId: 'review_3',
+    reason: 'Escalating due to potential criminal content',
+    contentSnapshot: null,
+    reporterUserId: 'reporter_3',
+    reasonCode: null,
+    justificationText: null,
+    originatingReportId: null,
+    escalationCategory: 'criminal-content',
+    externalRef: 'SGP-CASE-2026-001',
+    actedAt: new Date('2026-05-24T12:00:00Z'),
+  };
+
+  const RECORD_EXTERNAL_INPUT: RecordModerationActionInput = {
+    operatorUserId: 'op_4',
+    action: 'record_external_input',
+    reportId: 'report_3',
+    targetType: 'review',
+    targetId: 'review_3',
+    reason: null,
+    contentSnapshot: null,
+    reporterUserId: 'reporter_3',
+    reasonCode: null,
+    justificationText: null,
+    originatingReportId: null,
+    externalSource: 'imda',
+    externalDisposition: 'No further action required.',
+    externalReceivedAt: new Date('2026-05-20T08:00:00Z'),
+    actedAt: new Date('2026-05-24T13:00:00Z'),
+  };
+
+  const RESOLVE_WITH_OVERRIDE_INPUT: RecordModerationActionInput = {
+    operatorUserId: 'op_5',
+    action: 'resolve_with_override',
+    reportId: 'report_3',
+    targetType: 'review',
+    targetId: 'review_3',
+    reason: 'Overriding based on external guidance',
+    contentSnapshot: null,
+    reporterUserId: 'reporter_3',
+    reasonCode: null,
+    justificationText: null,
+    originatingReportId: null,
+    escalationCategory: 'criminal-content',
+    actedAt: new Date('2026-05-24T14:00:00Z'),
   };
 
   beforeEach(() => {
@@ -136,6 +190,9 @@ describe('RecordModerationActionUseCase', () => {
       severOriginatingReportId(_id, _ctx) {
         return Promise.resolve(0);
       },
+      countExternalInputs(_reportId, _ctx) {
+        return Promise.resolve(0);
+      },
     };
     const sut = new RecordModerationActionUseCase(capturingRepo);
 
@@ -143,5 +200,65 @@ describe('RecordModerationActionUseCase', () => {
 
     expect(contexts).toHaveLength(1);
     expect(contexts[0]).toBe(TEST_TX);
+  });
+
+  it('(g) records an escalate action with escalationCategory and externalRef', async () => {
+    await useCase.execute(ESCALATE_INPUT, TEST_TX);
+
+    expect(repo.recorded).toHaveLength(1);
+    const row = repo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) return;
+    expect(row.action).toBe('escalate');
+    expect(row.escalationCategory).toBe('criminal-content');
+    expect(row.externalRef).toBe('SGP-CASE-2026-001');
+    expect(row.externalSource).toBeNull();
+    expect(row.externalDisposition).toBeNull();
+    expect(row.externalReceivedAt).toBeNull();
+  });
+
+  it('(h) records a record_external_input action with externalSource, externalDisposition, and externalReceivedAt', async () => {
+    await useCase.execute(RECORD_EXTERNAL_INPUT, TEST_TX);
+
+    expect(repo.recorded).toHaveLength(1);
+    const row = repo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) return;
+    expect(row.action).toBe('record_external_input');
+    expect(row.externalSource).toBe('imda');
+    expect(row.externalDisposition).toBe('No further action required.');
+    expect(row.externalReceivedAt).toEqual(new Date('2026-05-20T08:00:00Z'));
+    // actedAt is the CLI invocation clock — distinct from externalReceivedAt
+    expect(row.actedAt).toEqual(new Date('2026-05-24T13:00:00Z'));
+    expect(row.escalationCategory).toBeNull();
+    expect(row.externalRef).toBeNull();
+  });
+
+  it('(i) records a resolve_with_override action with escalationCategory carried forward', async () => {
+    await useCase.execute(RESOLVE_WITH_OVERRIDE_INPUT, TEST_TX);
+
+    expect(repo.recorded).toHaveLength(1);
+    const row = repo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) return;
+    expect(row.action).toBe('resolve_with_override');
+    expect(row.escalationCategory).toBe('criminal-content');
+    expect(row.externalRef).toBeNull();
+    expect(row.externalSource).toBeNull();
+    expect(row.externalDisposition).toBeNull();
+    expect(row.externalReceivedAt).toBeNull();
+  });
+
+  it('(j) defaults all five new optional fields to null when not supplied', async () => {
+    await useCase.execute(TOUCH_INPUT, TEST_TX);
+
+    const row = repo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) return;
+    expect(row.escalationCategory).toBeNull();
+    expect(row.externalRef).toBeNull();
+    expect(row.externalSource).toBeNull();
+    expect(row.externalDisposition).toBeNull();
+    expect(row.externalReceivedAt).toBeNull();
   });
 });

@@ -50,6 +50,11 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
       reasonCode: null,
       justificationText: null,
       originatingReportId: null,
+      escalationCategory: null,
+      externalRef: null,
+      externalSource: null,
+      externalDisposition: null,
+      externalReceivedAt: null,
       actedAt: new Date('2026-05-24T10:00:00Z'),
       requestId: 'system:cli.moderation.touch:test',
       recordedAt: new Date('2026-05-24T10:00:01Z'),
@@ -170,6 +175,172 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
     expect(typeof repo.pruneOlderThan).toBe('undefined');
     // @ts-expect-error — intentionally checking that delete doesn't exist
     expect(typeof repo.delete).toBe('undefined');
+  });
+
+  it('record: persists escalate action with escalationCategory and externalRef', async () => {
+    const entry = buildRecord({
+      action: 'escalate',
+      escalationCategory: 'criminal-content',
+      externalRef: 'SGP-CASE-2026-001',
+    });
+
+    await unitOfWork.run((ctx) => repo.record(entry, ctx));
+
+    const row = await db.moderationActionAudit.findUnique({ where: { id: entry.id } });
+    expect(row?.action).toBe('escalate');
+    expect(row?.escalationCategory).toBe('criminal-content');
+    expect(row?.externalRef).toBe('SGP-CASE-2026-001');
+    expect(row?.externalSource).toBeNull();
+    expect(row?.externalDisposition).toBeNull();
+    expect(row?.externalReceivedAt).toBeNull();
+  });
+
+  it('record: persists record_external_input with externalSource, externalDisposition, and externalReceivedAt', async () => {
+    const externalReceivedAt = new Date('2026-05-20T08:00:00Z');
+    const entry = buildRecord({
+      action: 'record_external_input',
+      externalSource: 'imda',
+      externalDisposition: 'No further action required.',
+      externalReceivedAt,
+      // actedAt is the CLI invocation clock — distinct from externalReceivedAt
+      actedAt: new Date('2026-05-24T13:00:00Z'),
+    });
+
+    await unitOfWork.run((ctx) => repo.record(entry, ctx));
+
+    const row = await db.moderationActionAudit.findUnique({ where: { id: entry.id } });
+    expect(row?.action).toBe('record_external_input');
+    expect(row?.externalSource).toBe('imda');
+    expect(row?.externalDisposition).toBe('No further action required.');
+    expect(row?.externalReceivedAt?.toISOString()).toBe(externalReceivedAt.toISOString());
+    // Confirm actedAt and externalReceivedAt are stored as separate distinct timestamps
+    expect(row?.actedAt.toISOString()).toBe('2026-05-24T13:00:00.000Z');
+    expect(row?.escalationCategory).toBeNull();
+    expect(row?.externalRef).toBeNull();
+  });
+
+  it('record: persists resolve_with_override with escalationCategory carried forward', async () => {
+    const entry = buildRecord({
+      action: 'resolve_with_override',
+      escalationCategory: 'imminent-harm',
+    });
+
+    await unitOfWork.run((ctx) => repo.record(entry, ctx));
+
+    const row = await db.moderationActionAudit.findUnique({ where: { id: entry.id } });
+    expect(row?.action).toBe('resolve_with_override');
+    expect(row?.escalationCategory).toBe('imminent-harm');
+    expect(row?.externalRef).toBeNull();
+    expect(row?.externalSource).toBeNull();
+    expect(row?.externalDisposition).toBeNull();
+    expect(row?.externalReceivedAt).toBeNull();
+  });
+
+  it('record: CHECK constraint rejects invalid escalationCategory value', async () => {
+    const entry = buildRecord({
+      action: 'escalate',
+      escalationCategory: 'not-a-valid-category' as never,
+    });
+
+    await expect(unitOfWork.run((ctx) => repo.record(entry, ctx))).rejects.toThrow();
+  });
+
+  it('record: CHECK constraint rejects invalid externalSource value', async () => {
+    const entry = buildRecord({
+      action: 'record_external_input',
+      externalSource: 'invalid-source' as never,
+    });
+
+    await expect(unitOfWork.run((ctx) => repo.record(entry, ctx))).rejects.toThrow();
+  });
+
+  describe('countExternalInputs', () => {
+    it('returns 0 when no record_external_input rows exist for the given reportId', async () => {
+      const reportId = createId();
+
+      const count = await repo.countExternalInputs(reportId);
+
+      expect(count).toBe(0);
+    });
+
+    it('returns the exact count of record_external_input rows for the given reportId', async () => {
+      const reportId = createId();
+      const entries = [
+        buildRecord({ reportId, action: 'record_external_input', externalSource: 'imda' }),
+        buildRecord({ reportId, action: 'record_external_input', externalSource: 'counsel' }),
+        buildRecord({ reportId, action: 'record_external_input', externalSource: 'partner' }),
+      ];
+      for (const e of entries) {
+        await unitOfWork.run((ctx) => repo.record(e, ctx));
+      }
+
+      const count = await repo.countExternalInputs(reportId);
+
+      expect(count).toBe(3);
+    });
+
+    it('does NOT count non-record_external_input actions for the same reportId', async () => {
+      const reportId = createId();
+      await unitOfWork.run((ctx) =>
+        repo.record(
+          buildRecord({ reportId, action: 'escalate', escalationCategory: 'imminent-harm' }),
+          ctx,
+        ),
+      );
+      await unitOfWork.run((ctx) =>
+        repo.record(
+          buildRecord({ reportId, action: 'record_external_input', externalSource: 'imda' }),
+          ctx,
+        ),
+      );
+      await unitOfWork.run((ctx) =>
+        repo.record(
+          buildRecord({
+            reportId,
+            action: 'resolve_with_override',
+            escalationCategory: 'imminent-harm',
+          }),
+          ctx,
+        ),
+      );
+
+      const count = await repo.countExternalInputs(reportId);
+
+      expect(count).toBe(1);
+    });
+
+    it('does NOT count record_external_input rows for a different reportId', async () => {
+      const reportId = createId();
+      const otherReportId = createId();
+      await unitOfWork.run((ctx) =>
+        repo.record(
+          buildRecord({
+            reportId: otherReportId,
+            action: 'record_external_input',
+            externalSource: 'imda',
+          }),
+          ctx,
+        ),
+      );
+
+      const count = await repo.countExternalInputs(reportId);
+
+      expect(count).toBe(0);
+    });
+
+    it('accepts an optional TxContext and uses it when provided', async () => {
+      const reportId = createId();
+      await unitOfWork.run((ctx) =>
+        repo.record(
+          buildRecord({ reportId, action: 'record_external_input', externalSource: 'counsel' }),
+          ctx,
+        ),
+      );
+
+      const count = await unitOfWork.run((ctx) => repo.countExternalInputs(reportId, ctx));
+
+      expect(count).toBe(1);
+    });
   });
 
   describe('severOriginatingReportId', () => {
