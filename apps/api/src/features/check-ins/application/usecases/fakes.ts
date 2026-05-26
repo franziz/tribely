@@ -90,6 +90,14 @@ export class FakeUserRepository implements UserRepository {
     return Promise.resolve(this.byId.get(id) ?? null);
   }
 
+  findByIds(ids: string[], _ctx?: TxContext): Promise<User[]> {
+    const found = ids.flatMap((id) => {
+      const u = this.byId.get(id);
+      return u ? [u] : [];
+    });
+    return Promise.resolve(found);
+  }
+
   findByEmail(_email: Email, _ctx?: TxContext): Promise<User | null> {
     return Promise.resolve(null);
   }

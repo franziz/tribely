@@ -39,6 +39,7 @@ const makeUserRepo = (): UserRepository => {
   };
   const repo: UserRepository = {
     findById: vi.fn().mockResolvedValue(fakeUser),
+    findByIds: vi.fn().mockResolvedValue([]),
     findByEmail: vi.fn().mockResolvedValue(null),
     findByVerifiedPhone: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),

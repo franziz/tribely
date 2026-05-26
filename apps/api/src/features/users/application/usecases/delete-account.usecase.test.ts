@@ -43,6 +43,14 @@ class FakeUserRepository implements UserRepository {
     return Promise.resolve(this.users.get(id) ?? null);
   }
 
+  findByIds(ids: string[]): Promise<User[]> {
+    const found = ids.flatMap((id) => {
+      const u = this.users.get(id);
+      return u ? [u] : [];
+    });
+    return Promise.resolve(found);
+  }
+
   findByEmail(): Promise<User | null> {
     return Promise.resolve(null);
   }

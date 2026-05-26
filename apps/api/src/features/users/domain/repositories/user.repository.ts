@@ -5,6 +5,16 @@ import type { Email } from '../value-objects/email.js';
 
 export interface UserRepository {
   findById(id: string, ctx?: TxContext): Promise<User | null>;
+  /**
+   * Batch-fetch users by their IDs. Returns only the users that exist; absent
+   * IDs are silently dropped (no error). Order of the returned array is
+   * unspecified — callers that care about order must sort after the call.
+   *
+   * Intended for fan-out notification consumers that collect a set of user IDs
+   * from multiple sources (e.g. host + approved joiners) and need to resolve
+   * their emails in one query.
+   */
+  findByIds(ids: string[], ctx?: TxContext): Promise<User[]>;
   findByEmail(email: Email, ctx?: TxContext): Promise<User | null>;
   /**
    * Returns the user whose phone is verified with the given number, or null if

@@ -916,7 +916,12 @@ export const buildContainer = (): Container => {
     issueEmailVerification: issueEmailVerificationUseCase,
     signOutAll: signOutAllUseCase,
   });
-  registerEventsConsumers(consumerRegistry);
+  registerEventsConsumers(consumerRegistry, {
+    emailSender,
+    eventRepository,
+    joinRequestRepository,
+    userRepository,
+  });
   registerJoinRequestsConsumers(consumerRegistry);
   registerSelfiesConsumers(consumerRegistry);
   registerCheckInsConsumers(consumerRegistry, {
