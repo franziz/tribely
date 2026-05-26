@@ -19,8 +19,6 @@ import { SweepResolvedReportsUseCase } from './sweep-resolved-reports.usecase.js
 // ---------------------------------------------------------------------------
 
 const NOW = new Date('2026-05-26T12:00:00Z');
-// Cutoff is 12 months before NOW: 2025-05-26T12:00:00Z
-const CUTOFF = new Date('2025-05-26T12:00:00Z');
 // OLD_RESOLVED_AT is well before the cutoff
 const OLD_RESOLVED_AT = new Date('2024-12-01T00:00:00Z');
 // RECENT_RESOLVED_AT is after the cutoff — should NOT be swept
@@ -336,7 +334,9 @@ describe('SweepResolvedReportsUseCase', () => {
     // A WARN must have been logged for r2's failure.
     const warnMessages = logger.warns.map((w) => w.message);
     expect(warnMessages).toContain('Report retention sweep: record failed');
-    const failWarn = logger.warns.find((w) => w.message === 'Report retention sweep: record failed');
+    const failWarn = logger.warns.find(
+      (w) => w.message === 'Report retention sweep: record failed',
+    );
     expect(failWarn?.payload.reportId).toBe(r2.id);
   });
 
@@ -393,7 +393,8 @@ describe('SweepResolvedReportsUseCase', () => {
 
     // WARN logged for orphan severance
     const orphanWarns = logger.warns.filter(
-      (w) => w.message === 'Report retention sweep: severed orphan audit reference (no source report)',
+      (w) =>
+        w.message === 'Report retention sweep: severed orphan audit reference (no source report)',
     );
     expect(orphanWarns).toHaveLength(1);
     expect(orphanWarns[0]?.payload.orphanReportId).toBe(orphanId);
@@ -450,7 +451,9 @@ describe('SweepResolvedReportsUseCase', () => {
     expect(result.orphanRowsSevered).toBe(3);
 
     expect(sweepRunRepo.recorded).toHaveLength(1);
-    const row = sweepRunRepo.recorded[0]!;
+    const row = sweepRunRepo.recorded[0];
+    expect(row).toBeDefined();
+    if (!row) throw new Error('unreachable');
     expect(row.kind).toBe('report-retention-sweep');
     expect(row.auditRowsSevered).toBe(5); // 2 + 3
     expect(row.evaluated).toBe(1);

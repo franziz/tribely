@@ -42,6 +42,9 @@ function subtractMonths(date: Date, months: number): Date {
  * After the main pass, runs a defensive orphan-reference pass: finds audit
  * rows whose `originatingReportId` points at a non-existent report row (e.g.,
  * left by a prior partial failure) and NULLs them, logging WARN per orphan.
+ * Orphan pass: defensive recovery of sever-without-delete residue from prior
+ * interrupted runs of this same sweep. Permanently coupled to the
+ * report-retention sweep by design — not a separable concern.
  *
  * One `sweep_runs` row is written per tick regardless of whether any reports
  * were eligible, providing the regulator audit trail for "did the sweep run
@@ -65,7 +68,6 @@ export class SweepResolvedReportsUseCase {
     const startMs = Date.now();
     const cutoff = subtractMonths(startedAt, RETENTION_MONTHS);
 
-    let evaluated = 0;
     let deleted = 0;
     let failed = 0;
     let auditRowsSevered = 0;
@@ -73,7 +75,7 @@ export class SweepResolvedReportsUseCase {
 
     // --- main pass ---
     const resolvedOldReports = await this.reports.listOlderThan({ resolvedAtBefore: cutoff });
-    evaluated = resolvedOldReports.length;
+    const evaluated = resolvedOldReports.length;
 
     for (const report of resolvedOldReports) {
       try {
@@ -93,14 +95,15 @@ export class SweepResolvedReportsUseCase {
     const orphanReportIds = await this.reports.findOrphanedOriginatingReportIds();
     for (const orphanReportId of orphanReportIds) {
       try {
-        await this.unitOfWork.run(async (ctx) => {
-          const severed = await this.auditRepo.severOriginatingReportId(orphanReportId, ctx);
-          orphanRowsSevered += severed;
-          this.logger.warn(
-            { orphanReportId, severed },
-            'Report retention sweep: severed orphan audit reference (no source report)',
-          );
+        const severed = await this.unitOfWork.run(async (ctx) => {
+          const count = await this.auditRepo.severOriginatingReportId(orphanReportId, ctx);
+          orphanRowsSevered += count;
+          return count;
         });
+        this.logger.warn(
+          { orphanReportId, severed },
+          'Report retention sweep: severed orphan audit reference (no source report)',
+        );
       } catch (err) {
         this.logger.warn(
           { orphanReportId, err },
