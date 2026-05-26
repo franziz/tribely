@@ -26,6 +26,12 @@ export const envSchema = z
 
     DATABASE_URL: z.string().url(),
 
+    // Reserved for `prisma migrate deploy`. Not read by application code.
+    // In production, must point at a higher-privilege DB role that can run DDL.
+    // The runtime `DATABASE_URL` points at the low-privilege `tribely_app` role
+    // which has only INSERT+SELECT on `moderation_action_audit` (TRI-206).
+    ADMIN_DATABASE_URL: z.string().url().optional(),
+
     JWT_SECRET: z.string().min(32),
     JWT_ACCESS_TTL: z.string().default('15m'),
     JWT_REFRESH_TTL: z.string().default('30d'),
