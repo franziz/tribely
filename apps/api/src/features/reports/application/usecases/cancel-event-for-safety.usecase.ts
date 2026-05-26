@@ -6,17 +6,13 @@ import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 import type { JoinRequestRepository } from '@/features/join-requests/domain/repositories/join-request.repository.js';
 import type { RecordModerationActionUseCase } from '@/features/audit/application/usecases/record-moderation-action.usecase.js';
+import type { CancelEventForSafetyResult } from '@/features/reports/application/dto/cancel-event-for-safety.result.js';
 
 export interface CancelEventForSafetyInput {
   operatorUserId: string;
   eventId: string;
   justificationText: string; // 1–500 chars
   originatingReportId: string | null; // optional Cat 4 cross-ref
-}
-
-export interface CancelEventForSafetyResult {
-  auditRowId: string;
-  notifiedCount: number; // count of approved + pending join_requests at time of cancel
 }
 
 const JUSTIFICATION_MAX = 500;
