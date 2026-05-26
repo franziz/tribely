@@ -635,6 +635,9 @@ model SweepRun {
   reaperRetried   Int       @default(0)
   reaperSucceeded Int       @default(0)
   error           String?
+  /// NULL for sweep kinds that don't sever cross-references (selfie-retention-sweep);
+  /// an integer count for sweep kinds that do (report-retention-sweep).
+  auditRowsSevered Int?
 
   @@index([kind, startedAt])
   @@map("sweep_runs")

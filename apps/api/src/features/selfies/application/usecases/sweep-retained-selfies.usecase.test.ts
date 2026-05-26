@@ -493,6 +493,7 @@ describe('SweepRetainedSelfiesUseCase', () => {
       expect(row?.error).toBeNull();
       expect(row?.startedAt).toEqual(NOW);
       expect(row?.finishedAt).toBeDefined();
+      expect(row?.auditRowsSevered).toBeNull();
     });
 
     it('writes sweep_runs row even on zero-eligible tick', async () => {

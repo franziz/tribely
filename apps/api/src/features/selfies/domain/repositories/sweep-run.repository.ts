@@ -6,6 +6,10 @@ import type { TxContext } from '@/core/db/unit-of-work.port.js';
  * Written once per tick (regardless of success or failure) to provide
  * an audit trail answering "did the sweep run on date X?" for App Store
  * / regulator requests.
+ *
+ * `auditRowsSevered`: NULL for sweep kinds that don't sever cross-references
+ * (selfie-retention-sweep); an integer count for sweep kinds that do
+ * (report-retention-sweep).
  */
 export interface SweepRunEntry {
   id: string;
@@ -18,6 +22,7 @@ export interface SweepRunEntry {
   reaperRetried: number;
   reaperSucceeded: number;
   error: string | null;
+  auditRowsSevered: number | null;
 }
 
 export interface SweepRunRepository {
