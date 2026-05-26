@@ -11,6 +11,12 @@ import type {
 } from '../../domain/repositories/moderation-action-audit.repository.js';
 
 export interface RecordModerationActionInput {
+  /**
+   * Optional caller-supplied ID. When provided (e.g. CancelEventForSafetyUseCase
+   * needs to return the auditRowId before the transaction commits), the supplied
+   * value is used as the record's PK; otherwise a fresh cuid2 is generated here.
+   */
+  id?: string;
   operatorUserId: string;
   action: ModerationAction;
   /** Nullable: Cat 4 cancel_event_for_safety may have no upstream report row (TRI-193). */
@@ -51,7 +57,7 @@ export class RecordModerationActionUseCase {
   async execute(input: RecordModerationActionInput, ctx: TxContext): Promise<void> {
     const requestId = getRequestContext()?.requestId ?? null;
     const record: ModerationActionAuditRecord = {
-      id: createId(),
+      id: input.id ?? createId(),
       operatorUserId: input.operatorUserId,
       action: input.action,
       reportId: input.reportId,
