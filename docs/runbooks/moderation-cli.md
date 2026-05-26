@@ -497,7 +497,62 @@ Channel attribution for PDPC inspection uses the AsyncLocalStorage request-conte
 
 The `moderation_action_audit` table is **append-only by contract** — no UPDATE or DELETE is issued by any application path. Rows are immutable once written. Purge of resolved-report rows at the 12-month boundary is performed by the scheduled sweep (§5), which itself writes an audit row recording the batch count and cutoff timestamp. If PDPC requests evidence that a specific report was handled: query `moderation_action_audit` by `reportId` to produce the full action history (touch → hide / keep → optional escalation linkage), ordered by `timestamp`. The `requestId` on each row confirms the operator channel; the `operatorUserId` column confirms the acting operator.
 
-DB-level append-only enforcement (INSERT/SELECT-only role grants on `moderation_action_audit`) is **deferred to a follow-up hardening ticket**. Current contract: application-layer — `ModerationActionAuditRepository` exposes only `record` and the narrowly-scoped `severOriginatingReportId`. DB-level role separation is on the roadmap; the application-layer repository contract is the current SOT for append-only enforcement.
+**DB-level enforcement of the append-only contract on `moderation_action_audit` is IN PLACE as of TRI-206.**
+
+The runtime database role is `tribely_app`. Its grants are:
+
+- **`moderation_action_audit`**: INSERT, SELECT only.
+- **All other tables in schema `public`**: SELECT, INSERT, UPDATE, DELETE (baseline for normal application operation).
+
+The `tribely_app` role CANNOT UPDATE, DELETE, or TRUNCATE rows in `moderation_action_audit`. Attempts return Postgres error code `42501` (insufficient_privilege).
+
+The `tribely_app` role is NOT the owner of `moderation_action_audit`. Postgres table owners bypass REVOKE TRUNCATE, so the migration / superuser role retains ownership and the runtime role is grant-restricted. This is verified by an automated test (`moderation-action-audit.append-only.integration.test.ts`).
+
+### Production SQL (copy-pasteable for human prod operator)
+
+Execute as the database superuser via `psql`. Idempotent: safe to re-run.
+
+```sql
+-- 1. Create runtime role if missing (LOGIN, password from env).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tribely_app') THEN
+    EXECUTE format('CREATE ROLE tribely_app LOGIN PASSWORD %L', '<RUNTIME_DB_PASSWORD>');
+  END IF;
+END $$;
+
+-- 2. Baseline grants for normal app operation across all current tables.
+GRANT CONNECT ON DATABASE "<DATABASE_NAME>" TO tribely_app;
+GRANT USAGE ON SCHEMA public TO tribely_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO tribely_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tribely_app;
+
+-- 3. Default privileges so future migrations don't silently break runtime.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tribely_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO tribely_app;
+
+-- 4. TRI-206 lockdown: append-only enforcement on moderation_action_audit.
+REVOKE UPDATE, DELETE, TRUNCATE ON moderation_action_audit FROM tribely_app;
+
+-- 5. Verification block — fails the script if posture is wrong.
+DO $$
+BEGIN
+  ASSERT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'INSERT')),
+    'tribely_app must have INSERT on moderation_action_audit';
+  ASSERT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'SELECT')),
+    'tribely_app must have SELECT on moderation_action_audit';
+  ASSERT NOT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'UPDATE')),
+    'tribely_app must NOT have UPDATE on moderation_action_audit';
+  ASSERT NOT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'DELETE')),
+    'tribely_app must NOT have DELETE on moderation_action_audit';
+END $$;
+```
+
+Replace `<RUNTIME_DB_PASSWORD>` with the password the application uses to connect, and `<DATABASE_NAME>` with the production database name.
+
+The same SQL is automated for CI and local dev via `apps/api/scripts/bootstrap-runtime-role.sql` + `npm run --workspace=@tribely/api db:roles:bootstrap`. Production execution is manual via the SQL above, per the agents-draft / human-executes convention (precedent TRI-77).
 
 ## 7. Retirement
 
