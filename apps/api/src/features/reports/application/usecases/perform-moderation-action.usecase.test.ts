@@ -73,6 +73,8 @@ class FakeReportRepository implements ReportRepository {
   listOpenOlderThan = vi.fn();
   listByReporter = vi.fn();
   deleteAllForUser = vi.fn();
+  deleteById = vi.fn();
+  findOrphanedOriginatingReportIds = vi.fn();
 }
 
 class FakeReviewRepository implements ReviewRepository {

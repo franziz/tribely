@@ -15,6 +15,8 @@ describe('CascadeReportsOnUserDeletionUseCase', () => {
       listOpenOlderThan: vi.fn(),
       listByReporter: vi.fn(),
       deleteAllForUser,
+      deleteById: vi.fn(),
+      findOrphanedOriginatingReportIds: vi.fn(),
     };
     const useCase = new CascadeReportsOnUserDeletionUseCase(reports);
 
