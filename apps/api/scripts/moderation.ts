@@ -8,9 +8,10 @@
 //   npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason <text> [--operator <userId>]
 //   npm run --workspace=@tribely/api moderation cancel-event-for-safety <eventId> \
 //     --reason=safety --justification "<text>" [--report-id <reportId>] [--operator <userId>]
+//   npm run --workspace=@tribely/api moderation sweep-resolved-reports
 //
 // Operator identity: --operator flag OR $TRIBELY_OPERATOR_USER_ID env var.
-// list-reports does not require an operator identity (read-only command).
+// list-reports and sweep-resolved-reports do not require an operator identity (system actions).
 
 import { buildContainer } from '@/core/di/container.js';
 import { runAsSystem } from '@/core/context/system-context.js';
@@ -27,12 +28,7 @@ import {
 // SLA flag computation
 // ---------------------------------------------------------------------------
 
-type SlaFlag =
-  | 'OK'
-  | 'APPROACHING-72H'
-  | 'OVERDUE-72H'
-  | 'APPROACHING-7D'
-  | 'BREACH-7D';
+type SlaFlag = 'OK' | 'APPROACHING-72H' | 'OVERDUE-72H' | 'APPROACHING-7D' | 'BREACH-7D';
 
 /**
  * Compute the SLA flag for a single unresolved report.
@@ -91,9 +87,7 @@ async function cmdListReports(): Promise<void> {
     const approachingHardCeilingBefore = new Date(
       now.getTime() - APPROACHING_HARD_CEILING_HOURS * 60 * 60 * 1000,
     );
-    const hardCeilingBefore = new Date(
-      now.getTime() - SLA_HARD_CEILING_HOURS * 60 * 60 * 1000,
-    );
+    const hardCeilingBefore = new Date(now.getTime() - SLA_HARD_CEILING_HOURS * 60 * 60 * 1000);
 
     // Fetch all unresolved reports (no pagination for CLI — fetch all).
     // listOpenOlderThan is used for SLA bucket membership; listUnresolved
@@ -171,10 +165,7 @@ async function cmdListReports(): Promise<void> {
       const row = [
         padRight(truncate(r.id, COL_ID), COL_ID),
         padRight(truncate(r.reporterUserId, COL_REPORTER), COL_REPORTER),
-        padRight(
-          truncate(`${r.target.type}:${r.target.id}`, COL_TARGET),
-          COL_TARGET,
-        ),
+        padRight(truncate(`${r.target.type}:${r.target.id}`, COL_TARGET), COL_TARGET),
         padRight(truncate(r.reason.value, COL_REASON), COL_REASON),
         padRight(formatDate(r.createdAt), COL_CREATED),
         padRight(formatAge(r, now), COL_AGE),
@@ -256,7 +247,10 @@ async function cmdCancelEventForSafety(
       });
     });
   } catch (err) {
-    if (err instanceof AppError && (err.status === 409 || err.status === 404 || err.status === 422)) {
+    if (
+      err instanceof AppError &&
+      (err.status === 409 || err.status === 404 || err.status === 422)
+    ) {
       console.error(err.message);
       process.exit(1);
     }
@@ -269,6 +263,34 @@ async function cmdCancelEventForSafety(
   console.log(`Event ${eventId} cancelled for safety.`);
   console.log(`Audit row: ${auditRowId}`);
   console.log(`Notified attendees: ${String(notifiedCount)}`);
+}
+
+async function cmdSweepResolvedReports(): Promise<void> {
+  const container = buildContainer();
+
+  let result: {
+    evaluated: number;
+    deleted: number;
+    failed: number;
+    auditRowsSevered: number;
+    orphanRowsSevered: number;
+    durationMs: number;
+  };
+
+  await runAsSystem('cli.moderation.sweep-resolved-reports', async () => {
+    result = await container.sweepResolvedReportsUseCase.execute();
+  });
+
+  // result is guaranteed assigned if runAsSystem did not throw.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { evaluated, deleted, failed, auditRowsSevered, orphanRowsSevered, durationMs } = result!;
+  console.log(`Moderation report retention sweep complete.`);
+  console.log(`Evaluated: ${String(evaluated)}`);
+  console.log(`Deleted: ${String(deleted)}`);
+  console.log(`Failed: ${String(failed)}`);
+  console.log(`Audit rows severed: ${String(auditRowsSevered)}`);
+  console.log(`Orphan rows severed: ${String(orphanRowsSevered)}`);
+  console.log(`Duration: ${String(durationMs)}ms`);
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +371,11 @@ async function main(): Promise<void> {
       break;
     }
 
+    case 'sweep-resolved-reports': {
+      await cmdSweepResolvedReports();
+      break;
+    }
+
     case 'cancel-event-for-safety': {
       const eventId = args[1];
       if (!eventId) {
@@ -362,9 +389,7 @@ async function main(): Promise<void> {
       // Support both --reason=safety and --reason safety forms.
       const reason =
         extractFlagValue(args, '--reason') ??
-        args
-          .find((a) => a.startsWith('--reason='))
-          ?.slice('--reason='.length) ??
+        args.find((a) => a.startsWith('--reason='))?.slice('--reason='.length) ??
         null;
       if (reason !== 'safety') {
         console.error('Missing or invalid --reason: only --reason=safety is supported');
@@ -389,7 +414,9 @@ async function main(): Promise<void> {
 
     default: {
       console.error(`Unknown subcommand: ${subcommand ?? '(none)'}`);
-      console.error('Valid: list-reports | touch | resolve | cancel-event-for-safety');
+      console.error(
+        'Valid: list-reports | touch | resolve | cancel-event-for-safety | sweep-resolved-reports',
+      );
       process.exit(1);
     }
   }
