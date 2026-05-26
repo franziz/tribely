@@ -1,10 +1,17 @@
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { AppError } from '@/core/errors/app-error.js';
+import { reportEscalated } from '../events/report-escalated.event.js';
 import { reportFiled } from '../events/report-filed.event.js';
 import { reportResolved } from '../events/report-resolved.event.js';
 import type { ReportComment } from '../value-objects/report-comment.js';
 import type { ReportReason } from '../value-objects/report-reason.js';
 import type { ReportTarget } from '../value-objects/report-target.js';
+
+export type EscalationCategory =
+  | 'criminal-content'
+  | 'imminent-harm'
+  | 'ambiguous-policy'
+  | 'external-jurisdiction';
 
 /**
  * Report aggregate root — a user-filed content-moderation report targeting
@@ -16,10 +23,16 @@ import type { ReportTarget } from '../value-objects/report-target.js';
  *   - `report.touch(now)` — first review by a moderator. Sets
  *     `firstReviewedAt` if not already set. Idempotent — subsequent calls
  *     are no-ops and do NOT record any event.
+ *   - `report.escalate(...)` — escalate to an external authority. Sets
+ *     `escalatedAt`, `escalationCategory`, `externalRef`, `escalatedByUserId`.
+ *     Records `reports.reportEscalated`. Append-only invariant: throws if
+ *     already escalated or already resolved.
  *   - `report.resolve(...)` — final moderation decision. Sets `resolvedAt`,
  *     `resolution`, and `resolvedByUserId`. Records `reports.reportResolved`.
  *     Throws `ReportAlreadyResolved` if already resolved (append-only invariant
- *     for legal compliance).
+ *     for legal compliance). When the report is escalated, requires either an
+ *     external-input row (`externalInputCount > 0`) or an `overrideReason`;
+ *     certain categories (`criminal-content`, `imminent-harm`) prohibit overrides.
  *
  * `touch()` is intentionally event-free — it is an internal moderation state
  * that has no downstream consumer significance at MVP. If future tooling needs
@@ -37,6 +50,10 @@ export class Report extends AggregateRoot {
     private _resolvedAt: Date | null,
     private _resolution: string | null,
     private _resolvedByUserId: string | null,
+    private _escalatedAt: Date | null,
+    private _escalationCategory: EscalationCategory | null,
+    private _externalRef: string | null,
+    private _escalatedByUserId: string | null,
   ) {
     super();
   }
@@ -58,6 +75,10 @@ export class Report extends AggregateRoot {
       input.reason,
       input.comment,
       input.now,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -88,6 +109,10 @@ export class Report extends AggregateRoot {
     resolvedAt: Date | null;
     resolution: string | null;
     resolvedByUserId: string | null;
+    escalatedAt?: Date | null;
+    escalationCategory?: EscalationCategory | null;
+    externalRef?: string | null;
+    escalatedByUserId?: string | null;
   }): Report {
     return new Report(
       state.id,
@@ -100,6 +125,10 @@ export class Report extends AggregateRoot {
       state.resolvedAt,
       state.resolution,
       state.resolvedByUserId,
+      state.escalatedAt ?? null,
+      state.escalationCategory ?? null,
+      state.externalRef ?? null,
+      state.escalatedByUserId ?? null,
     );
   }
 
@@ -125,6 +154,26 @@ export class Report extends AggregateRoot {
     return this._resolvedAt !== null;
   }
 
+  get escalatedAt(): Date | null {
+    return this._escalatedAt;
+  }
+
+  get escalationCategory(): EscalationCategory | null {
+    return this._escalationCategory;
+  }
+
+  get externalRef(): string | null {
+    return this._externalRef;
+  }
+
+  get escalatedByUserId(): string | null {
+    return this._escalatedByUserId;
+  }
+
+  get isEscalated(): boolean {
+    return this._escalatedAt !== null;
+  }
+
   // ---- Commands ----
 
   /**
@@ -139,19 +188,114 @@ export class Report extends AggregateRoot {
   }
 
   /**
+   * Escalate the report to an external authority (law enforcement, platform
+   * safety team, etc.).
+   *
+   * Append-only invariant: throws if the report is already resolved or already
+   * escalated (no re-escalation by PM non-goal). Records `reports.reportEscalated`.
+   */
+  escalate(input: {
+    category: EscalationCategory;
+    externalRef: string;
+    escalatedByUserId: string;
+    now: Date;
+  }): void {
+    if (this._resolvedAt !== null) {
+      throw AppError.conflict('Report has already been resolved', {
+        subcode: 'reports.reportAlreadyResolved',
+      });
+    }
+    if (this._escalatedAt !== null) {
+      throw AppError.conflict('Report is already escalated', {
+        subcode: 'reports.reportAlreadyEscalated',
+      });
+    }
+    if (input.externalRef.trim().length === 0) {
+      throw AppError.validation('External reference required', {
+        subcode: 'reports.externalRefRequired',
+      });
+    }
+
+    this._escalatedAt = input.now;
+    this._escalationCategory = input.category;
+    this._externalRef = input.externalRef;
+    this._escalatedByUserId = input.escalatedByUserId;
+
+    this.record(
+      reportEscalated({
+        reportId: this.id,
+        reporterUserId: this.reporterUserId,
+        targetType: this.target.type,
+        targetId: this.target.id,
+        reason: this.reason.value,
+        category: input.category,
+        externalRef: input.externalRef,
+        escalatedByUserId: input.escalatedByUserId,
+        escalatedAt: input.now.toISOString(),
+      }),
+    );
+  }
+
+  /**
    * Record the final moderation decision on this report.
    *
    * Throws `AppError.conflict('reports.reportAlreadyResolved', ...)` if the
    * report has already been resolved — append-only invariant enforced by the
    * domain for legal compliance.
    *
+   * When the report is escalated, the caller must supply either:
+   *   - `externalInputCount > 0` (an external-input row exists), OR
+   *   - a non-empty `overrideReason`
+   * For categories `criminal-content` and `imminent-harm`, `overrideReason`
+   * is prohibited regardless (legal Q2 enforcement).
+   *
    * Records `reports.reportResolved`.
    */
-  resolve(input: { resolution: 'hidden' | 'kept'; resolvedByUserId: string; now: Date }): void {
+  resolve(input: {
+    resolution: 'hidden' | 'kept';
+    resolvedByUserId: string;
+    now: Date;
+    overrideReason?: string | null;
+    externalInputCount?: number;
+  }): void {
+    const overrideReason = input.overrideReason ?? null;
+    const externalInputCount = input.externalInputCount ?? 0;
+
     if (this._resolvedAt !== null) {
       throw AppError.conflict('Report has already been resolved', {
         subcode: 'reports.reportAlreadyResolved',
       });
+    }
+
+    if (this._escalatedAt === null) {
+      // Non-escalated path — overrideReason must not be set.
+      if (overrideReason !== null) {
+        throw AppError.validation('Override reason only valid on escalated reports', {
+          subcode: 'reports.overrideRequiresEscalation',
+        });
+      }
+    } else {
+      // Escalated path — `_escalationCategory` is invariantly non-null whenever
+      // `_escalatedAt` is non-null (set atomically in `escalate()`).
+      const category = this._escalationCategory as EscalationCategory;
+      // Enforce category-specific and workflow guards.
+      const prohibitedCategories: EscalationCategory[] = ['criminal-content', 'imminent-harm'];
+      if (overrideReason !== null && prohibitedCategories.includes(category)) {
+        throw AppError.validation(`Override not permitted for category ${category}`, {
+          subcode: 'reports.overrideForbiddenForCategory',
+        });
+      }
+      if (externalInputCount === 0 && overrideReason === null) {
+        throw AppError.conflict(
+          'Report is escalated; resolve requires external-input row or --override-reason',
+          { subcode: 'reports.escalationResolveBlocked' },
+        );
+      }
+      if (overrideReason !== null && overrideReason.trim().length === 0) {
+        throw AppError.validation('Override reason required', {
+          subcode: 'reports.overrideReasonRequired',
+        });
+      }
     }
 
     this._resolvedAt = input.now;

@@ -52,6 +52,10 @@ export class ReportPrismaRepository implements ReportRepository {
         resolvedAt: report.resolvedAt,
         resolution: report.resolution,
         resolvedByUserId: report.resolvedByUserId,
+        escalatedAt: report.escalatedAt,
+        escalationCategory: report.escalationCategory,
+        externalRef: report.externalRef,
+        escalatedByUserId: report.escalatedByUserId,
       },
     });
   }
