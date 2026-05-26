@@ -8,10 +8,13 @@ import { ReportTarget } from '../../domain/value-objects/report-target.js';
 /**
  * Reconstruct a Report aggregate from a Prisma row.
  *
- * `externalInputCount` is injected as `0` here — Brief D wires the real count
- * by reading from the audit feature before calling `rehydrate`.
+ * `externalInputCount` defaults to 0 for list paths that don't invoke
+ * resolve() and therefore don't need the escalation-resolve guard.
+ * `ReportPrismaRepository.findById` passes the real count (fetched from
+ * `ModerationActionAuditRepository.countExternalInputs`) for single-record
+ * loads where resolve() may be called.
  */
-export const toReport = (row: ReportRow): Report =>
+export const toReport = (row: ReportRow, externalInputCount = 0): Report =>
   Report.rehydrate({
     id: row.id,
     reporterUserId: row.reporterUserId,
@@ -27,6 +30,7 @@ export const toReport = (row: ReportRow): Report =>
     escalationCategory: row.escalationCategory as EscalationCategory | null,
     externalRef: row.externalRef,
     escalatedByUserId: row.escalatedByUserId,
+    externalInputCount,
   });
 
 /**

@@ -12,6 +12,13 @@ export interface PerformModerationActionInput {
   action: ModerationAction;
   reportId: string;
   reason: string | null; // required for resolve_*; null for touch
+  /**
+   * When resolving an escalated report without an external-input row,
+   * supply a non-empty override reason. Only valid for non-criminal/non-imminent
+   * categories (per domain AC5). When provided, the audit action becomes
+   * `resolve_with_override` instead of `resolve_hidden` / `resolve_kept`.
+   */
+  overrideReason?: string | null;
 }
 
 /**
@@ -57,6 +64,8 @@ export class PerformModerationActionUseCase {
     }
     // For touch + resolve_kept, snapshot is null by design.
 
+    const overrideReason = input.overrideReason ?? null;
+
     // Apply state transitions on the aggregate(s).
     const wasTouched = report.firstReviewedAt !== null;
     if (input.action === 'touch') {
@@ -64,15 +73,28 @@ export class PerformModerationActionUseCase {
       // Touch is event-free per Report aggregate.
     } else {
       // Throws ReportAlreadyResolved if already resolved (append-only invariant).
+      // Passes externalInputCount (hydrated by the repo) and overrideReason so
+      // the domain's escalation-resolve guard (AC5) has full context.
       report.resolve({
         resolution: input.action === 'resolve_hidden' ? 'hidden' : 'kept',
         resolvedByUserId: input.operatorUserId,
         now,
+        overrideReason,
+        externalInputCount: report.externalInputCount,
       });
     }
 
     const reportEvents = report.pullEvents();
     const isTouchNoOp = input.action === 'touch' && wasTouched;
+
+    // Determine the audit action after the domain transition succeeds.
+    // resolve_with_override fires when: the report was escalated AND the caller
+    // supplied an overrideReason (the domain guarantees this combo is valid only
+    // for ambiguous-policy / external-jurisdiction categories).
+    const isOverrideResolve = report.isEscalated && overrideReason !== null;
+    const auditAction = isOverrideResolve ? 'resolve_with_override' : input.action;
+    const auditReason = isOverrideResolve ? overrideReason : input.reason;
+    const auditEscalationCategory = isOverrideResolve ? report.escalationCategory : null;
 
     await this.unitOfWork.run(async (ctx) => {
       // 1. Save report state transition (skip save for no-op touch).
@@ -112,17 +134,20 @@ export class PerformModerationActionUseCase {
         await this.recordAudit.execute(
           {
             operatorUserId: input.operatorUserId,
-            action: input.action,
+            action: auditAction,
             reportId: report.id,
             targetType: report.target.type,
             targetId: report.target.id,
-            reason: input.reason,
+            reason: auditReason,
             contentSnapshot,
             reporterUserId: report.reporterUserId,
             // Non-Cat-4 actions have no safety code, narrative, or originating report.
             reasonCode: null,
             justificationText: null,
             originatingReportId: null,
+            // Populated only on resolve_with_override (carry-forward for traceability).
+            escalationCategory: auditEscalationCategory,
+            // externalRef/externalSource/etc. remain null for resolve actions.
             actedAt: now,
           },
           ctx,

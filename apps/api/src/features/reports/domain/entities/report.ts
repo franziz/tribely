@@ -54,6 +54,17 @@ export class Report extends AggregateRoot {
     private _escalationCategory: EscalationCategory | null,
     private _externalRef: string | null,
     private _escalatedByUserId: string | null,
+    /**
+     * Count of `record_external_input` audit rows for this report.
+     * Hydrated by ReportPrismaRepository.findById at load time by querying
+     * ModerationActionAuditRepository.countExternalInputs.
+     *
+     * Used by resolve() to enforce the escalation-resolve guard (AC5):
+     * an escalated report requires externalInputCount > 0 OR an overrideReason.
+     *
+     * Defaults to 0 for new reports and for list paths that don't need the guard.
+     */
+    private _externalInputCount: number,
   ) {
     super();
   }
@@ -83,6 +94,7 @@ export class Report extends AggregateRoot {
       null,
       null,
       null,
+      0,
     );
     report.record(
       reportFiled({
@@ -113,6 +125,13 @@ export class Report extends AggregateRoot {
     escalationCategory?: EscalationCategory | null;
     externalRef?: string | null;
     escalatedByUserId?: string | null;
+    /**
+     * Count of record_external_input audit rows for this report.
+     * Hydrated by the repository layer (ReportPrismaRepository.findById).
+     * Defaults to 0 when not provided — safe for list paths that don't
+     * invoke resolve() and therefore don't need the guard value.
+     */
+    externalInputCount?: number;
   }): Report {
     return new Report(
       state.id,
@@ -129,6 +148,7 @@ export class Report extends AggregateRoot {
       state.escalationCategory ?? null,
       state.externalRef ?? null,
       state.escalatedByUserId ?? null,
+      state.externalInputCount ?? 0,
     );
   }
 
@@ -172,6 +192,15 @@ export class Report extends AggregateRoot {
 
   get isEscalated(): boolean {
     return this._escalatedAt !== null;
+  }
+
+  /**
+   * Count of record_external_input audit rows for this report.
+   * Hydrated at load time by the repository; defaults to 0 for new reports
+   * and for list paths that don't need the escalation-resolve guard.
+   */
+  get externalInputCount(): number {
+    return this._externalInputCount;
   }
 
   // ---- Commands ----
