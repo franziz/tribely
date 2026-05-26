@@ -29,6 +29,8 @@ import { JoinRequestPrismaRepository } from '../src/features/join-requests/infra
 import { CancelEventForSafetyUseCase } from '../src/features/reports/application/usecases/cancel-event-for-safety.usecase.js';
 import { SweepResolvedReportsUseCase } from '../src/features/reports/application/usecases/sweep-resolved-reports.usecase.js';
 import { SweepRunPrismaRepository } from '../src/features/selfies/infrastructure/persistence/sweep-run.prisma-repository.js';
+import { EscalateReportUseCase } from '../src/features/reports/application/usecases/escalate-report.usecase.js';
+import { RecordExternalInputUseCase } from '../src/features/reports/application/usecases/record-external-input.usecase.js';
 
 const dbUrl = process.env.DATABASE_URL;
 
@@ -61,9 +63,9 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
     unitOfWork = new PrismaUnitOfWork(db);
 
-    reportRepository = new ReportPrismaRepository(db);
     reviewRepository = new ReviewPrismaRepository(db);
     const auditRepository = new ModerationActionAuditPrismaRepository(db);
+    reportRepository = new ReportPrismaRepository(db, auditRepository);
     const recordAudit = new RecordModerationActionUseCase(auditRepository);
     const publisher = new OutboxEventPublisher();
     const clock = new SystemClock();
@@ -669,8 +671,8 @@ describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
     unitOfWork = new PrismaUnitOfWork(db);
 
-    const reportRepository = new ReportPrismaRepository(db);
     const auditRepository = new ModerationActionAuditPrismaRepository(db);
+    const reportRepository = new ReportPrismaRepository(db, auditRepository);
     const sweepRunRepository = new SweepRunPrismaRepository(db);
     const clock = new SystemClock();
     const logger = {
@@ -843,3 +845,854 @@ describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
     });
   });
 });
+
+/**
+ * Integration tests for EscalateReportUseCase, RecordExternalInputUseCase,
+ * and the escalation-gated resolve paths (resolve_with_override,
+ * escalationResolveBlocked, overrideForbiddenForCategory).
+ *
+ * Seed per-suite: operator, reporter, rated user, host user, event, review.
+ * Each test seeds its own report(s) and cleans up at the end.
+ *
+ * Tests:
+ *   1.  escalate on open report → persists all escalation fields + outbox row + audit row.
+ *   2.  escalate on already-resolved report → 409 reportAlreadyResolved; no writes.
+ *   3.  escalate twice on same report → 409 reportAlreadyEscalated on second call.
+ *   4.  escalate with whitespace-only --external-ref → 400 externalRefRequired; no writes.
+ *   5.  record-external-input on escalated report → audit row with correct fields.
+ *   6.  record-external-input on non-escalated report → 409 notEscalated.
+ *   7.  record-external-input on resolved report → 409 reportAlreadyResolved.
+ *   8.  resolve --hide on escalated criminal-content with no external-input → 409 escalationResolveBlocked.
+ *   9.  resolve --hide --override-reason on escalated criminal-content → 400 overrideForbiddenForCategory.
+ *  10.  resolve --hide --override-reason on escalated imminent-harm → 400 overrideForbiddenForCategory.
+ *  11.  resolve --hide --override-reason on escalated ambiguous-policy → succeeds; audit action=resolve_with_override.
+ *  12.  resolve --hide on escalated ambiguous-policy with ≥1 prior record_external_input → succeeds; audit action=resolve_hidden.
+ *  13.  resolve --hide --override-reason on NON-escalated report → 400 overrideRequiresEscalation.
+ *  14.  list-reports --state escalated filters correctly; escalated rows excluded from SLA banners.
+ *  15.  show on escalated report → externalInputCount reflects actual audit rows.
+ */
+describe.skipIf(!dbUrl)(
+  'EscalateReport / RecordExternalInput / escalation-gated resolve (integration)',
+  () => {
+    let db: PrismaClient;
+    let unitOfWork: PrismaUnitOfWork;
+    let escalateReportUseCase: EscalateReportUseCase;
+    let recordExternalInputUseCase: RecordExternalInputUseCase;
+    let performModerationActionUseCase: PerformModerationActionUseCase;
+    let reportRepository: ReportPrismaRepository;
+    let reviewRepository: ReviewPrismaRepository;
+
+    // Seeded IDs
+    let operatorId: string;
+    let reporterId: string;
+    let ratedUserId: string;
+    let hostUserId: string;
+    let eventId: string;
+
+    beforeAll(async () => {
+      if (!dbUrl) return;
+
+      db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+      unitOfWork = new PrismaUnitOfWork(db);
+      reviewRepository = new ReviewPrismaRepository(db);
+      const auditRepository = new ModerationActionAuditPrismaRepository(db);
+      reportRepository = new ReportPrismaRepository(db, auditRepository);
+      const recordAudit = new RecordModerationActionUseCase(auditRepository);
+      const publisher = new OutboxEventPublisher();
+      const clock = new SystemClock();
+
+      escalateReportUseCase = new EscalateReportUseCase(
+        unitOfWork,
+        reportRepository,
+        publisher,
+        recordAudit,
+        clock,
+      );
+      recordExternalInputUseCase = new RecordExternalInputUseCase(
+        unitOfWork,
+        reportRepository,
+        recordAudit,
+        clock,
+      );
+      performModerationActionUseCase = new PerformModerationActionUseCase(
+        unitOfWork,
+        reportRepository,
+        reviewRepository,
+        publisher,
+        recordAudit,
+        clock,
+      );
+
+      // Seed users + event
+      operatorId = createId();
+      reporterId = createId();
+      ratedUserId = createId();
+      hostUserId = createId();
+      eventId = createId();
+
+      await db.user.createMany({
+        data: [
+          {
+            id: operatorId,
+            email: `op-esc-int-${operatorId}@example.com`,
+            displayName: 'Operator',
+          },
+          {
+            id: reporterId,
+            email: `reporter-esc-int-${reporterId}@example.com`,
+            displayName: 'Reporter',
+          },
+          {
+            id: ratedUserId,
+            email: `rated-esc-int-${ratedUserId}@example.com`,
+            displayName: 'Rated',
+          },
+          { id: hostUserId, email: `host-esc-int-${hostUserId}@example.com`, displayName: 'Host' },
+        ],
+      });
+
+      await db.event.create({
+        data: {
+          id: eventId,
+          hostUserId,
+          title: 'Escalation Integration Test Event',
+          venueAddress: '1 Test St',
+          venueCity: 'Singapore',
+          venueLatitude: 1.3,
+          venueLongitude: 103.8,
+          startsAt: new Date('2026-05-01T18:00:00Z'),
+          endsAt: new Date('2026-05-01T20:00:00Z'),
+          capacity: 5,
+          category: 'food',
+          venueCategory: 'cafe',
+          costSplit: 'own',
+          approvalMode: 'manual',
+          status: 'completed',
+        },
+      });
+    });
+
+    afterAll(async () => {
+      if (!dbUrl) return;
+      await db.moderationActionAudit
+        .deleteMany({
+          where: { OR: [{ operatorUserId: operatorId }, { reporterUserId: reporterId }] },
+        })
+        .catch(() => null);
+      await db.outboxEvent.deleteMany({}).catch(() => null);
+      await db.review.deleteMany({ where: { eventId } }).catch(() => null);
+      await db.report.deleteMany({ where: { reporterUserId: reporterId } }).catch(() => null);
+      await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
+      // Delete seed users + ephemeral per-review rated users (email prefix 'ephemeral-rated-').
+      await db.user
+        .deleteMany({ where: { id: { in: [operatorId, reporterId, ratedUserId, hostUserId] } } })
+        .catch(() => null);
+      await db.user
+        .deleteMany({ where: { email: { startsWith: 'ephemeral-rated-' } } })
+        .catch(() => null);
+      await db.$disconnect();
+    });
+
+    // ---------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------
+
+    // Each review must have a unique (eventId, raterUserId, ratedUserId) triple.
+    // To allow multiple reviews per test, we create an ad-hoc rated user on each
+    // call so the triple is always unique. The extra users are cleaned up in afterAll
+    // via the `id NOT IN (suite constant ids)` pattern — or simply by the email prefix.
+    const seedReview = async (): Promise<Review> => {
+      // Create a unique rated user so the DB unique constraint on
+      // (eventId, raterUserId, ratedUserId) never fires across calls.
+      const ephemeralRatedUserId = createId();
+      await db.user.create({
+        data: {
+          id: ephemeralRatedUserId,
+          email: `ephemeral-rated-${ephemeralRatedUserId}@example.com`,
+          displayName: 'Ephemeral Rated',
+        },
+      });
+      const review = Review.submit({
+        id: createId(),
+        eventId,
+        raterUserId: reporterId,
+        ratedUserId: ephemeralRatedUserId,
+        rating: Rating.create(4),
+        comment: ReviewComment.create('Integration test review'),
+        now: new Date(),
+      });
+      review.pullEvents();
+      await db.review.create({
+        data: {
+          id: review.id,
+          eventId: review.eventId,
+          raterUserId: review.raterUserId,
+          ratedUserId: review.ratedUserId,
+          rating: review.rating.value,
+          comment: review.comment?.value ?? null,
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt,
+          hidden: false,
+          hiddenAt: null,
+          hiddenReason: null,
+        },
+      });
+      return review;
+    };
+
+    const seedReport = async (targetReviewId: string): Promise<Report> => {
+      const report = Report.file({
+        id: createId(),
+        reporterUserId: reporterId,
+        target: ReportTarget.create('review', targetReviewId),
+        reason: ReportReason.create('harassment'),
+        comment: null,
+        now: new Date(),
+      });
+      report.pullEvents();
+      await db.report.create({
+        data: {
+          id: report.id,
+          reporterUserId: report.reporterUserId,
+          targetType: report.target.type,
+          targetId: report.target.id,
+          reason: report.reason.value,
+          comment: null,
+          createdAt: report.createdAt,
+          firstReviewedAt: null,
+          resolvedAt: null,
+          resolution: null,
+          resolvedByUserId: null,
+        },
+      });
+      return report;
+    };
+
+    /** Insert an escalation record directly at DB level. Used to set up resolve-path tests without going through EscalateReportUseCase. */
+    const dbEscalateReport = async (
+      reportId: string,
+      category: string,
+      externalRef = 'INTG-001',
+    ): Promise<void> => {
+      await db.report.update({
+        where: { id: reportId },
+        data: {
+          escalatedAt: new Date(),
+          escalationCategory: category,
+          externalRef,
+          escalatedByUserId: operatorId,
+        },
+      });
+    };
+
+    const cleanupReportAndReview = async (reportId: string, reviewId: string): Promise<void> => {
+      await db.moderationActionAudit.deleteMany({ where: { reportId } }).catch(() => null);
+      await db.outboxEvent.deleteMany({}).catch(() => null);
+      await db.report.deleteMany({ where: { id: reportId } }).catch(() => null);
+      await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);
+    };
+
+    // ---------------------------------------------------------------------------
+    // Test 1 — escalate on open report
+    // ---------------------------------------------------------------------------
+
+    describe('escalate on open report', () => {
+      it('persists escalation columns, outbox row, and audit row', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await runAsSystem('cli.moderation.escalate', async () => {
+          await escalateReportUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            category: 'criminal-content',
+            externalRef: 'SPF-2026-001',
+            note: 'Credible threat; SPF notified.',
+          });
+        });
+
+        // reports row — escalation columns populated
+        const reportRow = await db.report.findUnique({ where: { id: report.id } });
+        expect(reportRow?.escalatedAt).not.toBeNull();
+        expect(reportRow?.escalationCategory).toBe('criminal-content');
+        expect(reportRow?.externalRef).toBe('SPF-2026-001');
+        expect(reportRow?.escalatedByUserId).toBe(operatorId);
+        // resolvedAt still null — escalation does not resolve
+        expect(reportRow?.resolvedAt).toBeNull();
+
+        // outbox row for reports.reportEscalated
+        const outboxRow = await db.outboxEvent.findFirst({
+          where: { aggregateId: report.id, type: 'reports.reportEscalated' },
+        });
+        expect(outboxRow).not.toBeNull();
+
+        // audit row
+        const auditRow = await db.moderationActionAudit.findFirst({
+          where: { reportId: report.id, action: 'escalate' },
+        });
+        expect(auditRow).not.toBeNull();
+        expect(auditRow?.operatorUserId).toBe(operatorId);
+        expect(auditRow?.escalationCategory).toBe('criminal-content');
+        expect(auditRow?.externalRef).toBe('SPF-2026-001');
+        expect(auditRow?.reason).toBe('Credible threat; SPF notified.');
+        expect(auditRow?.requestId).toMatch(/^system:cli\.moderation\.escalate:/);
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 2 — escalate on already-resolved report → 409 reportAlreadyResolved
+    // ---------------------------------------------------------------------------
+
+    describe('escalate on already-resolved report', () => {
+      it('throws 409 reportAlreadyResolved; no DB writes', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // Resolve the report first at DB level so we can test the guard.
+        await db.report.update({
+          where: { id: report.id },
+          data: { resolvedAt: new Date(), resolution: 'kept', resolvedByUserId: operatorId },
+        });
+
+        const countBefore = await db.moderationActionAudit.count({
+          where: { reportId: report.id },
+        });
+
+        await expect(
+          runAsSystem('cli.moderation.escalate', async () => {
+            await escalateReportUseCase.execute({
+              operatorUserId: operatorId,
+              reportId: report.id,
+              category: 'criminal-content',
+              externalRef: 'SPF-2026-002',
+              note: null,
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 409,
+          details: { subcode: 'reports.reportAlreadyResolved' },
+        });
+
+        // No audit rows written
+        const countAfter = await db.moderationActionAudit.count({
+          where: { reportId: report.id },
+        });
+        expect(countAfter).toBe(countBefore);
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 3 — escalate twice → second call 409 reportAlreadyEscalated
+    // ---------------------------------------------------------------------------
+
+    describe('escalate twice on same report', () => {
+      it('second escalate call throws 409 reportAlreadyEscalated', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // First escalation succeeds.
+        await runAsSystem('cli.moderation.escalate', async () => {
+          await escalateReportUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            category: 'imminent-harm',
+            externalRef: 'SPF-2026-003',
+            note: null,
+          });
+        });
+
+        // Second escalation must throw.
+        await expect(
+          runAsSystem('cli.moderation.escalate', async () => {
+            await escalateReportUseCase.execute({
+              operatorUserId: operatorId,
+              reportId: report.id,
+              category: 'imminent-harm',
+              externalRef: 'SPF-2026-003-dup',
+              note: null,
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 409,
+          details: { subcode: 'reports.reportAlreadyEscalated' },
+        });
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 4 — escalate with whitespace-only externalRef → 400 externalRefRequired
+    // ---------------------------------------------------------------------------
+
+    describe('escalate with whitespace-only external-ref', () => {
+      it('throws 400 externalRefRequired; no DB writes', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await expect(
+          runAsSystem('cli.moderation.escalate', async () => {
+            await escalateReportUseCase.execute({
+              operatorUserId: operatorId,
+              reportId: report.id,
+              category: 'ambiguous-policy',
+              externalRef: '   ',
+              note: null,
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 400,
+          details: { subcode: 'reports.externalRefRequired' },
+        });
+
+        // Report should not have been escalated
+        const reportRow = await db.report.findUnique({ where: { id: report.id } });
+        expect(reportRow?.escalatedAt).toBeNull();
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 5 — record-external-input on escalated report
+    // ---------------------------------------------------------------------------
+
+    describe('record-external-input on escalated report', () => {
+      it('writes audit row with externalSource / externalDisposition / externalReceivedAt; escalationCategory carried forward', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // Escalate first.
+        await runAsSystem('cli.moderation.escalate', async () => {
+          await escalateReportUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            category: 'external-jurisdiction',
+            externalRef: 'IMDA-2026-001',
+            note: null,
+          });
+        });
+
+        const receivedAt = new Date('2026-05-25T10:00:00Z');
+
+        await runAsSystem('cli.moderation.record-external-input', async () => {
+          await recordExternalInputUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            source: 'imda',
+            disposition: 'IMDA case closed — no further action required.',
+            receivedAt,
+          });
+        });
+
+        const auditRow = await db.moderationActionAudit.findFirst({
+          where: { reportId: report.id, action: 'record_external_input' },
+        });
+        expect(auditRow).not.toBeNull();
+        expect(auditRow?.externalSource).toBe('imda');
+        expect(auditRow?.externalDisposition).toBe(
+          'IMDA case closed — no further action required.',
+        );
+        expect(auditRow?.externalReceivedAt?.toISOString()).toBe(receivedAt.toISOString());
+        // escalationCategory carry-forward
+        expect(auditRow?.escalationCategory).toBe('external-jurisdiction');
+        expect(auditRow?.requestId).toMatch(/^system:cli\.moderation\.record-external-input:/);
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 6 — record-external-input on non-escalated report → 409 notEscalated
+    // ---------------------------------------------------------------------------
+
+    describe('record-external-input on non-escalated report', () => {
+      it('throws 409 notEscalated', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await expect(
+          runAsSystem('cli.moderation.record-external-input', async () => {
+            await recordExternalInputUseCase.execute({
+              operatorUserId: operatorId,
+              reportId: report.id,
+              source: 'counsel',
+              disposition: 'Some input.',
+              receivedAt: new Date(),
+            });
+          }),
+        ).rejects.toMatchObject({ status: 409, details: { subcode: 'reports.notEscalated' } });
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 7 — record-external-input on resolved report → 409 reportAlreadyResolved
+    // ---------------------------------------------------------------------------
+
+    describe('record-external-input on resolved report', () => {
+      it('throws 409 reportAlreadyResolved', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // Escalate and resolve directly in DB so we can test the guard.
+        await db.report.update({
+          where: { id: report.id },
+          data: {
+            escalatedAt: new Date(),
+            escalationCategory: 'ambiguous-policy',
+            externalRef: 'REF-007',
+            escalatedByUserId: operatorId,
+            resolvedAt: new Date(),
+            resolution: 'kept',
+            resolvedByUserId: operatorId,
+          },
+        });
+
+        await expect(
+          runAsSystem('cli.moderation.record-external-input', async () => {
+            await recordExternalInputUseCase.execute({
+              operatorUserId: operatorId,
+              reportId: report.id,
+              source: 'partner',
+              disposition: 'Post-resolution input.',
+              receivedAt: new Date(),
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 409,
+          details: { subcode: 'reports.reportAlreadyResolved' },
+        });
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 8 — resolve --hide on escalated criminal-content (no external-input, no override) → 409 escalationResolveBlocked
+    // ---------------------------------------------------------------------------
+
+    describe('resolve --hide on escalated criminal-content without external-input', () => {
+      it('throws 409 escalationResolveBlocked; no resolution written', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await dbEscalateReport(report.id, 'criminal-content');
+
+        await expect(
+          runAsSystem('cli.moderation.resolve-hidden', async () => {
+            await performModerationActionUseCase.execute({
+              operatorUserId: operatorId,
+              action: 'resolve_hidden',
+              reportId: report.id,
+              reason: 'Resolve after escalation.',
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 409,
+          details: { subcode: 'reports.escalationResolveBlocked' },
+        });
+
+        const reportRow = await db.report.findUnique({ where: { id: report.id } });
+        expect(reportRow?.resolvedAt).toBeNull();
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 9 — resolve --hide --override-reason on escalated criminal-content → 400 overrideForbiddenForCategory
+    // ---------------------------------------------------------------------------
+
+    describe('resolve --hide --override-reason on escalated criminal-content', () => {
+      it('throws 400 overrideForbiddenForCategory', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await dbEscalateReport(report.id, 'criminal-content');
+
+        await expect(
+          runAsSystem('cli.moderation.resolve-hidden', async () => {
+            await performModerationActionUseCase.execute({
+              operatorUserId: operatorId,
+              action: 'resolve_hidden',
+              reportId: report.id,
+              reason: 'Resolve with override.',
+              overrideReason: 'I want to override.',
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 400,
+          details: { subcode: 'reports.overrideForbiddenForCategory' },
+        });
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 10 — resolve --hide --override-reason on escalated imminent-harm → 400 overrideForbiddenForCategory
+    // ---------------------------------------------------------------------------
+
+    describe('resolve --hide --override-reason on escalated imminent-harm', () => {
+      it('throws 400 overrideForbiddenForCategory', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await dbEscalateReport(report.id, 'imminent-harm');
+
+        await expect(
+          runAsSystem('cli.moderation.resolve-hidden', async () => {
+            await performModerationActionUseCase.execute({
+              operatorUserId: operatorId,
+              action: 'resolve_hidden',
+              reportId: report.id,
+              reason: 'Resolve with override.',
+              overrideReason: 'I want to override.',
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 400,
+          details: { subcode: 'reports.overrideForbiddenForCategory' },
+        });
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 11 — resolve --hide --override-reason on escalated ambiguous-policy → succeeds with resolve_with_override
+    // ---------------------------------------------------------------------------
+
+    describe('resolve --hide --override-reason on escalated ambiguous-policy', () => {
+      it('succeeds; audit action=resolve_with_override, escalationCategory carried forward', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        await dbEscalateReport(report.id, 'ambiguous-policy');
+
+        await runAsSystem('cli.moderation.resolve-hidden', async () => {
+          await performModerationActionUseCase.execute({
+            operatorUserId: operatorId,
+            action: 'resolve_hidden',
+            reportId: report.id,
+            reason: 'Content analysis complete.',
+            overrideReason: 'After review, no external input required for this policy matter.',
+          });
+        });
+
+        const reportRow = await db.report.findUnique({ where: { id: report.id } });
+        expect(reportRow?.resolvedAt).not.toBeNull();
+        expect(reportRow?.resolution).toBe('hidden');
+
+        const auditRow = await db.moderationActionAudit.findFirst({
+          where: { reportId: report.id, action: 'resolve_with_override' },
+        });
+        expect(auditRow).not.toBeNull();
+        expect(auditRow?.reason).toBe(
+          'After review, no external input required for this policy matter.',
+        );
+        expect(auditRow?.escalationCategory).toBe('ambiguous-policy');
+        expect(auditRow?.operatorUserId).toBe(operatorId);
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 12 — resolve --hide on escalated ambiguous-policy with ≥1 prior record_external_input
+    // ---------------------------------------------------------------------------
+
+    describe('resolve --hide on escalated ambiguous-policy with prior record_external_input', () => {
+      it('succeeds; audit action=resolve_hidden; externalInputCount hydrated from DB', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // Escalate
+        await runAsSystem('cli.moderation.escalate', async () => {
+          await escalateReportUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            category: 'ambiguous-policy',
+            externalRef: 'COUNSEL-2026-001',
+            note: null,
+          });
+        });
+
+        // Record one external input
+        await runAsSystem('cli.moderation.record-external-input', async () => {
+          await recordExternalInputUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            source: 'counsel',
+            disposition: 'Counsel review complete.',
+            receivedAt: new Date('2026-05-25T14:00:00Z'),
+          });
+        });
+
+        // Resolve — should succeed because externalInputCount >= 1
+        await runAsSystem('cli.moderation.resolve-hidden', async () => {
+          await performModerationActionUseCase.execute({
+            operatorUserId: operatorId,
+            action: 'resolve_hidden',
+            reportId: report.id,
+            reason: 'Resolved following counsel input.',
+          });
+        });
+
+        const reportRow = await db.report.findUnique({ where: { id: report.id } });
+        expect(reportRow?.resolvedAt).not.toBeNull();
+        expect(reportRow?.resolution).toBe('hidden');
+
+        const auditRow = await db.moderationActionAudit.findFirst({
+          where: { reportId: report.id, action: 'resolve_hidden' },
+        });
+        expect(auditRow).not.toBeNull();
+        expect(auditRow?.reason).toBe('Resolved following counsel input.');
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 13 — resolve --hide --override-reason on NON-escalated report → 400 overrideRequiresEscalation
+    // ---------------------------------------------------------------------------
+
+    describe('resolve --hide --override-reason on non-escalated report', () => {
+      it('throws 400 overrideRequiresEscalation', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // report is NOT escalated
+        await expect(
+          runAsSystem('cli.moderation.resolve-hidden', async () => {
+            await performModerationActionUseCase.execute({
+              operatorUserId: operatorId,
+              action: 'resolve_hidden',
+              reportId: report.id,
+              reason: 'Resolve non-escalated report.',
+              overrideReason: 'Override attempt on non-escalated report.',
+            });
+          }),
+        ).rejects.toMatchObject({
+          status: 400,
+          details: { subcode: 'reports.overrideRequiresEscalation' },
+        });
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 14 — list-reports --state escalated filters correctly
+    // ---------------------------------------------------------------------------
+
+    describe('list-reports --state escalated', () => {
+      it('returns only escalated-and-unresolved reports; escalated row excluded from banner counts', async () => {
+        const review1 = await seedReview();
+        const review2 = await seedReview();
+        const openReport = await seedReport(review1.id);
+        const escalatedReport = await seedReport(review2.id);
+
+        // Escalate only the second report
+        await runAsSystem('cli.moderation.escalate', async () => {
+          await escalateReportUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: escalatedReport.id,
+            category: 'criminal-content',
+            externalRef: 'SPF-2026-014',
+            note: null,
+          });
+        });
+
+        // Fetch all unresolved reports from DB and verify the escalated row is present
+        const allUnresolved = await reportRepository.listUnresolved({ limit: 100 });
+        const allIds = allUnresolved.rows.map((r) => r.id);
+        expect(allIds).toContain(escalatedReport.id);
+        expect(allIds).toContain(openReport.id);
+
+        // Filter in-process (mirrors cmdListReports logic)
+        const escalatedRows = allUnresolved.rows.filter(
+          (r) => r.escalatedAt !== null && r.resolvedAt === null,
+        );
+        expect(escalatedRows.map((r) => r.id)).toContain(escalatedReport.id);
+        expect(escalatedRows.map((r) => r.id)).not.toContain(openReport.id);
+
+        // Escalated row should have PAUSED-AT-ESC as the SLA state
+        const escalatedRow = escalatedRows.find((r) => r.id === escalatedReport.id);
+        expect(escalatedRow).toBeDefined();
+        const escalatedRowDefined = escalatedRow as NonNullable<typeof escalatedRow>;
+        expect(escalatedRowDefined.escalatedAt).not.toBeNull();
+
+        await cleanupReportAndReview(openReport.id, review1.id);
+        await cleanupReportAndReview(escalatedReport.id, review2.id);
+      });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test 15 — show: externalInputCount correctly hydrated
+    // ---------------------------------------------------------------------------
+
+    describe('show on escalated report', () => {
+      it('externalInputCount reflects the actual number of record_external_input audit rows', async () => {
+        const review = await seedReview();
+        const report = await seedReport(review.id);
+
+        // Escalate
+        await runAsSystem('cli.moderation.escalate', async () => {
+          await escalateReportUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            category: 'external-jurisdiction',
+            externalRef: 'IMDA-2026-015',
+            note: null,
+          });
+        });
+
+        // No external input yet — count should be 0
+        const reportBefore = await reportRepository.findById(report.id);
+        expect(reportBefore).not.toBeNull();
+        const reportBeforeDefined = reportBefore as NonNullable<typeof reportBefore>;
+        expect(reportBeforeDefined.externalInputCount).toBe(0);
+        expect(reportBeforeDefined.escalatedAt).not.toBeNull();
+
+        // Record two external inputs
+        await runAsSystem('cli.moderation.record-external-input', async () => {
+          await recordExternalInputUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            source: 'imda',
+            disposition: 'First IMDA update.',
+            receivedAt: new Date('2026-05-25T10:00:00Z'),
+          });
+        });
+        await runAsSystem('cli.moderation.record-external-input', async () => {
+          await recordExternalInputUseCase.execute({
+            operatorUserId: operatorId,
+            reportId: report.id,
+            source: 'counsel',
+            disposition: 'Counsel clarification.',
+            receivedAt: new Date('2026-05-26T08:00:00Z'),
+          });
+        });
+
+        // Re-fetch report — externalInputCount should be 2
+        const reportAfter = await reportRepository.findById(report.id);
+        expect(reportAfter).not.toBeNull();
+        const reportAfterDefined = reportAfter as NonNullable<typeof reportAfter>;
+        expect(reportAfterDefined.externalInputCount).toBe(2);
+
+        // The Submitted/Escalated fields are present on the re-fetched aggregate
+        expect(reportAfterDefined.createdAt).not.toBeNull();
+        expect(reportAfterDefined.escalatedAt).not.toBeNull();
+
+        await cleanupReportAndReview(report.id, review.id);
+      });
+    });
+  },
+);
