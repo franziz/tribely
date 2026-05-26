@@ -40,8 +40,12 @@ jobs:
     # Real wire-up to the Postgres service container above. format / type /
     # lint steps don't consume DB but the var is harmless when set. Step-
     # level env still overrides for setup-api's prisma-generate placeholder.
+    # DATABASE_URL points at the runtime role (tribely_app) — tests run with
+    # restricted privileges. ADMIN_DATABASE_URL (superuser) is used only by
+    # the migrate and bootstrap steps via step-level env overrides.
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tribely_test?schema=public
+      DATABASE_URL: postgresql://tribely_app:ci_runtime_pw@localhost:5432/tribely_test?schema=public
+      ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tribely_test?schema=public
 
     steps:
       - name: Checkout
@@ -51,7 +55,21 @@ jobs:
         uses: ./.github/actions/setup-api
 
       - name: Apply migrations
+        # prisma migrate deploy reads DATABASE_URL; override to superuser so
+        # DDL (CREATE TABLE, ALTER TABLE, etc.) succeeds. The job-level
+        # DATABASE_URL (runtime role) intentionally lacks DDL privileges.
+        env:
+          DATABASE_URL: ${{ env.ADMIN_DATABASE_URL }}
         run: npm run --workspace=@tribely/api db:migrate:deploy
+
+      - name: Bootstrap runtime role
+        # Creates the tribely_app role and grants row-level privileges on all
+        # migrated tables. Must run after migrate (tables must exist) and
+        # before tests (tests connect as tribely_app via job-level DATABASE_URL).
+        env:
+          ADMIN_DATABASE_URL: ${{ env.ADMIN_DATABASE_URL }}
+          RUNTIME_DB_PASSWORD: ci_runtime_pw
+        run: npm run --workspace=@tribely/api db:roles:bootstrap
 
       - name: Format check
         run: npm run --workspace=@tribely/api format:check
