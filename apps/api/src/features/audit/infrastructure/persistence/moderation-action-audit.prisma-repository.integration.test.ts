@@ -171,4 +171,115 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
     // @ts-expect-error — intentionally checking that delete doesn't exist
     expect(typeof repo.delete).toBe('undefined');
   });
+
+  describe('severOriginatingReportId', () => {
+    it('returns 0 when no audit row references the given reportId', async () => {
+      const unreferencedReportId = createId();
+
+      const count = await unitOfWork.run((ctx) =>
+        repo.severOriginatingReportId(unreferencedReportId, ctx),
+      );
+
+      expect(count).toBe(0);
+    });
+
+    it('returns 1, NULLs originatingReportId, and leaves all other fields unchanged when one audit row references the reportId', async () => {
+      const reportId = createId();
+      const entry = buildRecord({
+        originatingReportId: reportId,
+        action: 'resolve_hidden',
+        reason: 'violates guidelines',
+        contentSnapshot: 'verbatim content at action time',
+        reasonCode: null,
+        justificationText: null,
+      });
+      await runWithContext(
+        { requestId: entry.requestId, actorUserId: null },
+        () => unitOfWork.run((ctx) => repo.record(entry, ctx)),
+      );
+
+      const count = await unitOfWork.run((ctx) =>
+        repo.severOriginatingReportId(reportId, ctx),
+      );
+
+      expect(count).toBe(1);
+
+      const row = await db.moderationActionAudit.findUnique({ where: { id: entry.id } });
+      expect(row).not.toBeNull();
+      // originatingReportId severed
+      expect(row?.originatingReportId).toBeNull();
+      // All other evidence fields preserved (PDPA s24 / AC bullet 2)
+      expect(row?.operatorUserId).toBe(entry.operatorUserId);
+      expect(row?.action).toBe('resolve_hidden');
+      expect(row?.targetType).toBe(entry.targetType);
+      expect(row?.targetId).toBe(entry.targetId);
+      expect(row?.reason).toBe('violates guidelines');
+      expect(row?.contentSnapshot).toBe('verbatim content at action time');
+      expect(row?.reporterUserId).toBe(entry.reporterUserId);
+      expect(row?.reasonCode).toBeNull();
+      expect(row?.justificationText).toBeNull();
+      expect(row?.actedAt.toISOString()).toBe(entry.actedAt.toISOString());
+      expect(row?.recordedAt).not.toBeNull();
+    });
+
+    it('returns N and severs all N rows when multiple audits reference the same reportId', async () => {
+      const reportId = createId();
+      const entries = [
+        buildRecord({ originatingReportId: reportId }),
+        buildRecord({ originatingReportId: reportId }),
+        buildRecord({ originatingReportId: reportId }),
+      ];
+      for (const e of entries) {
+        await unitOfWork.run((ctx) => repo.record(e, ctx));
+      }
+
+      const count = await unitOfWork.run((ctx) =>
+        repo.severOriginatingReportId(reportId, ctx),
+      );
+
+      expect(count).toBe(3);
+
+      for (const e of entries) {
+        const row = await db.moderationActionAudit.findUnique({ where: { id: e.id } });
+        expect(row?.originatingReportId).toBeNull();
+      }
+    });
+
+    it('does NOT touch audit rows referencing a different reportId', async () => {
+      const targetReportId = createId();
+      const untouchedReportId = createId();
+
+      const targetEntry = buildRecord({ originatingReportId: targetReportId });
+      const untouchedEntry = buildRecord({ originatingReportId: untouchedReportId });
+      await unitOfWork.run((ctx) => repo.record(targetEntry, ctx));
+      await unitOfWork.run((ctx) => repo.record(untouchedEntry, ctx));
+
+      await unitOfWork.run((ctx) =>
+        repo.severOriginatingReportId(targetReportId, ctx),
+      );
+
+      const untouchedRow = await db.moderationActionAudit.findUnique({
+        where: { id: untouchedEntry.id },
+      });
+      expect(untouchedRow?.originatingReportId).toBe(untouchedReportId);
+    });
+
+    it('returns 0 when re-running severance against a reportId already severed (idempotency)', async () => {
+      const reportId = createId();
+      const entry = buildRecord({ originatingReportId: reportId });
+      await unitOfWork.run((ctx) => repo.record(entry, ctx));
+
+      // First severance
+      const firstCount = await unitOfWork.run((ctx) =>
+        repo.severOriginatingReportId(reportId, ctx),
+      );
+      expect(firstCount).toBe(1);
+
+      // Second severance — originatingReportId is already NULL, WHERE clause matches nothing
+      const secondCount = await unitOfWork.run((ctx) =>
+        repo.severOriginatingReportId(reportId, ctx),
+      );
+      expect(secondCount).toBe(0);
+    });
+  });
 });

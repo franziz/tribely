@@ -31,4 +31,13 @@ export class ModerationActionAuditPrismaRepository implements ModerationActionAu
       },
     });
   }
+
+  async severOriginatingReportId(reportId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.moderationActionAudit.updateMany({
+      where: { originatingReportId: reportId },
+      data: { originatingReportId: null },
+    });
+    return result.count;
+  }
 }
