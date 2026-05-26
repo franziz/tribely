@@ -51,16 +51,18 @@ The CLI prints `Acting as <userId>` before every state-changing command. **Sanit
 
 ### `list-reports`
 
-Lists open moderation reports ordered by SLA urgency.
+Lists unresolved moderation reports ordered by SLA urgency.
 
 **Invocation:**
 ```
-npm run --workspace=@tribely/api moderation list-reports
+npm run --workspace=@tribely/api moderation list-reports [--state <open|under_review|escalated>]
 ```
 
 **Optional flags:**
-- `--status <status>` — filter by status (`pending`, `acknowledged`, `escalated`). Defaults to all open statuses.
-- `--limit <n>` — maximum rows returned. Defaults to 50.
+- `--state <open|under_review|escalated>` — filter by state. Defaults to all unresolved reports.
+  - `open` — filed but not yet touched (`firstReviewedAt IS NULL`, not escalated).
+  - `under_review` — touched at least once (`firstReviewedAt IS NOT NULL`, not escalated).
+  - `escalated` — escalated and not yet resolved (`escalatedAt IS NOT NULL AND resolvedAt IS NULL`).
 
 **Startup SLA banner.** The command prints a banner before the report table when breaches or approaching deadlines are present:
 
@@ -72,19 +74,26 @@ npm run --workspace=@tribely/api moderation list-reports
 - `[!]` — one or more reports are within 24 hours of the 72h first-touch deadline.
 - `[BREACH]` — one or more reports have exceeded the 7d resolution ceiling.
 
+Escalated reports are excluded from banner counts — the SLA clock is paused at the moment of escalation.
+
 **SLA Flag column.** Each row in the report table includes a `SLA Flag` column:
 
 | Value | Meaning |
 |---|---|
 | `OK` | Both the 72h and 7d clocks have headroom. No immediate action required. |
 | `APPROACHING-72H` | The 72h first-touch deadline is within 24 hours. Acknowledge via `touch`. |
-| `OVERDUE-72H` | The 72h first-touch deadline has passed without an `ack` record. |
+| `OVERDUE-72H` | The 72h first-touch deadline has passed without a `touch` record. |
 | `APPROACHING-7D` | The 7d resolution deadline is within 24 hours. Resolve via `resolve --hide` or `resolve --keep`. |
 | `BREACH-7D` | The 7d resolution deadline has passed without a resolution record. Internal incident; record root cause. |
+| `PAUSED-AT-ESC` | Report is escalated and unresolved. SLA clock is paused. No resolution action until escalation is handled. |
 
-**On success:** Tabular output with columns `reportId`, `targetType`, `targetId`, `category`, `reportedAt`, `status`, `SLA Flag`.
+**State column.** Each row also includes a `State` column: `open`, `under_review`, or `escalated`.
 
-**On failure (no open reports):** `No open reports.` — no further action required.
+**On success:** Tabular output with columns `ID`, `Reporter`, `Target`, `Reason`, `Created`, `Age`, `SLA Flag`, `State`, `First-Reviewed`.
+
+**On failure (no matching reports):** `No unresolved reports matching --state <state>.` (with `--state`) or `No unresolved reports.` (without flag).
+
+**Naming note:** The PM brief referred to this as `moderation list --state escalated`. The implemented command is `moderation list-reports --state escalated`. Use the implemented form.
 
 ---
 
@@ -122,7 +131,8 @@ Hides the reported content from public view and resolves the report. Maps to the
 
 **Invocation:**
 ```
-npm run --workspace=@tribely/api moderation resolve <reportId> --hide --reason "<text>" [--operator <userId>]
+npm run --workspace=@tribely/api moderation resolve <reportId> --hide --reason "<text>" \
+  [--override-reason "<text>"] [--operator <userId>]
 ```
 
 **Required:**
@@ -131,18 +141,22 @@ npm run --workspace=@tribely/api moderation resolve <reportId> --hide --reason "
 - `--reason "<text>"` — operator-supplied reason string; recorded verbatim in the audit row.
 
 **Optional:**
+- `--override-reason "<text>"` — when resolving an escalated report that has no `record_external_input` rows, supply a non-empty override reason. Only valid for `ambiguous-policy` and `external-jurisdiction` escalation categories. Supplying this flag on a non-escalated report, or on a `criminal-content` / `imminent-harm` escalated report, is an error. When used, the audit row action is `resolve_with_override` rather than `resolve_hidden`.
 - `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
 
 **On success:**
 ```
 Acting as usr_abc123
-Report rpt_xyz resolved (hidden). Content hidden. Audit row written.
+Report rpt_xyz resolved (hidden).
 ```
 
 **On failure:**
 - `Report rpt_xyz not found.` — verify the reportId.
 - `--reason is required for resolve.` — supply a reason string.
 - `Report rpt_xyz is already resolved.` — idempotent; check prior audit row.
+- `Report is escalated. Resolve requires either a record-external-input row OR --override-reason.` (`reports.escalationResolveBlocked`, 409) — the report is escalated and has no external-input rows. Either record an external input first (`record-external-input`) or supply `--override-reason` (category permitting).
+- `--override-reason only valid on escalated reports.` (`reports.overrideRequiresEscalation`, 400) — `--override-reason` was passed but the report is not escalated.
+- `...Resolve requires a record-external-input row for criminal-content / imminent-harm.` (`reports.overrideForbiddenForCategory`, 400) — `--override-reason` was passed on a `criminal-content` or `imminent-harm` escalated report. These categories require an external-input row; override is not permitted.
 - Any database error — state transition did not run; audit row was NOT written; re-run after diagnosing.
 
 ---
@@ -153,7 +167,8 @@ Resolves the report without hiding the reported content (the report does not war
 
 **Invocation:**
 ```
-npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason "<text>" [--operator <userId>]
+npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason "<text>" \
+  [--override-reason "<text>"] [--operator <userId>]
 ```
 
 **Required:**
@@ -162,18 +177,20 @@ npm run --workspace=@tribely/api moderation resolve <reportId> --keep --reason "
 - `--reason "<text>"` — operator-supplied reason string; recorded verbatim in the audit row.
 
 **Optional:**
+- `--override-reason "<text>"` — same semantics as `resolve --hide --override-reason`. See that section for the category-restriction rules.
 - `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
 
 **On success:**
 ```
 Acting as usr_abc123
-Report rpt_xyz resolved (kept). No content change. Audit row written.
+Report rpt_xyz resolved (kept).
 ```
 
 **On failure:**
 - `Report rpt_xyz not found.` — verify the reportId.
 - `--reason is required for resolve.` — supply a reason string.
 - `Report rpt_xyz is already resolved.` — idempotent; check prior audit row.
+- Escalation-guard failures apply identically to `resolve --hide`. See that section.
 - Any database error — state transition did not run; audit row was NOT written; re-run after diagnosing.
 
 ---
@@ -222,13 +239,133 @@ Notified attendees: 4
 - Notifications use the host-tone copy (TRI-194 may introduce a moderation-tone variant post-launch). Reporter identity, operator justification, and report ID are NEVER surfaced to attendees.
 - The audit row carries the safety context (`reasonCode='safety'`, `justificationText`, `originatingReportId`); the Event aggregate's `cancellationReason` field carries the neutral string `"Cancelled by Tribely safety team"` — distinguishable from host reasons in the DB if needed for forensic analysis but not in user-visible copy.
 
+---
+
+### `escalate`
+
+Records the escalation of a moderation report to an external authority (law enforcement, platform safety team, external counsel, or a partner channel). Atomically sets the report's escalation state and writes an audit row. The SLA clock is paused at the moment of escalation — the report will appear with `PAUSED-AT-ESC` in the `SLA Flag` column of `list-reports`.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation escalate <reportId> \
+  --category <criminal-content|imminent-harm|ambiguous-policy|external-jurisdiction> \
+  --external-ref "<text>" \
+  [--note "<text>"] \
+  [--operator <userId>]
+```
+
+**Required:**
+- `<reportId>` — the report ID from `list-reports` output.
+- `--category` — escalation category. One of:
+  - `criminal-content` — credible threats, illegal activity, doxxing, extortion. Requires a `record_external_input` row before resolution; override is not permitted.
+  - `imminent-harm` — scheduled meet-up with active safety risk. Requires a `record_external_input` row before resolution; override is not permitted.
+  - `ambiguous-policy` — content that does not fit clearly into `criminal-content` or `imminent-harm` but requires external review. Permits `--override-reason` on resolve if no external-input row exists.
+  - `external-jurisdiction` — out-of-jurisdiction reports routed to an external authority. Permits `--override-reason` on resolve.
+- `--external-ref "<text>"` — operator-supplied external reference (SPF report number, IMDA ticket ID, counsel matter reference). Non-empty. Recorded in the audit row.
+
+**Optional:**
+- `--note "<text>"` — free-text operator note recorded in the audit row `reason` field.
+- `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
+
+**On success:**
+```
+Acting as usr_abc123
+Report rpt_xyz escalated.
+Category: criminal-content
+External ref: SPF-2026-001
+Audit row written. SLA paused at escalation.
+```
+
+**On failure:**
+- `Report rpt_xyz not found.` — verify the reportId.
+- `External reference required.` (`reports.externalRefRequired`, 400) — `--external-ref` was empty or whitespace-only.
+- `Report already escalated.` (`reports.reportAlreadyEscalated`, 409) — re-escalation is not permitted. Check the existing escalation via `show <reportId>`.
+- `Report already resolved.` (`reports.reportAlreadyResolved`, 409) — cannot escalate a resolved report.
+- Any database error — escalation did not run; audit row was NOT written; re-run after diagnosing.
+
+---
+
+### `record-external-input`
+
+Records an external communication (counsel advice, partner response, regulator determination) against an escalated report as an append-only audit row. Does not change the report's resolution state. Multiple invocations on the same report are permitted — each produces a separate audit row.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation record-external-input <reportId> \
+  --source <counsel|partner|imda|other> \
+  --disposition "<text>" \
+  --received-at <ISO8601> \
+  [--operator <userId>]
+```
+
+**Required:**
+- `<reportId>` — the report ID, which must already be escalated.
+- `--source` — origin of the external input. One of: `counsel` / `partner` / `imda` / `other`.
+- `--disposition "<text>"` — operator-supplied summary of the external communication. Non-empty.
+- `--received-at <ISO8601>` — the date and time the external communication was received (not the CLI invocation time). Example: `2026-05-26T10:30:00Z`.
+
+**Optional:**
+- `--operator <userId>` — overrides `$TRIBELY_OPERATOR_USER_ID` for this invocation.
+
+**On success:**
+```
+Acting as usr_abc123
+External-input recorded for report rpt_xyz.
+Source: counsel
+Received-at: 2026-05-26T10:30:00.000Z
+Audit row written.
+```
+
+**On failure:**
+- `Report rpt_xyz not found.` — verify the reportId.
+- `Disposition required.` (`reports.dispositionRequired`, 400) — `--disposition` was empty or whitespace-only.
+- `Report is not escalated; cannot record external input.` (`reports.notEscalated`, 409) — run `escalate` first.
+- `Report already resolved.` (`reports.reportAlreadyResolved`, 409) — cannot record external input on a resolved report.
+- Any database error — audit row was NOT written; re-run after diagnosing.
+
+---
+
+### `show`
+
+Displays the full state of a single report: submission time, first-review time, escalation state, resolution state, SLA flag, and the count of recorded external inputs.
+
+**Invocation:**
+```
+npm run --workspace=@tribely/api moderation show <reportId>
+```
+
+**Required:**
+- `<reportId>` — the report ID.
+
+**On success:** Key-value output including:
+- `Report:` — report ID
+- `Reporter:` — reporter user ID
+- `Target:` — `<targetType>:<targetId>`
+- `Reason:` — report reason
+- `Submitted:` — submission timestamp and elapsed time since submission
+- `First-reviewed:` — first-touch timestamp, or `-` if not yet touched
+- `Escalated:` — escalation timestamp, or `-` if not escalated
+- `Category:` — escalation category, or `-`
+- `External ref:` — external reference, or `-`
+- `External inputs:` — count of `record_external_input` audit rows against this report
+- `Resolved:` — resolution timestamp, or `-`
+- `Resolution:` — `hidden` / `kept`, or `-`
+- `SLA:` — current SLA flag (see `list-reports` for values)
+
+**On failure:**
+- `Report rpt_xyz not found.` — verify the reportId.
+
+---
+
 ## 4. Escalation Path
+
+Escalation is now recorded via `moderation escalate`. The categories map to the `--category` flag values: Cat 1 (self-harm) → `ambiguous-policy`; Cat 2 (criminal) → `criminal-content`; Cat 3 (minor) → `criminal-content`; Cat 4 (imminent harm) → `imminent-harm`. The judgement guidance for each category — when to call SPF, when to engage counsel — remains operator policy and is unchanged.
+
+**Law-enforcement disclosure requests are out of scope for this runbook.** When an SPF officer, court, or other authority requests user data — whether by request letter, CPC s20/s39 notice, or court-issued warrant — follow [`docs/legal/law-enforcement-internal.md`](../legal/law-enforcement-internal.md) instead. That protocol governs the disclosure-scope posture, SLA, counsel-trigger checklist, and authorised-extraction path. The moderation CLI is the sanctioned extraction surface for authorised disclosures; the legal protocol governs *when* and *what*.
 
 A report is **ambiguous** when its category does not fit cleanly into the general `resolve-hidden` / `resolve-kept` flow. The categories below define the escalation responses for the highest-duty-of-care report types. When in doubt, escalate — over-escalation is recoverable; under-escalation is not.
 
 The operator must **never** make legal determinations on the merits of escalated content. The operator's role at escalation is: preserve evidence, contain harm, and route to the right external party.
-
-**Law-enforcement disclosure requests are out of scope for this runbook.** When an SPF officer, court, or other authority requests user data — whether by request letter, CPC s20/s39 notice, or court-issued warrant — follow [`docs/legal/law-enforcement-internal.md`](../legal/law-enforcement-internal.md) instead. That protocol governs the disclosure-scope posture, SLA, counsel-trigger checklist, and authorised-extraction path. The moderation CLI is the sanctioned extraction surface for authorised disclosures; the legal protocol governs *when* and *what*.
 
 ### Category 1 — Self-harm or suicidal ideation
 
@@ -300,6 +437,14 @@ The capture is **atomic** with the state transition: if the audit write fails, t
 
 For `cancel-event-for-safety` actions, the audit row additionally carries (a) `reasonCode='safety'` (distinguishes from host-cancel; future moderation reason codes are additive), (b) `justificationText` (≤500 chars; operator narrative; PDPA s24 minimisation gate enforced at write time), and (c) `originatingReportId` (nullable cross-reference to `moderation_reports`).
 
+Three additional audit row variants are written by the escalation sub-commands:
+
+- **`escalate` action.** Written atomically when `moderation escalate` is invoked. Per-variant fields: `escalationCategory` (e.g., `criminal-content`), `externalRef` (operator-supplied reference), `reason` (the `--note` value if provided). The audit row is written in the same UnitOfWork transaction as the `reports.escalatedAt` state transition.
+
+- **`record_external_input` action.** Written atomically when `moderation record-external-input` is invoked. Per-variant fields: `externalSource` (`counsel` / `partner` / `imda` / `other`), `externalDisposition` (operator-supplied summary), `externalReceivedAt` (operator-supplied ISO8601 timestamp of when the external communication was received — distinct from `actedAt`, which is the CLI invocation time). `escalationCategory` is carried forward from the report at write time. This variant does NOT mutate the `reports` row; `externalInputCount` is derived by counting `record_external_input` rows for a given `reportId` at query time.
+
+- **`resolve_with_override` action.** Written instead of `resolve_hidden` or `resolve_kept` when a resolution is performed with `--override-reason` on an eligible escalated report (`ambiguous-policy` or `external-jurisdiction` categories only). Per-variant fields: `reason` (the `--override-reason` value), `escalationCategory` (carried forward for traceability). This variant confirms that the operator took explicit responsibility for resolving an escalated report without external-input confirmation.
+
 ### Where it is stored
 
 - **Primary store:** the project Postgres instance, in the `moderation_evidence_snapshots` and `moderation_action_audit` tables. **Region: Singapore (ap-southeast-1).** No cross-border transfer.
@@ -351,6 +496,8 @@ All state-changing CLI commands write to the `moderation_action_audit` table ato
 Channel attribution for PDPC inspection uses the AsyncLocalStorage request-context label. The moderation CLI wraps every command invocation in `runAsSystem('cli.moderation.<subcommand>', fn)`. The audit row's `requestId` field will contain a value matching `system:cli.moderation.*`; PDPC inspection queries can discriminate CLI-originated actions via `requestId LIKE 'system:cli.moderation:%'`. This is the same discriminator pattern as the privacy-mailbox operator path in `account-deletion-sla.md` §4 — `system:<label>:*` as the audit channel fingerprint.
 
 The `moderation_action_audit` table is **append-only by contract** — no UPDATE or DELETE is issued by any application path. Rows are immutable once written. Purge of resolved-report rows at the 12-month boundary is performed by the scheduled sweep (§5), which itself writes an audit row recording the batch count and cutoff timestamp. If PDPC requests evidence that a specific report was handled: query `moderation_action_audit` by `reportId` to produce the full action history (touch → hide / keep → optional escalation linkage), ordered by `timestamp`. The `requestId` on each row confirms the operator channel; the `operatorUserId` column confirms the acting operator.
+
+DB-level append-only enforcement (INSERT/SELECT-only role grants on `moderation_action_audit`) is **deferred to a follow-up hardening ticket**. Current contract: application-layer — `ModerationActionAuditRepository` exposes only `record` and the narrowly-scoped `severOriginatingReportId`. DB-level role separation is on the roadmap; the application-layer repository contract is the current SOT for append-only enforcement.
 
 ## 7. Retirement
 
