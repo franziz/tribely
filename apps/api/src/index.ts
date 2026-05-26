@@ -21,6 +21,7 @@ async function main(): Promise<void> {
   container.dispatcher.start();
   container.pruneSelfieDeletionEventsJob.start();
   container.sweepRetainedSelfiesJob.start();
+  container.sweepResolvedReportsJob.start();
 
   const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
     logger.info({ port: info.port, env: env.NODE_ENV }, 'API listening');
@@ -32,6 +33,7 @@ async function main(): Promise<void> {
     // no outbound dependency on the dispatcher, and stopping first avoids the
     // (unlikely but possible) race where a tick fires after the dispatcher has
     // already torn down its DB connection.
+    await container.sweepResolvedReportsJob.stop();
     await container.sweepRetainedSelfiesJob.stop();
     await container.pruneSelfieDeletionEventsJob.stop();
     await container.dispatcher.stop();

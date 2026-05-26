@@ -153,7 +153,9 @@ import { ResolveReportUseCase } from '@/features/reports/application/usecases/re
 import { PerformModerationActionUseCase } from '@/features/reports/application/usecases/perform-moderation-action.usecase.js';
 import { CancelEventForSafetyUseCase } from '@/features/reports/application/usecases/cancel-event-for-safety.usecase.js';
 import { CascadeReportsOnUserDeletionUseCase } from '@/features/reports/application/usecases/cascade-reports-on-user-deletion.usecase.js';
+import { SweepResolvedReportsUseCase } from '@/features/reports/application/usecases/sweep-resolved-reports.usecase.js';
 import { ReportController } from '@/features/reports/presentation/http/controllers/report.controller.js';
+import { SweepResolvedReportsJob } from '@/features/reports/presentation/jobs/sweep-resolved-reports.job.js';
 import { registerReportsConsumers } from '@/features/reports/presentation/events/index.js';
 import type { ReportRepository } from '@/features/reports/domain/repositories/report.repository.js';
 
@@ -386,6 +388,8 @@ export interface Container {
   resolveReportUseCase: ResolveReportUseCase;
   performModerationActionUseCase: PerformModerationActionUseCase;
   cancelEventForSafetyUseCase: CancelEventForSafetyUseCase;
+  sweepResolvedReportsUseCase: SweepResolvedReportsUseCase;
+  sweepResolvedReportsJob: SweepResolvedReportsJob;
   reportController: ReportController;
 }
 
@@ -882,6 +886,24 @@ export const buildContainer = (): Container => {
     clock,
   );
 
+  // --- Report retention sweep (TRI-198 Brief C) ---
+  // Purges resolved moderation_reports older than 12 months and severs
+  // moderation_action_audit.originatingReportId cross-references atomically
+  // (PDPA s25 minimisation). sweepRunRepository is shared with the selfie sweep.
+  const sweepResolvedReportsUseCase = new SweepResolvedReportsUseCase(
+    unitOfWork,
+    reportRepository,
+    moderationActionAuditRepository,
+    sweepRunRepository,
+    clock,
+    logger,
+  );
+  const sweepResolvedReportsJob = new SweepResolvedReportsJob({
+    sweepUseCase: sweepResolvedReportsUseCase,
+    intervalMs: env.MODERATION_REPORT_SWEEP_INTERVAL_MS,
+    logger,
+  });
+
   const reportController = new ReportController(fileReportUseCase);
 
   // --- TRI-134 + TRI-155 — account-deletion cascade ---
@@ -1050,6 +1072,8 @@ export const buildContainer = (): Container => {
     resolveReportUseCase,
     performModerationActionUseCase,
     cancelEventForSafetyUseCase,
+    sweepResolvedReportsUseCase,
+    sweepResolvedReportsJob,
     reportController,
   };
 };
