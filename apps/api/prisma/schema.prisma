@@ -521,26 +521,39 @@ model AccountDeletionEvent {
 /// `requestId` discriminates channel via `system:cli.moderation.<verb>:*`
 /// pattern (mirrors account-deletion-sla.md §4 PDPC inspection posture).
 ///
+/// TRI-193 extensions (Cat 4 cancel-event-for-safety):
+///   - `action` CHECK now also permits 'cancel_event_for_safety'.
+///   - `reportId` / `reporterUserId` are nullable: Cat 4 cancellations may
+///     have no upstream report row (legal-blessed per TRI-195).
+///   - `reasonCode` TEXT NULL — machine-readable safety code (e.g. 'safety').
+///   - `justificationText` VARCHAR(500) NULL — operator free-text narrative.
+///   - `originatingReportId` TEXT NULL — nullable link to a moderation_reports
+///     row when the cancellation was triggered by an upstream report.
+///
 /// No application-layer UPDATE or prune path — append-only by contract.
 /// Read access is out-of-band SQL only — no public-port read methods.
 model ModerationActionAudit {
-  id              String   @id @default(cuid())
-  operatorUserId  String
-  action          String   // touch | resolve_hidden | resolve_kept — CHECK enforced
-  reportId        String
-  targetType      String   // review | user | event — CHECK enforced
-  targetId        String
-  reason          String?  @db.VarChar(500)  // required for resolve_*, null for touch
-  contentSnapshot String?  @db.Text          // verbatim target content at action time
-  reporterUserId  String   // denormalised from Report at action time
-  actedAt         DateTime
-  requestId       String?
-  recordedAt      DateTime @default(now())
+  id                  String   @id @default(cuid())
+  operatorUserId      String
+  action              String   // touch | resolve_hidden | resolve_kept | cancel_event_for_safety — CHECK enforced
+  reportId            String?  // nullable: Cat 4 cancellations may have no upstream report (TRI-193)
+  targetType          String   // review | user | event — CHECK enforced
+  targetId            String
+  reason              String?  @db.VarChar(500)  // required for resolve_*, null for touch
+  contentSnapshot     String?  @db.Text          // verbatim target content at action time
+  reporterUserId      String?  // nullable: no reporter when there is no upstream report (TRI-193)
+  reasonCode          String?              // machine-readable safety code, e.g. 'safety' — CHECK enforced
+  justificationText   String?  @db.VarChar(500)  // operator free-text narrative for cancel_event_for_safety
+  originatingReportId String?              // nullable link to a moderation_reports row (TRI-141 sweep join)
+  actedAt             DateTime
+  requestId           String?
+  recordedAt          DateTime @default(now())
 
   @@index([reportId])
   @@index([operatorUserId, actedAt])
   @@index([actedAt])
   @@index([requestId])
+  @@index([originatingReportId])
   @@map("moderation_action_audit")
 }
 

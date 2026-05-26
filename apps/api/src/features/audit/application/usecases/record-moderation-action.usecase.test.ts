@@ -33,6 +33,9 @@ describe('RecordModerationActionUseCase', () => {
     reason: null,
     contentSnapshot: null,
     reporterUserId: 'reporter_1',
+    reasonCode: null,
+    justificationText: null,
+    originatingReportId: null,
     actedAt: new Date('2026-05-24T10:00:00Z'),
   };
 
@@ -45,6 +48,9 @@ describe('RecordModerationActionUseCase', () => {
     reason: 'Content violates community guidelines',
     contentSnapshot: '{"rating":1,"body":"offensive text"}',
     reporterUserId: 'reporter_2',
+    reasonCode: null,
+    justificationText: null,
+    originatingReportId: null,
     actedAt: new Date('2026-05-24T11:00:00Z'),
   };
 
