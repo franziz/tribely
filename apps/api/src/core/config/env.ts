@@ -282,6 +282,29 @@ export const envSchema = z
           'Generate with: openssl rand -hex 32',
       });
     }
+
+    // Production DDL-credential guard. ADMIN_DATABASE_URL is a DDL-privileged
+    // connection string reserved exclusively for `prisma migrate deploy` (run
+    // out-of-band by migration scripts that read process.env directly via
+    // dotenv/config, bypassing env.ts). It must NEVER appear in the runtime
+    // API process — handing a live DDL-privileged credential to the Hono
+    // server expands the blast radius of any code-path exploit to full schema
+    // control. If this guard fires in production, ADMIN_DATABASE_URL is leaking
+    // from the migration container into the runtime container via a shared
+    // secret store or a copy-paste deploy error.
+    if (data.NODE_ENV === 'production' && data.ADMIN_DATABASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_DATABASE_URL'],
+        message:
+          'ADMIN_DATABASE_URL must not be set in NODE_ENV=production. ' +
+          'Admin/DDL credentials are for migration scripts run out-of-band ' +
+          '(which read process.env directly via dotenv/config), not the runtime ' +
+          'API process. If you are seeing this in prod, your deploy is leaking ' +
+          'migration-only env into the runtime container — remove ADMIN_DATABASE_URL ' +
+          'from the runtime env and rerun.',
+      });
+    }
   });
 
 export type Env = z.infer<typeof envSchema>;
