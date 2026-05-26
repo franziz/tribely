@@ -24,6 +24,9 @@ import { Review } from '../src/features/reviews/domain/entities/review.js';
 import { Rating } from '../src/features/reviews/domain/value-objects/rating.js';
 import { ReviewComment } from '../src/features/reviews/domain/value-objects/review-comment.js';
 import { PerformModerationActionUseCase } from '../src/features/reports/application/usecases/perform-moderation-action.usecase.js';
+import { EventPrismaRepository } from '../src/features/events/infrastructure/persistence/event.prisma-repository.js';
+import { JoinRequestPrismaRepository } from '../src/features/join-requests/infrastructure/persistence/join-request.prisma-repository.js';
+import { CancelEventForSafetyUseCase } from '../src/features/reports/application/usecases/cancel-event-for-safety.usecase.js';
 
 const dbUrl = process.env.DATABASE_URL;
 
@@ -415,6 +418,230 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
       expect(auditRow?.requestId).toMatch(/^system:cli\.moderation\.resolve-kept:/);
 
       await cleanupReportAndReview(report.id, review.id);
+    });
+  });
+});
+
+/**
+ * Integration test for CancelEventForSafetyUseCase against a real DB.
+ *
+ * Seed: operator user + host user + a published event with a future endsAt.
+ *
+ * Tests: success path, double-cancel refusal, missing justification validation.
+ * requestId assertion verifies runAsSystem attribution chain.
+ */
+describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
+  let db: PrismaClient;
+  let unitOfWork: PrismaUnitOfWork;
+  let useCase: CancelEventForSafetyUseCase;
+  let eventRepository: EventPrismaRepository;
+
+  // Seeded IDs
+  let operatorId: string;
+  let hostUserId: string;
+
+  // A far-future endsAt so the event is never in the "past end time" window.
+  const FUTURE_ENDS_AT = new Date('2099-12-31T23:59:59Z');
+
+  beforeAll(async () => {
+    if (!dbUrl) return;
+
+    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+    unitOfWork = new PrismaUnitOfWork(db);
+
+    eventRepository = new EventPrismaRepository(db);
+    const joinRequestRepository = new JoinRequestPrismaRepository(db);
+    const auditRepository = new ModerationActionAuditPrismaRepository(db);
+    const recordAudit = new RecordModerationActionUseCase(auditRepository);
+    const publisher = new OutboxEventPublisher();
+    const clock = new SystemClock();
+
+    useCase = new CancelEventForSafetyUseCase(
+      unitOfWork,
+      eventRepository,
+      joinRequestRepository,
+      publisher,
+      recordAudit,
+      clock,
+    );
+
+    // Seed users
+    operatorId = createId();
+    hostUserId = createId();
+
+    await db.user.createMany({
+      data: [
+        {
+          id: operatorId,
+          email: `op-safety-int-${operatorId}@example.com`,
+          displayName: 'Safety Operator',
+        },
+        {
+          id: hostUserId,
+          email: `host-safety-int-${hostUserId}@example.com`,
+          displayName: 'Event Host',
+        },
+      ],
+    });
+  });
+
+  afterAll(async () => {
+    if (!dbUrl) return;
+    // Clean up in FK-safe order.
+    await db.moderationActionAudit
+      .deleteMany({ where: { operatorUserId: operatorId } })
+      .catch(() => null);
+    await db.outboxEvent.deleteMany({}).catch(() => null);
+    await db.event.deleteMany({ where: { hostUserId } }).catch(() => null);
+    await db.user
+      .deleteMany({ where: { id: { in: [operatorId, hostUserId] } } })
+      .catch(() => null);
+    await db.$disconnect();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  const seedPublishedEvent = async (): Promise<string> => {
+    const eventId = createId();
+    await db.event.create({
+      data: {
+        id: eventId,
+        hostUserId,
+        title: 'Safety Cancel Integration Test Event',
+        venueAddress: '1 Test St',
+        venueCity: 'Singapore',
+        venueLatitude: 1.3,
+        venueLongitude: 103.8,
+        startsAt: new Date('2099-12-31T18:00:00Z'),
+        endsAt: FUTURE_ENDS_AT,
+        capacity: 5,
+        category: 'food',
+        venueCategory: 'cafe',
+        costSplit: 'own',
+        approvalMode: 'manual',
+        status: 'published',
+      },
+    });
+    return eventId;
+  };
+
+  const cleanupEvent = async (eventId: string): Promise<void> => {
+    await db.moderationActionAudit
+      .deleteMany({ where: { targetId: eventId } })
+      .catch(() => null);
+    await db.outboxEvent.deleteMany({}).catch(() => null);
+    await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Success path
+  // ---------------------------------------------------------------------------
+
+  describe('success path', () => {
+    it('cancels the event, writes audit row, returns auditRowId + notifiedCount=0', async () => {
+      const eventId = await seedPublishedEvent();
+
+      let result: { auditRowId: string; notifiedCount: number } | undefined;
+
+      await runAsSystem('cli.moderation.cancel-event-for-safety', async () => {
+        result = await useCase.execute({
+          operatorUserId: operatorId,
+          eventId,
+          justificationText: 'Credible safety threat reported via hotline.',
+          originatingReportId: null,
+        });
+      });
+
+      expect(result).toBeDefined();
+      expect(result?.auditRowId).toBeTypeOf('string');
+      expect(result?.notifiedCount).toBe(0); // no joiners seeded
+
+      // Event status is cancelled in DB.
+      const eventRow = await db.event.findUnique({ where: { id: eventId } });
+      expect(eventRow?.status).toBe('cancelled');
+
+      // Audit row was created with correct fields.
+      const auditRow = await db.moderationActionAudit.findUnique({
+        where: { id: result?.auditRowId },
+      });
+      expect(auditRow).not.toBeNull();
+      expect(auditRow?.action).toBe('cancel_event_for_safety');
+      expect(auditRow?.operatorUserId).toBe(operatorId);
+      expect(auditRow?.targetId).toBe(eventId);
+      expect(auditRow?.targetType).toBe('event');
+      expect(auditRow?.reasonCode).toBe('safety');
+      expect(auditRow?.justificationText).toBe('Credible safety threat reported via hotline.');
+      expect(auditRow?.reportId).toBeNull();
+      expect(auditRow?.originatingReportId).toBeNull();
+      // requestId carries the system: prefix from runAsSystem
+      expect(auditRow?.requestId).toMatch(
+        /^system:cli\.moderation\.cancel-event-for-safety:/,
+      );
+
+      await cleanupEvent(eventId);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Refusal: double cancel (AC #2 — EVENT_ALREADY_CANCELLED)
+  // ---------------------------------------------------------------------------
+
+  describe('double-cancel refusal', () => {
+    it('throws conflict with subcode EVENT_ALREADY_CANCELLED on second invocation', async () => {
+      const eventId = await seedPublishedEvent();
+
+      // First cancellation — succeeds.
+      await runAsSystem('cli.moderation.cancel-event-for-safety', async () => {
+        await useCase.execute({
+          operatorUserId: operatorId,
+          eventId,
+          justificationText: 'Initial cancellation justification.',
+          originatingReportId: null,
+        });
+      });
+
+      // Second cancellation — must throw conflict.
+      await expect(
+        runAsSystem('cli.moderation.cancel-event-for-safety', async () => {
+          await useCase.execute({
+            operatorUserId: operatorId,
+            eventId,
+            justificationText: 'Duplicate attempt.',
+            originatingReportId: null,
+          });
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+
+      await cleanupEvent(eventId);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Refusal: empty justification (AC #3 — CLI-layer validation)
+  // ---------------------------------------------------------------------------
+
+  describe('empty justification refusal', () => {
+    it('throws unprocessable when justification is blank', async () => {
+      const eventId = await seedPublishedEvent();
+
+      await expect(
+        runAsSystem('cli.moderation.cancel-event-for-safety', async () => {
+          await useCase.execute({
+            operatorUserId: operatorId,
+            eventId,
+            justificationText: '   ', // all whitespace — trimmed to empty
+            originatingReportId: null,
+          });
+        }),
+      ).rejects.toMatchObject({ status: 422 });
+
+      // Event must remain published (no state mutation on validation failure).
+      const eventRow = await db.event.findUnique({ where: { id: eventId } });
+      expect(eventRow?.status).toBe('published');
+
+      await cleanupEvent(eventId);
     });
   });
 });
