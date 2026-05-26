@@ -47,6 +47,12 @@ export interface ReportRepository {
   ): Promise<{ rows: Report[]; nextCursor: string | null }>;
 
   /**
+   * PDPA-deletion method. MUST be invoked inside a UnitOfWork.run(...) closure;
+   * `ctx` is required (not optional) because this method's only legitimate
+   * callers are retention/sweep use cases that own the transaction boundary.
+   * Documented A6 carve-out: see CLAUDE.md "evidence-integrity required-ctx"
+   * — extended to cover PDPA-deletion repository methods.
+   *
    * Bulk-delete all reports associated with a user as part of a PDPA erasure
    * cascade. Deletes:
    *   (a) reports filed BY the user (`reporterUserId = userId`), and
@@ -58,21 +64,19 @@ export interface ReportRepository {
    * here and in the Prisma repository implementation when those target types
    * are implemented.
    *
-   * Required ctx (non-optional): must be called from inside a caller-owned
-   * UnitOfWork transaction so the cascade is atomic with the user deletion.
-   *
    * @returns The number of report rows deleted.
    */
   deleteAllForUser(userId: string, ctx: TxContext): Promise<number>;
 
   /**
-   * Delete a single report row by its primary key.
+   * PDPA-deletion method. MUST be invoked inside a UnitOfWork.run(...) closure;
+   * `ctx` is required (not optional) because this method's only legitimate
+   * callers are retention/sweep use cases that own the transaction boundary.
+   * Documented A6 carve-out: see CLAUDE.md "evidence-integrity required-ctx"
+   * — extended to cover PDPA-deletion repository methods.
    *
-   * Required ctx (non-optional): must be called from inside a caller-owned
-   * UnitOfWork transaction so the deletion is atomic with the upstream audit
-   * reference severance (TRI-198 report-retention sweep).
-   *
-   * Mirrors the `deleteAllForUser` mandatory-ctx pattern.
+   * Delete a single report row by its primary key. The deletion is atomic with
+   * the upstream audit reference severance (TRI-198 report-retention sweep).
    */
   deleteById(id: string, ctx: TxContext): Promise<void>;
 
