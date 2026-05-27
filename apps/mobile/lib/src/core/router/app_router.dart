@@ -69,8 +69,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // session change (SessionUnauthenticated) does not redirect mid-frame
         // back to /welcome before the screen can render (AC4/AC5 race fix).
         '/account-deleted',
+        // Help centre articles are informational and must be reachable without
+        // a session (e.g. linked from the report-received sheet pre-auth).
+        '/help',
       };
-      final isPublic = publicRoutes.contains(loc);
+      // Prefix match so /help/article/:id (and any future /help/*) is covered.
+      final isPublic =
+          publicRoutes.any((p) => loc == p || loc.startsWith('$p/'));
       final isAuthFlow = isPublic; // alias for the authenticated-branch check
       final isVerify = loc == '/verify-email';
 
@@ -267,6 +272,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Back navigation is suppressed; "Done" returns to /events.
       GoRoute(
         path: '/help/article/:id',
+        name: 'helpArticle',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
