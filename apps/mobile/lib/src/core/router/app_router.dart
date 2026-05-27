@@ -30,6 +30,7 @@ import '../../features/check_ins/presentation/pages/safety_report_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_submitted_page.dart';
 import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
 import '../../features/check_ins/presentation/widgets/check_ins_overlay.dart';
+import '../../features/help_centre/presentation/pages/help_article_page.dart';
 import '../lifecycle/app_lifecycle_listener.dart';
 import 'app_shell.dart';
 
@@ -68,9 +69,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // session change (SessionUnauthenticated) does not redirect mid-frame
         // back to /welcome before the screen can render (AC4/AC5 race fix).
         '/account-deleted',
+        // Help centre articles are informational and must be reachable without
+        // a session (e.g. linked from the report-received sheet pre-auth).
+        '/help',
       };
-      final isPublic = publicRoutes.contains(loc);
-      final isAuthFlow = isPublic; // alias for the authenticated-branch check
+      // Auth-wizard subset of publicRoutes — pages that an *authenticated* user
+      // must be bounced away from (back to the shell landing). Distinct from
+      // `publicRoutes` because /help/* and /account-deleted are reachable from
+      // inside an authenticated session and must NOT trigger a redirect to
+      // /events when visited.
+      const authFlowRoutes = {
+        '/welcome',
+        '/sign-in',
+        '/sign-up',
+        '/reset-password',
+      };
+      // Prefix match so /help/article/:id (and any future /help/*) is covered.
+      final isPublic = publicRoutes.any(
+        (p) => loc == p || loc.startsWith('$p/'),
+      );
+      final isAuthFlow = authFlowRoutes.contains(loc);
       final isVerify = loc == '/verify-email';
 
       switch (session) {
@@ -264,6 +282,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       // Terminal-state confirmation page after a safety report is submitted.
       // Back navigation is suppressed; "Done" returns to /events.
+      GoRoute(
+        path: '/help/article/:id',
+        name: 'helpArticle',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return HelpArticleScreen(articleId: id);
+        },
+      ),
       GoRoute(
         path: '/check-ins/safety-report/submitted',
         name: 'safetyReportSubmitted',

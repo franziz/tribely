@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
@@ -12,6 +15,7 @@ import '../providers/reports_providers.dart';
 import '../state/report_composer_state.dart';
 import '../string_assets/report_copy.dart';
 import 'block_opt_in_sheet.dart';
+import 'report_received_sheet.dart';
 // One-widget cross-feature reference: reports/ → user_blocks/
 // Sanctioned per Brief 2C: BlockOptInSheet needs to invoke BlockActionController
 // when the user taps "Block [name]" after filing a report.
@@ -26,7 +30,10 @@ import 'block_opt_in_sheet.dart';
 ///   - Disclaimer copy between picker and comment field (caption, inkSecondary).
 ///   - Optional multi-line comment field, ≤500 chars with counter.
 ///   - Submit button disabled until a reason is selected.
-///   - On success: sheet dismisses, SnackBar fires, [BlockOptInSheet] opens.
+///   - On success: sheet dismisses, [ReportReceivedSheet] opens with the
+///     SLA and Help Centre link. On Done/drag-dismiss the [BlockOptInSheet]
+///     chains; on "Learn what happens next" the Help Centre article is
+///     pushed instead and the block-opt-in chain is skipped.
 ///   - On failure: inline [BannerMessage] above the submit button.
 ///
 /// Cross-feature import note: this widget is imported by
@@ -96,36 +103,51 @@ class _ReportReviewSheetState extends ConsumerState<ReportReviewSheet> {
     );
   }
 
-  void _handleSuccess(BuildContext context) {
-    // Capture the block callback before pop so the closure captures a
-    // stable function reference rather than [ref] (which becomes invalid
+  Future<void> _handleSuccess(BuildContext context) async {
+    // Capture cross-feature dependencies BEFORE pop so the closures
+    // hold stable references rather than [ref] (which becomes invalid
     // after the state is disposed by the pop below).
     final blockedUserId = widget.reportedUserId;
+    final reportedUserDisplayName = widget.reportedUserDisplayName;
     final blockFn = ref.read(blockActionControllerProvider.notifier).block;
 
-    // 1. Dismiss the sheet.
+    // 1. Dismiss the report-review sheet.
     Navigator.of(context).pop();
 
-    // 2. Show the confirmation SnackBar.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(ReportCopy.snackBarConfirmation),
-        duration: Duration(seconds: 6),
+    // 2. Show the persistent "Report received" sheet (TRI-164).
+    //    Branches:
+    //      - User taps Done OR drag-dismisses → chain into BlockOptInSheet.
+    //      - User taps "Learn what happens next" → onLearnMore sets
+    //        wentToArticle = true, pops the sheet, and pushes the article
+    //        route. The chain is SKIPPED.
+    var wentToArticle = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => ReportReceivedSheet(
+        onLearnMore: () {
+          wentToArticle = true;
+          Navigator.of(sheetContext).pop();
+          context.push('/help/article/report-faq');
+        },
       ),
     );
 
-    // 3. Open the block opt-in sheet.
-    // Pass the real block callback — invokes BlockActionController.block(userId)
-    // so "Block [name]" in the opt-in sheet fires the actual block API call.
-    // One-widget cross-feature reference: reports/ → user_blocks/
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => BlockOptInSheet(
-        reportedUserId: blockedUserId,
-        reportedUserDisplayName: widget.reportedUserDisplayName,
-        onBlockTap: () => blockFn(blockedUserId),
+    // 3. Chain into block opt-in sheet, unless user navigated to article.
+    if (wentToArticle || !context.mounted) return;
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => BlockOptInSheet(
+          reportedUserId: blockedUserId,
+          reportedUserDisplayName: reportedUserDisplayName,
+          onBlockTap: () => blockFn(blockedUserId),
+        ),
       ),
     );
   }

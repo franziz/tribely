@@ -48,6 +48,8 @@ import 'package:tribely/src/features/my_events/presentation/pages/my_events_page
 import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
 import 'package:tribely/src/features/my_events/presentation/state/my_events_state.dart';
 import 'package:tribely/src/features/my_events/presentation/state/pending_review_banner_state.dart';
+import 'package:tribely/src/features/help_centre/presentation/pages/help_article_page.dart';
+import 'package:tribely/src/core/router/app_router.dart';
 
 // ---------------------------------------------------------------------------
 // Keys for stub widgets — used as primary finders in assertions.
@@ -365,6 +367,73 @@ class _FixedSessionController extends SessionController {
 }
 
 // ---------------------------------------------------------------------------
+// Production-router pump helper — uses appRouterProvider with redirect logic.
+//
+// Compared to [pumpRouter] (which uses a simplified test router without
+// redirect), this helper exercises the real GoRouter redirect callback so
+// session-driven route guards can be asserted.
+// ---------------------------------------------------------------------------
+
+Future<GoRouter> pumpProductionRouter(
+  WidgetTester tester, {
+  required SessionState sessionState,
+  required String initialLocation,
+}) async {
+  final mockLocation = MockLocationService();
+  when(
+    () => mockLocation.currentPermissionStatus(),
+  ).thenAnswer((_) async => LocationPermissionStatus.denied);
+  when(() => mockLocation.currentPosition()).thenAnswer((_) async => null);
+
+  late GoRouter capturedRouter;
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sessionControllerProvider.overrideWith(
+          () => _FixedSessionController(sessionState),
+        ),
+        discoverControllerProvider.overrideWith(_FixedDiscoverController.new),
+        discoverFilterControllerProvider.overrideWith(
+          _FixedFilterController.new,
+        ),
+        locationServiceProvider.overrideWithValue(mockLocation),
+        locationPromptShownProvider.overrideWith(
+          _PromptAlreadyShownNotifier.new,
+        ),
+        myJoinRequestsControllerProvider(
+          null,
+        ).overrideWith(() => _FixedMyJoinRequestsController()),
+        hostingPendingCountControllerProvider(
+          '',
+        ).overrideWith(() => _FixedHostingPendingCountController('')),
+        hostingTabControllerProvider.overrideWith(
+          _FixedHostingTabController.new,
+        ),
+        myEventsControllerProvider.overrideWith(_FixedMyEventsController.new),
+        pendingReviewBannerControllerProvider.overrideWith(
+          _FixedPendingReviewBannerController.new,
+        ),
+      ],
+      child: Consumer(
+        builder: (context, ref, _) {
+          capturedRouter = ref.watch(appRouterProvider);
+          // Override initialLocation by imperatively navigating after build.
+          return MaterialApp.router(routerConfig: capturedRouter);
+        },
+      ),
+    ),
+  );
+
+  // Navigate to the desired initial location after the router is mounted.
+  capturedRouter.go(initialLocation);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+
+  return capturedRouter;
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -557,6 +626,101 @@ void main() {
         // with the NavigationBar restored.
         expect(find.byKey(_kOwnProfileStubKey), findsOneWidget);
         expect(find.byType(NavigationBar), findsOneWidget);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // B5-Q2 regression: /help/* must NOT bounce authenticated users.
+    //
+    // These four tests exercise the real production redirect callback via
+    // [pumpProductionRouter]. The redirect bug (isAuthFlow = isPublic alias)
+    // caused authenticated users navigating to /help/article/:id to be
+    // bounced to /events.
+    // -------------------------------------------------------------------------
+
+    // B5-Q2-1: Authenticated verified user → /help/article/:id stays on article.
+    testWidgets(
+      'B5-Q2: authenticated user navigating to /help/article/:id is NOT bounced to /events',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: _authenticatedState,
+          initialLocation: '/help/article/report-faq',
+        );
+
+        // The redirect must not have fired — location must still be the article.
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/help/article/report-faq'),
+          reason:
+              'Authenticated user must reach /help/article/report-faq; '
+              'isAuthFlow must not include /help/* (regression guard for B5-Q2)',
+        );
+        expect(find.byType(HelpArticleScreen), findsOneWidget);
+      },
+    );
+
+    // B5-Q2-2: Authenticated verified user → /sign-in is bounced to /events.
+    testWidgets(
+      'B5-Q2: authenticated user navigating to /sign-in is redirected to /events',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: _authenticatedState,
+          initialLocation: '/sign-in',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/events'),
+          reason:
+              'Auth-wizard route /sign-in must redirect authenticated users '
+              'to /events (isAuthFlow must still include /sign-in)',
+        );
+      },
+    );
+
+    // B5-Q2-3: Unauthenticated user → /help/article/:id stays on article.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /help/article/:id is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/help/article/report-faq',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/help/article/report-faq'),
+          reason:
+              'Unauthenticated user must reach /help/article/report-faq; '
+              '/help/* must remain in publicRoutes',
+        );
+        expect(find.byType(HelpArticleScreen), findsOneWidget);
+      },
+    );
+
+    // B5-Q2-4: Unauthenticated user → /events is bounced to /welcome (negative pole).
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events is redirected to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/welcome'),
+          reason:
+              'Unauthenticated user must be bounced from /events to /welcome',
+        );
       },
     );
   });
