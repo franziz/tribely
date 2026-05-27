@@ -122,6 +122,43 @@ describe('env schema', () => {
     });
   });
 
+  describe('ADMIN_DATABASE_URL production guard', () => {
+    it('refuses ADMIN_DATABASE_URL when NODE_ENV=production', () => {
+      const result = envSchema.safeParse({
+        ...validBaseEnv,
+        NODE_ENV: 'production',
+        ADMIN_DATABASE_URL: 'postgres://admin:pw@host/db',
+        // Satisfy all other production guards so ADMIN_DATABASE_URL is the only issue.
+        SMS_TRANSPORT: 'twilio',
+        TWILIO_ACCOUNT_SID: 'ACtest',
+        TWILIO_AUTH_TOKEN: 'authtest',
+        TWILIO_VERIFY_SERVICE_SID: 'VAtest',
+        EMAIL_TRANSPORT: 'resend',
+        RESEND_API_KEY: 'retest',
+        STORAGE_TRANSPORT: 's3',
+        STORAGE_BUCKET: 'tribely-prod',
+        STORAGE_REGION: 'ap-southeast-1',
+        STORAGE_ACCESS_KEY_ID: 'AKIATEST',
+        STORAGE_SECRET_ACCESS_KEY: 'secrettest',
+        PHONE_HASH_SALT: 'production-phone-hash-salt-00000000',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const paths = result.error.issues.map((i) => i.path);
+        expect(paths).toContainEqual(['ADMIN_DATABASE_URL']);
+      }
+    });
+
+    it('accepts ADMIN_DATABASE_URL when NODE_ENV=development', () => {
+      const result = envSchema.safeParse({
+        ...validBaseEnv,
+        NODE_ENV: 'development',
+        ADMIN_DATABASE_URL: 'postgres://admin:pw@host/db',
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe('STORAGE_READ_URL_MAX_SECONDS', () => {
     it('is undefined when omitted', () => {
       const result = parseEnv({});

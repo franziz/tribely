@@ -22,7 +22,8 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:create": "prisma migrate dev --create-only",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:roles:bootstrap": "tsx scripts/bootstrap-runtime-role.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.2",

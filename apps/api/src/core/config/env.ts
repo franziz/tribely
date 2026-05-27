@@ -26,6 +26,12 @@ export const envSchema = z
 
     DATABASE_URL: z.string().url(),
 
+    // Reserved for `prisma migrate deploy`. Not read by application code.
+    // In production, must point at a higher-privilege DB role that can run DDL.
+    // The runtime `DATABASE_URL` points at the low-privilege `tribely_app` role
+    // which has only INSERT+SELECT on `moderation_action_audit` (TRI-206).
+    ADMIN_DATABASE_URL: z.string().url().optional(),
+
     JWT_SECRET: z.string().min(32),
     JWT_ACCESS_TTL: z.string().default('15m'),
     JWT_REFRESH_TTL: z.string().default('30d'),
@@ -274,6 +280,29 @@ export const envSchema = z
           'PHONE_HASH_SALT is required when NODE_ENV=production — ' +
           'set it to a random string of at least 32 characters. ' +
           'Generate with: openssl rand -hex 32',
+      });
+    }
+
+    // Production DDL-credential guard. ADMIN_DATABASE_URL is a DDL-privileged
+    // connection string reserved exclusively for `prisma migrate deploy` (run
+    // out-of-band by migration scripts that read process.env directly via
+    // dotenv/config, bypassing env.ts). It must NEVER appear in the runtime
+    // API process — handing a live DDL-privileged credential to the Hono
+    // server expands the blast radius of any code-path exploit to full schema
+    // control. If this guard fires in production, ADMIN_DATABASE_URL is leaking
+    // from the migration container into the runtime container via a shared
+    // secret store or a copy-paste deploy error.
+    if (data.NODE_ENV === 'production' && data.ADMIN_DATABASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ADMIN_DATABASE_URL'],
+        message:
+          'ADMIN_DATABASE_URL must not be set in NODE_ENV=production. ' +
+          'Admin/DDL credentials are for migration scripts run out-of-band ' +
+          '(which read process.env directly via dotenv/config), not the runtime ' +
+          'API process. If you are seeing this in prod, your deploy is leaking ' +
+          'migration-only env into the runtime container — remove ADMIN_DATABASE_URL ' +
+          'from the runtime env and rerun.',
       });
     }
   });

@@ -30,6 +30,19 @@ From the repo root, prefix with `api:` — e.g. `npm run api:dev`, `npm run api:
 
 Responses use a uniform error shape: `{ "error": { "code", "message", "details?" } }`.
 
+## Database role bootstrap (TRI-206)
+
+For normal local development, `DATABASE_URL` and `ADMIN_DATABASE_URL` can both point to the same superuser URL — the app runs fine and most tests pass.
+
+To run the full append-only enforcement integration test (`moderation-action-audit.append-only.integration.test.ts`) locally, the test must connect as `tribely_app` (the restricted runtime role), not as a superuser. Bootstrap the role first:
+
+1. Set `ADMIN_DATABASE_URL` in `apps/api/.env` to a superuser connection URL (e.g. `postgresql://postgres:password@localhost:5432/tribely`).
+2. Set `RUNTIME_DB_PASSWORD` in `apps/api/.env` to any non-empty value (e.g. `changeme`).
+3. Run `npm run --workspace=@tribely/api db:roles:bootstrap` — this provisions the `tribely_app` role and applies TRI-206 grant restrictions.
+4. Set `DATABASE_URL` in `apps/api/.env` to the `tribely_app` URL using the password from step 2 (e.g. `postgresql://tribely_app:changeme@localhost:5432/tribely`).
+
+**Note:** if you skip bootstrap and run `DATABASE_URL` as superuser, the `append-only.integration.test.ts` test FAILS — UPDATE succeeds when it should be rejected. This is a loud failure mode by design: it signals that the DB-level enforcement posture is not in effect.
+
 ## Adding a feature
 
 Use `/api-new-feature <name>`. See the project skills under `.claude/skills/` and the architecture conventions in the root `CLAUDE.md`.
