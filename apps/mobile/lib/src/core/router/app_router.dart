@@ -30,6 +30,7 @@ import '../../features/check_ins/presentation/pages/safety_report_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_submitted_page.dart';
 import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
 import '../../features/check_ins/presentation/widgets/check_ins_overlay.dart';
+import '../../features/help_centre/presentation/pages/help_article_page.dart';
 import '../lifecycle/app_lifecycle_listener.dart';
 import 'app_shell.dart';
 
@@ -264,6 +265,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       // Terminal-state confirmation page after a safety report is submitted.
       // Back navigation is suppressed; "Done" returns to /events.
+      GoRoute(
+        path: '/help/article/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return HelpArticleScreen(articleId: id);
+        },
+      ),
       GoRoute(
         path: '/check-ins/safety-report/submitted',
         name: 'safetyReportSubmitted',
