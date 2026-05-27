@@ -33,6 +33,23 @@ import { EscalateReportUseCase } from '../src/features/reports/application/useca
 import { RecordExternalInputUseCase } from '../src/features/reports/application/usecases/record-external-input.usecase.js';
 
 const dbUrl = process.env.DATABASE_URL;
+// TRI-206: moderation_action_audit is append-only under the runtime role (tribely_app).
+// The runtime db client cannot DELETE from the audit table, so teardown must use a
+// DDL-privileged admin connection. ADMIN_DATABASE_URL points at the superuser/migration
+// role; falls back to DATABASE_URL for environments that share one credential.
+const adminDbUrl = process.env.ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
+const adminPrisma = adminDbUrl
+  ? new PrismaClient({ adapter: new PrismaPg({ connectionString: adminDbUrl }) })
+  : null;
+
+afterAll(async () => {
+  if (adminPrisma) {
+    await adminPrisma
+      .$executeRawUnsafe('TRUNCATE TABLE moderation_action_audit RESTART IDENTITY CASCADE')
+      .catch(() => null);
+    await adminPrisma.$disconnect();
+  }
+});
 
 /**
  * Integration test for PerformModerationActionUseCase against a real DB.
@@ -134,15 +151,8 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
 
   afterAll(async () => {
     if (!dbUrl) return;
-    // Clean up in FK-safe order.
-    await db.moderationActionAudit
-      .deleteMany({
-        where: {
-          OR: [{ operatorUserId: operatorId }, { reporterUserId: reporterId }],
-        },
-      })
-      .catch(() => null);
-    // Outbox rows have no FK to reports/reviews — safe to leave or delete by event.
+    // TRI-206: moderation_action_audit teardown is handled by the module-level
+    // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
     await db.outboxEvent.deleteMany({}).catch(() => null);
     await db.review.deleteMany({ where: { eventId } }).catch(() => null);
     await db.report.deleteMany({ where: { reporterUserId: reporterId } }).catch(() => null);
@@ -217,9 +227,8 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
   };
 
   const cleanupReportAndReview = async (reportId: string, reviewId: string): Promise<void> => {
-    // Audit rows reference reportId — delete audit before report (no FK, but
-    // keeps cleanup semantically ordered).
-    await db.moderationActionAudit.deleteMany({ where: { reportId } }).catch(() => null);
+    // TRI-206: moderation_action_audit rows are handled by the module-level
+    // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
     // Outbox rows are written by OutboxEventPublisher but have no FK to
     // reports or reviews — left for afterAll cleanup.
     await db.report.deleteMany({ where: { id: reportId } }).catch(() => null);
@@ -491,10 +500,8 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
 
   afterAll(async () => {
     if (!dbUrl) return;
-    // Clean up in FK-safe order.
-    await db.moderationActionAudit
-      .deleteMany({ where: { operatorUserId: operatorId } })
-      .catch(() => null);
+    // TRI-206: moderation_action_audit teardown is handled by the module-level
+    // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
     await db.outboxEvent.deleteMany({}).catch(() => null);
     await db.event.deleteMany({ where: { hostUserId } }).catch(() => null);
     await db.user.deleteMany({ where: { id: { in: [operatorId, hostUserId] } } }).catch(() => null);
@@ -530,7 +537,8 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
   };
 
   const cleanupEvent = async (eventId: string): Promise<void> => {
-    await db.moderationActionAudit.deleteMany({ where: { targetId: eventId } }).catch(() => null);
+    // TRI-206: moderation_action_audit rows are handled by the module-level
+    // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
     await db.outboxEvent.deleteMany({}).catch(() => null);
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
   };
@@ -745,9 +753,9 @@ describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
 
   afterAll(async () => {
     if (!dbUrl) return;
-    // Clean up in FK-safe order.
+    // TRI-206: moderation_action_audit teardown is handled by the module-level
+    // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
     await db.sweepRun.deleteMany({ where: { kind: 'report-retention-sweep' } }).catch(() => null);
-    await db.moderationActionAudit.deleteMany({ where: { operatorUserId } }).catch(() => null);
     await db.report.deleteMany({ where: { reporterUserId } }).catch(() => null);
     await db.review.deleteMany({ where: { eventId } }).catch(() => null);
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
@@ -839,8 +847,7 @@ describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
       expect(auditRow).not.toBeNull();
       expect(auditRow?.originatingReportId).toBeNull();
 
-      // Cleanup.
-      await db.moderationActionAudit.deleteMany({ where: { id: auditRowId } }).catch(() => null);
+      // Cleanup: audit row handled by module-level adminPrisma TRUNCATE afterAll.
       await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);
     });
   });
@@ -974,11 +981,8 @@ describe.skipIf(!dbUrl)(
 
     afterAll(async () => {
       if (!dbUrl) return;
-      await db.moderationActionAudit
-        .deleteMany({
-          where: { OR: [{ operatorUserId: operatorId }, { reporterUserId: reporterId }] },
-        })
-        .catch(() => null);
+      // TRI-206: moderation_action_audit teardown is handled by the module-level
+      // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
       await db.outboxEvent.deleteMany({}).catch(() => null);
       await db.review.deleteMany({ where: { eventId } }).catch(() => null);
       await db.report.deleteMany({ where: { reporterUserId: reporterId } }).catch(() => null);
@@ -1086,7 +1090,8 @@ describe.skipIf(!dbUrl)(
     };
 
     const cleanupReportAndReview = async (reportId: string, reviewId: string): Promise<void> => {
-      await db.moderationActionAudit.deleteMany({ where: { reportId } }).catch(() => null);
+      // TRI-206: moderation_action_audit rows are handled by the module-level
+      // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
       await db.outboxEvent.deleteMany({}).catch(() => null);
       await db.report.deleteMany({ where: { id: reportId } }).catch(() => null);
       await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);

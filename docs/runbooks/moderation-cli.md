@@ -501,10 +501,10 @@ The `moderation_action_audit` table is **append-only by contract** — no UPDATE
 
 The runtime database role is `tribely_app`. Its grants are:
 
-- **`moderation_action_audit`**: INSERT, SELECT only.
+- **`moderation_action_audit`**: INSERT, SELECT, and UPDATE **only on column `originatingReportId`**. `UPDATE` is allowed **only** on column `originatingReportId` — this encodes the TRI-165 severance contract: the report-retention sweep (TRI-198) NULLs the FK so the originating `moderation_reports` row can be deleted >12 months later, while the audit row itself persists as legal-compliance evidence. `UPDATE` on any other column, `DELETE`, and `TRUNCATE` all fail with Postgres error `42501`.
 - **All other tables in schema `public`**: SELECT, INSERT, UPDATE, DELETE (baseline for normal application operation).
 
-The `tribely_app` role CANNOT UPDATE, DELETE, or TRUNCATE rows in `moderation_action_audit`. Attempts return Postgres error code `42501` (insufficient_privilege).
+The `tribely_app` role CANNOT UPDATE non-sanctioned columns, DELETE, or TRUNCATE rows in `moderation_action_audit`. Attempts return Postgres error code `42501` (insufficient_privilege).
 
 The `tribely_app` role is NOT the owner of `moderation_action_audit`. Postgres table owners bypass REVOKE TRUNCATE, so the migration / superuser role retains ownership and the runtime role is grant-restricted. This is verified by an automated test (`moderation-action-audit.append-only.integration.test.ts`).
 
@@ -536,6 +536,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 -- 4. TRI-206 lockdown: append-only enforcement on moderation_action_audit.
 REVOKE UPDATE, DELETE, TRUNCATE ON moderation_action_audit FROM tribely_app;
 
+-- TRI-165 severance exception: the report-retention sweep (TRI-198) MUST
+-- NULL originatingReportId on audit rows when the originating moderation_reports
+-- row is deleted >12 months later. The audit row itself persists as
+-- legal-compliance evidence; only this single FK column may be cleared.
+GRANT UPDATE ("originatingReportId") ON moderation_action_audit TO tribely_app;
+
 -- 5. Verification block — fails the script if posture is wrong.
 DO $$
 BEGIN
@@ -543,10 +549,13 @@ BEGIN
     'tribely_app must have INSERT on moderation_action_audit';
   ASSERT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'SELECT')),
     'tribely_app must have SELECT on moderation_action_audit';
-  ASSERT NOT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'UPDATE')),
-    'tribely_app must NOT have UPDATE on moderation_action_audit';
   ASSERT NOT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'DELETE')),
     'tribely_app must NOT have DELETE on moderation_action_audit';
+  -- Column-scoped UPDATE: originatingReportId is the ONLY column tribely_app may UPDATE.
+  ASSERT (SELECT has_column_privilege('tribely_app', 'moderation_action_audit', 'originatingReportId', 'UPDATE')),
+    'tribely_app must have column-scoped UPDATE on originatingReportId (TRI-165 severance)';
+  ASSERT NOT (SELECT has_column_privilege('tribely_app', 'moderation_action_audit', 'action', 'UPDATE')),
+    'tribely_app must NOT have UPDATE on column action (append-only except originatingReportId)';
 END $$;
 ```
 

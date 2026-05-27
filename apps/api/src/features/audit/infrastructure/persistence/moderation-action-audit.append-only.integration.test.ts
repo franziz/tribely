@@ -98,13 +98,36 @@ describe.skipIf(!dbUrl)('moderation_action_audit append-only enforcement (TRI-20
     expect(count).toBe(0);
   });
 
-  it('runtime role cannot UPDATE — receives Postgres 42501', async () => {
+  it('runtime role CAN UPDATE originatingReportId (TRI-165 severance — sanctioned column)', async () => {
+    // Insert a row with a non-null originatingReportId, then sever it via raw SQL
+    // under the runtime role — same path the report-retention sweep takes.
+    const entry = buildRecord({ originatingReportId: createId() });
+    trackedIds.push(entry.id);
+    await runWithContext(
+      { requestId: entry.requestId ?? 'system:test.tri206.sever', actorUserId: null },
+      () => unitOfWork.run((ctx) => repo.record(entry, ctx)),
+    );
+
+    // This must NOT throw — it is the sanctioned severance path.
+    await db.$executeRawUnsafe(
+      `UPDATE moderation_action_audit SET "originatingReportId" = NULL WHERE id = $1`,
+      entry.id,
+    );
+
+    // Confirm the column was cleared.
+    const row = await db.moderationActionAudit.findUnique({ where: { id: entry.id } });
+    expect(row?.originatingReportId).toBeNull();
+  });
+
+  it('runtime role CANNOT UPDATE non-sanctioned columns — receives Postgres 42501 (append-only contract)', async () => {
+    // `action` is a representative write-once column that has no severance exception.
+    // An attempt to UPDATE it must be denied even though originatingReportId is now allowed.
     let threw = false;
     try {
       // Target a non-existent id — a no-op even with privilege, so no data is
       // mutated if the role somehow has permission.
       await db.$executeRawUnsafe(
-        `UPDATE moderation_action_audit SET reason = 'tampered' WHERE id = '00000000-0000-0000-0000-000000000000'`,
+        `UPDATE moderation_action_audit SET action = 'tampered' WHERE id = '00000000-0000-0000-0000-000000000000'`,
       );
     } catch (err) {
       threw = true;

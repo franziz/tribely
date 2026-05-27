@@ -15,6 +15,12 @@ import type { ModerationActionAuditRecord } from '../../domain/repositories/mode
 import { ModerationActionAuditPrismaRepository } from './moderation-action-audit.prisma-repository.js';
 
 const dbUrl = process.env.DATABASE_URL;
+// TRI-206: moderation_action_audit is append-only under the runtime role (tribely_app).
+// The runtime db client cannot DELETE or TRUNCATE audit rows, so test isolation
+// requires a DDL-privileged admin connection for teardown. ADMIN_DATABASE_URL points
+// at the superuser/migration role; falls back to DATABASE_URL for environments that
+// share one credential (e.g. local dev where DATABASE_URL is already superuser).
+const adminDbUrl = process.env.ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
 
 /**
  * End-to-end repository test against the Postgres service container (CI) or
@@ -28,6 +34,9 @@ const dbUrl = process.env.DATABASE_URL;
  */
 describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', () => {
   let db: PrismaClient;
+  // TRI-206: adminPrisma uses the DDL-privileged role for TRUNCATE in beforeEach.
+  // The runtime db client (tribely_app) cannot DELETE or TRUNCATE audit rows.
+  let adminPrisma: PrismaClient;
   let unitOfWork: UnitOfWork;
   let repo: ModerationActionAuditPrismaRepository;
   const trackedIds = new Set<string>();
@@ -67,23 +76,27 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
     unitOfWork = new PrismaUnitOfWork(db);
     repo = new ModerationActionAuditPrismaRepository(db);
+    // adminPrisma uses ADMIN_DATABASE_URL (DDL-privileged role) for teardown TRUNCATE.
+    // Falls back to DATABASE_URL in envs that share one credential (TRI-206).
+    // adminDbUrl is guaranteed non-null here: adminDbUrl = ADMIN_DATABASE_URL ?? DATABASE_URL,
+    // and we returned above if DATABASE_URL was falsy.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    adminPrisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: adminDbUrl! }) });
   });
 
   beforeEach(async () => {
     if (!dbUrl) return;
-    if (trackedIds.size > 0) {
-      await db.moderationActionAudit.deleteMany({ where: { id: { in: [...trackedIds] } } });
-      trackedIds.clear();
-    }
+    // TRI-206: runtime role (tribely_app) cannot DELETE from moderation_action_audit.
+    // Use adminPrisma (DDL-privileged role) for TRUNCATE isolation between tests.
+    await adminPrisma.$executeRawUnsafe(
+      'TRUNCATE TABLE moderation_action_audit RESTART IDENTITY CASCADE',
+    );
+    trackedIds.clear();
   });
 
   afterAll(async () => {
     if (!dbUrl) return;
-    if (trackedIds.size > 0) {
-      await db.moderationActionAudit
-        .deleteMany({ where: { id: { in: [...trackedIds] } } })
-        .catch(() => null);
-    }
+    await adminPrisma.$disconnect();
     await db.$disconnect();
   });
 
