@@ -43,6 +43,19 @@ On the API, Prisma is the persistence layer — a separate datasource layer adds
 - API: throwing `AppError` flows into Hono's `onError` middleware producing a uniform HTTP shape.
 - Mobile: UI needs to render error states declaratively; failures are part of the type signature, eliminating uncaught-exception UI bugs.
 
+## Static-content-only features: presentation-only collapse
+
+A feature MAY ship as `presentation/`-only — omitting `domain/` and `data/` — when ALL of the following hold:
+
+1. The feature renders only static, compile-time-constant content (FAQ text, terms-of-service, about pages).
+2. There is no async behaviour: no HTTP, no DB, no Riverpod `AsyncNotifier`, no `Future`-returning use case.
+3. There are no domain invariants — no entities with rules, no value objects with validation, no use cases with business logic.
+4. There are no cross-feature reads from `domain/` or `data/` (presentation-layer imports of shared widgets are unchanged by this carve-out).
+
+**Promotion trigger:** When ANY of (1)–(4) becomes false — typically when content becomes dynamic (CMS-backed, localised, A/B-tested, user-personalised) — the feature MUST be promoted to the full 3-layer structure in the same PR that introduces the dynamic behaviour. Do not pre-scaffold empty layers in anticipation.
+
+**Current precedent:** `help_centre/` (TRI-164) — static FAQ articles rendered from a `string_assets/help_centre_copy.dart` constant.
+
 ## Mobile gotchas
 
 - **Mobile session-state is the first sanctioned cross-feature `presentation/` import** (unless explicitly sanctioned below). Features may import `auth/presentation/providers/auth_providers.dart` to read `sessionControllerProvider` for current-user identity; every other cross-feature `presentation/`-to-`presentation/` import violates the bounded-context rule unless explicitly listed below. Session identity is genuinely app-global state, not feature state — duplicating it per feature would fragment auth and invite drift on logout/refresh.
