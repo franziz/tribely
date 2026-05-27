@@ -37,6 +37,14 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 -- 4. TRI-206 lockdown: append-only enforcement on moderation_action_audit.
 REVOKE UPDATE, DELETE, TRUNCATE ON moderation_action_audit FROM tribely_app;
 
+-- TRI-165 severance exception: the report-retention sweep (TRI-198) MUST
+-- NULL originatingReportId on audit rows when the originating moderation_reports
+-- row is deleted >12 months later. The audit row itself persists as
+-- legal-compliance evidence; only this single FK column may be cleared.
+-- Repository SOT: severOriginatingReportId() in
+-- apps/api/src/features/audit/infrastructure/persistence/moderation-action-audit.prisma-repository.ts
+GRANT UPDATE ("originatingReportId") ON moderation_action_audit TO tribely_app;
+
 -- 5. Verification block — fails the script if posture is wrong.
 DO $$
 BEGIN
@@ -44,8 +52,12 @@ BEGIN
     'tribely_app must have INSERT on moderation_action_audit';
   ASSERT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'SELECT')),
     'tribely_app must have SELECT on moderation_action_audit';
-  ASSERT NOT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'UPDATE')),
-    'tribely_app must NOT have UPDATE on moderation_action_audit';
   ASSERT NOT (SELECT has_table_privilege('tribely_app', 'moderation_action_audit', 'DELETE')),
     'tribely_app must NOT have DELETE on moderation_action_audit';
+  -- Column-scoped UPDATE: originatingReportId is the ONLY column tribely_app may UPDATE
+  -- (TRI-165 severance exception). All other columns must remain UPDATE-denied.
+  ASSERT (SELECT has_column_privilege('tribely_app', 'moderation_action_audit', 'originatingReportId', 'UPDATE')),
+    'tribely_app must have column-scoped UPDATE on originatingReportId (TRI-165 severance)';
+  ASSERT NOT (SELECT has_column_privilege('tribely_app', 'moderation_action_audit', 'action', 'UPDATE')),
+    'tribely_app must NOT have UPDATE on column action (append-only except originatingReportId)';
 END $$;
