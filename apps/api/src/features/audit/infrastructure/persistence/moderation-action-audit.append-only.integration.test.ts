@@ -27,146 +27,148 @@ const dbUrl = process.env.DATABASE_URL;
  *
  * Skipped when DATABASE_URL is unset so unit-only runs still pass.
  */
-describe.skipIf(!dbUrl)(
-  'moderation_action_audit append-only enforcement (TRI-206)',
-  () => {
-    let db: PrismaClient;
-    let unitOfWork: UnitOfWork;
-    let repo: ModerationActionAuditPrismaRepository;
-    const trackedIds: string[] = [];
+describe.skipIf(!dbUrl)('moderation_action_audit append-only enforcement (TRI-206)', () => {
+  let db: PrismaClient;
+  let unitOfWork: UnitOfWork;
+  let repo: ModerationActionAuditPrismaRepository;
+  const trackedIds: string[] = [];
 
-    const buildRecord = (
-      overrides: Partial<ModerationActionAuditRecord> = {},
-    ): ModerationActionAuditRecord => {
-      const id = createId();
-      return {
-        id,
-        operatorUserId: createId(),
-        action: 'touch',
-        reportId: createId(),
-        targetType: 'review',
-        targetId: createId(),
-        reason: null,
-        contentSnapshot: null,
-        reporterUserId: createId(),
-        reasonCode: null,
-        justificationText: null,
-        originatingReportId: null,
-        escalationCategory: null,
-        externalRef: null,
-        externalSource: null,
-        externalDisposition: null,
-        externalReceivedAt: null,
-        actedAt: new Date('2026-05-26T10:00:00Z'),
-        requestId: 'system:test.tri206.append-only',
-        recordedAt: new Date('2026-05-26T10:00:01Z'),
-        ...overrides,
-      };
+  const buildRecord = (
+    overrides: Partial<ModerationActionAuditRecord> = {},
+  ): ModerationActionAuditRecord => {
+    const id = createId();
+    return {
+      id,
+      operatorUserId: createId(),
+      action: 'touch',
+      reportId: createId(),
+      targetType: 'review',
+      targetId: createId(),
+      reason: null,
+      contentSnapshot: null,
+      reporterUserId: createId(),
+      reasonCode: null,
+      justificationText: null,
+      originatingReportId: null,
+      escalationCategory: null,
+      externalRef: null,
+      externalSource: null,
+      externalDisposition: null,
+      externalReceivedAt: null,
+      actedAt: new Date('2026-05-26T10:00:00Z'),
+      requestId: 'system:test.tri206.append-only',
+      recordedAt: new Date('2026-05-26T10:00:01Z'),
+      ...overrides,
     };
+  };
 
-    beforeAll(() => {
-      if (!dbUrl) return;
-      db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
-      unitOfWork = new PrismaUnitOfWork(db);
-      repo = new ModerationActionAuditPrismaRepository(db);
-    });
+  beforeAll(() => {
+    if (!dbUrl) return;
+    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+    unitOfWork = new PrismaUnitOfWork(db);
+    repo = new ModerationActionAuditPrismaRepository(db);
+  });
 
-    afterAll(async () => {
-      if (!dbUrl) return;
-      if (trackedIds.length > 0) {
-        await db.moderationActionAudit
-          .deleteMany({ where: { id: { in: trackedIds } } })
-          .catch(() => null);
-      }
-      await db.$disconnect();
-    });
+  afterAll(async () => {
+    if (!dbUrl) return;
+    if (trackedIds.length > 0) {
+      await db.moderationActionAudit
+        .deleteMany({ where: { id: { in: trackedIds } } })
+        .catch(() => null);
+    }
+    await db.$disconnect();
+  });
 
-    it('runtime role can INSERT (smoke — repo path)', async () => {
-      const entry = buildRecord({ action: 'touch' });
-      trackedIds.push(entry.id);
+  it('runtime role can INSERT (smoke — repo path)', async () => {
+    const entry = buildRecord({ action: 'touch' });
+    trackedIds.push(entry.id);
 
-      await expect(
-        runWithContext(
-          { requestId: entry.requestId ?? 'system:test.tri206', actorUserId: null },
-          () => unitOfWork.run((ctx) => repo.record(entry, ctx)),
-        ),
-      ).resolves.toBeUndefined();
-    });
+    await expect(
+      runWithContext(
+        { requestId: entry.requestId ?? 'system:test.tri206', actorUserId: null },
+        () => unitOfWork.run((ctx) => repo.record(entry, ctx)),
+      ),
+    ).resolves.toBeUndefined();
+  });
 
-    it('runtime role can SELECT (smoke — repo path)', async () => {
-      // countExternalInputs is the only public read on the repository (per domain
-      // interface). A non-matching reportId gives 0 — valid smoke for SELECT access.
-      const count = await repo.countExternalInputs(createId());
-      expect(count).toBe(0);
-    });
+  it('runtime role can SELECT (smoke — repo path)', async () => {
+    // countExternalInputs is the only public read on the repository (per domain
+    // interface). A non-matching reportId gives 0 — valid smoke for SELECT access.
+    const count = await repo.countExternalInputs(createId());
+    expect(count).toBe(0);
+  });
 
-    it('runtime role cannot UPDATE — receives Postgres 42501', async () => {
-      let threw = false;
-      try {
-        // Target a non-existent id — a no-op even with privilege, so no data is
-        // mutated if the role somehow has permission.
-        await db.$executeRawUnsafe(
-          `UPDATE moderation_action_audit SET reason = 'tampered' WHERE id = '00000000-0000-0000-0000-000000000000'`,
-        );
-      } catch (err) {
-        threw = true;
-        const msg = (err as Error).message ?? '';
-        const code = (err as { code?: string }).code;
-        const hasPermissionDenied = msg.includes('permission denied for table moderation_action_audit');
-        const has42501 = code === '42501' || msg.includes('42501');
-        expect(hasPermissionDenied || has42501).toBe(true);
-      }
-      expect(threw).toBe(true);
-    });
+  it('runtime role cannot UPDATE — receives Postgres 42501', async () => {
+    let threw = false;
+    try {
+      // Target a non-existent id — a no-op even with privilege, so no data is
+      // mutated if the role somehow has permission.
+      await db.$executeRawUnsafe(
+        `UPDATE moderation_action_audit SET reason = 'tampered' WHERE id = '00000000-0000-0000-0000-000000000000'`,
+      );
+    } catch (err) {
+      threw = true;
+      const msg = (err as Error).message;
+      const code = (err as { code?: string }).code;
+      const hasPermissionDenied = msg.includes(
+        'permission denied for table moderation_action_audit',
+      );
+      const has42501 = code === '42501' || msg.includes('42501');
+      expect(hasPermissionDenied || has42501).toBe(true);
+    }
+    expect(threw).toBe(true);
+  });
 
-    it('runtime role cannot DELETE — receives Postgres 42501', async () => {
-      let threw = false;
-      try {
-        await db.$executeRawUnsafe(
-          `DELETE FROM moderation_action_audit WHERE id = '00000000-0000-0000-0000-000000000000'`,
-        );
-      } catch (err) {
-        threw = true;
-        const msg = (err as Error).message ?? '';
-        const code = (err as { code?: string }).code;
-        const hasPermissionDenied = msg.includes('permission denied for table moderation_action_audit');
-        const has42501 = code === '42501' || msg.includes('42501');
-        expect(hasPermissionDenied || has42501).toBe(true);
-      }
-      expect(threw).toBe(true);
-    });
+  it('runtime role cannot DELETE — receives Postgres 42501', async () => {
+    let threw = false;
+    try {
+      await db.$executeRawUnsafe(
+        `DELETE FROM moderation_action_audit WHERE id = '00000000-0000-0000-0000-000000000000'`,
+      );
+    } catch (err) {
+      threw = true;
+      const msg = (err as Error).message;
+      const code = (err as { code?: string }).code;
+      const hasPermissionDenied = msg.includes(
+        'permission denied for table moderation_action_audit',
+      );
+      const has42501 = code === '42501' || msg.includes('42501');
+      expect(hasPermissionDenied || has42501).toBe(true);
+    }
+    expect(threw).toBe(true);
+  });
 
-    it('runtime role cannot TRUNCATE — receives Postgres 42501', async () => {
-      let threw = false;
-      try {
-        await db.$executeRawUnsafe(`TRUNCATE moderation_action_audit`);
-      } catch (err) {
-        threw = true;
-        const msg = (err as Error).message ?? '';
-        const code = (err as { code?: string }).code;
-        const hasPermissionDenied = msg.includes('permission denied for table moderation_action_audit');
-        const has42501 = code === '42501' || msg.includes('42501');
-        expect(hasPermissionDenied || has42501).toBe(true);
-      }
-      expect(threw).toBe(true);
-    });
+  it('runtime role cannot TRUNCATE — receives Postgres 42501', async () => {
+    let threw = false;
+    try {
+      await db.$executeRawUnsafe(`TRUNCATE moderation_action_audit`);
+    } catch (err) {
+      threw = true;
+      const msg = (err as Error).message;
+      const code = (err as { code?: string }).code;
+      const hasPermissionDenied = msg.includes(
+        'permission denied for table moderation_action_audit',
+      );
+      const has42501 = code === '42501' || msg.includes('42501');
+      expect(hasPermissionDenied || has42501).toBe(true);
+    }
+    expect(threw).toBe(true);
+  });
 
-    it('runtime role is NOT the table owner (binding per legal-compliance)', async () => {
-      // If a future operator accidentally runs ALTER TABLE ... OWNER TO tribely_app,
-      // TRUNCATE becomes legal and this test fails loudly — the intended safety net.
-      const [tableRow] = await db.$queryRaw<Array<{ tableowner: string }>>`
+  it('audit table is NOT owned by the runtime role (binding per legal-compliance)', async () => {
+    // If a future operator accidentally runs ALTER TABLE ... OWNER TO tribely_app,
+    // TRUNCATE becomes legal and this test fails loudly — the intended safety net.
+    // The check is role-independent: we assert the owner is never `tribely_app`
+    // regardless of which role runs this test (superuser locally, tribely_app in CI).
+    const [tableRow] = await db.$queryRaw<Array<{ tableowner: string }>>`
         SELECT tableowner
         FROM pg_tables
         WHERE tablename = 'moderation_action_audit'
           AND schemaname = 'public'
       `;
-      const [userRow] = await db.$queryRaw<Array<{ current_user: string }>>`
-        SELECT current_user
-      `;
 
-      expect(tableRow).not.toBeUndefined();
-      expect(userRow).not.toBeUndefined();
-      expect(tableRow.tableowner).not.toBe(userRow.current_user);
-    });
-  },
-);
+    if (!tableRow)
+      throw new Error('unexpected: pg_tables returned no row for moderation_action_audit');
+    expect(tableRow.tableowner).not.toBe('tribely_app');
+  });
+});
