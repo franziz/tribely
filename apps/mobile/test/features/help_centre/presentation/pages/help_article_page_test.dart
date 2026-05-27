@@ -34,7 +34,9 @@ void main() {
       expect(find.text('Article not found'), findsOneWidget);
     });
 
-    testWidgets('section headers carry Semantics(header: true)', (tester) async {
+    testWidgets('section headers carry Semantics(header: true)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(home: HelpArticleScreen(articleId: 'report-faq')),
       );
@@ -42,11 +44,13 @@ void main() {
       // title which Flutter marks as a header automatically — so we can't assert
       // an exact count equal to sections.length. Instead verify each section
       // header string is the direct text child of at least one such widget.
-      final headerSemanticsWidgets = tester.widgetList<Semantics>(
-        find.byWidgetPredicate(
-          (w) => w is Semantics && w.properties.header == true,
-        ),
-      ).toList();
+      final headerSemanticsWidgets = tester
+          .widgetList<Semantics>(
+            find.byWidgetPredicate(
+              (w) => w is Semantics && w.properties.header == true,
+            ),
+          )
+          .toList();
 
       for (final s in HelpCentreCopy.reportFaq.sections) {
         final matchingSemantics = headerSemanticsWidgets.where((widget) {

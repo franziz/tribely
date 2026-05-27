@@ -1,3 +1,8 @@
+import 'package:flutter/material.dart';
+
+import '../../../../core/design/colors.dart';
+import '../string_assets/help_centre_copy.dart';
+
 /// HelpArticleScreen — static FAQ surface for the Help Centre.
 ///
 /// This feature deliberately collapses to a single `presentation/` layer:
@@ -9,11 +14,6 @@
 ///
 /// Routed via `/help/article/:id`. Currently `articleId == 'report-faq'`
 /// is the only supported value; unknown ids render a "not found" fallback.
-import 'package:flutter/material.dart';
-
-import '../../../../core/design/colors.dart';
-import '../string_assets/help_centre_copy.dart';
-
 class HelpArticleScreen extends StatelessWidget {
   const HelpArticleScreen({super.key, required this.articleId});
 
@@ -37,9 +37,9 @@ class HelpArticleScreen extends StatelessWidget {
           children: [
             Text(
               article.pageTitle,
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                fontStyle: FontStyle.italic,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.displayMedium?.copyWith(fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 24),
             ...article.sections.map((s) => _ArticleSectionBlock(section: s)),

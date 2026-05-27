@@ -22,7 +22,9 @@ void main() {
       },
     );
 
-    testWidgets('tapping the secondary link invokes onLearnMore', (tester) async {
+    testWidgets('tapping the secondary link invokes onLearnMore', (
+      tester,
+    ) async {
       var tapped = false;
       await tester.pumpWidget(
         MaterialApp(
@@ -73,8 +75,9 @@ void main() {
       expect(find.byType(ReportReceivedSheet), findsNothing);
     });
 
-    testWidgets('check_circle_outline icon is excluded from semantics',
-        (tester) async {
+    testWidgets('check_circle_outline icon is excluded from semantics', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(body: ReportReceivedSheet(onLearnMore: () {})),

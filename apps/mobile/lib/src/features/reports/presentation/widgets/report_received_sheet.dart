@@ -21,8 +21,9 @@ import '../string_assets/report_copy.dart';
 /// copy (in report_copy.dart) MUST stay aligned with help_centre_copy.dart
 /// and docs/runbooks/moderation-cli.md §2.
 class ReportReceivedSheet extends StatelessWidget {
-  final VoidCallback onLearnMore;
   const ReportReceivedSheet({super.key, required this.onLearnMore});
+
+  final VoidCallback onLearnMore;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +62,7 @@ class ReportReceivedSheet extends StatelessWidget {
                   width: 32,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: inkSecondary.withOpacity(0.4),
+                    color: inkSecondary.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

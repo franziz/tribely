@@ -15,7 +15,7 @@ abstract final class HelpCentreCopy {
       HelpArticleSection(
         header: 'What happens after I report someone?',
         body:
-            "Your report goes straight to our safety team. We read every one — reports are never ignored or automatically closed. We may also use your report to identify patterns of behaviour that affect other members of the community.\n\n"
+            'Your report goes straight to our safety team. We read every one — reports are never ignored or automatically closed. We may also use your report to identify patterns of behaviour that affect other members of the community.\n\n'
             "We don't tell the person you reported that you filed it, and we don't share your name or account with them as part of the review.",
       ),
       HelpArticleSection(
@@ -26,14 +26,14 @@ abstract final class HelpCentreCopy {
       HelpArticleSection(
         header: 'How long until I hear back?',
         body:
-            "We aim to review your report within 72 hours. We aim to fully resolve most reports within 7 days.\n\n"
+            'We aim to review your report within 72 hours. We aim to fully resolve most reports within 7 days.\n\n'
             "If we need more information from you to complete the review, we'll contact you directly through the app.",
       ),
       HelpArticleSection(
         header: "What if I don't hear back?",
         body:
             "As above, we aim to reply within 72 hours and resolve within 7 days. If a week has passed and you haven't heard from us, please email us at support@tribely.app and include the date you submitted your report. We'll find it and get back to you.\n\n"
-            "For privacy-related questions about your report (such as requesting we delete information you submitted), please contact privacy@gotribely.com.\n\n"
+            'For privacy-related questions about your report (such as requesting we delete information you submitted), please contact privacy@gotribely.com.\n\n'
             "We're working on a built-in way to message support directly from the app — it will replace the email link above when it's ready.",
       ),
     ],
@@ -41,13 +41,15 @@ abstract final class HelpCentreCopy {
 }
 
 class HelpArticle {
+  const HelpArticle({required this.pageTitle, required this.sections});
+
   final String pageTitle;
   final List<HelpArticleSection> sections;
-  const HelpArticle({required this.pageTitle, required this.sections});
 }
 
 class HelpArticleSection {
+  const HelpArticleSection({required this.header, required this.body});
+
   final String header;
   final String body;
-  const HelpArticleSection({required this.header, required this.body});
 }

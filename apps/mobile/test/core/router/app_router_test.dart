@@ -649,8 +649,7 @@ void main() {
         );
 
         // The redirect must not have fired — location must still be the article.
-        final uri =
-            router.routerDelegate.currentConfiguration.uri.toString();
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
           equals('/help/article/report-faq'),
@@ -672,8 +671,7 @@ void main() {
           initialLocation: '/sign-in',
         );
 
-        final uri =
-            router.routerDelegate.currentConfiguration.uri.toString();
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
           equals('/events'),
@@ -694,8 +692,7 @@ void main() {
           initialLocation: '/help/article/report-faq',
         );
 
-        final uri =
-            router.routerDelegate.currentConfiguration.uri.toString();
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
           equals('/help/article/report-faq'),
@@ -717,8 +714,7 @@ void main() {
           initialLocation: '/events',
         );
 
-        final uri =
-            router.routerDelegate.currentConfiguration.uri.toString();
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
           equals('/welcome'),

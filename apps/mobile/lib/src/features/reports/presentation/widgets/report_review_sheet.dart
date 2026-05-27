@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -136,14 +138,16 @@ class _ReportReviewSheetState extends ConsumerState<ReportReviewSheet> {
 
     // 3. Chain into block opt-in sheet, unless user navigated to article.
     if (wentToArticle || !context.mounted) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => BlockOptInSheet(
-        reportedUserId: blockedUserId,
-        reportedUserDisplayName: reportedUserDisplayName,
-        onBlockTap: () => blockFn(blockedUserId),
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => BlockOptInSheet(
+          reportedUserId: blockedUserId,
+          reportedUserDisplayName: reportedUserDisplayName,
+          onBlockTap: () => blockFn(blockedUserId),
+        ),
       ),
     );
   }

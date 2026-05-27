@@ -85,8 +85,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/reset-password',
       };
       // Prefix match so /help/article/:id (and any future /help/*) is covered.
-      final isPublic =
-          publicRoutes.any((p) => loc == p || loc.startsWith('$p/'));
+      final isPublic = publicRoutes.any(
+        (p) => loc == p || loc.startsWith('$p/'),
+      );
       final isAuthFlow = authFlowRoutes.contains(loc);
       final isVerify = loc == '/verify-email';
 
