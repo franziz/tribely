@@ -32,9 +32,8 @@ abstract final class HelpCentreCopy {
       HelpArticleSection(
         header: "What if I don't hear back?",
         body:
-            "As above, we aim to reply within 72 hours and resolve within 7 days. If a week has passed and you haven't heard from us, please email us at support@tribely.app and include the date you submitted your report. We'll find it and get back to you.\n\n"
-            'For privacy-related questions about your report (such as requesting we delete information you submitted), please contact privacy@gotribely.com.\n\n'
-            "We're working on a built-in way to message support directly from the app — it will replace the email link above when it's ready.",
+            "As above, we aim to reply within 72 hours and resolve within 7 days. If a week has passed and you haven't heard from us, go to Settings → Help & Support and send us a message with the date you submitted your report. We'll find it and get back to you.\n\n"
+            'For privacy-related questions about your report (such as requesting we delete information you submitted), please contact privacy@gotribely.com.',
       ),
     ],
   );
