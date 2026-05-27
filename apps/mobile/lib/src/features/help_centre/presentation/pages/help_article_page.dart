@@ -11,7 +11,7 @@
 /// is the only supported value; unknown ids render a "not found" fallback.
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/tribely_colors.dart';
+import '../../../../core/design/colors.dart';
 import '../string_assets/help_centre_copy.dart';
 
 class HelpArticleScreen extends StatelessWidget {
