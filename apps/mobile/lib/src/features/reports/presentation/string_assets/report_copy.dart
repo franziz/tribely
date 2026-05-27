@@ -16,12 +16,24 @@ abstract final class ReportCopy {
       'report with the reviewed user if required by law or to investigate '
       'abuse, but we will not disclose your identity to them by default.';
 
-  /// Post-submit confirmation SnackBar body.
-  static const String snackBarConfirmation =
-      'Report received. We aim to review within 72 hours and will act if '
-      'the review breaches our Community Standards. We don\'t share the '
-      'outcome of individual reports, but the review will be hidden if we '
-      'remove it.';
+  /// Persistent post-submit confirmation sheet (TRI-164 — ReportReceivedSheet).
+  /// Replaces the prior SnackBar surface — SLA is now displayed inline,
+  /// not behind a tap, and the sheet includes a link to the Help Centre
+  /// article (/help/article/report-faq).
+  ///
+  /// Numerical coupling: the SLA figures ("72 hours", "7 days") MUST stay
+  /// aligned with help_centre_copy.dart and docs/runbooks/moderation-cli.md §2.
+  static const String sheetHeadline = 'Report received';
+
+  static const String sheetBodyParagraph1 =
+      'Thank you for letting us know. We take every report seriously and review each one individually.';
+
+  static const String sheetBodyParagraph2Sla =
+      'We aim to review reports within 72 hours, and resolve within 7 days.';
+
+  static const String sheetPrimaryCta = 'Done';
+
+  static const String sheetSecondaryLink = 'Learn what happens next';
 
   /// Prompt text shown in the "Also block?" bottom sheet.
   static const String blockOptInPrompt =
