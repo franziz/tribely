@@ -27,6 +27,7 @@ import {
 } from './features/reviews/presentation/http/routes/review.routes.js';
 import { buildReportRoutes } from './features/reports/presentation/http/routes/report.routes.js';
 import { buildUserBlockRoutes } from './features/user-blocks/presentation/http/routes/user-block.routes.js';
+import { buildSupportRoutes } from './features/support/presentation/http/routes/support.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
   const container = buildContainer();
@@ -190,6 +191,15 @@ export const buildApp = (): { app: Hono; container: Container } => {
       listPendingReviewPrompts: container.listPendingReviewPromptsUseCase,
       accessTokens: container.accessTokens,
       userRepository: container.userRepository,
+    }),
+  );
+
+  // Support: POST /support/tickets — auth-gated, domain-enforced rate limit.
+  app.route(
+    '/support',
+    buildSupportRoutes({
+      submitSupportTicket: container.submitSupportTicketUseCase,
+      accessTokens: container.accessTokens,
     }),
   );
 
