@@ -719,3 +719,35 @@ model PostEventCheckInEvent {
   @@index([userId, reason])
   @@map("post_event_check_in_events")
 }
+
+/// Aggregate root in the `support` bounded context.
+/// Tracks a user-submitted in-app support contact form submission.
+///
+/// `userId` is a nullable String (NOT a relation/FK) — pseudonymise-by-repo
+/// pattern (TRI-29 / TRI-134 precedent): the ticket survives account tombstone
+/// without requiring a cascade delete on the support side.
+///
+/// `reportId` is free-text (NOT an FK to moderation_reports) — legal-compliance
+/// guardrail: support persistence MUST NOT join to `moderation_reports`.
+///
+/// `category` / `status` are plain String columns with DB CHECK constraints
+/// (per codebase convention: TEXT + CHECK, not Postgres enums).
+///
+/// `userEmailSnapshot` captures the user's email at submission time so the
+/// support team can reply even if the user later tombstones their account.
+model SupportTicket {
+  id                String    @id @default(cuid())
+  userId            String?   // NULL-able; plain String, NOT a relation — see model comment
+  userEmailSnapshot String?   // NULL-able for pseudonymisation; captured at submission
+  category          String    @db.VarChar(64) // report_followup_7d | account_signin | event_or_host | app_broken | feedback | other — CHECK enforced
+  message           String    @db.Text
+  reportId          String?   // free-text; NOT an FK to moderation_reports — see model comment
+  status            String    @default("open") // open | resolved | discarded — CHECK enforced
+  createdAt         DateTime  @default(now())
+  resolvedAt        DateTime?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@index([category, createdAt])
+  @@map("support_tickets")
+}
