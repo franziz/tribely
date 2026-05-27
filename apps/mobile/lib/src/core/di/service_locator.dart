@@ -81,6 +81,10 @@ import '../../features/user_blocks/domain/repositories/user_block_repository.dar
 import '../../features/user_blocks/domain/usecases/block_user_usecase.dart';
 import '../../features/user_blocks/domain/usecases/list_my_blocks_usecase.dart';
 import '../../features/user_blocks/domain/usecases/unblock_user_usecase.dart';
+import '../../features/support/data/datasources/support_remote_data_source.dart';
+import '../../features/support/data/repositories/support_repository_impl.dart';
+import '../../features/support/domain/repositories/support_repository.dart';
+import '../../features/support/domain/usecases/submit_support_ticket_usecase.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -332,5 +336,20 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => UnblockUserUseCase(sl<UserBlockRepository>()));
   sl.registerLazySingleton(
     () => ListMyBlocksUseCase(sl<UserBlockRepository>()),
+  );
+
+  // Support — datasources
+  sl.registerLazySingleton<SupportRemoteDataSource>(
+    () => SupportRemoteDataSourceImpl(sl<ApiClient>().dio),
+  );
+
+  // Support — repositories
+  sl.registerLazySingleton<SupportRepository>(
+    () => SupportRepositoryImpl(remote: sl<SupportRemoteDataSource>()),
+  );
+
+  // Support — use cases
+  sl.registerLazySingleton(
+    () => SubmitSupportTicketUseCase(sl<SupportRepository>()),
   );
 }
