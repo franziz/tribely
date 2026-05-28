@@ -59,9 +59,10 @@ String _messageFor(Failure failure) {
     ServerFailure(:final statusCode) when statusCode == 429 =>
       supportRateLimitedBannerCopy,
     ServerFailure() => "Something's off on our end. Give it a moment.",
-    _ => failure.message.isNotEmpty
-        ? failure.message
-        : supportGenericErrorBannerCopy,
+    _ =>
+      failure.message.isNotEmpty
+          ? failure.message
+          : supportGenericErrorBannerCopy,
   };
 }
 

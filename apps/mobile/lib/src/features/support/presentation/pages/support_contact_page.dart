@@ -138,9 +138,7 @@ class _SupportContactPageState extends ConsumerState<SupportContactPage> {
       next,
     ) {
       if (next is SupportContactSuccess) {
-        context.pushReplacement(
-          '/support/contact/success?id=${next.ticketId}',
-        );
+        context.pushReplacement('/support/contact/success?id=${next.ticketId}');
       } else if (next is SupportContactError) {
         // Scroll to top so the error banner is visible.
         _scrollController.animateTo(
