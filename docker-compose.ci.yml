@@ -1,0 +1,92 @@
+# CI-local compose file — used exclusively by tools/ci-local.sh.
+# Do NOT use for production or development — those have their own compose files.
+#
+# Serial execution is enforced by ci-local.sh via sequential `docker compose run
+# --rm` calls under `set -euo pipefail` — the first non-zero exit aborts the
+# chain and teardown fires via trap. `depends_on` below is belt-and-suspenders:
+# it ensures postgres is healthy before any api-gates `run` container starts
+# (compose starts service deps automatically for `run`). The mobile-gates
+# depends_on api-gates is for documentation intent only — `docker compose run`
+# does not gate on a sibling service's completion state.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tribely_test
+    healthcheck:
+      # Mirror verbatim from .github/workflows/_api.yml service healthcheck.
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "tribely_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  api-gates:
+    build:
+      context: .
+      dockerfile: tools/ci/api.Dockerfile
+      args:
+        # SOT: .nvmrc — ci-local.sh reads and passes NODE_VERSION at run time.
+        NODE_VERSION: ${NODE_VERSION:-22}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Job-level env mirrors _api.yml exactly.
+      DATABASE_URL: postgresql://tribely_app:ci_runtime_pw@postgres:5432/tribely_test?schema=public
+      ADMIN_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/tribely_test?schema=public
+      # Placeholders — no real secrets required for the default loop.
+      # Mirrors the repo's *_TRANSPORT=log convention.
+      EMAIL_TRANSPORT: log
+      SMS_TRANSPORT: log
+      STORAGE_TRANSPORT: log
+    volumes:
+      # Repo mount — read-write: test:coverage writes apps/api/coverage/ and
+      # prisma migrate dev may touch the schema; both paths are gitignored so
+      # writing to the host tree does not dirty git status.
+      - .:/workspace
+      # Named volumes for dependency caches to avoid osxfs thrash on macOS.
+      - api_node_modules:/workspace/node_modules
+      - api_workspace_node_modules:/workspace/apps/api/node_modules
+    working_dir: /workspace
+    # Command is supplied per-step by ci-local.sh via `docker compose run`.
+    # This default is a no-op sentinel.
+    command: ["true"]
+
+  mobile-gates:
+    build:
+      context: .
+      dockerfile: tools/ci/mobile.Dockerfile
+      args:
+        # SOT: apps/mobile/pubspec.yaml environment.flutter — ci-local.sh reads
+        # and passes FLUTTER_VERSION at run time.
+        FLUTTER_VERSION: ${FLUTTER_VERSION:-3.41.9}
+        # SOT: .nvmrc — needed so `npm run mobile:*` scripts can shell-execute.
+        NODE_VERSION: ${NODE_VERSION:-22}
+    depends_on:
+      api-gates:
+        condition: service_completed_successfully
+    volumes:
+      # Repo mount — read-write: codegen (dart run build_runner) writes *.g.dart
+      # and *.freezed.dart into apps/mobile/lib/ and apps/mobile/test/; these
+      # files are gitignored. Generated files must persist across the sequential
+      # codegen → analyze → test container invocations via this shared bind mount,
+      # which requires write access. Coverage output (apps/mobile/coverage/) is
+      # also written here; gitignored, so host tree stays clean.
+      - .:/workspace
+      # Named volumes for Flutter/Dart caches to avoid osxfs thrash on macOS.
+      - mobile_pub_cache:/root/.pub-cache
+      - mobile_dart_tool:/workspace/apps/mobile/.dart_tool
+      - mobile_build:/workspace/apps/mobile/build
+    working_dir: /workspace
+    command: ["true"]
+
+volumes:
+  api_node_modules:
+  api_workspace_node_modules:
+  mobile_pub_cache:
+  mobile_dart_tool:
+  mobile_build:

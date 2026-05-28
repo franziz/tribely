@@ -22,20 +22,22 @@ jobs:
       - name: Setup Mobile
         uses: ./.github/actions/setup-mobile
 
+      - name: Setup Node
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version-file: .nvmrc
+
       - name: Format check
-        working-directory: apps/mobile
-        run: dart format --set-exit-if-changed --output none .
+        run: npm run mobile:format:check
 
       # `flutter analyze` loads riverpod_lint via the analysis_server_plugin
       # mechanism (top-level `plugins:` in analysis_options.yaml). No
       # custom_lint host involved.
       - name: Analyze
-        working-directory: apps/mobile
-        run: flutter analyze
+        run: npm run mobile:analyze
 
       - name: Test (with coverage)
-        working-directory: apps/mobile
-        run: flutter test --coverage
+        run: npm run mobile:test:coverage
 
       - name: Upload coverage report
         if: always()
