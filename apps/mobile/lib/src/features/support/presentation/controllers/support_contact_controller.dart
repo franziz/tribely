@@ -32,7 +32,10 @@ class SupportContactController extends Notifier<SupportContactState> {
     if (!ref.mounted) return;
 
     state = result.fold(
-      (failure) => SupportContactError(message: _messageFor(failure)),
+      (failure) => SupportContactError(
+        failure: failure,
+        bannerMessage: _messageFor(failure),
+      ),
       (submitResult) => SupportContactSuccess(ticketId: submitResult.id),
     );
   }
@@ -43,19 +46,23 @@ class SupportContactController extends Notifier<SupportContactState> {
       state = const SupportContactIdle();
     }
   }
+}
 
-  // ---------------------------------------------------------------------------
-  // Failure → user-facing copy
-  // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Failure → user-facing copy
+// ---------------------------------------------------------------------------
 
-  String _messageFor(Failure failure) {
-    if (failure is RateLimitedFailure) {
-      return supportRateLimitedBannerCopy;
-    }
-    return failure.message.isNotEmpty
+String _messageFor(Failure failure) {
+  return switch (failure) {
+    RateLimitedFailure() => supportRateLimitedBannerCopy,
+    NetworkFailure() => "Couldn't reach Tribely. Check your connection.",
+    ServerFailure(:final statusCode) when statusCode == 429 =>
+      supportRateLimitedBannerCopy,
+    ServerFailure() => "Something's off on our end. Give it a moment.",
+    _ => failure.message.isNotEmpty
         ? failure.message
-        : supportGenericErrorBannerCopy;
-  }
+        : supportGenericErrorBannerCopy,
+  };
 }
 
 /// Provider for [SupportContactController].

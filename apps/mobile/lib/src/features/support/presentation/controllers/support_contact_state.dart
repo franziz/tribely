@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/error/failures.dart';
+
 /// State machine for [SupportContactController].
 ///
 /// Transitions:
@@ -30,12 +32,16 @@ final class SupportContactSubmitting extends SupportContactState {
 
 /// The submit call failed. Banner is visible; form remains populated.
 final class SupportContactError extends SupportContactState {
-  const SupportContactError({required this.message});
+  const SupportContactError({
+    required this.failure,
+    required this.bannerMessage,
+  });
 
-  final String message;
+  final Failure failure;
+  final String bannerMessage;
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [failure, bannerMessage];
 }
 
 /// The submit call succeeded. Controller emits this once, then the page

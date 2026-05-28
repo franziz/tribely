@@ -195,8 +195,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    // Banner shows the failure message.
-    expect(find.text('Request failed'), findsOneWidget);
+    // Banner shows the mapped copy for NetworkFailure.
+    expect(
+      find.text("Couldn't reach Tribely. Check your connection."),
+      findsOneWidget,
+    );
     // Page is still mounted.
     expect(find.byType(SupportContactPage), findsOneWidget);
   });
@@ -252,13 +255,19 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    expect(find.text('Internal error'), findsOneWidget);
+    expect(
+      find.text("Something's off on our end. Give it a moment."),
+      findsOneWidget,
+    );
 
     // Dismiss the banner via the close icon.
     await tester.tap(find.byIcon(Icons.close));
     await tester.pump();
 
-    expect(find.text('Internal error'), findsNothing);
+    expect(
+      find.text("Something's off on our end. Give it a moment."),
+      findsNothing,
+    );
   });
 
   // -------------------------------------------------------------------------

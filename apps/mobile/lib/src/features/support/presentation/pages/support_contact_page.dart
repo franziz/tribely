@@ -93,7 +93,7 @@ class _SupportContactPageState extends ConsumerState<SupportContactPage> {
   bool get _canSubmit =>
       _selectedCategory != null && _messageController.text.trim().isNotEmpty;
 
-  Future<void> _onSubmit() async {
+  void _onSubmit() {
     if (!_canSubmit) return;
 
     final draft = SupportTicketDraft(
@@ -104,21 +104,7 @@ class _SupportContactPageState extends ConsumerState<SupportContactPage> {
           : null,
     );
 
-    await ref.read(supportContactControllerProvider.notifier).submit(draft);
-
-    if (!mounted) return;
-
-    final state = ref.read(supportContactControllerProvider);
-    if (state is SupportContactSuccess) {
-      context.pushReplacement('/support/contact/success?id=${state.ticketId}');
-    } else if (state is SupportContactError) {
-      // Scroll to top so the error banner is visible.
-      await _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    ref.read(supportContactControllerProvider.notifier).submit(draft);
   }
 
   Future<void> _openCategorySheet() async {
@@ -144,8 +130,26 @@ class _SupportContactPageState extends ConsumerState<SupportContactPage> {
     final controllerState = ref.watch(supportContactControllerProvider);
     final isSubmitting = controllerState is SupportContactSubmitting;
     final errorMessage = controllerState is SupportContactError
-        ? controllerState.message
+        ? controllerState.bannerMessage
         : null;
+
+    ref.listen<SupportContactState>(supportContactControllerProvider, (
+      previous,
+      next,
+    ) {
+      if (next is SupportContactSuccess) {
+        context.pushReplacement(
+          '/support/contact/success?id=${next.ticketId}',
+        );
+      } else if (next is SupportContactError) {
+        // Scroll to top so the error banner is visible.
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
 
     final dark = Theme.of(context).brightness == Brightness.dark;
     final ink = dark
