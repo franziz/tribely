@@ -149,7 +149,7 @@ import type { UserBlockRepository } from '@/features/user-blocks/domain/reposito
 import { PrismaSupportTicketRepository } from '@/features/support/infrastructure/persistence/prisma-support-ticket.repository.js';
 import { SubmitSupportTicketUseCase } from '@/features/support/application/usecases/submit-support-ticket.usecase.js';
 import { registerSupportConsumers } from '@/features/support/presentation/events/index.js';
-import type { SupportTicketRepository } from '@/features/support/application/ports/support-ticket-repository.port.js';
+import type { SupportTicketRepository } from '@/features/support/domain/repositories/support-ticket.repository.js';
 
 import { ReportPrismaRepository } from '@/features/reports/infrastructure/persistence/report.prisma-repository.js';
 import { FileReportUseCase } from '@/features/reports/application/usecases/file-report.usecase.js';

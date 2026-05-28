@@ -2,7 +2,7 @@ import { unwrapTx } from '@/core/db/prisma-unit-of-work.js';
 import type { Db } from '@/core/db/prisma.js';
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { SupportTicket } from '../../domain/entities/support-ticket.js';
-import type { SupportTicketRepository } from '../../application/ports/support-ticket-repository.port.js';
+import type { SupportTicketRepository } from '../../domain/repositories/support-ticket.repository.js';
 import { toRow } from './support-ticket.mapper.js';
 
 /**
@@ -23,12 +23,12 @@ export class PrismaSupportTicketRepository implements SupportTicketRepository {
     await client.supportTicket.create({ data: toRow(ticket) });
   }
 
-  async countRecentByUser(userId: string, sinceMs: number, ctx?: TxContext): Promise<number> {
+  async countRecentByUser(userId: string, since: Date, ctx?: TxContext): Promise<number> {
     const client = ctx ? unwrapTx(ctx) : this.db;
     return client.supportTicket.count({
       where: {
         userId,
-        createdAt: { gte: new Date(sinceMs) },
+        createdAt: { gte: since },
       },
     });
   }

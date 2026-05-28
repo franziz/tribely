@@ -2,7 +2,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import { sha256Hex } from '@/core/crypto/sha256-hex.js';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
-import type { SupportTicketRepository } from '../ports/support-ticket-repository.port.js';
+import type { SupportTicketRepository } from '../../domain/repositories/support-ticket.repository.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type {
   SubmitSupportTicketInput,
@@ -51,8 +51,8 @@ export class SubmitSupportTicketUseCase {
     }
 
     // 3. Enforce rate limit: max 5 tickets per 24h window.
-    const sinceMs = Date.now() - RATE_LIMIT_WINDOW_MS;
-    const recentCount = await this.supportTicketRepository.countRecentByUser(input.userId, sinceMs);
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
+    const recentCount = await this.supportTicketRepository.countRecentByUser(input.userId, since);
     if (recentCount >= RATE_LIMIT_MAX) {
       throw AppError.unprocessable('support.rateLimited');
     }

@@ -159,7 +159,6 @@ describe.skipIf(!dbUrl)('POST /support/tickets (integration)', () => {
         id,
         userId,
         userEmailSnapshot: `support-user-${userId}@test.dev`,
-        userEmailHash: 'fakehash',
         category: 'other',
         message: 'seed ticket for rate-limit test',
         reportId: null,
