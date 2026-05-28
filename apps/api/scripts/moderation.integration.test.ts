@@ -74,6 +74,9 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
   let hostUserId: string;
   let eventId: string;
 
+  /** Track outbox aggregate IDs (report IDs) so afterAll can scope-delete instead of blanket-wipe. */
+  const trackedOutboxAggregateIds = new Set<string>();
+
   beforeAll(async () => {
     if (!dbUrl) return;
 
@@ -153,14 +156,23 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
     if (!dbUrl) return;
     // TRI-206: moderation_action_audit teardown is handled by the module-level
     // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
-    await db.outboxEvent.deleteMany({}).catch(() => null);
+    // Scoped delete — only rows whose aggregateId matches a report created by this suite.
+    if (trackedOutboxAggregateIds.size > 0) {
+      await db.outboxEvent
+        .deleteMany({ where: { aggregateId: { in: [...trackedOutboxAggregateIds] } } })
+        .catch(() => null);
+    }
     await db.review.deleteMany({ where: { eventId } }).catch(() => null);
     await db.report.deleteMany({ where: { reporterUserId: reporterId } }).catch(() => null);
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
+    // Delete seed users + ephemeral per-review rated users (email prefix 'ephemeral-rated-').
     await db.user
       .deleteMany({
         where: { id: { in: [operatorId, reporterId, ratedUserId, hostUserId] } },
       })
+      .catch(() => null);
+    await db.user
+      .deleteMany({ where: { email: { startsWith: 'ephemeral-rated-' } } })
       .catch(() => null);
     await db.$disconnect();
   });
@@ -169,12 +181,26 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
   // Helpers
   // ---------------------------------------------------------------------------
 
+  // Each review must have a unique (eventId, raterUserId, ratedUserId) triple.
+  // To allow multiple reviews per test run, we create an ad-hoc rated user on each
+  // call so the triple is always unique. The extra users are cleaned up in afterAll
+  // via the email prefix pattern.
   const seedReview = async (comment: string | null = 'This was a great event'): Promise<Review> => {
+    // Create a unique rated user so the DB unique constraint on
+    // (eventId, raterUserId, ratedUserId) never fires across calls.
+    const ephemeralRatedUserId = createId();
+    await db.user.create({
+      data: {
+        id: ephemeralRatedUserId,
+        email: `ephemeral-rated-${ephemeralRatedUserId}@example.com`,
+        displayName: 'Ephemeral Rated',
+      },
+    });
     const review = Review.submit({
       id: createId(),
       eventId,
       raterUserId: reporterId,
-      ratedUserId,
+      ratedUserId: ephemeralRatedUserId,
       rating: Rating.create(4),
       comment: comment ? ReviewComment.create(comment) : null,
       now: new Date(),
@@ -223,14 +249,15 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
         resolvedByUserId: null,
       },
     });
+    // Track this report's id as an outbox aggregateId so afterAll can scope-delete.
+    trackedOutboxAggregateIds.add(report.id);
     return report;
   };
 
   const cleanupReportAndReview = async (reportId: string, reviewId: string): Promise<void> => {
     // TRI-206: moderation_action_audit rows are handled by the module-level
     // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
-    // Outbox rows are written by OutboxEventPublisher but have no FK to
-    // reports or reviews — left for afterAll cleanup.
+    // Outbox rows are scoped-deleted in afterAll via trackedOutboxAggregateIds.
     await db.report.deleteMany({ where: { id: reportId } }).catch(() => null);
     await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);
   };
@@ -456,6 +483,9 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
   // A far-future endsAt so the event is never in the "past end time" window.
   const FUTURE_ENDS_AT = new Date('2099-12-31T23:59:59Z');
 
+  /** Track outbox aggregate IDs (event IDs) so cleanup can scope-delete instead of blanket-wipe. */
+  const trackedOutboxAggregateIds = new Set<string>();
+
   beforeAll(async () => {
     if (!dbUrl) return;
 
@@ -502,7 +532,12 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
     if (!dbUrl) return;
     // TRI-206: moderation_action_audit teardown is handled by the module-level
     // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
-    await db.outboxEvent.deleteMany({}).catch(() => null);
+    // Scoped delete — only rows whose aggregateId matches an event created by this suite.
+    if (trackedOutboxAggregateIds.size > 0) {
+      await db.outboxEvent
+        .deleteMany({ where: { aggregateId: { in: [...trackedOutboxAggregateIds] } } })
+        .catch(() => null);
+    }
     await db.event.deleteMany({ where: { hostUserId } }).catch(() => null);
     await db.user.deleteMany({ where: { id: { in: [operatorId, hostUserId] } } }).catch(() => null);
     await db.$disconnect();
@@ -533,13 +568,15 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
         status: 'published',
       },
     });
+    // Track this event's id as an outbox aggregateId so cleanup can scope-delete.
+    trackedOutboxAggregateIds.add(eventId);
     return eventId;
   };
 
   const cleanupEvent = async (eventId: string): Promise<void> => {
     // TRI-206: moderation_action_audit rows are handled by the module-level
     // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
-    await db.outboxEvent.deleteMany({}).catch(() => null);
+    // Outbox rows are scoped-deleted in afterAll via trackedOutboxAggregateIds.
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
   };
 
@@ -979,11 +1016,19 @@ describe.skipIf(!dbUrl)(
       });
     });
 
+    /** Track outbox aggregate IDs (report IDs) so afterAll can scope-delete instead of blanket-wipe. */
+    const trackedEscOutboxAggregateIds = new Set<string>();
+
     afterAll(async () => {
       if (!dbUrl) return;
       // TRI-206: moderation_action_audit teardown is handled by the module-level
       // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
-      await db.outboxEvent.deleteMany({}).catch(() => null);
+      // Scoped delete — only rows whose aggregateId matches a report created by this suite.
+      if (trackedEscOutboxAggregateIds.size > 0) {
+        await db.outboxEvent
+          .deleteMany({ where: { aggregateId: { in: [...trackedEscOutboxAggregateIds] } } })
+          .catch(() => null);
+      }
       await db.review.deleteMany({ where: { eventId } }).catch(() => null);
       await db.report.deleteMany({ where: { reporterUserId: reporterId } }).catch(() => null);
       await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
@@ -1069,6 +1114,8 @@ describe.skipIf(!dbUrl)(
           resolvedByUserId: null,
         },
       });
+      // Track this report's id as an outbox aggregateId so afterAll can scope-delete.
+      trackedEscOutboxAggregateIds.add(report.id);
       return report;
     };
 
@@ -1092,7 +1139,7 @@ describe.skipIf(!dbUrl)(
     const cleanupReportAndReview = async (reportId: string, reviewId: string): Promise<void> => {
       // TRI-206: moderation_action_audit rows are handled by the module-level
       // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
-      await db.outboxEvent.deleteMany({}).catch(() => null);
+      // Outbox rows are scoped-deleted in afterAll via trackedEscOutboxAggregateIds.
       await db.report.deleteMany({ where: { id: reportId } }).catch(() => null);
       await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);
     };
