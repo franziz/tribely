@@ -78,7 +78,23 @@ const String supportCategorySheetTitle = 'Choose a subject';
 /// Accessibility label on the sheet container.
 const String supportCategorySheetSemanticLabel = 'Choose a subject';
 
-/// Display-string ↔ [SupportCategory] mapping — single source of truth.
+// ---------------------------------------------------------------------------
+// Success screen copy
+// ---------------------------------------------------------------------------
+
+/// AppBar / heading on the post-submit success screen.
+const String supportSuccessHeading = 'Message sent';
+
+/// Body copy on the post-submit success screen.
+const String supportSuccessBody =
+    'We\'ve received your message.\n\n'
+    'We aim to reply within 3 business days to the email on your account.';
+
+/// CTA label on the post-submit success screen.
+const String supportSuccessCta = 'Done';
+
+// ---------------------------------------------------------------------------
+// Display-string ↔ [SupportCategory] mapping — single source of truth.
 ///
 /// Returns the exact string shown in [CategorySelectorSheet] and in the
 /// subject tap-target row once a category is selected. Canonical order matches

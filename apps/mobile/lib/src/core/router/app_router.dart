@@ -31,6 +31,8 @@ import '../../features/check_ins/presentation/pages/safety_report_submitted_page
 import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
 import '../../features/check_ins/presentation/widgets/check_ins_overlay.dart';
 import '../../features/help_centre/presentation/pages/help_article_page.dart';
+import '../../features/support/presentation/pages/support_contact_page.dart';
+import '../../features/support/presentation/pages/support_contact_success_page.dart';
 import '../lifecycle/app_lifecycle_listener.dart';
 import 'app_shell.dart';
 
@@ -316,6 +318,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'accountDeleted',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const AccountDeletedPage(),
+      ),
+      // Full-screen support contact form — reached via Settings → Help & Support
+      // or via deep link `/support/contact?reportId=XXX`. Requires authentication;
+      // the redirect guard above covers unauthenticated access.
+      GoRoute(
+        path: '/support/contact',
+        name: 'supportContact',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SupportContactPage(),
+      ),
+      // Terminal success screen after a support ticket is submitted. Reached via
+      // context.pushReplacement from SupportContactPage. The `?id=` query param
+      // is available to the page but is not displayed (brief: no case number shown).
+      GoRoute(
+        path: '/support/contact/success',
+        name: 'supportContactSuccess',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SupportContactSuccessPage(),
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
       // OnResumedListener is mounted HERE — above the indexedStack — so a

@@ -60,6 +60,14 @@ class SettingsPage extends ConsumerWidget {
             onTap: () => context.push('/settings/blocked-users'),
           ),
 
+          // ── SUPPORT ──────────────────────────────────────────────────────
+          _SectionHeader(label: 'SUPPORT', inkSecondary: inkSecondary),
+          _SettingsTile(
+            title: 'Help & Support',
+            ink: ink,
+            onTap: () => context.push('/support/contact'),
+          ),
+
           const SizedBox(height: 32),
 
           // ── Sign out ─────────────────────────────────────────────────────
