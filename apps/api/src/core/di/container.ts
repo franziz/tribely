@@ -146,6 +146,11 @@ import { registerUserBlocksConsumers } from '@/features/user-blocks/presentation
 import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
 import type { UserBlockRepository } from '@/features/user-blocks/domain/repositories/user-block.repository.js';
 
+import { PrismaSupportTicketRepository } from '@/features/support/infrastructure/persistence/prisma-support-ticket.repository.js';
+import { SubmitSupportTicketUseCase } from '@/features/support/application/usecases/submit-support-ticket.usecase.js';
+import { registerSupportConsumers } from '@/features/support/presentation/events/index.js';
+import type { SupportTicketRepository } from '@/features/support/domain/repositories/support-ticket.repository.js';
+
 import { ReportPrismaRepository } from '@/features/reports/infrastructure/persistence/report.prisma-repository.js';
 import { FileReportUseCase } from '@/features/reports/application/usecases/file-report.usecase.js';
 import { TouchReportUseCase } from '@/features/reports/application/usecases/touch-report.usecase.js';
@@ -382,6 +387,10 @@ export interface Container {
   listReviewsForUserUseCase: ListReviewsForUserUseCase;
   listReviewsWrittenByMeUseCase: ListReviewsWrittenByMeUseCase;
   reviewController: ReviewController;
+
+  // Support
+  supportTicketRepository: SupportTicketRepository;
+  submitSupportTicketUseCase: SubmitSupportTicketUseCase;
 
   // Reports
   reportRepository: ReportRepository;
@@ -934,6 +943,15 @@ export const buildContainer = (): Container => {
 
   const reportController = new ReportController(fileReportUseCase);
 
+  // --- Support ---
+  const supportTicketRepository = new PrismaSupportTicketRepository(db);
+  const submitSupportTicketUseCase = new SubmitSupportTicketUseCase(
+    unitOfWork,
+    supportTicketRepository,
+    userRepository,
+    publisher,
+  );
+
   // --- TRI-134 + TRI-155 — account-deletion cascade ---
   // DeleteAccountUseCase is the outermost orchestrator for the PDPA erasure flow.
   // All sub-use-cases use the two-arg execute(input, ctx) A7-exception pattern —
@@ -993,6 +1011,7 @@ export const buildContainer = (): Container => {
     emailSender,
     eventRepository,
   });
+  registerSupportConsumers(consumerRegistry);
 
   return {
     db,
@@ -1105,5 +1124,7 @@ export const buildContainer = (): Container => {
     sweepResolvedReportsUseCase,
     sweepResolvedReportsJob,
     reportController,
+    supportTicketRepository,
+    submitSupportTicketUseCase,
   };
 };

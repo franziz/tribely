@@ -10,6 +10,9 @@
 //   7. Tapping Cancel in the dialog dismisses without calling signOut.
 //   8. Tapping "Sign out" in the dialog calls SessionController.signOut once.
 //   9. Tapping "Blocked users" navigates to /settings/blocked-users.
+//  10. SUPPORT section header renders.
+//  11. "Help & Support" tile is present.
+//  12. Tapping "Help & Support" navigates to /support/contact.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,6 +91,11 @@ Future<void> _pumpPage(
             builder: (context, state) =>
                 const Scaffold(body: Text('Edit profile page')),
           ),
+          GoRoute(
+            path: '/support/contact',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Support contact page')),
+          ),
         ],
       );
 
@@ -133,6 +141,16 @@ void main() {
     testWidgets('renders "Sign out" button', (tester) async {
       await _pumpPage(tester);
       expect(find.text('Sign out'), findsOneWidget);
+    });
+
+    testWidgets('renders SUPPORT section header', (tester) async {
+      await _pumpPage(tester);
+      expect(find.text('SUPPORT'), findsOneWidget);
+    });
+
+    testWidgets('renders "Help & Support" tile', (tester) async {
+      await _pumpPage(tester);
+      expect(find.text('Help & Support'), findsOneWidget);
     });
   });
 
@@ -200,5 +218,15 @@ void main() {
         expect(find.text('Blocked users page'), findsOneWidget);
       },
     );
+
+    testWidgets('tapping "Help & Support" navigates to /support/contact', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
+      await tester.tap(find.text('Help & Support'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Support contact page'), findsOneWidget);
+    });
   });
 }

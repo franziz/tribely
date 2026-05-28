@@ -108,6 +108,13 @@ class SelfBlockFailure extends Failure {
   const SelfBlockFailure(super.message, {super.code});
 }
 
+/// 422 UNPROCESSABLE with subcode `support.rateLimited`. The user has
+/// exceeded the support-ticket submission rate cap. Distinct from the generic
+/// [ServerFailure] so the UI can show rate-limit–specific copy.
+class RateLimitedFailure extends Failure {
+  const RateLimitedFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event

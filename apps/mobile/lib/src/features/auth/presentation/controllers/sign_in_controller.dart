@@ -47,6 +47,7 @@ String _bannerFor(Failure failure) {
     TargetNotFoundFailure() => failure.message,
     TargetTypeNotImplementedFailure() => failure.message,
     SelfBlockFailure() => failure.message,
+    RateLimitedFailure() => 'Too many attempts. Please try again later.',
     UnknownFailure() => failure.message,
   };
 }
