@@ -13,6 +13,8 @@ export type AccountDeletionOutcome = 'completed' | 'failed_rolled_back';
  * Extended in TRI-155 — three new scopes added for the reviews/reports/user-blocks
  * cascade. No semantic shift in PDPA s24 evidence schema, just additional scope tags.
  *
+ * Extended in TRI-217 — support-ticket PDPA cascade scope.
+ *
  * NOTE: `event_audit_logs_actor_hashed` was removed in Brief E adjudication.
  * `EventAuditLog` has no `actorUserId` column — it joins to `http_audit_logs`
  * via `requestId`, so audit-actor hashing is fully covered by
@@ -33,7 +35,8 @@ export type AccountDeletionCascadeScope =
   | 'outbox_events_redacted'
   | 'reports_deleted'
   | 'reviews_deleted'
-  | 'user_blocks_deleted';
+  | 'user_blocks_deleted'
+  | 'support_tickets';
 
 export interface AccountDeletionEventRecord {
   id: string;

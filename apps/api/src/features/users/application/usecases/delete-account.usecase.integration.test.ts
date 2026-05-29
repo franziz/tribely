@@ -56,6 +56,9 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
   let userBlockSubjectInitiatorId: string; // subject blocks counterparty1
   let userBlockSubjectBlockedId: string; // counterparty2 blocks subject
 
+  // SupportTicket row owned by subject (TRI-217)
+  let subjectSupportTicketId: string;
+
   // Unrelated rows (must survive after cascade)
   let unrelatedReviewId: string;
   let unrelatedReportId: string;
@@ -246,6 +249,19 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
         blockedUserId: counterparty2Id,
       },
     });
+
+    // ── 6. Seed support ticket owned by subject (TRI-217) ─────────────────
+    subjectSupportTicketId = createId();
+    await db.supportTicket.create({
+      data: {
+        id: subjectSupportTicketId,
+        userId: subjectId,
+        userEmailSnapshot: `tri217-subject-${subjectId}@test.local`,
+        category: 'other',
+        message: 'please reach me at foo@bar.com',
+        status: 'open',
+      },
+    });
   });
 
   afterAll(async () => {
@@ -255,6 +271,9 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
     await db.accountDeletionEvent
       .deleteMany({ where: { userIdHash: sha256Hex(subjectId) } })
       .catch(() => null);
+
+    // support tickets (pseudonymised by cascade — userId is NULL, delete by id)
+    await db.supportTicket.deleteMany({ where: { id: subjectSupportTicketId } }).catch(() => null);
 
     // reports (some may already be deleted by cascade)
     await db.report
@@ -365,6 +384,17 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
       expect(row).not.toBeNull();
     });
 
+    it('pseudonymises the support ticket (row retained, PII fields nulled/tombstoned)', async () => {
+      const row = await db.supportTicket.findUnique({ where: { id: subjectSupportTicketId } });
+      // Row must still exist (retained for audit continuity)
+      expect(row).not.toBeNull();
+      // userId and userEmailSnapshot must be nulled
+      expect(row?.userId).toBeNull();
+      expect(row?.userEmailSnapshot).toBeNull();
+      // message must be tombstoned with the sentinel string
+      expect(row?.message).toBe('[deleted]');
+    });
+
     it('tombstones the user row (deletedAt non-null, email placeholder)', async () => {
       const row = await db.user.findUnique({ where: { id: subjectId } });
       expect(row).not.toBeNull();
@@ -372,7 +402,7 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
       expect(row?.email).toMatch(/^deleted-.+@deleted\.tribely\.local$/);
     });
 
-    it('writes an account_deletion_events row with outcome=completed and 14 cascadeScope values including the three new scopes', async () => {
+    it('writes an account_deletion_events row with outcome=completed and 15 cascadeScope values including the new support_tickets scope', async () => {
       const rows = await db.accountDeletionEvent.findMany({
         where: { userIdHash: sha256Hex(subjectId) },
       });
@@ -381,23 +411,25 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
       expect(row?.outcome).toBe('completed');
       expect(row?.failureReason).toBeNull();
 
-      // Three new scopes (TRI-155) inserted after http_audit_logs_actor_hashed,
-      // before the tombstone 'users' scope.
+      // Three scopes from TRI-155 + one new scope from TRI-217.
       const scope = row?.cascadeScope as string[];
       expect(scope).toContain('reports_deleted');
       expect(scope).toContain('reviews_deleted');
       expect(scope).toContain('user_blocks_deleted');
-      // Full length: 11 original + 3 new = 14
-      expect(scope).toHaveLength(14);
+      expect(scope).toContain('support_tickets');
+      // Full length: 11 original + 3 (TRI-155) + 1 (TRI-217) = 15
+      expect(scope).toHaveLength(15);
 
-      // Verify invocation order: reports → reviews → user_blocks → users
+      // Verify invocation order: reports → reviews → user_blocks → support_tickets → users
       const reportsIdx = scope.indexOf('reports_deleted');
       const reviewsIdx = scope.indexOf('reviews_deleted');
       const userBlocksIdx = scope.indexOf('user_blocks_deleted');
+      const supportTicketsIdx = scope.indexOf('support_tickets');
       const usersIdx = scope.indexOf('users');
       expect(reportsIdx).toBeLessThan(reviewsIdx);
       expect(reviewsIdx).toBeLessThan(userBlocksIdx);
-      expect(userBlocksIdx).toBeLessThan(usersIdx);
+      expect(userBlocksIdx).toBeLessThan(supportTicketsIdx);
+      expect(supportTicketsIdx).toBeLessThan(usersIdx);
     });
   });
 
