@@ -32,6 +32,15 @@ export const envSchema = z
     // which has only INSERT+SELECT on `moderation_action_audit` (TRI-206).
     ADMIN_DATABASE_URL: z.string().url().optional(),
 
+    // TRI-156 — Admin bootstrap. If set to an existing user's email, that user
+    // is promoted to admin on every boot (idempotent). Leave unset in dev.
+    // NOT refused in production — this is a promotion target, not a credential.
+    // See PromoteAdminOnBootUseCase for the boot-time wiring.
+    ADMIN_BOOTSTRAP_EMAIL: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z.string().email().optional(),
+    ),
+
     JWT_SECRET: z.string().min(32),
     JWT_ACCESS_TTL: z.string().default('15m'),
     JWT_REFRESH_TTL: z.string().default('30d'),

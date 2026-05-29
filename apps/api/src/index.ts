@@ -3,6 +3,7 @@ import { buildApp } from './app.js';
 import { env } from './core/config/env.js';
 import { logger } from './core/middleware/logger.js';
 import { S3FileStorageAdapter } from './core/storage/s3-file-storage.js';
+import { runAsSystem } from './core/context/system-context.js';
 
 async function main(): Promise<void> {
   const { app, container } = buildApp();
@@ -16,6 +17,21 @@ async function main(): Promise<void> {
     if (container.fileStorage instanceof S3FileStorageAdapter) {
       await container.fileStorage.verifyReachable();
     }
+  }
+
+  if (env.ADMIN_BOOTSTRAP_EMAIL) {
+    const bootstrapEmail = env.ADMIN_BOOTSTRAP_EMAIL;
+    await runAsSystem('boot.admin-bootstrap', async () => {
+      const result = await container.promoteAdminOnBoot.execute({ email: bootstrapEmail });
+      if (result.outcome === 'promoted') {
+        logger.warn(
+          { userId: result.userId, email: result.email },
+          'admin bootstrap: promoted user to admin',
+        );
+      } else {
+        logger.info({ outcome: result.outcome }, 'admin bootstrap: no-op');
+      }
+    });
   }
 
   container.dispatcher.start();
