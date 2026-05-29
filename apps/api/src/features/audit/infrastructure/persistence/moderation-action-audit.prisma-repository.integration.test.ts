@@ -34,7 +34,7 @@ const adminDbUrl = process.env.ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
  */
 describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', () => {
   let db: PrismaClient;
-  // TRI-206: adminPrisma uses the DDL-privileged role for TRUNCATE in beforeEach.
+  // TRI-206/TRI-227: adminPrisma uses the DDL-privileged role for scoped cleanup in beforeEach/afterAll.
   // The runtime db client (tribely_app) cannot DELETE or TRUNCATE audit rows.
   let adminPrisma: PrismaClient;
   let unitOfWork: UnitOfWork;
@@ -86,16 +86,29 @@ describe.skipIf(!dbUrl)('ModerationActionAuditPrismaRepository (integration)', (
 
   beforeEach(async () => {
     if (!dbUrl) return;
-    // TRI-206: runtime role (tribely_app) cannot DELETE from moderation_action_audit.
-    // Use adminPrisma (DDL-privileged role) for TRUNCATE isolation between tests.
-    await adminPrisma.$executeRawUnsafe(
-      'TRUNCATE TABLE moderation_action_audit RESTART IDENTITY CASCADE',
-    );
+    // TRI-227 fix (Bug 2): replace the global TRUNCATE with a scoped delete of only
+    // the rows tracked by the previous test iteration. Global TRUNCATE wiped rows
+    // owned by sibling test files (File A / File C) under non-pinned execution order.
+    // trackedIds accumulates during each test via buildRecord(); scoped delete here
+    // removes exactly those rows, then we clear the set for the next test.
+    // adminPrisma (DDL-privileged role) is required — runtime role cannot DELETE.
+    if (trackedIds.size > 0) {
+      await adminPrisma.moderationActionAudit.deleteMany({
+        where: { id: { in: [...trackedIds] } },
+      });
+    }
     trackedIds.clear();
   });
 
   afterAll(async () => {
     if (!dbUrl) return;
+    // Clean up rows that were inserted by the last test (beforeEach only cleans up
+    // before each test, so the final test's rows need explicit cleanup here).
+    if (trackedIds.size > 0) {
+      await adminPrisma.moderationActionAudit.deleteMany({
+        where: { id: { in: [...trackedIds] } },
+      });
+    }
     await adminPrisma.$disconnect();
     await db.$disconnect();
   });

@@ -15,6 +15,11 @@ import type { ModerationActionAuditRecord } from '../../domain/repositories/mode
 import { ModerationActionAuditPrismaRepository } from './moderation-action-audit.prisma-repository.js';
 
 const dbUrl = process.env.DATABASE_URL;
+// TRI-227: adminPrisma uses the DDL-privileged role for scoped teardown.
+// The runtime db client (tribely_app) cannot DELETE audit rows (TRI-206 append-only).
+// ADMIN_DATABASE_URL points at the superuser/migration role; falls back to DATABASE_URL
+// for environments that share one credential (e.g. local dev where DATABASE_URL is superuser).
+const adminDbUrl = process.env.ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
 
 /**
  * DB-level append-only enforcement test for `moderation_action_audit` (TRI-206).
@@ -29,6 +34,10 @@ const dbUrl = process.env.DATABASE_URL;
  */
 describe.skipIf(!dbUrl)('moderation_action_audit append-only enforcement (TRI-206)', () => {
   let db: PrismaClient;
+  // TRI-227: adminPrisma (DDL-privileged role) is used for scoped teardown in afterAll.
+  // The runtime db client (tribely_app) cannot DELETE audit rows — that 42501 was
+  // previously swallowed by .catch(() => null), leaking rows into sibling test files.
+  let adminPrisma: PrismaClient;
   let unitOfWork: UnitOfWork;
   let repo: ModerationActionAuditPrismaRepository;
   const trackedIds: string[] = [];
@@ -67,15 +76,26 @@ describe.skipIf(!dbUrl)('moderation_action_audit append-only enforcement (TRI-20
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
     unitOfWork = new PrismaUnitOfWork(db);
     repo = new ModerationActionAuditPrismaRepository(db);
+    // adminPrisma uses ADMIN_DATABASE_URL (DDL-privileged role) for scoped teardown.
+    // Falls back to DATABASE_URL in envs that share one credential (TRI-227 fix).
+    // adminDbUrl is guaranteed non-null here: adminDbUrl = ADMIN_DATABASE_URL ?? DATABASE_URL,
+    // and we returned above if DATABASE_URL was falsy.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    adminPrisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: adminDbUrl! }) });
   });
 
   afterAll(async () => {
     if (!dbUrl) return;
+    // TRI-227 fix (Bug 1): use adminPrisma (DDL-privileged role) instead of the runtime
+    // db client so the delete succeeds. Keep id-scoped (not global TRUNCATE) so we only
+    // remove rows this file created. No .catch() swallow — a privilege regression on
+    // adminPrisma should surface loudly.
     if (trackedIds.length > 0) {
-      await db.moderationActionAudit
-        .deleteMany({ where: { id: { in: trackedIds } } })
-        .catch(() => null);
+      await adminPrisma.moderationActionAudit.deleteMany({
+        where: { id: { in: trackedIds } },
+      });
     }
+    await adminPrisma.$disconnect();
     await db.$disconnect();
   });
 
