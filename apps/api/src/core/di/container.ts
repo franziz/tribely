@@ -148,6 +148,7 @@ import type { UserBlockRepository } from '@/features/user-blocks/domain/reposito
 
 import { PrismaSupportTicketRepository } from '@/features/support/infrastructure/persistence/prisma-support-ticket.repository.js';
 import { SubmitSupportTicketUseCase } from '@/features/support/application/usecases/submit-support-ticket.usecase.js';
+import { CascadeSupportTicketsOnUserDeletionUseCase } from '@/features/support/application/usecases/cascade-support-tickets-on-user-deletion.usecase.js';
 import { registerSupportConsumers } from '@/features/support/presentation/events/index.js';
 import type { SupportTicketRepository } from '@/features/support/domain/repositories/support-ticket.repository.js';
 
@@ -968,6 +969,9 @@ export const buildContainer = (): Container => {
   const cascadeUserBlocksOnUserDeletionUseCase = new CascadeUserBlocksOnUserDeletionUseCase(
     userBlockRepository,
   );
+  const cascadeSupportTicketsOnUserDeletionUseCase = new CascadeSupportTicketsOnUserDeletionUseCase(
+    supportTicketRepository,
+  );
 
   const deleteAccountUseCase = new DeleteAccountUseCase(
     unitOfWork,
@@ -985,6 +989,7 @@ export const buildContainer = (): Container => {
     cascadeReportsOnUserDeletionUseCase,
     cascadeReviewsOnUserDeletionUseCase,
     cascadeUserBlocksOnUserDeletionUseCase,
+    cascadeSupportTicketsOnUserDeletionUseCase,
     recordAccountDeletionUseCase,
     publisher,
     clock,

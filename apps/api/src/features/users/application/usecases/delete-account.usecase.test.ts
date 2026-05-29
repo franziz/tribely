@@ -19,6 +19,7 @@ import type { HttpAuditLogRepository } from '@/features/audit/domain/repositorie
 import type { CascadeOnUserDeletionPort as ReportsCascadeOnUserDeletionPort } from '@/features/reports/application/ports/cascade-on-user-deletion.port.js';
 import type { CascadeOnUserDeletionPort as ReviewsCascadeOnUserDeletionPort } from '@/features/reviews/application/ports/cascade-on-user-deletion.port.js';
 import type { CascadeOnUserDeletionPort as UserBlocksCascadeOnUserDeletionPort } from '@/features/user-blocks/application/ports/cascade-on-user-deletion.port.js';
+import type { CascadeOnUserDeletionPort as SupportTicketsCascadeOnUserDeletionPort } from '@/features/support/application/ports/cascade-on-user-deletion.port.js';
 import type {
   RecordAccountDeletionInput,
   RecordAccountDeletionUseCase,
@@ -199,6 +200,14 @@ class FakeUserBlocksCascade implements UserBlocksCascadeOnUserDeletionPort {
   }
 }
 
+class FakeSupportTicketsCascade implements SupportTicketsCascadeOnUserDeletionPort {
+  calls: string[] = [];
+  execute(input: { userId: string }, _ctx: TxContext): Promise<void> {
+    this.calls.push(input.userId);
+    return Promise.resolve();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Helpers to build a live User aggregate (not tombstoned)
 // ---------------------------------------------------------------------------
@@ -246,6 +255,7 @@ describe('DeleteAccountUseCase', () => {
   let reportsCascade: FakeReportsCascade;
   let reviewsCascade: FakeReviewsCascade;
   let userBlocksCascade: FakeUserBlocksCascade;
+  let supportTicketsCascade: FakeSupportTicketsCascade;
   let recordAccountDeletion: FakeRecordAccountDeletion;
   let publisher: FakeEventPublisher;
   let clock: FixedClock;
@@ -267,6 +277,7 @@ describe('DeleteAccountUseCase', () => {
     reportsCascade = new FakeReportsCascade();
     reviewsCascade = new FakeReviewsCascade();
     userBlocksCascade = new FakeUserBlocksCascade();
+    supportTicketsCascade = new FakeSupportTicketsCascade();
     recordAccountDeletion = new FakeRecordAccountDeletion();
     publisher = new FakeEventPublisher();
     clock = new FixedClock(FIXED_TIME);
@@ -287,6 +298,7 @@ describe('DeleteAccountUseCase', () => {
       reportsCascade,
       reviewsCascade,
       userBlocksCascade,
+      supportTicketsCascade,
       recordAccountDeletion as unknown as RecordAccountDeletionUseCase,
       publisher,
       clock,
@@ -320,6 +332,7 @@ describe('DeleteAccountUseCase', () => {
       expect(reportsCascade.calls).toEqual([USER_ID]);
       expect(reviewsCascade.calls).toEqual([USER_ID]);
       expect(userBlocksCascade.calls).toEqual([USER_ID]);
+      expect(supportTicketsCascade.calls).toEqual([USER_ID]);
     });
 
     it('uses the same pseudonym for eventHost and joinRequestAuthor pseudonymisations', async () => {
@@ -390,10 +403,11 @@ describe('DeleteAccountUseCase', () => {
         'reports_deleted',
         'reviews_deleted',
         'user_blocks_deleted',
+        'support_tickets',
         'users',
       ];
       expect(auditInput?.cascadeScope).toEqual(expectedScopes);
-      expect(auditInput?.cascadeScope).toHaveLength(14);
+      expect(auditInput?.cascadeScope).toHaveLength(15);
     });
 
     it('writes the audit row inside the same transaction context (A7 exception)', async () => {

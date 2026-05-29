@@ -19,6 +19,7 @@ import type { AccountDeletionCascadeScope } from '@/features/audit/domain/reposi
 import type { CascadeOnUserDeletionPort as ReportsCascadeOnUserDeletionPort } from '@/features/reports/application/ports/cascade-on-user-deletion.port.js';
 import type { CascadeOnUserDeletionPort as ReviewsCascadeOnUserDeletionPort } from '@/features/reviews/application/ports/cascade-on-user-deletion.port.js';
 import type { CascadeOnUserDeletionPort as UserBlocksCascadeOnUserDeletionPort } from '@/features/user-blocks/application/ports/cascade-on-user-deletion.port.js';
+import type { CascadeOnUserDeletionPort as SupportTicketsCascadeOnUserDeletionPort } from '@/features/support/application/ports/cascade-on-user-deletion.port.js';
 import type { UserRepository } from '../../domain/repositories/user.repository.js';
 
 export interface DeleteAccountInput {
@@ -49,6 +50,7 @@ export interface DeleteAccountInput {
  *   8.5. Cascade-delete reports filed by / targeting user's reviews.
  *   8.6. Cascade-delete reviews authored by or about user.
  *   8.7. Cascade-delete user_blocks involving user.
+ *   8.8. Pseudonymise support-ticket PII (userId + userEmailSnapshot nulled, message tombstoned).
  *   9. Tombstone User aggregate (clears PII, records UserAccountDeletedEvent).
  *  10. Save User + publish domain events.
  *  11. Record account-deletion audit row (required-ctx atomicity contract).
@@ -78,6 +80,7 @@ export class DeleteAccountUseCase {
     private readonly reportsCascade: ReportsCascadeOnUserDeletionPort, // from reports/
     private readonly reviewsCascade: ReviewsCascadeOnUserDeletionPort, // from reviews/
     private readonly userBlocksCascade: UserBlocksCascadeOnUserDeletionPort, // from user-blocks/
+    private readonly supportTicketsCascade: SupportTicketsCascadeOnUserDeletionPort, // from support/
     private readonly recordAccountDeletion: RecordAccountDeletionUseCase,
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
@@ -163,6 +166,10 @@ export class DeleteAccountUseCase {
         // ── 8.7. Cascade-delete user_blocks involving user ──────────────────────
         await this.userBlocksCascade.execute({ userId }, ctx);
         cascadeScope.push('user_blocks_deleted');
+
+        // ── 8.8. Pseudonymise support-ticket PII ────────────────────────────────
+        await this.supportTicketsCascade.execute({ userId }, ctx);
+        cascadeScope.push('support_tickets');
 
         // ── 9. Tombstone the User aggregate ────────────────────────────────────
         // Intentionally LAST: sub-steps above can still resolve the original

@@ -32,4 +32,13 @@ export class PrismaSupportTicketRepository implements SupportTicketRepository {
       },
     });
   }
+
+  async pseudonymiseForUser(userId: string, ctx: TxContext): Promise<number> {
+    const client = unwrapTx(ctx);
+    const result = await client.supportTicket.updateMany({
+      where: { userId },
+      data: { userId: null, userEmailSnapshot: null, message: '[deleted]' },
+    });
+    return result.count;
+  }
 }
