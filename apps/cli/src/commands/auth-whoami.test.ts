@@ -117,9 +117,7 @@ describe('authWhoamiAction', () => {
   describe('session expired', () => {
     it('throws SessionExpiredError when getValidAccessToken rejects with it', async () => {
       vi.mocked(sessionStore.loadSession).mockReturnValue(makeSession());
-      vi.mocked(sessionManager.getValidAccessToken).mockRejectedValue(
-        new SessionExpiredError(),
-      );
+      vi.mocked(sessionManager.getValidAccessToken).mockRejectedValue(new SessionExpiredError());
 
       await expect(authWhoamiAction()).rejects.toBeInstanceOf(SessionExpiredError);
       expect(apiClient.whoami).not.toHaveBeenCalled();

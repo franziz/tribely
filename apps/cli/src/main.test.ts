@@ -50,7 +50,7 @@ describe('handleTopLevelError', () => {
 
     expect(process.exitCode).toBe(1);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "Session expired, please run `tribely auth login` again",
+      'Session expired, please run `tribely auth login` again',
     );
   });
 
@@ -58,9 +58,7 @@ describe('handleTopLevelError', () => {
     handleTopLevelError(new NotLoggedInError());
 
     expect(process.exitCode).toBe(1);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Not logged in — run `tribely auth login` first',
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Not logged in — run `tribely auth login` first');
   });
 
   it('prints a generic message (no stack) for unexpected errors (AC3)', () => {
@@ -71,24 +69,16 @@ describe('handleTopLevelError', () => {
 
     expect(process.exitCode).toBe(1);
     // Must NOT print the raw stack or internal message.
-    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining('INTERNAL'),
-    );
-    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining('at foo.ts'),
-    );
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining('INTERNAL'));
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining('at foo.ts'));
     // Must print some generic human-readable message.
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('unexpected'),
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('unexpected'));
   });
 
   it('handles non-Error thrown values gracefully', () => {
     handleTopLevelError('string error');
 
     expect(process.exitCode).toBe(1);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('unexpected'),
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('unexpected'));
   });
 });

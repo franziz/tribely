@@ -25,7 +25,7 @@ export class NetworkError extends Error {
 }
 
 export class SessionExpiredError extends Error {
-  constructor(message = "Session expired, please run `tribely auth login` again") {
+  constructor(message = 'Session expired, please run `tribely auth login` again') {
     super(message);
     this.name = 'SessionExpiredError';
   }

@@ -88,18 +88,14 @@ describe('authLoginAction', () => {
 
   describe('invalid credentials path (AC3)', () => {
     it('throws ApiError without calling saveSession when login fails', async () => {
-      vi.mocked(apiClient.login).mockRejectedValue(
-        new ApiError('Invalid credentials', 401),
-      );
+      vi.mocked(apiClient.login).mockRejectedValue(new ApiError('Invalid credentials', 401));
 
       await expect(authLoginAction()).rejects.toBeInstanceOf(ApiError);
       expect(sessionStore.saveSession).not.toHaveBeenCalled();
     });
 
     it('does not call saveSession on ApiError — prior session on disk untouched (AC8b)', async () => {
-      vi.mocked(apiClient.login).mockRejectedValue(
-        new ApiError('Invalid credentials', 401),
-      );
+      vi.mocked(apiClient.login).mockRejectedValue(new ApiError('Invalid credentials', 401));
 
       // Confirm saveSession is never reached on failure.
       await expect(authLoginAction()).rejects.toThrow();

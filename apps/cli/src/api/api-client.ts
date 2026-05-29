@@ -64,8 +64,7 @@ async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
     return await fetch(input, init);
   } catch (cause) {
     // fetch rejects on ENOTFOUND, ECONNREFUSED, etc.
-    const hint =
-      cause instanceof Error && cause.message ? `: ${cause.message}` : '';
+    const hint = cause instanceof Error && cause.message ? `: ${cause.message}` : '';
     throw new NetworkError(
       `Unable to reach the Tribely API at ${resolveBaseUrl()}${hint}. Check your connection or API_BASE_URL.`,
     );

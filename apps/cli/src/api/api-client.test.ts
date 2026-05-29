@@ -95,9 +95,11 @@ describe('login', () => {
   it('throws ApiError with the server message on 401', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } }, 401),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } }, 401),
+        ),
     );
 
     const { login } = await import('./api-client.js');
@@ -110,9 +112,11 @@ describe('login', () => {
   it('throws ApiError and NOT a raw object on 401', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } }, 401),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } }, 401),
+        ),
     );
 
     const { login } = await import('./api-client.js');
@@ -125,10 +129,7 @@ describe('login', () => {
   });
 
   it('throws NetworkError when fetch rejects (ECONNREFUSED / ENOTFOUND)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
 
     const { login } = await import('./api-client.js');
     await expect(login('test@example.com', 'pass')).rejects.toBeInstanceOf(NetworkError);
@@ -166,9 +167,11 @@ describe('whoami', () => {
   it('throws ApiError on 401', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Token expired' } }, 401),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Token expired' } }, 401),
+        ),
     );
 
     const { whoami } = await import('./api-client.js');
@@ -201,9 +204,11 @@ describe('refresh', () => {
   it('throws ApiError on 401 (refresh token revoked)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Refresh token revoked' } }, 401),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          mockResponse({ error: { code: 'UNAUTHORIZED', message: 'Refresh token revoked' } }, 401),
+        ),
     );
 
     const { refresh } = await import('./api-client.js');

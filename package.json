@@ -44,6 +44,8 @@
     "cli:lint": "npm run lint --workspace=@tribely/cli",
     "cli:test": "npm run test --workspace=@tribely/cli",
     "cli:build": "npm run build --workspace=@tribely/cli",
+    "cli:format": "npm run format --workspace=@tribely/cli",
+    "cli:format:check": "npm run format:check --workspace=@tribely/cli",
     "ci:local": "bash tools/ci-local.sh"
   },
   "devDependencies": {

@@ -10,7 +10,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "format": "prettier --write \"src/**/*.{ts,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,json}\""
   },
   "dependencies": {
     "commander": "^14.0.0"

@@ -28,5 +28,8 @@ jobs:
       - name: Lint
         run: npm run cli:lint
 
+      - name: Format check
+        run: npm run --workspace=@tribely/cli format:check
+
       - name: Test
         run: npm run cli:test

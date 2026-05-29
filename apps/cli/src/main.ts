@@ -37,10 +37,7 @@ program
 
 const auth = program.command('auth').description('Authentication commands');
 
-auth
-  .command('login')
-  .description('Authenticate with your Tribely account')
-  .action(authLoginAction);
+auth.command('login').description('Authenticate with your Tribely account').action(authLoginAction);
 
 auth
   .command('whoami')

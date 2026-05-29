@@ -80,7 +80,9 @@ describe('loadSession', () => {
     // 0o644 has group + world read bits set.
     writeFileSync(configPath, JSON.stringify(SESSION), { mode: 0o644 });
 
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* suppress */ });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      /* suppress */
+    });
     const result = loadSession();
 
     expect(result).toEqual(SESSION);
@@ -122,6 +124,8 @@ describe('clearSession', () => {
   });
 
   it('does not throw when the config file does not exist', () => {
-    expect(() => { clearSession(); }).not.toThrow();
+    expect(() => {
+      clearSession();
+    }).not.toThrow();
   });
 });

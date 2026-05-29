@@ -34,9 +34,7 @@ export async function promptPassword(label: string): Promise<string> {
 
   // Suppress echo by overriding the internal output write method.
   // The cast is required because _writeToOutput is not in Node's public typings.
-  (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = (
-    s: string,
-  ): void => {
+  (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = (s: string): void => {
     // Only write the prompt label itself (ends with ': '), not any keystrokes.
     if (s.endsWith(': ')) {
       stderr.write(s);
