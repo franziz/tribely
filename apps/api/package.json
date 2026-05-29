@@ -54,7 +54,7 @@
     "tsc-alias": "^1.8.17",
     "tsx": "^4.22.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.59.3",
+    "typescript-eslint": "^8.60.0",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.2.4"
   }
