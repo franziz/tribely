@@ -42,11 +42,28 @@ const adminPrisma = adminDbUrl
   ? new PrismaClient({ adapter: new PrismaPg({ connectionString: adminDbUrl }) })
   : null;
 
+// TRI-227 fix (Bug 3): track the report/event IDs whose audit rows this file creates so
+// the module-level afterAll can do a scoped delete instead of a global TRUNCATE.
+// Global TRUNCATE wiped rows owned by sibling test files (File B / File C) under
+// non-pinned execution order. Populated by each suite's seed helpers below.
+const trackedAuditTargetIds = new Set<string>();
+
 afterAll(async () => {
   if (adminPrisma) {
-    await adminPrisma
-      .$executeRawUnsafe('TRUNCATE TABLE moderation_action_audit RESTART IDENTITY CASCADE')
-      .catch(() => null);
+    // TRI-227 fix (Bug 3): scoped delete — only rows whose reportId, targetId, or
+    // originatingReportId matches an id seeded by THIS file. No global TRUNCATE.
+    if (trackedAuditTargetIds.size > 0) {
+      const ids = [...trackedAuditTargetIds];
+      await adminPrisma.moderationActionAudit.deleteMany({
+        where: {
+          OR: [
+            { reportId: { in: ids } },
+            { targetId: { in: ids } },
+            { originatingReportId: { in: ids } },
+          ],
+        },
+      });
+    }
     await adminPrisma.$disconnect();
   }
 });
@@ -155,7 +172,7 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
   afterAll(async () => {
     if (!dbUrl) return;
     // TRI-206: moderation_action_audit teardown is handled by the module-level
-    // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
+    // adminPrisma afterAll (scoped delete). Only non-audit tables need cleanup here.
     // Scoped delete — only rows whose aggregateId matches a report created by this suite.
     if (trackedOutboxAggregateIds.size > 0) {
       await db.outboxEvent
@@ -251,12 +268,14 @@ describe.skipIf(!dbUrl)('PerformModerationActionUseCase (integration)', () => {
     });
     // Track this report's id as an outbox aggregateId so afterAll can scope-delete.
     trackedOutboxAggregateIds.add(report.id);
+    // TRI-227: also track for module-level scoped audit cleanup.
+    trackedAuditTargetIds.add(report.id);
     return report;
   };
 
   const cleanupReportAndReview = async (reportId: string, reviewId: string): Promise<void> => {
     // TRI-206: moderation_action_audit rows are handled by the module-level
-    // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
+    // adminPrisma afterAll (scoped delete) — no per-test audit delete needed.
     // Outbox rows are scoped-deleted in afterAll via trackedOutboxAggregateIds.
     await db.report.deleteMany({ where: { id: reportId } }).catch(() => null);
     await db.review.deleteMany({ where: { id: reviewId } }).catch(() => null);
@@ -531,7 +550,7 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
   afterAll(async () => {
     if (!dbUrl) return;
     // TRI-206: moderation_action_audit teardown is handled by the module-level
-    // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
+    // adminPrisma afterAll (scoped delete). Only non-audit tables need cleanup here.
     // Scoped delete — only rows whose aggregateId matches an event created by this suite.
     if (trackedOutboxAggregateIds.size > 0) {
       await db.outboxEvent
@@ -570,12 +589,14 @@ describe.skipIf(!dbUrl)('CancelEventForSafetyUseCase (integration)', () => {
     });
     // Track this event's id as an outbox aggregateId so cleanup can scope-delete.
     trackedOutboxAggregateIds.add(eventId);
+    // TRI-227: also track for module-level scoped audit cleanup (audit rows use targetId=eventId).
+    trackedAuditTargetIds.add(eventId);
     return eventId;
   };
 
   const cleanupEvent = async (eventId: string): Promise<void> => {
     // TRI-206: moderation_action_audit rows are handled by the module-level
-    // adminPrisma afterAll (TRUNCATE) — no per-test audit delete needed.
+    // adminPrisma afterAll (scoped delete) — no per-test audit delete needed.
     // Outbox rows are scoped-deleted in afterAll via trackedOutboxAggregateIds.
     await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
   };
@@ -791,7 +812,7 @@ describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
   afterAll(async () => {
     if (!dbUrl) return;
     // TRI-206: moderation_action_audit teardown is handled by the module-level
-    // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
+    // adminPrisma afterAll (scoped delete). Only non-audit tables need cleanup here.
     await db.sweepRun.deleteMany({ where: { kind: 'report-retention-sweep' } }).catch(() => null);
     await db.report.deleteMany({ where: { reporterUserId } }).catch(() => null);
     await db.review.deleteMany({ where: { eventId } }).catch(() => null);
@@ -869,6 +890,9 @@ describe.skipIf(!dbUrl)('SweepResolvedReportsUseCase (integration)', () => {
           requestId: 'system:test:sweep-integration',
         },
       });
+      // TRI-227: track ids for module-level scoped audit cleanup.
+      trackedAuditTargetIds.add(eventId);
+      trackedAuditTargetIds.add(reportId);
 
       // Run the sweep.
       await runAsSystem('cli.moderation.sweep-resolved-reports', async () => {
@@ -1022,7 +1046,7 @@ describe.skipIf(!dbUrl)(
     afterAll(async () => {
       if (!dbUrl) return;
       // TRI-206: moderation_action_audit teardown is handled by the module-level
-      // adminPrisma afterAll (TRUNCATE). Only non-audit tables need cleanup here.
+      // adminPrisma afterAll (scoped delete). Only non-audit tables need cleanup here.
       // Scoped delete — only rows whose aggregateId matches a report created by this suite.
       if (trackedEscOutboxAggregateIds.size > 0) {
         await db.outboxEvent
@@ -1116,6 +1140,8 @@ describe.skipIf(!dbUrl)(
       });
       // Track this report's id as an outbox aggregateId so afterAll can scope-delete.
       trackedEscOutboxAggregateIds.add(report.id);
+      // TRI-227: also track for module-level scoped audit cleanup.
+      trackedAuditTargetIds.add(report.id);
       return report;
     };
 
