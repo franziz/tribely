@@ -4,7 +4,8 @@
   "private": true,
   "description": "Tribely monorepo — Flutter mobile app + Hono API",
   "workspaces": [
-    "apps/api"
+    "apps/api",
+    "apps/cli"
   ],
   "engines": {
     "node": ">=22.12.0",
@@ -39,6 +40,12 @@
     "audit": "npm audit --audit-level=high",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "cli:typecheck": "npm run typecheck --workspace=@tribely/cli",
+    "cli:lint": "npm run lint --workspace=@tribely/cli",
+    "cli:test": "npm run test --workspace=@tribely/cli",
+    "cli:build": "npm run build --workspace=@tribely/cli",
+    "cli:format": "npm run format --workspace=@tribely/cli",
+    "cli:format:check": "npm run format:check --workspace=@tribely/cli",
     "ci:local": "bash tools/ci-local.sh"
   },
   "devDependencies": {
