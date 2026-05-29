@@ -28,8 +28,8 @@ const dbUrl = process.env.DATABASE_URL;
  *   - join_requests: requesterUserId rewritten to same pseudonym.
  *   - http_audit_logs: actorUserId rewritten to SHA-256 hash of original userId.
  *   - outbox_events: un-dispatched row's payload pseudonymised; dispatched rows untouched.
- *   - account_deletion_events: one row, outcome=completed, 14 cascadeScope values
- *     (11 original + 3 TRI-155: reports_deleted, reviews_deleted, user_blocks_deleted),
+ *   - account_deletion_events: one row, outcome=completed, 15 cascadeScope values
+ *     (11 original + 3 TRI-155: reports_deleted, reviews_deleted, user_blocks_deleted; + 1 TRI-217: support_tickets_deleted),
  *     userIdHash = sha256Hex(original userId).
  *   - 409 ACCOUNT_ALREADY_DELETED on second DELETE with the same JWT.
  *   - auth failure after deletion: refresh token row is gone.
