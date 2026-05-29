@@ -1,0 +1,32 @@
+name: CLI checks
+
+on:
+  workflow_call:
+
+# Default-deny at workflow level so this reusable workflow is self-defending
+# regardless of caller. The job below grants only what it needs.
+permissions: {}
+
+jobs:
+  cli:
+    name: CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup CLI
+        uses: ./.github/actions/setup-cli
+
+      - name: Typecheck
+        run: npm run cli:typecheck
+
+      - name: Lint
+        run: npm run cli:lint
+
+      - name: Test
+        run: npm run cli:test

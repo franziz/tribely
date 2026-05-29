@@ -24,6 +24,7 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       mobile: ${{ steps.filter.outputs.mobile }}
+      cli: ${{ steps.filter.outputs.cli }}
       docker: ${{ steps.filter.outputs.docker }}
       neon-branch: ${{ steps.filter.outputs.neon-branch }}
     steps:
@@ -55,6 +56,16 @@ jobs:
               - '.nvmrc'
               - '.github/workflows/ci.yml'
               - '.github/workflows/_docker-build.yml'
+            cli:
+              - 'apps/cli/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.base.json'
+              - '.nvmrc'
+              - '.prettierignore'
+              - '.github/actions/setup-cli/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/_cli.yml'
             mobile:
               - 'apps/mobile/**'
               - '.github/actions/setup-mobile/**'
@@ -73,6 +84,14 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.api == 'true' || github.event_name == 'push'
     uses: ./.github/workflows/_api.yml
+    permissions:
+      contents: read
+
+  cli:
+    name: CLI
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cli == 'true' || github.event_name == 'push'
+    uses: ./.github/workflows/_cli.yml
     permissions:
       contents: read
 
@@ -138,7 +157,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [detect-changes, api, mobile, docker, neon-branch, pr-title]
+    needs: [detect-changes, api, cli, mobile, docker, neon-branch, pr-title]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     permissions: {}
@@ -149,6 +168,7 @@ jobs:
           declare -A results=(
             [detect-changes]="${{ needs.detect-changes.result }}"
             [api]="${{ needs.api.result }}"
+            [cli]="${{ needs.cli.result }}"
             [mobile]="${{ needs.mobile.result }}"
             [docker]="${{ needs.docker.result }}"
             [neon-branch]="${{ needs.neon-branch.result }}"
