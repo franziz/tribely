@@ -12,7 +12,6 @@
  */
 
 import { whoami } from '../api/api-client.js';
-import { SessionExpiredError } from '../api/errors.js';
 import { loadSession } from '../session/session-store.js';
 import { getValidAccessToken } from '../session/session-manager.js';
 
@@ -25,16 +24,7 @@ export async function authWhoamiAction(): Promise<void> {
     return;
   }
 
-  let accessToken: string;
-  try {
-    accessToken = await getValidAccessToken();
-  } catch (err) {
-    if (err instanceof SessionExpiredError) {
-      // Print the typed message and exit non-zero via main's error handler.
-      throw err;
-    }
-    throw err;
-  }
+  const accessToken = await getValidAccessToken();
 
   const user = await whoami(accessToken);
 
