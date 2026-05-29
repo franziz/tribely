@@ -486,6 +486,64 @@ describe('User aggregate', () => {
     });
   });
 
+  describe('promote', () => {
+    it('flips isAdmin false→true and bumps updatedAt', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const before = user.updatedAt;
+      const now = new Date('2026-06-01T10:00:00Z');
+
+      expect(user.isAdmin).toBe(false);
+      user.promote(now);
+
+      expect(user.isAdmin).toBe(true);
+      expect(user.updatedAt).toEqual(now);
+      expect(user.updatedAt).not.toEqual(before);
+    });
+
+    it('records no domain events', () => {
+      const user = buildUser();
+      user.pullEvents();
+
+      user.promote(new Date('2026-06-01T10:00:00Z'));
+
+      expect(user.pullEvents()).toHaveLength(0);
+    });
+
+    it('is idempotent — calling on an already-admin user keeps isAdmin===true', () => {
+      const now = new Date('2026-01-01T00:00:00Z');
+      const user = User.rehydrate({
+        id: 'user_admin',
+        email: Email.create('admin@b.co'),
+        displayName: DisplayName.create('Admin'),
+        createdAt: now,
+        updatedAt: now,
+        emailVerifiedAt: null,
+        bio: null,
+        avatarUrl: null,
+        languages: [],
+        interests: [],
+        currentCity: null,
+        travelerType: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        selfieStatus: null,
+        selfieAttemptCount: 0,
+        selfieLastFailureCategory: null,
+        selfieAppealLockedAt: null,
+        deletedAt: null,
+        isAdmin: true,
+      });
+      const promoteAgain = new Date('2026-06-01T10:00:00Z');
+
+      user.promote(promoteAgain);
+
+      expect(user.isAdmin).toBe(true);
+      expect(user.updatedAt).toEqual(promoteAgain);
+      expect(user.pullEvents()).toHaveLength(0);
+    });
+  });
+
   describe('tombstone', () => {
     const buildFullUser = (): User => {
       const user = User.register({

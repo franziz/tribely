@@ -81,8 +81,8 @@ export class User extends AggregateRoot {
     private _selfieAppealLockedAt: Date | null,
     // TRI-134 tombstone: null until account deletion is requested + confirmed
     private _deletedAt: Date | null,
-    // TRI-132 admin role: read-only from DB. Set out-of-band via SQL.
-    private readonly _isAdmin: boolean,
+    // TRI-132 admin role: set via User.promote() for env-bootstrap promotion (TRI-156).
+    private _isAdmin: boolean,
   ) {
     super();
   }
@@ -237,6 +237,22 @@ export class User extends AggregateRoot {
 
   get isAdmin(): boolean {
     return this._isAdmin;
+  }
+
+  /**
+   * Promotes the user to admin. Idempotent at the entity level — calling on an
+   * already-admin user re-sets `true` without throwing. The caller (Task B use
+   * case) is responsible for skipping the persist when the user is already admin.
+   *
+   * No domain event is recorded: promotion observability is handled by a boot
+   * WARN log + the existing http_audit chain. An event here would be YAGNI
+   * (no consumer exists or is planned — TRI-156).
+   *
+   * @param now  Wall-clock time of promotion (injected for testability).
+   */
+  promote(now: Date): void {
+    this._isAdmin = true;
+    this._updatedAt = now;
   }
 
   isEmailVerified(): boolean {
