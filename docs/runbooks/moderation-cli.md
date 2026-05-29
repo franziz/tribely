@@ -395,7 +395,7 @@ The operator must **never** make legal determinations on the merits of escalated
 1. **IMMEDIATE hide.** Run `hide` without delay. Minor-protection duty overrides the preserve-first rule for criminal-category content.
 2. **Preserve the snapshot.** The `hide` action automatically captures the snapshot; verify the audit row exists.
 3. **Do NOT engage with reporter or reported.** Any direct contact risks revictimisation or evidence contamination.
-4. **Escalate to external counsel within 24 hours** of recognition. Counsel routes onward — to SPF, to IMDA, to the partner CSAM reporting channel (channel pending — see [External Counsel Triggers](#external-counsel-triggers)).
+4. **Escalate within 24 hours of recognition.** For minor-involved reports that are NOT CSAM, escalate to external counsel, who routes onward (SPF, IMDA). For reports the operator confirms as suspected CSAM (tagged `minor_csam_suspected`, step 5), follow [§4A — CSAM CyberTipline Submission](#4a-csam-cybertipline-submission), which governs the disclosure channel, submission steps, and SLA.
 5. **For suspected Child Sexual Abuse Material (CSAM) specifically:** do NOT view the content further than necessary to confirm the category. Do NOT download. Do NOT distribute internally beyond the operator + named counsel. Record category tag `minor_csam_suspected` and treat the audit row as legally privileged.
 6. **Do not run `resolve-*` until counsel confirms.**
 
@@ -410,6 +410,90 @@ The operator must **never** make legal determinations on the merits of escalated
 4. **Cat 4 ∩ Cat 2 sequencing:** If the report is criminal-grade (credible threats, weapons trafficking, etc.) AND falls under Cat 4, **call SPF 999 BEFORE running `cancel-event-for-safety`**. Evidence chain-of-custody requires SPF engagement first; cancelling the event removes the active venue and may complicate response. The notification fan-out itself does not constitute a "disclosure" under the [SPF First-Incident Protocol](spf-first-incident.md), but the sequencing of platform action versus law-enforcement notification does materially affect SPF's response capacity. When in doubt: SPF first, then cancel.
 5. **If the meet-up window is under 6 hours away and credible physical threat is indicated,** call SPF at 999 and proceed under [Category 2](#category-2--criminal-content-violence-or-threats) in parallel.
 6. **Record in audit log** with category tag `imminent_real_world_harm` and cross-reference the cancelled Event ID.
+
+### 4A. CSAM CyberTipline Submission
+
+This subsection extends [Category 3 — Minor involved](#category-3--minor-involved) for the specific case of suspected Child Sexual Abuse Material (CSAM). It resolves the formerly-pending CSAM reporting channel to the **NCMEC CyberTipline public webform**. The policy commitment behind this procedure is [`docs/policy/csam-reporting.md`](../policy/csam-reporting.md); this is the executable how.
+
+This subsection **extends, never relaxes,** the Category 3 step 5 handling guardrail: do NOT view the content further than necessary to confirm the category; do NOT download it; do NOT distribute it internally beyond the operator + named counsel; treat the audit row as legally privileged.
+
+#### 4A.1 Recognising a CSAM-categorised report
+
+A report is on this path when BOTH hold:
+- It is a Category 3 (Minor involved) report, AND
+- The operator, on review limited to confirming the category, identifies it as suspected CSAM and records the audit tag **`minor_csam_suspected`** (per Category 3 step 5).
+
+Minor-involved reports that are NOT CSAM stay on the standard Category 3 counsel-escalation path (§4 Category 3 steps 1–6) and do NOT trigger a CyberTipline submission.
+
+#### 4A.2 Evidence preservation — BEFORE submission
+
+Preserve evidence using the existing atomic hide-and-snapshot discipline in [§5 Evidence Preservation](#5-evidence-preservation). Do NOT introduce any parallel evidence path.
+
+1. **IMMEDIATE hide** via `resolve --hide` is the Category 3 step 1 rule — minor-protection duty overrides preserve-first. The `hide` transition captures the snapshot atomically (§5 "What is captured"); if the audit write fails, the hide rolls back. There is no hidden-but-unaudited state by construction.
+2. **Verify the snapshot audit row exists** before proceeding (`show <reportId>` — confirm the action audit row is present).
+3. The snapshot is the operator's evidence reference for the submission. The operator does NOT separately download or copy the content.
+
+#### 4A.3 Webform submission steps
+
+Within **24 hours** of the operator identifying the content as suspected CSAM (see §4A.5 SLA), submit via the NCMEC CyberTipline public webform:
+
+1. Open **https://report.cybertip.org/** in a browser.
+2. Select the report type covering apparent child sexual abuse material / online enticement, as the form presents it.
+3. Complete the form fields from the preserved snapshot and report row:
+   - **Reporting entity:** Tribely (Tribely Operations, `privacy@gotribely.com`).
+   - **Content description / identifier:** describe the content and supply the hosted URL/identifier from the snapshot where the form requests it. Do NOT download-and-reupload the content.
+   - **Reporter context:** the reporting user's account identifier and their stated reason/category.
+   - **Account identifiers:** the account identifier of the author of the reported content (and the reported user's account identifier if the report targets a user).
+   - **Timestamps:** `reportedAt` (report submission), the operator identification time, and the submission time.
+4. Submit the form and **record the NCMEC reference / CyberTipline report ID** returned by the form.
+
+#### 4A.4 Post-submission steps
+
+Reuse the existing escalate / record-external-input vocabulary — do NOT invent a parallel audit path.
+
+1. **Record the escalation.** If the report is not already escalated, run:
+   ```
+   npm run --workspace=@tribely/api moderation escalate <reportId> \
+     --category criminal-content \
+     --external-ref "NCMEC-CyberTipline-<reportID>" \
+     --note "Suspected CSAM forwarded to NCMEC CyberTipline webform."
+   ```
+   Category 3 maps to `criminal-content` (§4 mapping). The `criminal-content` category **requires** a `record_external_input` row before resolution and does NOT permit `--override-reason` — this is the correct guardrail for a CSAM matter.
+2. **Record the NCMEC submission as external input** against the report's audit row:
+   ```
+   npm run --workspace=@tribely/api moderation record-external-input <reportId> \
+     --source other \
+     --disposition "Submitted to NCMEC CyberTipline; reference <NCMEC reportID>; awaiting onward routing." \
+     --received-at <ISO8601 submission time>
+   ```
+   (`--source other` — NCMEC is neither `counsel`, `partner`, nor `imda`. Record the NCMEC reference verbatim in `--disposition`.)
+3. **Hold / soft-block the offending account.** Apply the existing soft-block flow to the author of the reported content per standard moderation practice. Do NOT contact the reported or the reporter (Category 3 step 3).
+4. **Do NOT run `resolve --*` until counsel confirms** (Category 3 step 6). The `criminal-content` escalation guard enforces this: resolution requires a `record_external_input` row and override is forbidden for this category.
+5. **Escalate to named counsel when the incident shape warrants it** (see §4A.6) — e.g., an imminent-harm dimension, ambiguity over whether a direct SPF report is also required, or any contested-disclosure question. Record counsel input via a further `record-external-input --source counsel` row when received.
+
+#### 4A.5 SLA
+
+**Transmission to NCMEC within 24 hours of the operator identifying the content as suspected CSAM.** This is a **calendar-time** clock — it runs through weekends and Singapore public holidays. It is independent of the general 72h first-touch / 7d resolution SLAs (§2) and is independent of the `escalate` SLA pause: the SLA pause governs the *report's resolution clock*, not the CyberTipline transmission deadline. The transmission deadline is honoured when the §4A.4 step 2 `record_external_input` row (carrying the NCMEC reference) exists within 24 hours of operator identification.
+
+#### 4A.6 Named Trust & Safety counsel fallback
+
+A single pre-identified Singapore Trust & Safety counsel — named but **not retained**. Subject-matter fit: **CSAM / online child-safety reporting + Singapore online-safety and CYPA exposure**. Generic "data protection" practice is insufficient — the child-safety reporting posture is the specific fit being vetted.
+
+The row is populated asynchronously by the owner / CEO. The placeholder token `<!-- OWNER TO FILL — counsel name pending owner sign-off; see PR -->` is the only placeholder format permitted here and is tolerated **only** in this §4A.6 entry (same convention as [`spf-first-incident.md` §3](spf-first-incident.md#3-counsel-shortlist)). Find-and-replace on that exact token to populate.
+
+Stale entries (last-confirmed > 6 months) require re-confirmation before the operator treats the row as actionable.
+
+| Field | Value |
+|---|---|
+| Firm (full registered name) | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+| Individual contact (full name) | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+| Role / title | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+| Email | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+| Direct phone | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+| Subject-matter fit summary (CSAM / child-safety reporting + SG online-safety / CYPA; one-line confirmation from the contact) | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+| Last-confirmed date (YYYY-MM-DD) | <!-- OWNER TO FILL — counsel name pending owner sign-off; see PR --> |
+
+**Engagement model.** Engagement is **per-incident, not retained.** The operator opens engagement only when a real CSAM incident warrants legal guidance (§4A.4 step 5), by emailing the contact with: (a) "Tribely CSAM incident — counsel engagement [date]", (b) the report ID and `minor_csam_suspected` audit reference (NOT the content itself), (c) the NCMEC reference already submitted, (d) the specific question (e.g., direct-SPF-report requirement). Counsel input is recorded back into the audit row via `record-external-input --source counsel`.
 
 ### When in genuine doubt
 
