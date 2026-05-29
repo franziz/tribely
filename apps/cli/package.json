@@ -1,0 +1,26 @@
+{
+  "name": "@tribely/cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tribely": "./bin/tribely.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^14.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.8.0",
+    "eslint": "^10.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.3",
+    "vitest": "^3.2.4"
+  }
+}
