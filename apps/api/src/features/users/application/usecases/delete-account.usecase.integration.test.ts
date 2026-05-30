@@ -13,14 +13,18 @@ import { buildContainer } from '@/core/di/container.js';
 const dbUrl = process.env.DATABASE_URL;
 
 /**
- * Use-case–level integration test for DeleteAccountUseCase (TRI-155).
+ * Use-case–level integration test for DeleteAccountUseCase (TRI-155 / TRI-135).
  *
  * Covers the three new cascade adapters wired in Brief B:
  *   - cascadeReportsOnUserDeletionUseCase
  *   - cascadeReviewsOnUserDeletionUseCase
  *   - cascadeUserBlocksOnUserDeletionUseCase
  *
- * Does NOT repeat the HTTP routing, selfie, check-in, or outbox assertions —
+ * TRI-135 Brief 3 extension: asserts real-FK coverage on the check-in cascade
+ * path (pending + ok deletion, flagged pseudonymisation, per-row audit trail in
+ * post_event_check_in_events, control-row survival).
+ *
+ * Does NOT repeat the HTTP routing, selfie, or outbox assertions —
  * those are already covered by the route-level integration test at
  * features/users/presentation/http/routes/delete-account.integration.test.ts.
  *
@@ -66,6 +70,27 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
 
   // An event for the counterparty reviewer (review FK requires eventId)
   let counterpartyEventId: string;
+
+  // ── TRI-135 Brief 3: post_event_check_ins cascade coverage ────────────────
+  // Each check-in needs a distinct (userId, eventId) pair due to @@unique([userId, eventId]).
+  // Six fresh events are created — one per check-in row — all hosted by counterparty1Id.
+
+  // Events that serve as FK anchors for the check-in rows
+  let checkInEvent1Id: string; // flagged-attendee: subjectId attends, counterparty1Id hosts
+  let checkInEvent2Id: string; // pending-1: subjectId attends, counterparty1Id hosts
+  let checkInEvent3Id: string; // pending-2: subjectId attends, counterparty1Id hosts
+  let checkInEvent4Id: string; // ok-1: subjectId attends, counterparty1Id hosts
+  let checkInEvent5Id: string; // ok-2: subjectId attends, counterparty1Id hosts
+  let checkInEvent6Id: string; // control pending: counterparty2Id attends (must survive)
+
+  // Check-in row IDs (used in assertions and teardown)
+  let checkInFlaggedAttendeeId: string; // flagged; subjectId is attendee — must survive (pseudonymised)
+  let checkInFlaggedHostId: string; // flagged; subjectId is host, counterparty1Id is attendee — must survive (pseudonymised)
+  let checkInPending1Id: string; // pending; subjectId authored — must be deleted
+  let checkInPending2Id: string; // pending; subjectId authored — must be deleted
+  let checkInOk1Id: string; // ok; subjectId authored — must be deleted
+  let checkInOk2Id: string; // ok; subjectId authored — must be deleted
+  let checkInControlId: string; // pending; counterparty2Id authored — must survive
 
   beforeAll(async () => {
     if (!dbUrl) return;
@@ -262,6 +287,143 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
         status: 'open',
       },
     });
+
+    // ── 7. Seed post_event_check_in events and rows (TRI-135 Brief 3) ─────
+    // Six new events — one per check-in row — all hosted by counterparty1Id
+    // so the @@unique([userId, eventId]) constraint is never violated.
+    // The flagged-host check-in reuses subjectEventId (subjectId is host there).
+    checkInEvent1Id = createId();
+    checkInEvent2Id = createId();
+    checkInEvent3Id = createId();
+    checkInEvent4Id = createId();
+    checkInEvent5Id = createId();
+    checkInEvent6Id = createId();
+
+    const checkInEventBase = {
+      venueAddress: '18 Raffles Quay',
+      venueCity: 'Singapore',
+      venueLatitude: 1.2806,
+      venueLongitude: 103.8504,
+      venueCategory: 'other',
+      startsAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      capacity: 5,
+      category: 'food',
+      costSplit: 'own',
+      approvalMode: 'manual',
+      status: 'active',
+    };
+
+    await db.event.createMany({
+      data: [
+        {
+          id: checkInEvent1Id,
+          hostUserId: counterparty1Id,
+          title: 'TRI-135 CheckIn Event 1',
+          ...checkInEventBase,
+        },
+        {
+          id: checkInEvent2Id,
+          hostUserId: counterparty1Id,
+          title: 'TRI-135 CheckIn Event 2',
+          ...checkInEventBase,
+        },
+        {
+          id: checkInEvent3Id,
+          hostUserId: counterparty1Id,
+          title: 'TRI-135 CheckIn Event 3',
+          ...checkInEventBase,
+        },
+        {
+          id: checkInEvent4Id,
+          hostUserId: counterparty1Id,
+          title: 'TRI-135 CheckIn Event 4',
+          ...checkInEventBase,
+        },
+        {
+          id: checkInEvent5Id,
+          hostUserId: counterparty1Id,
+          title: 'TRI-135 CheckIn Event 5',
+          ...checkInEventBase,
+        },
+        {
+          id: checkInEvent6Id,
+          hostUserId: counterparty1Id,
+          title: 'TRI-135 CheckIn Event 6',
+          ...checkInEventBase,
+        },
+      ],
+    });
+
+    // Seed check-in rows directly via raw Prisma (no FK constraints on userId/hostUserId
+    // after the drop_post_event_check_ins_user_fk migration; eventId FK is still present).
+    checkInFlaggedAttendeeId = createId();
+    checkInFlaggedHostId = createId();
+    checkInPending1Id = createId();
+    checkInPending2Id = createId();
+    checkInOk1Id = createId();
+    checkInOk2Id = createId();
+    checkInControlId = createId();
+
+    await db.postEventCheckIn.createMany({
+      data: [
+        // flagged: subjectId is attendee → must be pseudonymised (userId rewritten), row survives
+        {
+          id: checkInFlaggedAttendeeId,
+          userId: subjectId,
+          eventId: checkInEvent1Id,
+          hostUserId: counterparty1Id,
+          status: 'flagged',
+        },
+        // flagged: subjectId is host → must be pseudonymised (hostUserId rewritten), row survives
+        // Uses subjectEventId so subjectId is the actual host; counterparty1Id is attendee.
+        {
+          id: checkInFlaggedHostId,
+          userId: counterparty1Id,
+          eventId: subjectEventId,
+          hostUserId: subjectId,
+          status: 'flagged',
+        },
+        // pending×2: subjectId is attendee → must be hard-deleted by cascade
+        {
+          id: checkInPending1Id,
+          userId: subjectId,
+          eventId: checkInEvent2Id,
+          hostUserId: counterparty1Id,
+          status: 'pending',
+        },
+        {
+          id: checkInPending2Id,
+          userId: subjectId,
+          eventId: checkInEvent3Id,
+          hostUserId: counterparty1Id,
+          status: 'pending',
+        },
+        // ok×2: subjectId is attendee → must be hard-deleted by cascade
+        {
+          id: checkInOk1Id,
+          userId: subjectId,
+          eventId: checkInEvent4Id,
+          hostUserId: counterparty1Id,
+          status: 'ok',
+        },
+        {
+          id: checkInOk2Id,
+          userId: subjectId,
+          eventId: checkInEvent5Id,
+          hostUserId: counterparty1Id,
+          status: 'ok',
+        },
+        // control: counterparty2Id is attendee (no subject involvement) → must survive untouched
+        {
+          id: checkInControlId,
+          userId: counterparty2Id,
+          eventId: checkInEvent6Id,
+          hostUserId: counterparty1Id,
+          status: 'pending',
+        },
+      ],
+    });
   });
 
   afterAll(async () => {
@@ -312,9 +474,65 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
       })
       .catch(() => null);
 
-    // events
+    // post_event_check_in_events audit rows (no FK — delete by userId or checkInId;
+    // the cascade may have already written audit rows for subjectId)
+    await db.postEventCheckInEvent
+      .deleteMany({
+        where: {
+          checkInId: {
+            in: [
+              checkInFlaggedAttendeeId,
+              checkInFlaggedHostId,
+              checkInPending1Id,
+              checkInPending2Id,
+              checkInOk1Id,
+              checkInOk2Id,
+              checkInControlId,
+              // Also covers aggregate pseudonymised rows whose checkInId === subjectId
+              subjectId,
+            ].filter(Boolean),
+          },
+        },
+      })
+      .catch(() => null);
+
+    // post_event_check_in rows (some already deleted by cascade; tolerant delete by id)
+    await db.postEventCheckIn
+      .deleteMany({
+        where: {
+          id: {
+            in: [
+              checkInFlaggedAttendeeId,
+              checkInFlaggedHostId,
+              checkInPending1Id,
+              checkInPending2Id,
+              checkInOk1Id,
+              checkInOk2Id,
+              checkInControlId,
+            ].filter(Boolean),
+          },
+        },
+      })
+      .catch(() => null);
+
+    // events (subject event + counterparty event + 6 new check-in events)
     await db.event
-      .deleteMany({ where: { id: { in: [subjectEventId, counterpartyEventId].filter(Boolean) } } })
+      .deleteMany({
+        where: {
+          id: {
+            in: [
+              subjectEventId,
+              counterpartyEventId,
+              checkInEvent1Id,
+              checkInEvent2Id,
+              checkInEvent3Id,
+              checkInEvent4Id,
+              checkInEvent5Id,
+              checkInEvent6Id,
+            ].filter(Boolean),
+          },
+        },
+      })
       .catch(() => null);
 
     // users (subject has deletedAt set after cascade — delete by id)
@@ -395,6 +613,88 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
       expect(row?.message).toBe('[deleted]');
     });
 
+    // ── TRI-135 Brief 3: post_event_check_ins cascade assertions ──────────
+
+    it('hard-deletes pending and ok check-in rows where subject is userId', async () => {
+      // No post_event_check_ins row with userId === subjectId and status in (pending, ok)
+      // must remain after cascade.
+      const surviving = await db.postEventCheckIn.findMany({
+        where: {
+          userId: subjectId,
+          status: { in: ['pending', 'ok'] },
+        },
+      });
+      expect(surviving).toHaveLength(0);
+    });
+
+    it('pseudonymises the flagged attendee check-in (row survives, userId rewritten)', async () => {
+      const row = await db.postEventCheckIn.findUnique({
+        where: { id: checkInFlaggedAttendeeId },
+      });
+      // Row must still exist (flagged rows are retained for evidentiary value)
+      expect(row).not.toBeNull();
+      // userId must have been rewritten to a pseudonym (not the original subjectId)
+      expect(row?.userId).not.toBe(subjectId);
+    });
+
+    it('pseudonymises the flagged host check-in (row survives, hostUserId rewritten)', async () => {
+      const row = await db.postEventCheckIn.findUnique({
+        where: { id: checkInFlaggedHostId },
+      });
+      // Row must still exist
+      expect(row).not.toBeNull();
+      // hostUserId must have been rewritten to a pseudonym (not the original subjectId)
+      expect(row?.hostUserId).not.toBe(subjectId);
+    });
+
+    it('leaves the control check-in (authored by counterparty2) intact and untouched', async () => {
+      const row = await db.postEventCheckIn.findUnique({ where: { id: checkInControlId } });
+      expect(row).not.toBeNull();
+      expect(row?.userId).toBe(counterparty2Id);
+      expect(row?.status).toBe('pending');
+    });
+
+    it('writes 4 deleted_by_retention audit rows in post_event_check_in_events (2 pending + 2 ok)', async () => {
+      // Each hard-deleted pending/ok check-in row emits one per-row audit entry
+      // with reason='deleted_by_retention' carrying the original checkInId.
+      const deletedCheckInIds = new Set([
+        checkInPending1Id,
+        checkInPending2Id,
+        checkInOk1Id,
+        checkInOk2Id,
+      ]);
+
+      const auditRows = await db.postEventCheckInEvent.findMany({
+        where: {
+          checkInId: { in: [...deletedCheckInIds] },
+          reason: 'deleted_by_retention',
+        },
+      });
+
+      expect(auditRows).toHaveLength(4);
+
+      // Every deleted check-in ID must appear exactly once in the audit trail.
+      const auditedCheckInIds = new Set(auditRows.map((r) => r.checkInId));
+      for (const id of deletedCheckInIds) {
+        expect(auditedCheckInIds).toContain(id);
+      }
+    });
+
+    it('writes 2 pseudonymised audit rows in post_event_check_in_events (one per flagged batch)', async () => {
+      // PseudonymiseCheckInsForUserUseCase emits one aggregate pseudonymised row
+      // per pseudonymiseForUser batch (attendee batch + host batch) when count > 0.
+      // Both batches ran (one flagged attendee row + one flagged host row), so
+      // exactly 2 pseudonymised rows are expected — both with checkInId === subjectId
+      // (the synthetic aggregate identifier used by the aggregate-audit pattern).
+      const pseudonymisedRows = await db.postEventCheckInEvent.findMany({
+        where: {
+          checkInId: subjectId,
+          reason: 'pseudonymised',
+        },
+      });
+      expect(pseudonymisedRows).toHaveLength(2);
+    });
+
     it('tombstones the user row (deletedAt non-null, email placeholder)', async () => {
       const row = await db.user.findUnique({ where: { id: subjectId } });
       expect(row).not.toBeNull();
@@ -413,6 +713,7 @@ describe.skipIf(!dbUrl)('DeleteAccountUseCase — cascade integration (TRI-155)'
 
       // Three scopes from TRI-155 + one new scope from TRI-217.
       const scope = row?.cascadeScope as string[];
+      expect(scope).toContain('check_ins'); // TRI-135: check-in cascade step present
       expect(scope).toContain('reports_deleted');
       expect(scope).toContain('reviews_deleted');
       expect(scope).toContain('user_blocks_deleted');
