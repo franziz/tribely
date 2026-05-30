@@ -27,6 +27,17 @@ export interface PostEventCheckInRepository {
 
   listPendingForUser(userId: string, ctx?: TxContext): Promise<PostEventCheckIn[]>;
 
+  /**
+   * Returns all check-ins authored by `userId` with the given non-evidentiary status.
+   * Used by the account-deletion cascade to enumerate rows requiring per-row delete + audit.
+   * 'pending' | 'ok' is intentional: 'flagged' is evidentiary and pseudonymised, never deleted.
+   */
+  listByUserAndStatus(
+    userId: string,
+    status: 'pending' | 'ok',
+    ctx?: TxContext,
+  ): Promise<PostEventCheckIn[]>;
+
   /** Upsert by id. */
   save(checkIn: PostEventCheckIn, ctx: TxContext): Promise<void>;
 

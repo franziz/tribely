@@ -40,6 +40,19 @@ export class PostEventCheckInPrismaRepository implements PostEventCheckInReposit
     return rows.map(toCheckIn);
   }
 
+  async listByUserAndStatus(
+    userId: string,
+    status: 'pending' | 'ok',
+    ctx?: TxContext,
+  ): Promise<PostEventCheckIn[]> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    const rows = await client.postEventCheckIn.findMany({
+      where: { userId, status },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map(toCheckIn);
+  }
+
   async save(checkIn: PostEventCheckIn, ctx: TxContext): Promise<void> {
     const client = unwrapTx(ctx);
     await client.postEventCheckIn.upsert({

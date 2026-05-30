@@ -157,6 +157,16 @@ export class FakePostEventCheckInRepository implements PostEventCheckInRepositor
     );
   }
 
+  listByUserAndStatus(
+    userId: string,
+    status: 'pending' | 'ok',
+    _ctx?: TxContext,
+  ): Promise<PostEventCheckIn[]> {
+    return Promise.resolve(
+      Array.from(this.byId.values()).filter((c) => c.userId === userId && c.status === status),
+    );
+  }
+
   save(checkIn: PostEventCheckIn, _ctx?: TxContext): Promise<void> {
     this.byId.set(checkIn.id, checkIn);
     return Promise.resolve();
