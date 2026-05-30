@@ -55,7 +55,31 @@ export class PseudonymiseCheckInsForUserUseCase {
     const pseudonymUserId = createId();
     const now = this.clock.now();
 
-    // ── 1. Pseudonymise flagged rows where this user was the attendee ──────────
+    // ── 1. Delete pending and ok rows authored by this user (per-row audit) ────
+    // MUST run before pseudonymiseForUser — that call issues an UPDATE without a
+    // status filter and rewrites userId on ALL rows (pending, ok, AND flagged).
+    // After pseudonymisation, listByUserAndStatus(userId) would return zero rows
+    // and the deletion step would silently no-op, producing no audit records.
+    let deletedCount = 0;
+    for (const status of ['pending', 'ok'] as const) {
+      const rows = await this.checkIns.listByUserAndStatus(userId, status, ctx);
+      for (const row of rows) {
+        await this.checkIns.deleteById(row.id, ctx);
+        await this.recordAuditEvent.execute(
+          {
+            checkInId: row.id,
+            userId,
+            eventId: row.eventId,
+            reason: 'deleted_by_retention',
+            occurredAt: now,
+          },
+          ctx,
+        );
+      }
+      deletedCount += rows.length;
+    }
+
+    // ── 2. Pseudonymise flagged rows where this user was the attendee ──────────
     const attendeeCount = await this.checkIns.pseudonymiseForUser(
       { userId, pseudonymUserId, role: 'attendee' },
       ctx,
@@ -76,7 +100,7 @@ export class PseudonymiseCheckInsForUserUseCase {
       );
     }
 
-    // ── 2. Pseudonymise flagged rows where this user was the host ──────────────
+    // ── 3. Pseudonymise flagged rows where this user was the host ──────────────
     const hostCount = await this.checkIns.pseudonymiseForUser(
       { userId, pseudonymUserId, role: 'host' },
       ctx,
@@ -93,26 +117,6 @@ export class PseudonymiseCheckInsForUserUseCase {
         },
         ctx,
       );
-    }
-
-    // ── 3. Delete pending and ok rows authored by this user (per-row audit) ────
-    let deletedCount = 0;
-    for (const status of ['pending', 'ok'] as const) {
-      const rows = await this.checkIns.listByUserAndStatus(userId, status, ctx);
-      for (const row of rows) {
-        await this.checkIns.deleteById(row.id, ctx);
-        await this.recordAuditEvent.execute(
-          {
-            checkInId: row.id,
-            userId,
-            eventId: row.eventId,
-            reason: 'deleted_by_retention',
-            occurredAt: now,
-          },
-          ctx,
-        );
-      }
-      deletedCount += rows.length;
     }
 
     return {
