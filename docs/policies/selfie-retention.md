@@ -109,7 +109,7 @@ Retention is the minimum window required to serve the disclosed purpose plus a d
 |---|---|---|
 | Pending (awaiting review) | Until review completes | Reviewer decision written |
 | Approved | **30 days from approval timestamp** OR until account deletion, whichever is first | Daily scheduled job + account-deletion cascade |
-| Rejected | **7 days from rejection timestamp** OR until account deletion, whichever is first | Daily scheduled job + account-deletion cascade |
+| Rejected | **30 days from rejection timestamp** OR until account deletion, whichever is first | Daily scheduled job + account-deletion cascade |
 | Re-uploaded after rejection | New independent retention clock on the new submission; prior rejected submission deletes on its own original schedule | No rolling window |
 
 **Why 30 days for approved selfies:** the verification decision is the recorded outcome; the underlying image is retained only for the dispute tail (user disputes decision, reviewer-quality audit, late-stage fraud signal). 30 days is the internal-judgment window covering those scenarios without indefinite retention. External counsel sign-off on s25 defensibility of this window is a launch-blocking item (see Section 11).
@@ -219,8 +219,65 @@ These fields are part of the `User` aggregate and follow the same access pattern
 
 ---
 
+## 8A. Deletion-event audit retention (TRI-82)
+
+This subsection extends Section 7 (Retention) and Section 8 (Deletion mechanics) to cover the `selfie_deletion_events` append-only audit table introduced by TRI-82. It is NOT a separate policy; it is part of this policy. Schema-level details (column types, indices, DB-role hardening) are out of scope here and live in the `features/audit/` README and TRI-130 respectively.
+
+### 8A.1 Uniform 30-day retention for selfie images (supersedes Section 7 table for rejected state)
+
+Effective TRI-82, the retention window for **rejected** selfies is harmonised with the approved-selfie window: **30 days from the decision timestamp** OR until account deletion, whichever is first. This supersedes the 7-day rejected-state row in the Section 7 table.
+
+The Section 7 table is read as if the Approved and Rejected rows share the **30 days from decision timestamp** window. Re-uploaded-after-rejection semantics are unchanged: the new submission starts an independent 30-day clock; the prior rejected submission deletes on its own original schedule.
+
+**Why uniform 30 days:**
+
+1. **Auditor-defensible posture.** A single retention horizon for the image-object data class is materially easier to defend to the PDPC under s25 than a state-dependent window. The asymmetric 7-day rejected window introduced an explanatory burden ("why shorter for rejected?") that the underlying purpose-limitation analysis did not earn — the dispute-tail and reviewer-quality-audit purposes apply symmetrically to both decision outcomes.
+2. **Removes per-state branching from the sweep job.** The deletion-automation job (TRI-79) selects by `decisionTimestamp < now() - 30d` without inspecting `reviewer_decision`. Single predicate, single failure mode.
+3. **Rejected-selfie evidentiary chain is preserved independently.** A `selfie_deletion_events` row is written on every deletion regardless of decision state (see 8A.2), and that row is retained for 24 months. Shortening the image-object window for rejected selfies was historically motivated by minimisation; that minimisation is now achieved by the s25 evidentiary tail living in the audit table rather than in the image-object lifetime.
+
+*Cited verdict:* TRI-82 workflow Q1 — legal-compliance cleared the uniform 30-day window as PDPA s25-defensible on 2026-05-19, on the condition that the deletion-event audit row carries the long-tail evidence (see 8A.2).
+
+External counsel review of this uniform window is folded into the existing Section 11 item (1) — no new launch-blocking item is created.
+
+### 8A.2 Deletion-event 24-month retention (`selfie_deletion_events`)
+
+Every deletion of a selfie image — whether by scheduled sweep, account-deletion cascade, user request, or aged-out reviewer rejection — writes exactly one row to the `selfie_deletion_events` table inside `features/audit/`. This row is the PDPA s25 evidence-of-deletion artefact referenced in Section 8 ("Verification of deletion") and is retained for **24 months from `occurredAt`**, after which a separate sweep job prunes it.
+
+The 24-month window is anchored in PDPA s25 evidentiary-window guidance: the obligation to show that data was destroyed when its purpose was served persists beyond the destruction event itself. 24 months covers the practically observed window for PDPC inquiry, user access-request lookback, and reviewer-decision dispute escalation. It is intentionally **shorter** than indefinite retention (which would defeat s25's destroy-when-no-longer-needed principle) and **longer** than the image-object window (which would defeat the evidentiary purpose).
+
+**`userId` design note — string column, not foreign key.** Each `selfie_deletion_events` row stores `userId` as a plain string column with **no foreign-key constraint** to the `users` table. This is a deliberate evidentiary-survival design choice, not an oversight:
+
+- An auditor or PDPC inquiry asking "prove you deleted this user's selfie" must be answerable **after** the user account itself has been deleted. A cascading FK would destroy the evidence row at the moment the underlying account is removed — the precise moment at which the evidence is most needed.
+- The account-deletion cascade (Section 8) deletes the selfie image and the `users` row atomically, but the `selfie_deletion_events` row written by that cascade is independent of the FK graph and survives. Lookup is by `userId` string; the absence of a corresponding live `users` row is expected and is itself part of the evidence ("the user no longer exists; here is the deletion record").
+
+The 24-month sweep job is **separate** from the 30-day selfie-image sweep job. Different retention horizons, different failure modes, different DB roles (per TRI-130). The two jobs must not be fused.
+
+*Cited verdict:* TRI-82 workflow Q3 — legal-compliance confirmed that `userId`-as-plain-string (no FK, no cascade) satisfies PDPA s25 by preserving the evidence-of-deletion chain past account-record deletion, adjudicated 2026-05-19.
+
+### 8A.3 Definition — `reason = user-request`
+
+The `selfie_deletion_events.reason` column carries a closed enum of four values at launch: `retention-sweep` | `account-deletion` | `user-request` | `reviewer-rejection-aged`. Adding a fifth value is a re-scoping event requiring CEO sign-off and a stated regulatory or product driver.
+
+The `user-request` value covers **both** of the following user-initiated deletion paths:
+
+1. **Explicit deletion request.** A user invokes the in-app "delete my selfie" action (or the equivalent path surfaced via the PDPA s21 access/withdrawal channel at `privacy@gotribely.com`). The deletion is processed and one `selfie_deletion_events` row is written with `reason = user-request`.
+2. **Resubmit-replacement.** A user submits a new selfie that supersedes a prior submission (typically after rejection, but also permitted in the re-upload-after-rejection path defined in Section 7). The prior image is deleted as part of the supersession; one `selfie_deletion_events` row is written for the superseded image with `reason = user-request`.
+
+Both paths are user-initiated and both reflect the user's act of withdrawing the prior image from Tribely's processing surface. Distinguishing them at the audit-table level was considered and rejected as over-specification for v1 — the act ("user caused this image to be deleted") is the auditor-relevant fact; whether the cause was an explicit-delete tap or a resubmit-replace is recoverable from the cross-joined `http_audit_logs` row by `requestId` when needed.
+
+Paths that are **NOT** `user-request`:
+
+- The daily retention sweep deleting an image at the 30-day boundary → `retention-sweep`.
+- The account-deletion cascade per Section 8 → `account-deletion` (even though the user initiated the account deletion; the cascade is the operative deletion event for the selfie image and is captured under its own reason for clean separation from the per-image `user-request` flows).
+- A reviewer-rejection path where the image is aged out by sweep after rejection → `reviewer-rejection-aged`.
+
+*Cited verdict:* TRI-82 workflow Q4 — legal-compliance confirmed that collapsing explicit-delete and resubmit-replacement under a single `user-request` reason is consistent with PDPA s25 evidence requirements (the auditor-relevant fact is user-causation, not the in-app surface), adjudicated 2026-05-19.
+
+---
+
 ## 12. Change log
 
 | Date | Version | Change | Approver |
 |---|---|---|---|
 | 2026-05-14 | 1.0 | Initial policy. Locked retention windows, SG-resident storage, no biometrics, one-time verification, named external-counsel triggers. | CEO (TRI-69) |
+| 2026-05-30 | 1.0 (annexe) | TRI-82 extension. Harmonised rejected-selfie retention to 30 days (§7 table + 8A.1); added 24-month `selfie_deletion_events` window with `userId`-as-string evidentiary-survival design (8A.2); defined `reason=user-request` scope (8A.3). | Legal & Compliance (TRI-129) |
