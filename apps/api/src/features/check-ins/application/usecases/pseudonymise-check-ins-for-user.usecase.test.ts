@@ -321,16 +321,87 @@ describe('PseudonymiseCheckInsForUserUseCase', () => {
     expect(audit.calls).toHaveLength(0);
   });
 
-  // ── ok rows (future work boundary) ────────────────────────────────────────
+  // ── ok row deletion ───────────────────────────────────────────────────────
 
-  it('does NOT delete ok rows (domain repo lacks listByUserAndStatus — deferred)', async () => {
+  it('deletes ok rows authored by user and includes them in deletedReports', async () => {
     const userId = 'user-ok';
     repo.put(makeOk({ id: 'ci-ok1', userId }));
 
     const result = await useCase.execute({ userId }, TEST_TX);
 
-    // ok row untouched — no deletion count, row still present
-    expect(result.deletedReports).toBe(0);
-    expect(await repo.findById('ci-ok1')).not.toBeNull();
+    expect(result.deletedReports).toBe(1);
+    expect(await repo.findById('ci-ok1')).toBeNull();
+  });
+
+  it('deletes ok rows for user only, not other users', async () => {
+    const userId = 'user-ok-scope';
+    repo.put(makeOk({ id: 'ci-ok-a', userId, eventId: 'ev-ok-1' }));
+    repo.put(makeOk({ id: 'ci-ok-b', userId, eventId: 'ev-ok-2' }));
+    // Another user's ok row — must NOT be deleted
+    repo.put(makeOk({ id: 'ci-ok-c', userId: 'other-user' }));
+
+    const result = await useCase.execute({ userId }, TEST_TX);
+
+    expect(result.deletedReports).toBe(2);
+    expect(await repo.findById('ci-ok-a')).toBeNull();
+    expect(await repo.findById('ci-ok-b')).toBeNull();
+    expect(await repo.findById('ci-ok-c')).not.toBeNull();
+  });
+
+  it('deletes both pending and ok rows for same user (mixed)', async () => {
+    const userId = 'user-mixed-del';
+    const eventIdPending = 'ev-pending-x';
+    const eventIdOk = 'ev-ok-x';
+    repo.put(makePending({ id: 'ci-mx-p', userId, eventId: eventIdPending }));
+    repo.put(makeOk({ id: 'ci-mx-o', userId, eventId: eventIdOk }));
+
+    const result = await useCase.execute({ userId }, TEST_TX);
+
+    expect(result.deletedReports).toBe(2);
+    expect(await repo.findById('ci-mx-p')).toBeNull();
+    expect(await repo.findById('ci-mx-o')).toBeNull();
+
+    const deletedCalls = audit.calls.filter((c) => c.input.reason === 'deleted_by_retention');
+    expect(deletedCalls.length).toBe(2);
+
+    // Each deleted row must carry its own checkInId (per-row, not aggregate)
+    const ids = deletedCalls.map((c) => c.input.checkInId);
+    expect(ids).toContain('ci-mx-p');
+    expect(ids).toContain('ci-mx-o');
+
+    // Each audit call must carry the correct eventId
+    const pendingAudit = deletedCalls.find((c) => c.input.checkInId === 'ci-mx-p');
+    const okAudit = deletedCalls.find((c) => c.input.checkInId === 'ci-mx-o');
+    expect(pendingAudit?.input.eventId).toBe(eventIdPending);
+    expect(okAudit?.input.eventId).toBe(eventIdOk);
+
+    // All calls use the caller-supplied TxContext
+    for (const call of deletedCalls) {
+      expect(call.ctx).toBe(TEST_TX);
+    }
+  });
+
+  it('records per-row audit for deleted ok rows with correct checkInId (not userId)', async () => {
+    const userId = 'user-ok-audit';
+    const eventId1 = 'ev-ok-audit-1';
+    const eventId2 = 'ev-ok-audit-2';
+    repo.put(makeOk({ id: 'ci-oka-1', userId, eventId: eventId1 }));
+    repo.put(makeOk({ id: 'ci-oka-2', userId, eventId: eventId2 }));
+
+    await useCase.execute({ userId }, TEST_TX);
+
+    const deletedCalls = audit.calls.filter((c) => c.input.reason === 'deleted_by_retention');
+    expect(deletedCalls.length).toBe(2);
+
+    // checkInId must be the row's own ID, not the userId (per-row audit, not aggregate)
+    const ids = deletedCalls.map((c) => c.input.checkInId);
+    expect(ids).toContain('ci-oka-1');
+    expect(ids).toContain('ci-oka-2');
+    expect(ids).not.toContain(userId);
+
+    const audit1 = deletedCalls.find((c) => c.input.checkInId === 'ci-oka-1');
+    const audit2 = deletedCalls.find((c) => c.input.checkInId === 'ci-oka-2');
+    expect(audit1?.input.eventId).toBe(eventId1);
+    expect(audit2?.input.eventId).toBe(eventId2);
   });
 });

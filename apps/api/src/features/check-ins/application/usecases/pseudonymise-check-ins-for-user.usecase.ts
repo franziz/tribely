@@ -29,24 +29,16 @@ export interface PseudonymiseCheckInsForUserInput {
  *   - `pending` and `ok` rows where userId === input.userId are DELETED
  *     (no evidentiary value; no flagged content to preserve).
  *
- * Audit granularity — AGGREGATE (one record per pseudonymiseForUser call):
- *   The repository's `pseudonymiseForUser` returns only a row count, not the
- *   touched rows themselves. Extending the repository to return IDs would
- *   require adding a method to the domain interface (out of scope per the
- *   B5 brief hard rule). Per-row audit is therefore deferred to a future
- *   ticket that can add `pseudonymiseForUser` → `{ count, ids }`. Until then,
- *   each aggregate call records one audit row whose `checkInId` carries the
- *   caller-provided `userId` as a synthetic aggregate identifier (the actual
- *   row IDs are not available from the count-only return). This is sufficient
- *   for the PDPA s25 trail: the audit record proves pseudonymisation occurred
- *   for `userId` at `occurredAt`, even without individual row IDs.
+ * Audit granularity:
+ *   Pseudonymisation uses aggregate audit — one record per `pseudonymiseForUser`
+ *   batch. `checkInId` carries `userId` as a synthetic aggregate identifier
+ *   because `pseudonymiseForUser` returns a count only (row IDs unavailable).
+ *   This is sufficient for the PDPA s25 trail: the audit record proves
+ *   pseudonymisation occurred for `userId` at `occurredAt`.
  *
- * Deletion audit granularity — PER-ROW for pending rows (listPendingForUser
- *   returns the full set, so individual IDs are available). For `ok` rows the
- *   domain repository has no per-user query; deletion of ok rows is deferred
- *   until `PostEventCheckInRepository` gains a `listByUserAndStatus` method.
- *   TODO(TRI-29-followup): add `listByUserAndStatus` to the repo to cover ok
- *   rows in the deletion path and switch aggregate audit to per-row audit.
+ *   Deletion uses per-row audit — `listByUserAndStatus` returns the full set,
+ *   so individual IDs are available. Each deleted row produces one audit entry
+ *   with `checkInId === row.id` and the correct `eventId`.
  */
 export class PseudonymiseCheckInsForUserUseCase {
   constructor(
@@ -103,29 +95,29 @@ export class PseudonymiseCheckInsForUserUseCase {
       );
     }
 
-    // ── 3. Delete pending rows authored by this user (per-row audit) ───────────
-    const pendingRows = await this.checkIns.listPendingForUser(userId, ctx);
-    for (const checkIn of pendingRows) {
-      await this.checkIns.deleteById(checkIn.id, ctx);
-      await this.recordAuditEvent.execute(
-        {
-          checkInId: checkIn.id,
-          userId,
-          eventId: checkIn.eventId,
-          reason: 'deleted_by_retention',
-          occurredAt: now,
-        },
-        ctx,
-      );
+    // ── 3. Delete pending and ok rows authored by this user (per-row audit) ────
+    let deletedCount = 0;
+    for (const status of ['pending', 'ok'] as const) {
+      const rows = await this.checkIns.listByUserAndStatus(userId, status, ctx);
+      for (const row of rows) {
+        await this.checkIns.deleteById(row.id, ctx);
+        await this.recordAuditEvent.execute(
+          {
+            checkInId: row.id,
+            userId,
+            eventId: row.eventId,
+            reason: 'deleted_by_retention',
+            occurredAt: now,
+          },
+          ctx,
+        );
+      }
+      deletedCount += rows.length;
     }
-
-    // NOTE: ok rows for this user are NOT deleted here — the domain repository
-    // has no listByUserAndStatus method that filters by userId + status='ok'.
-    // Covered by TODO(TRI-29-followup) above.
 
     return {
       pseudonymisedReports: attendeeCount + hostCount,
-      deletedReports: pendingRows.length,
+      deletedReports: deletedCount,
     };
   }
 }
