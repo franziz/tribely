@@ -1,6 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/motion.dart';
@@ -77,6 +80,7 @@ class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
     final ink = dark
         ? TribelyColors.nightInkPrimary
         : TribelyColors.paperInkPrimary;
+    final accent = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
     final border = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;
@@ -94,6 +98,7 @@ class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
               title: _promptTitle,
               loading: _loading,
               ink: ink,
+              accent: accent,
               onAllGood: _onAllGood,
               onNeedHelp: _onNeedHelp,
             );
@@ -109,6 +114,7 @@ class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
           title: _promptTitle,
           loading: _loading,
           ink: ink,
+          accent: accent,
           onAllGood: _onAllGood,
           onNeedHelp: _onNeedHelp,
         ),
@@ -145,6 +151,29 @@ class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
 }
 
 // ---------------------------------------------------------------------------
+// Private helpers — inlined per brief B2 guidance (two callers, no shared
+// widget; extract if a third caller appears).
+// ---------------------------------------------------------------------------
+
+/// Launches `tel:999`. Falls back to a SnackBar if [launchUrl] returns false
+/// or throws (e.g., simulator without a phone dialler).
+Future<void> _onTel999Tap(BuildContext context) async {
+  try {
+    final ok = await launchUrl(Uri.parse('tel:999'));
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Call 999 on your phone.')),
+      );
+    }
+  } on PlatformException {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Call 999 on your phone.')),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Sub-widgets
 // ---------------------------------------------------------------------------
 
@@ -153,6 +182,7 @@ class _PromptContent extends StatelessWidget {
     required this.title,
     required this.loading,
     required this.ink,
+    required this.accent,
     required this.onAllGood,
     required this.onNeedHelp,
   });
@@ -160,8 +190,80 @@ class _PromptContent extends StatelessWidget {
   final String title;
   final bool loading;
   final Color ink;
+  final Color accent;
   final VoidCallback onAllGood;
   final VoidCallback onNeedHelp;
+
+  /// Builds the reminder body as [Text.rich].
+  ///
+  /// Render rules (per Brief B2):
+  ///   - "999" is bolded + `tel:999` link.
+  ///   - "file a safety report" renders as a CTA-styled inline link that
+  ///     triggers [onNeedHelp] (same destination as the "I need help" CTA).
+  ///
+  /// [safetyCheckInReminderBody] contains exactly one "999" and exactly one
+  /// "file a safety report". If the copy drifts, falls back to plain text.
+  Widget _buildReminderRichText(BuildContext context) {
+    const raw = safetyCheckInReminderBody;
+
+    // Split on the CTA phrase first, then split the left part on "999".
+    const ctaPhrase = 'file a safety report';
+    final ctaParts = raw.split(ctaPhrase);
+    if (ctaParts.length != 2) {
+      return Semantics(
+        label: raw,
+        child: Text(raw, style: TribelyType.bodyM(ink)),
+      );
+    }
+
+    final leftOfCta = ctaParts[0]; // "...call the Police on 999.\n\n...you can "
+    final rightOfCta = ctaParts[1]; // ". We aim to review..."
+
+    final leftParts = leftOfCta.split('999');
+    if (leftParts.length != 2) {
+      return Semantics(
+        label: raw,
+        child: Text(raw, style: TribelyType.bodyM(ink)),
+      );
+    }
+
+    final tel999Recognizer = TapGestureRecognizer()
+      ..onTap = () => _onTel999Tap(context);
+    final ctaRecognizer = TapGestureRecognizer()..onTap = onNeedHelp;
+
+    return Semantics(
+      label: raw,
+      container: true,
+      child: Text.rich(
+        TextSpan(
+          style: TribelyType.bodyM(ink),
+          children: [
+            TextSpan(text: leftParts[0]),
+            // "999" — bold + tappable (tel:999)
+            TextSpan(
+              text: '999',
+              recognizer: tel999Recognizer,
+              style: TribelyType.bodyM(accent).copyWith(
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+            TextSpan(text: leftParts[1]),
+            // "file a safety report" — CTA-styled inline link
+            TextSpan(
+              text: ctaPhrase,
+              recognizer: ctaRecognizer,
+              style: TribelyType.bodyM(accent).copyWith(
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+            TextSpan(text: rightOfCta),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +272,9 @@ class _PromptContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: TribelyType.headline(ink)),
+        const SizedBox(height: 16),
+        // Reminder body — 999 link + "file a safety report" inline CTA.
+        _buildReminderRichText(context),
         const SizedBox(height: 24),
         // Primary CTA — "All good"
         PrimaryButton(
