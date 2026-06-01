@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/design/colors.dart';
-import '../../../../core/design/typography.dart';
-import '../../../../core/widgets/grain_overlay.dart';
+import 'package:tribely_mobile/src/core/design/colors.dart';
+import 'package:tribely_mobile/src/core/design/typography.dart';
+import 'package:tribely_mobile/src/core/widgets/grain_overlay.dart';
 
-/// Shared chrome for the auth pages (sign-in / sign-up). Wraps a back arrow,
-/// a Fraunces-italic display headline, a body-L supportive subtitle, the
-/// grain overlay, and a scroll-when-needed body.
+/// Shared layout container for auth-style page surfaces (phone gate, OTP, sign-in).
+/// Lives in core/widgets/ because it has no auth-domain knowledge.
 ///
 /// The form body itself is provided by the caller via [child] — this widget
 /// is intentionally a dumb container with no knowledge of validation, state,

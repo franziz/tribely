@@ -6,10 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
-// Cross-feature presentation import — sanctioned per TRI-125 brief.
-// AuthPageScaffold is a layout chrome primitive with no behaviour; relocating
-// it to core/ is a separate refactor out of scope for TRI-125.
-import '../../../auth/presentation/widgets/auth_page_scaffold.dart';
+import 'package:tribely_mobile/src/core/widgets/auth_page_scaffold.dart';
 
 /// Full-screen phone-verification gate shown when a phone-unverified user
 /// attempts to enter the create-event wizard (`/events/new`).
