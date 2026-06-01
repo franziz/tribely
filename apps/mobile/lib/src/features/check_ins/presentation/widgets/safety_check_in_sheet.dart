@@ -157,7 +157,7 @@ class _SafetyCheckInSheetState extends ConsumerState<SafetyCheckInSheet> {
 
 /// Launches `tel:999`. Falls back to a SnackBar if [launchUrl] returns false
 /// or throws (e.g., simulator without a phone dialler).
-Future<void> _onTel999Tap(BuildContext context) async {
+Future<void> _onTel999TapFn(BuildContext context) async {
   try {
     final ok = await launchUrl(Uri.parse('tel:999'));
     if (!ok && context.mounted) {
@@ -177,7 +177,7 @@ Future<void> _onTel999Tap(BuildContext context) async {
 // Sub-widgets
 // ---------------------------------------------------------------------------
 
-class _PromptContent extends StatelessWidget {
+class _PromptContent extends StatefulWidget {
   const _PromptContent({
     required this.title,
     required this.loading,
@@ -194,6 +194,32 @@ class _PromptContent extends StatelessWidget {
   final VoidCallback onAllGood;
   final VoidCallback onNeedHelp;
 
+  @override
+  State<_PromptContent> createState() => _PromptContentState();
+}
+
+class _PromptContentState extends State<_PromptContent> {
+  late final TapGestureRecognizer _tel999Recognizer;
+  late final TapGestureRecognizer _ctaRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _tel999Recognizer = TapGestureRecognizer()..onTap = _onTel999Tap;
+    _ctaRecognizer = TapGestureRecognizer()..onTap = widget.onNeedHelp;
+  }
+
+  @override
+  void dispose() {
+    _tel999Recognizer.dispose();
+    _ctaRecognizer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onTel999Tap() async {
+    await _onTel999TapFn(context);
+  }
+
   /// Builds the reminder body as [Text.rich].
   ///
   /// Render rules (per Brief B2):
@@ -203,7 +229,7 @@ class _PromptContent extends StatelessWidget {
   ///
   /// [safetyCheckInReminderBody] contains exactly one "999" and exactly one
   /// "file a safety report". If the copy drifts, falls back to plain text.
-  Widget _buildReminderRichText(BuildContext context) {
+  Widget _buildReminderRichText() {
     const raw = safetyCheckInReminderBody;
 
     // Split on the CTA phrase first, then split the left part on "999".
@@ -212,7 +238,7 @@ class _PromptContent extends StatelessWidget {
     if (ctaParts.length != 2) {
       return Semantics(
         label: raw,
-        child: Text(raw, style: TribelyType.bodyM(ink)),
+        child: Text(raw, style: TribelyType.bodyM(widget.ink)),
       );
     }
 
@@ -224,27 +250,23 @@ class _PromptContent extends StatelessWidget {
     if (leftParts.length != 2) {
       return Semantics(
         label: raw,
-        child: Text(raw, style: TribelyType.bodyM(ink)),
+        child: Text(raw, style: TribelyType.bodyM(widget.ink)),
       );
     }
-
-    final tel999Recognizer = TapGestureRecognizer()
-      ..onTap = () => _onTel999Tap(context);
-    final ctaRecognizer = TapGestureRecognizer()..onTap = onNeedHelp;
 
     return Semantics(
       label: raw,
       container: true,
       child: Text.rich(
         TextSpan(
-          style: TribelyType.bodyM(ink),
+          style: TribelyType.bodyM(widget.ink),
           children: [
             TextSpan(text: leftParts[0]),
             // "999" — bold + tappable (tel:999)
             TextSpan(
               text: '999',
-              recognizer: tel999Recognizer,
-              style: TribelyType.bodyM(accent).copyWith(
+              recognizer: _tel999Recognizer,
+              style: TribelyType.bodyM(widget.accent).copyWith(
                 fontWeight: FontWeight.w700,
                 decoration: TextDecoration.underline,
               ),
@@ -253,8 +275,8 @@ class _PromptContent extends StatelessWidget {
             // "file a safety report" — CTA-styled inline link
             TextSpan(
               text: ctaPhrase,
-              recognizer: ctaRecognizer,
-              style: TribelyType.bodyM(accent).copyWith(
+              recognizer: _ctaRecognizer,
+              style: TribelyType.bodyM(widget.accent).copyWith(
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
               ),
@@ -272,23 +294,25 @@ class _PromptContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TribelyType.headline(ink)),
+        Text(widget.title, style: TribelyType.headline(widget.ink)),
         const SizedBox(height: 16),
         // Reminder body — 999 link + "file a safety report" inline CTA.
-        _buildReminderRichText(context),
+        _buildReminderRichText(),
         const SizedBox(height: 24),
         // Primary CTA — "All good"
         PrimaryButton(
           label: checkInPromptAllGoodCta,
-          onPressed: loading ? null : onAllGood,
-          state: loading ? PrimaryButtonState.loading : PrimaryButtonState.idle,
+          onPressed: widget.loading ? null : widget.onAllGood,
+          state: widget.loading
+              ? PrimaryButtonState.loading
+              : PrimaryButtonState.idle,
         ),
         const SizedBox(height: 12),
         // Secondary CTA — "I need help" (OutlinedButton styled by theme extension)
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
-            onPressed: loading ? null : onNeedHelp,
+            onPressed: widget.loading ? null : widget.onNeedHelp,
             child: const Text(checkInPromptNeedHelpCta),
           ),
         ),
