@@ -66,6 +66,7 @@ const makePayload = (overrides?: Partial<Parameters<typeof checkInFlagged>[0]>) 
     hostUserId: 'user_host99',
     flaggedAt: '2026-05-19T10:00:00.000Z',
     reportBody: 'I felt unsafe because of the host behaviour.',
+    disclaimerAcknowledged: true,
     ...overrides,
   });
 

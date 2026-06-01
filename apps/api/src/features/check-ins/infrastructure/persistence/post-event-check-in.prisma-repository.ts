@@ -64,6 +64,7 @@ export class PostEventCheckInPrismaRepository implements PostEventCheckInReposit
         flaggedAt: checkIn.flaggedAt,
         reportBody: checkIn.reportBody,
         resolvedAt: checkIn.resolvedAt,
+        disclaimerAcknowledged: checkIn.disclaimerAcknowledged,
       },
     });
   }

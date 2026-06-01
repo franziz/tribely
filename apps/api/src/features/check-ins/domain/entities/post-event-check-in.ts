@@ -22,7 +22,7 @@ const REPORT_BODY_MAX = 2000;
  *
  * State transitions:
  *   - `acknowledge({ now })` — pending → ok. Records `check-ins.checkInAcknowledged`.
- *   - `flag({ reportBody, now })` — pending → flagged. Records `check-ins.checkInFlagged`.
+ *   - `flag({ reportBody, disclaimerAcknowledged, now })` — pending → flagged. Records `check-ins.checkInFlagged`.
  */
 export class PostEventCheckIn extends AggregateRoot {
   private constructor(
@@ -36,6 +36,7 @@ export class PostEventCheckIn extends AggregateRoot {
     private _flaggedAt: Date | null,
     private _reportBody: string | null,
     private _resolvedAt: Date | null,
+    private _disclaimerAcknowledged: boolean,
   ) {
     super();
   }
@@ -58,6 +59,7 @@ export class PostEventCheckIn extends AggregateRoot {
       null,
       null,
       null,
+      false,
     );
     instance.record(
       checkInCreated({
@@ -82,6 +84,7 @@ export class PostEventCheckIn extends AggregateRoot {
     flaggedAt: Date | null;
     reportBody: string | null;
     resolvedAt: Date | null;
+    disclaimerAcknowledged: boolean;
   }): PostEventCheckIn {
     return new PostEventCheckIn(
       state.id,
@@ -94,6 +97,7 @@ export class PostEventCheckIn extends AggregateRoot {
       state.flaggedAt,
       state.reportBody,
       state.resolvedAt,
+      state.disclaimerAcknowledged,
     );
   }
 
@@ -115,6 +119,10 @@ export class PostEventCheckIn extends AggregateRoot {
 
   get resolvedAt(): Date | null {
     return this._resolvedAt;
+  }
+
+  get disclaimerAcknowledged(): boolean {
+    return this._disclaimerAcknowledged;
   }
 
   /**
@@ -139,8 +147,12 @@ export class PostEventCheckIn extends AggregateRoot {
   /**
    * Transition pending → flagged. Throws UNPROCESSABLE on empty or overlong
    * reportBody. Throws CONFLICT if the check-in is not pending.
+   *
+   * `disclaimerAcknowledged` is persisted on the aggregate and included in the
+   * domain event snapshot. The use case is responsible for enforcing that the
+   * caller passes `true` (AC6) before invoking this method.
    */
-  flag(input: { reportBody: string; now: Date }): void {
+  flag(input: { reportBody: string; disclaimerAcknowledged: boolean; now: Date }): void {
     const trimmed = input.reportBody.trim();
     if (trimmed.length === 0) {
       throw AppError.unprocessable('Report body must not be empty', {
@@ -159,6 +171,7 @@ export class PostEventCheckIn extends AggregateRoot {
     this._status = 'flagged';
     this._flaggedAt = input.now;
     this._reportBody = trimmed;
+    this._disclaimerAcknowledged = input.disclaimerAcknowledged;
     this.record(
       checkInFlagged({
         checkInId: this.id,
@@ -167,6 +180,7 @@ export class PostEventCheckIn extends AggregateRoot {
         hostUserId: this.hostUserId,
         flaggedAt: input.now.toISOString(),
         reportBody: trimmed,
+        disclaimerAcknowledged: input.disclaimerAcknowledged,
       }),
     );
   }

@@ -54,7 +54,12 @@ export class CheckInsController {
    * (transitions pending → flagged).
    */
   flagAction = async (c: Context, id: string, userId: string, body: FlagCheckInBody) => {
-    await this.flagCheckIn.execute({ id, userId, reportBody: body.reportBody });
+    await this.flagCheckIn.execute({
+      id,
+      userId,
+      reportBody: body.reportBody,
+      disclaimerAcknowledged: body.disclaimerAcknowledged,
+    });
     return c.json({ ok: true }, 200);
   };
 }

@@ -30,6 +30,7 @@ function makeFlaggedAttendee(overrides: {
     flaggedAt: BASE_DATE,
     reportBody: 'some safety concern',
     resolvedAt: null,
+    disclaimerAcknowledged: true,
   });
 }
 
@@ -50,6 +51,7 @@ function makeFlaggedHost(overrides: {
     flaggedAt: BASE_DATE,
     reportBody: 'some safety concern',
     resolvedAt: null,
+    disclaimerAcknowledged: true,
   });
 }
 
@@ -69,6 +71,7 @@ function makePending(overrides: {
     flaggedAt: null,
     reportBody: null,
     resolvedAt: null,
+    disclaimerAcknowledged: false,
   });
 }
 
@@ -84,6 +87,7 @@ function makeOk(overrides: { id: string; userId: string; eventId?: string }): Po
     flaggedAt: null,
     reportBody: null,
     resolvedAt: null,
+    disclaimerAcknowledged: false,
   });
 }
 

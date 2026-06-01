@@ -42,7 +42,7 @@ function okAt(id: string, createdAt: Date): PostEventCheckIn {
  */
 function flaggedAt(id: string, createdAt: Date, resolvedAt: Date | null): PostEventCheckIn {
   const checkIn = pendingAt(id, createdAt);
-  checkIn.flag({ reportBody: 'test report', now: createdAt });
+  checkIn.flag({ reportBody: 'test report', disclaimerAcknowledged: true, now: createdAt });
   checkIn.pullEvents();
 
   if (resolvedAt !== null) {
@@ -59,6 +59,7 @@ function flaggedAt(id: string, createdAt: Date, resolvedAt: Date | null): PostEv
       flaggedAt: checkIn.flaggedAt,
       reportBody: checkIn.reportBody,
       resolvedAt,
+      disclaimerAcknowledged: checkIn.disclaimerAcknowledged,
     });
   }
 

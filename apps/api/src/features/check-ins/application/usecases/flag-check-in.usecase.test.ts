@@ -50,6 +50,7 @@ describe('FlagCheckInUseCase', () => {
       id: checkIn.id,
       userId: ATTENDEE_ID,
       reportBody: 'Host was rude and I felt unsafe at the venue.',
+      disclaimerAcknowledged: true,
     });
 
     expect(result).toEqual({ ok: true });
@@ -57,13 +58,19 @@ describe('FlagCheckInUseCase', () => {
     expect(stored?.status).toBe('flagged');
     expect(stored?.reportBody).toBe('Host was rude and I felt unsafe at the venue.');
     expect(stored?.flaggedAt).toEqual(NOW);
+    expect(stored?.disclaimerAcknowledged).toBe(true);
   });
 
   it('publishes the checkInFlagged domain event', async () => {
     const { checkIns, publisher, useCase } = buildSut();
     const checkIn = seedPending(checkIns);
 
-    await useCase.execute({ id: checkIn.id, userId: ATTENDEE_ID, reportBody: 'Unsafe' });
+    await useCase.execute({
+      id: checkIn.id,
+      userId: ATTENDEE_ID,
+      reportBody: 'Unsafe',
+      disclaimerAcknowledged: true,
+    });
 
     expect(publisher.published).toHaveLength(1);
     expect(publisher.published[0]?.type).toContain('checkInFlagged');
@@ -73,7 +80,12 @@ describe('FlagCheckInUseCase', () => {
     const { checkIns, recorder, useCase } = buildSut();
     const checkIn = seedPending(checkIns);
 
-    await useCase.execute({ id: checkIn.id, userId: ATTENDEE_ID, reportBody: 'Bad experience' });
+    await useCase.execute({
+      id: checkIn.id,
+      userId: ATTENDEE_ID,
+      reportBody: 'Bad experience',
+      disclaimerAcknowledged: true,
+    });
 
     expect(recorder.calls).toHaveLength(1);
     const call = recorder.calls[0];
@@ -88,7 +100,12 @@ describe('FlagCheckInUseCase', () => {
     const { useCase } = buildSut();
 
     try {
-      await useCase.execute({ id: 'missing', userId: ATTENDEE_ID, reportBody: 'Something' });
+      await useCase.execute({
+        id: 'missing',
+        userId: ATTENDEE_ID,
+        reportBody: 'Something',
+        disclaimerAcknowledged: true,
+      });
       expect.fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(AppError);
@@ -101,11 +118,35 @@ describe('FlagCheckInUseCase', () => {
     const checkIn = seedPending(checkIns);
 
     try {
-      await useCase.execute({ id: checkIn.id, userId: 'someone-else', reportBody: 'Bad' });
+      await useCase.execute({
+        id: checkIn.id,
+        userId: 'someone-else',
+        reportBody: 'Bad',
+        disclaimerAcknowledged: true,
+      });
       expect.fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(AppError);
       expect((err as AppError).code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('throws UNPROCESSABLE disclaimerNotAcknowledged when disclaimerAcknowledged is false', async () => {
+    const { checkIns, useCase } = buildSut();
+    const checkIn = seedPending(checkIns);
+
+    try {
+      await useCase.execute({
+        id: checkIn.id,
+        userId: ATTENDEE_ID,
+        reportBody: 'I felt unsafe.',
+        disclaimerAcknowledged: false,
+      });
+      expect.fail('expected throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).code).toBe('UNPROCESSABLE');
+      expect((err as AppError).details).toEqual({ subcode: 'check-ins.disclaimerNotAcknowledged' });
     }
   });
 
@@ -114,7 +155,12 @@ describe('FlagCheckInUseCase', () => {
     const checkIn = seedPending(checkIns);
 
     try {
-      await useCase.execute({ id: checkIn.id, userId: ATTENDEE_ID, reportBody: '   ' });
+      await useCase.execute({
+        id: checkIn.id,
+        userId: ATTENDEE_ID,
+        reportBody: '   ',
+        disclaimerAcknowledged: true,
+      });
       expect.fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(AppError);
@@ -129,7 +175,12 @@ describe('FlagCheckInUseCase', () => {
     const longBody = 'x'.repeat(2001);
 
     try {
-      await useCase.execute({ id: checkIn.id, userId: ATTENDEE_ID, reportBody: longBody });
+      await useCase.execute({
+        id: checkIn.id,
+        userId: ATTENDEE_ID,
+        reportBody: longBody,
+        disclaimerAcknowledged: true,
+      });
       expect.fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(AppError);
@@ -148,7 +199,12 @@ describe('FlagCheckInUseCase', () => {
     checkIns.put(checkIn);
 
     try {
-      await useCase.execute({ id: checkIn.id, userId: ATTENDEE_ID, reportBody: 'Changed mind' });
+      await useCase.execute({
+        id: checkIn.id,
+        userId: ATTENDEE_ID,
+        reportBody: 'Changed mind',
+        disclaimerAcknowledged: true,
+      });
       expect.fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(AppError);
@@ -161,12 +217,21 @@ describe('FlagCheckInUseCase', () => {
     const checkIn = seedPending(checkIns);
 
     // Transition to flagged first.
-    checkIn.flag({ reportBody: 'First report', now: new Date(NOW.getTime() - 30_000) });
+    checkIn.flag({
+      reportBody: 'First report',
+      disclaimerAcknowledged: true,
+      now: new Date(NOW.getTime() - 30_000),
+    });
     checkIn.pullEvents();
     checkIns.put(checkIn);
 
     try {
-      await useCase.execute({ id: checkIn.id, userId: ATTENDEE_ID, reportBody: 'Second report' });
+      await useCase.execute({
+        id: checkIn.id,
+        userId: ATTENDEE_ID,
+        reportBody: 'Second report',
+        disclaimerAcknowledged: true,
+      });
       expect.fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(AppError);
