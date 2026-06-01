@@ -30,8 +30,9 @@ void main() {
     final result = await useCase(params);
 
     expect(result, const Right<Failure, Unit>(unit));
-    verify(() => repository.flag('ci-1', 'Felt unsafe at venue', true))
-        .called(1);
+    verify(
+      () => repository.flag('ci-1', 'Felt unsafe at venue', true),
+    ).called(1);
   });
 
   test('propagates Left(failure) from repository unchanged', () async {

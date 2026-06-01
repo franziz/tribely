@@ -31,10 +31,6 @@ class FlagCheckInUseCase implements UseCase<Unit, FlagCheckInParams> {
   final CheckInsRepository _repository;
 
   @override
-  Future<Either<Failure, Unit>> call(FlagCheckInParams params) =>
-      _repository.flag(
-        params.checkInId,
-        params.reportBody,
-        params.disclaimerAcknowledged,
-      );
+  Future<Either<Failure, Unit>> call(FlagCheckInParams params) => _repository
+      .flag(params.checkInId, params.reportBody, params.disclaimerAcknowledged);
 }

@@ -207,28 +207,27 @@ void main() {
   // the use case (no flagUseCase interaction expected).
   // -------------------------------------------------------------------------
 
-  testWidgets(
-    'initial state: helper text visible; tap submit does nothing',
-    (tester) async {
-      await tester.pumpWidget(
-        _wrap(
-          surfaceUseCase: surfaceUseCase,
-          acknowledgeUseCase: acknowledgeUseCase,
-          flagUseCase: flagUseCase,
-        ),
-      );
-      await tester.pump();
+  testWidgets('initial state: helper text visible; tap submit does nothing', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        surfaceUseCase: surfaceUseCase,
+        acknowledgeUseCase: acknowledgeUseCase,
+        flagUseCase: flagUseCase,
+      ),
+    );
+    await tester.pump();
 
-      // Helper text visible.
-      expect(find.text(safetyReportGateDisabledHelperText), findsOneWidget);
+    // Helper text visible.
+    expect(find.text(safetyReportGateDisabledHelperText), findsOneWidget);
 
-      // Tapping submit does not invoke the use case (button is logically disabled).
-      await tester.tap(find.text(safetyReportSendCta), warnIfMissed: false);
-      await tester.pump();
+    // Tapping submit does not invoke the use case (button is logically disabled).
+    await tester.tap(find.text(safetyReportSendCta), warnIfMissed: false);
+    await tester.pump();
 
-      verifyNever(() => flagUseCase(any()));
-    },
-  );
+    verifyNever(() => flagUseCase(any()));
+  });
 
   // -------------------------------------------------------------------------
   // Case 7: Enter text + tick checkbox → submit enabled (helper text gone)
@@ -427,47 +426,44 @@ void main() {
   // Case 11: Submit failure → checkbox state remains true (carry-over)
   // -------------------------------------------------------------------------
 
-  testWidgets(
-    'submit failure retains checkbox in ticked state (carry-over)',
-    (tester) async {
-      const failure = NetworkFailure('Connection lost');
-      when(() => flagUseCase(any())).thenAnswer(
-        (_) async => const Left(failure),
-      );
+  testWidgets('submit failure retains checkbox in ticked state (carry-over)', (
+    tester,
+  ) async {
+    const failure = NetworkFailure('Connection lost');
+    when(() => flagUseCase(any())).thenAnswer((_) async => const Left(failure));
 
-      await tester.pumpWidget(
-        _wrap(
-          surfaceUseCase: surfaceUseCase,
-          acknowledgeUseCase: acknowledgeUseCase,
-          flagUseCase: flagUseCase,
-        ),
-      );
-      await tester.pump();
+    await tester.pumpWidget(
+      _wrap(
+        surfaceUseCase: surfaceUseCase,
+        acknowledgeUseCase: acknowledgeUseCase,
+        flagUseCase: flagUseCase,
+      ),
+    );
+    await tester.pump();
 
-      await _seedShowing(tester, surfaceUseCase);
+    await _seedShowing(tester, surfaceUseCase);
 
-      // Enter text.
-      await tester.enterText(find.byType(TextField), 'Something happened');
-      await tester.pump();
+    // Enter text.
+    await tester.enterText(find.byType(TextField), 'Something happened');
+    await tester.pump();
 
-      // Tick checkbox.
-      await _tapCheckbox(tester);
+    // Tick checkbox.
+    await _tapCheckbox(tester);
 
-      // Submit.
-      await tester.tap(find.text(safetyReportSendCta), warnIfMissed: false);
-      for (var i = 0; i < 10; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
+    // Submit.
+    await tester.tap(find.text(safetyReportSendCta), warnIfMissed: false);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-      // Error banner should appear.
-      expect(find.text('Connection lost'), findsOneWidget);
+    // Error banner should appear.
+    expect(find.text('Connection lost'), findsOneWidget);
 
-      // Checkbox should still be ticked (carry-over).
-      await tester.ensureVisible(find.byType(Checkbox));
-      await tester.pumpAndSettle();
-      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
-    },
-  );
+    // Checkbox should still be ticked (carry-over).
+    await tester.ensureVisible(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+  });
 
   // -------------------------------------------------------------------------
   // Pre-existing: char counter

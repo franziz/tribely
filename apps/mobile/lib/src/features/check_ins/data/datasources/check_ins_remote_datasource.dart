@@ -28,11 +28,7 @@ abstract class CheckInsRemoteDataSource {
   ///
   /// Flags the check-in for safety review.
   /// Body: `{ "reportBody": <string>, "disclaimerAcknowledged": <bool> }`.
-  Future<void> flag(
-    String id,
-    String reportBody,
-    bool disclaimerAcknowledged,
-  );
+  Future<void> flag(String id, String reportBody, bool disclaimerAcknowledged);
 }
 
 class CheckInsRemoteDataSourceImpl implements CheckInsRemoteDataSource {

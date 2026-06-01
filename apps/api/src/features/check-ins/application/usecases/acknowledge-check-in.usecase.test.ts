@@ -129,7 +129,11 @@ describe('AcknowledgeCheckInUseCase', () => {
     const checkIn = seedPending(checkIns);
 
     // Transition to flagged via the aggregate directly.
-    checkIn.flag({ reportBody: 'Unsafe', disclaimerAcknowledged: true, now: new Date(NOW.getTime() - 30_000) });
+    checkIn.flag({
+      reportBody: 'Unsafe',
+      disclaimerAcknowledged: true,
+      now: new Date(NOW.getTime() - 30_000),
+    });
     checkIn.pullEvents();
     checkIns.put(checkIn); // upsert the updated state
 

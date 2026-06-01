@@ -388,27 +388,23 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('Surface B reminder body', () {
-    testWidgets(
-      'reminder body is visible in the prompt state',
-      (tester) async {
-        await tester.pumpWidget(
-          _makeApp(
-            surfaceUseCase: surfaceUseCase,
-            acknowledgeUseCase: acknowledgeUseCase,
-            flagUseCase: flagUseCase,
-          ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
+    testWidgets('reminder body is visible in the prompt state', (tester) async {
+      await tester.pumpWidget(
+        _makeApp(
+          surfaceUseCase: surfaceUseCase,
+          acknowledgeUseCase: acknowledgeUseCase,
+          flagUseCase: flagUseCase,
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
 
-        // A distinctive substring from safetyCheckInReminderBody.
-        expect(
-          find.textContaining('file a safety report', findRichText: true),
-          findsOneWidget,
-        );
-      },
-      skip: Platform.isLinux,
-    );
+      // A distinctive substring from safetyCheckInReminderBody.
+      expect(
+        find.textContaining('file a safety report', findRichText: true),
+        findsOneWidget,
+      );
+    }, skip: Platform.isLinux);
 
     testWidgets(
       'reminder body is NOT visible in the post-acknowledge (confirmation chip) state',

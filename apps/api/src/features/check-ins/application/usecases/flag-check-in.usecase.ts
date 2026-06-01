@@ -56,14 +56,17 @@ export class FlagCheckInUseCase {
       // before submitting. The schema accepts any boolean so the subcode is
       // preserved for operators; the enforcement lives here per AC6.
       if (!input.disclaimerAcknowledged) {
-        throw AppError.unprocessable(
-          'You must acknowledge the 999 disclaimer before submitting.',
-          { subcode: 'check-ins.disclaimerNotAcknowledged' },
-        );
+        throw AppError.unprocessable('You must acknowledge the 999 disclaimer before submitting.', {
+          subcode: 'check-ins.disclaimerNotAcknowledged',
+        });
       }
 
       // Aggregate validates REPORT_EMPTY / REPORT_TOO_LONG / CONFLICT status.
-      checkIn.flag({ reportBody: input.reportBody, disclaimerAcknowledged: input.disclaimerAcknowledged, now });
+      checkIn.flag({
+        reportBody: input.reportBody,
+        disclaimerAcknowledged: input.disclaimerAcknowledged,
+        now,
+      });
 
       await this.checkIns.save(checkIn, ctx);
       await this.publisher.publish(ctx, ...checkIn.pullEvents());

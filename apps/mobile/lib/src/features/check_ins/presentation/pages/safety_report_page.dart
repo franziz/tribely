@@ -68,8 +68,7 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
   @override
   void initState() {
     super.initState();
-    _disclaimerLinkRecognizer = TapGestureRecognizer()
-      ..onTap = _onTel999Tap;
+    _disclaimerLinkRecognizer = TapGestureRecognizer()..onTap = _onTel999Tap;
   }
 
   @override
@@ -89,9 +88,9 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
       }
     } on PlatformException {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Call 999 on your phone.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Call 999 on your phone.')));
     }
   }
 
@@ -207,9 +206,9 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
                                   Expanded(
                                     child: Text(
                                       safetyReportGateHeading,
-                                      style: TribelyType.bodyM(ink).copyWith(
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                      style: TribelyType.bodyM(
+                                        ink,
+                                      ).copyWith(fontWeight: FontWeight.w700),
                                     ),
                                   ),
                                 ],
@@ -239,7 +238,7 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
                           onChanged: _submitting
                               ? null
                               : (v) =>
-                                  setState(() => _acknowledged = v ?? false),
+                                    setState(() => _acknowledged = v ?? false),
                           title: Text(
                             safetyReportGateCheckboxLabel,
                             style: TribelyType.bodyM(ink),
@@ -319,10 +318,7 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
   ///
   /// The [Semantics] wrapper on the caller provides the screen-reader label,
   /// so the individual [TextSpan] tap-target does not need its own label.
-  Widget _buildDisclaimerRichText({
-    required Color ink,
-    required Color accent,
-  }) {
+  Widget _buildDisclaimerRichText({required Color ink, required Color accent}) {
     // safetyReportGateDisclaimerBody structure:
     //   "If you or someone else is in immediate danger, or a crime is in
     //    progress, call the Police on 999 now.\n\n
@@ -360,9 +356,7 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
           // SECOND "999" — bold only, not tappable
           TextSpan(
             text: '999',
-            style: TribelyType.bodyM(ink).copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: TribelyType.bodyM(ink).copyWith(fontWeight: FontWeight.w700),
           ),
           TextSpan(text: parts[2]),
         ],

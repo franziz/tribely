@@ -161,15 +161,15 @@ Future<void> _onTel999Tap(BuildContext context) async {
   try {
     final ok = await launchUrl(Uri.parse('tel:999'));
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Call 999 on your phone.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Call 999 on your phone.')));
     }
   } on PlatformException {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Call 999 on your phone.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Call 999 on your phone.')));
   }
 }
 
@@ -216,7 +216,8 @@ class _PromptContent extends StatelessWidget {
       );
     }
 
-    final leftOfCta = ctaParts[0]; // "...call the Police on 999.\n\n...you can "
+    final leftOfCta =
+        ctaParts[0]; // "...call the Police on 999.\n\n...you can "
     final rightOfCta = ctaParts[1]; // ". We aim to review..."
 
     final leftParts = leftOfCta.split('999');
