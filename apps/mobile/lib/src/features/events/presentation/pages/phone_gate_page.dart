@@ -49,7 +49,9 @@ class PhoneGatePage extends StatelessWidget {
             label: 'Verify my number',
             onPressed: () {
               final redirectTo = Uri.encodeQueryComponent('/events/new');
-              unawaited(context.push('/auth/phone/entry?redirectTo=$redirectTo'));
+              unawaited(
+                context.push('/auth/phone/entry?redirectTo=$redirectTo'),
+              );
             },
           ),
           const SizedBox(height: 12),
