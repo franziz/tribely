@@ -43,7 +43,12 @@ dev_dependencies:
   # 4.0.3's analyzer ^9. 6.13.0 is the latest within the analyzer-9 band.
   json_serializable: ^6.13.0
   mocktail: ^1.0.5
+  # Required for url_launcher platform mocking in widget tests.
+  # Both are transitive deps of url_launcher; listed explicitly to satisfy
+  # the depend_on_referenced_packages lint in test files.
+  plugin_platform_interface: ^2.1.8
   riverpod_generator: ^4.0.3
+  url_launcher_platform_interface: ^2.3.2
   # NOTE: `custom_lint`, `custom_lint_builder`, `riverpod_lint` are NOT
   # in dev_dependencies. Per riverpod.dev docs, riverpod_lint is loaded
   # via the new `analysis_server_plugin` mechanism in analysis_options.yaml

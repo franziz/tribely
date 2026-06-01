@@ -18,5 +18,12 @@ abstract class CheckInsRepository {
 
   /// Flags a check-in for safety review, attaching a free-text report body.
   /// Maps to `POST /me/post-event-check-ins/:id/flag`.
-  Future<Either<Failure, Unit>> flag(String checkInId, String reportBody);
+  ///
+  /// [disclaimerAcknowledged] must be `true` — the caller (use case) passes
+  /// through the value recorded by the UI gate; the API persists it for audit.
+  Future<Either<Failure, Unit>> flag(
+    String checkInId,
+    String reportBody,
+    bool disclaimerAcknowledged,
+  );
 }

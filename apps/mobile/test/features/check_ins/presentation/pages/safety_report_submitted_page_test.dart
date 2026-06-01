@@ -51,7 +51,11 @@ void main() {
       await tester.pumpWidget(_wrap());
       await tester.pump();
 
-      expect(find.textContaining('24 hours'), findsOneWidget);
+      // Body mentions email address — unique to the body (not in the disclaimer).
+      expect(
+        find.textContaining('email address on your account'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('SPF 999 disclaimer matches policy SoT verbatim', (
@@ -62,10 +66,11 @@ void main() {
 
       // Assert the EXACT verbatim string from the policy doc is rendered.
       // Any paraphrase here is a test failure — the policy document is the SoT.
+      // Updated in TRI-238 Brief A2 to match the new longer disclaimer.
       expect(
         find.textContaining(
-          'If you\'re in immediate danger, call the Singapore Police at 999. '
-          'We are not an emergency service.',
+          'If you or someone else is in immediate danger, or a crime is in progress, '
+          'call the Police on 999 now.',
         ),
         findsOneWidget,
       );
@@ -76,11 +81,12 @@ void main() {
     ) async {
       // This test guards the string constant itself against accidental
       // paraphrase — independent of whether it renders correctly.
+      // Updated in TRI-238 Brief A2 to match the new longer disclaimer.
       expect(
         safetyReportSubmittedSpf999Disclaimer,
-        equals(
-          'If you\'re in immediate danger, call the Singapore Police at 999. '
-          'We are not an emergency service.',
+        startsWith(
+          'If you or someone else is in immediate danger, or a crime is in progress, '
+          'call the Police on 999 now.',
         ),
       );
     });

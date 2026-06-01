@@ -313,7 +313,7 @@ void main() {
       await container.read(checkInsControllerProvider.notifier).refresh();
       await container
           .read(checkInsControllerProvider.notifier)
-          .flagged('Felt unsafe');
+          .flagged('Felt unsafe', disclaimerAcknowledged: true);
 
       expect(container.read(checkInsControllerProvider), isA<CheckInsEmpty>());
       verify(() => flagUseCase(any())).called(1);
@@ -328,7 +328,7 @@ void main() {
 
       await container
           .read(checkInsControllerProvider.notifier)
-          .flagged('report');
+          .flagged('report', disclaimerAcknowledged: true);
 
       verifyNever(() => flagUseCase(any()));
     });
@@ -350,7 +350,7 @@ void main() {
       await container.read(checkInsControllerProvider.notifier).refresh();
       await container
           .read(checkInsControllerProvider.notifier)
-          .flagged('Felt unsafe');
+          .flagged('Felt unsafe', disclaimerAcknowledged: true);
 
       final state = container.read(checkInsControllerProvider);
       expect(state, isA<CheckInsError>());
