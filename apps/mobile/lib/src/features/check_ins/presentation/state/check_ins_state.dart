@@ -12,6 +12,14 @@ import '../../domain/entities/pending_check_in.dart';
 ///   Loading → Error(failure)  (on surface failure)
 ///   Showing → Loading         (on acknowledged() / flagged() → re-surface)
 ///   Showing → Idle            (on dismissShown())
+///
+/// [CheckInsLoading] is the only intermediate state.
+/// Transitions land directly on a terminal state ([CheckInsShowing], [CheckInsEmpty], [CheckInsError]).
+///
+/// NOTE: `SafetyReportPage._onSend()` synchronously reads controller state after
+/// awaiting `flagged()` to decide navigation. If an intermediate submit-progress
+/// state is added between `CheckInsLoading` and a terminal state, that call site
+/// must be migrated to `ref.listen`-based nav.
 sealed class CheckInsState extends Equatable {
   const CheckInsState();
 }

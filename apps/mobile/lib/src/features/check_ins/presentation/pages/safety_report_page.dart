@@ -49,6 +49,11 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
 
   final _textController = TextEditingController();
 
+  /// Tap recognizer for the first "999" in the disclaimer — bold + tappable
+  /// (tel:999). Constructed once in [initState] and disposed in [dispose] to
+  /// avoid leaking a new instance on every [AnimatedBuilder] rebuild.
+  late final TapGestureRecognizer _disclaimerLinkRecognizer;
+
   /// Tracks whether the user has ticked the pre-submit 999 disclaimer.
   ///
   /// Lifecycle:
@@ -61,7 +66,15 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
   Failure? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _disclaimerLinkRecognizer = TapGestureRecognizer()
+      ..onTap = _onTel999Tap;
+  }
+
+  @override
   void dispose() {
+    _disclaimerLinkRecognizer.dispose();
     _textController.dispose();
     super.dispose();
   }
@@ -329,8 +342,6 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
       return Text(raw, style: TribelyType.bodyM(ink));
     }
 
-    final tapRecognizer = TapGestureRecognizer()..onTap = _onTel999Tap;
-
     return Text.rich(
       TextSpan(
         style: TribelyType.bodyM(ink),
@@ -339,7 +350,7 @@ class _SafetyReportPageState extends ConsumerState<SafetyReportPage> {
           // FIRST "999" — bold + tappable (tel:999)
           TextSpan(
             text: '999',
-            recognizer: tapRecognizer,
+            recognizer: _disclaimerLinkRecognizer,
             style: TribelyType.bodyM(accent).copyWith(
               fontWeight: FontWeight.w700,
               decoration: TextDecoration.underline,
