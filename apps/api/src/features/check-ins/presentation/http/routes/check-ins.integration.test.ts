@@ -690,7 +690,10 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           Authorization: `Bearer ${attendeeToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ reportBody: 'The host made me feel unsafe.' }),
+        body: JSON.stringify({
+          reportBody: 'The host made me feel unsafe.',
+          disclaimerAcknowledged: true,
+        }),
       });
       expect(res.status).toBe(200);
       const body = (await res.json()) as { ok: boolean };
@@ -714,7 +717,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           Authorization: `Bearer ${attendeeToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ reportBody: 'test' }),
+        body: JSON.stringify({ reportBody: 'test', disclaimerAcknowledged: true }),
       });
       expect(res.status).toBe(404);
     });
@@ -772,7 +775,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           Authorization: `Bearer ${otherToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ reportBody: 'test' }),
+        body: JSON.stringify({ reportBody: 'test', disclaimerAcknowledged: true }),
       });
       expect(res.status).toBe(403);
 
@@ -883,7 +886,10 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
             Authorization: `Bearer ${attendeeToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ reportBody: 'Initial safety report.' }),
+          body: JSON.stringify({
+            reportBody: 'Initial safety report.',
+            disclaimerAcknowledged: true,
+          }),
         },
       );
       expect(first.status).toBe(200);
@@ -897,7 +903,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
             Authorization: `Bearer ${attendeeToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ reportBody: 'Follow-up report.' }),
+          body: JSON.stringify({ reportBody: 'Follow-up report.', disclaimerAcknowledged: true }),
         },
       );
       expect(second.status).toBe(409);
