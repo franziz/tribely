@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
-import 'package:tribely_mobile/src/core/widgets/auth_page_scaffold.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 
 /// Full-screen phone-verification gate shown when a phone-unverified user
 /// attempts to enter the create-event wizard (`/events/new`).
@@ -47,11 +47,10 @@ class PhoneGatePage extends StatelessWidget {
           const SizedBox(height: 24),
           PrimaryButton(
             label: 'Verify my number',
-            onPressed: () => unawaited(
-              context.push(
-                '/auth/phone/entry?redirectTo=${Uri.encodeQueryComponent('/events/new')}',
-              ),
-            ),
+            onPressed: () {
+              final redirectTo = Uri.encodeQueryComponent('/events/new');
+              unawaited(context.push('/auth/phone/entry?redirectTo=$redirectTo'));
+            },
           ),
           const SizedBox(height: 12),
           Center(

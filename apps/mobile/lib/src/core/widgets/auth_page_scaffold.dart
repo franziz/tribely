@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tribely_mobile/src/core/design/colors.dart';
-import 'package:tribely_mobile/src/core/design/typography.dart';
-import 'package:tribely_mobile/src/core/widgets/grain_overlay.dart';
+import '../design/colors.dart';
+import '../design/typography.dart';
+import 'grain_overlay.dart';
 
 /// Shared layout container for auth-style page surfaces (phone gate, OTP, sign-in).
 /// Lives in core/widgets/ because it has no auth-domain knowledge.

@@ -13,7 +13,7 @@ import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/tribely_text_field.dart';
 import '../providers/auth_providers.dart';
 import '../state/auth_state.dart';
-import 'package:tribely_mobile/src/core/widgets/auth_page_scaffold.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 
 /// Phone OTP wizard — step 1: country picker + phone number entry.
 ///

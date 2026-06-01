@@ -9,7 +9,7 @@ import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/otp_code_input.dart';
 import '../providers/auth_providers.dart';
 import '../state/auth_state.dart';
-import 'package:tribely_mobile/src/core/widgets/auth_page_scaffold.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 
 /// Phone OTP wizard — step 2: 6-digit code entry.
 ///
