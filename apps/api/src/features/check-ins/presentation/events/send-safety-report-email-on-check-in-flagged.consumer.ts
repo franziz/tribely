@@ -37,7 +37,8 @@ export const sendSafetyReportEmailOnCheckInFlagged = (
   name: 'check-ins.sendSafetyReportEmailOnCheckInFlagged',
   topic: CHECK_IN_FLAGGED,
   async handle(event) {
-    const { checkInId, userId, eventId, hostUserId, flaggedAt, reportBody } = event.payload;
+    const { checkInId, userId, eventId, hostUserId, flaggedAt, reportBody, disclaimerAcknowledged } =
+      event.payload;
 
     const found = await deps.eventRepository.findById(eventId);
     const rawTitle = found?.title ?? eventId;
@@ -51,6 +52,7 @@ export const sendSafetyReportEmailOnCheckInFlagged = (
       hostUserId,
       flaggedAt,
       reportBody,
+      disclaimerAcknowledged,
     });
 
     await deps.emailSender.send({

@@ -185,6 +185,42 @@ describe('sendSafetyReportEmailOnCheckInFlagged', () => {
     expect(sent.text).toContain('event_xyz789');
   });
 
+  it('passes disclaimerAcknowledged=true from the payload into the email body', async () => {
+    const sender = new FakeEmailSender();
+    const consumer = sendSafetyReportEmailOnCheckInFlagged({
+      emailSender: sender,
+      eventRepository: new StubEventRepository(makeStubEvent('Coffee & Chat SG')),
+    });
+
+    await consumer.handle(makePayload({ disclaimerAcknowledged: true }), fakeConsumerCtx());
+
+    expect(sender.sent).toHaveLength(1);
+    const sent = sender.sent[0];
+    expect(sent).toBeDefined();
+    if (!sent) return;
+
+    expect(sent.text).toContain('Disclaimer acknowledged: YES');
+    expect(sent.html).toContain('YES');
+  });
+
+  it('passes disclaimerAcknowledged=false from the payload into the email body', async () => {
+    const sender = new FakeEmailSender();
+    const consumer = sendSafetyReportEmailOnCheckInFlagged({
+      emailSender: sender,
+      eventRepository: new StubEventRepository(makeStubEvent('Coffee & Chat SG')),
+    });
+
+    await consumer.handle(makePayload({ disclaimerAcknowledged: false }), fakeConsumerCtx());
+
+    expect(sender.sent).toHaveLength(1);
+    const sent = sender.sent[0];
+    expect(sent).toBeDefined();
+    if (!sent) return;
+
+    expect(sent.text).toContain('Disclaimer acknowledged: NO');
+    expect(sent.html).toContain('NO');
+  });
+
   it('truncates long event titles to 40 chars with an ellipsis', async () => {
     const sender = new FakeEmailSender();
     const longTitle = 'A'.repeat(60);
