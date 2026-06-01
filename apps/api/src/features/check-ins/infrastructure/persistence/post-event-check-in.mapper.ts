@@ -26,6 +26,7 @@ export const toCheckIn = (row: PostEventCheckInRow): PostEventCheckIn => {
     flaggedAt: row.flaggedAt,
     reportBody: row.reportBody,
     resolvedAt: row.resolvedAt,
+    disclaimerAcknowledged: row.disclaimerAcknowledged,
   });
 };
 
@@ -43,4 +44,5 @@ export const toRow = (checkIn: PostEventCheckIn): Prisma.PostEventCheckInUncheck
   flaggedAt: checkIn.flaggedAt,
   reportBody: checkIn.reportBody,
   resolvedAt: checkIn.resolvedAt,
+  disclaimerAcknowledged: checkIn.disclaimerAcknowledged,
 });

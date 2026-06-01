@@ -8,6 +8,8 @@ export interface SafetyReportTemplateInput {
   hostUserId: string;
   flaggedAt: string;
   reportBody: string;
+  /** Whether the reporting user acknowledged the safety disclaimer before submitting. */
+  disclaimerAcknowledged: boolean;
 }
 
 /**
@@ -17,6 +19,9 @@ export interface SafetyReportTemplateInput {
  * external (PDPA s26 / out-of-region); PII stays in the SG-region DB.
  *
  * Subject is single-line, scannable, no PII.
+ *
+ * @param disclaimerAcknowledged - Whether the reporting user acknowledged the
+ *   safety disclaimer before submitting. Operator-visible; rendered as YES/NO.
  */
 export const safetyReportTemplate = ({
   checkInId,
@@ -26,6 +31,7 @@ export const safetyReportTemplate = ({
   hostUserId,
   flaggedAt,
   reportBody,
+  disclaimerAcknowledged,
 }: SafetyReportTemplateInput): EmailContent => {
   const subject = `[Tribely safety] event=${eventId} attendee=${userId}`;
 
@@ -48,12 +54,13 @@ export const safetyReportTemplate = ({
     `Host user ID:     ${hostUserId}`,
     `Attendee user ID: ${userId}`,
     `Flagged at:  ${flaggedAt}`,
+    `Disclaimer acknowledged: ${disclaimerAcknowledged ? 'YES' : 'NO'}`,
     '',
     'Report:',
     reportBody,
     '',
     '---',
-    'Respond within 24 hours. SOP: TRI-127 (ops staffing rotation). 999 Singapore Police if immediate danger to anyone involved.',
+    'Respond within SG business hours (Mon–Fri 9am–9pm SGT, excluding public holidays). SOP: TRI-127 (ops staffing rotation). 999 Singapore Police if immediate danger to anyone involved.',
   ].join('\n');
 
   const html = `<!doctype html>
@@ -96,9 +103,15 @@ export const safetyReportTemplate = ({
             </td>
           </tr>
           <tr>
-            <td style="padding:12px 16px;font-size:13px;">
+            <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;font-size:13px;">
               <span style="color:#6b7280;font-weight:500;">Flagged at</span><br>
               <span style="color:#0f172a;">${escapeHtml(flaggedAt)}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 16px;font-size:13px;">
+              <span style="color:#6b7280;font-weight:500;">Disclaimer acknowledged</span><br>
+              <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#0f172a;">${disclaimerAcknowledged ? 'YES' : 'NO'}</code>
             </td>
           </tr>
         </table>
@@ -108,7 +121,7 @@ export const safetyReportTemplate = ({
 
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 16px;">
         <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6;">
-          Respond within 24 hours. SOP: TRI-127 (ops staffing rotation).
+          Respond within SG business hours (Mon–Fri 9am–9pm SGT, excluding public holidays). SOP: TRI-127 (ops staffing rotation).
           999 Singapore Police if immediate danger to anyone involved.
         </p>
       </td></tr>

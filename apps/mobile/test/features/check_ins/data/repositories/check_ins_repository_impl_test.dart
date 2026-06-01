@@ -170,17 +170,21 @@ void main() {
 
   group('flag', () {
     test('returns Right(unit) on success', () async {
-      when(() => remote.flag('ci-1', 'Felt unsafe')).thenAnswer((_) async {});
+      when(
+        () => remote.flag('ci-1', 'Felt unsafe', true),
+      ).thenAnswer((_) async {});
 
-      final result = await repository.flag('ci-1', 'Felt unsafe');
+      final result = await repository.flag('ci-1', 'Felt unsafe', true);
 
       expect(result, const Right<Failure, Unit>(unit));
     });
 
     test('returns Left(NetworkFailure) on network error', () async {
-      when(() => remote.flag(any(), any())).thenThrow(_networkDioException());
+      when(
+        () => remote.flag(any(), any(), any()),
+      ).thenThrow(_networkDioException());
 
-      final result = await repository.flag('ci-1', 'Felt unsafe');
+      final result = await repository.flag('ci-1', 'Felt unsafe', true);
 
       expect(result.isLeft(), isTrue);
       expect(
@@ -190,11 +194,11 @@ void main() {
     });
 
     test('returns Left(ServerFailure) on 422', () async {
-      when(() => remote.flag(any(), any())).thenThrow(
+      when(() => remote.flag(any(), any(), any())).thenThrow(
         _serverDioException(statusCode: 422, message: 'Unprocessable'),
       );
 
-      final result = await repository.flag('ci-1', 'Felt unsafe');
+      final result = await repository.flag('ci-1', 'Felt unsafe', true);
 
       expect(result.isLeft(), isTrue);
       final failure = result.swap().getOrElse((_) => const UnknownFailure(''));

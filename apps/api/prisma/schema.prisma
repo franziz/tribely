@@ -667,16 +667,17 @@ model SweepRun {
 /// The two `@relation` directives on User are named so Prisma can
 /// distinguish attendee-side (postEventCheckIns) from host-side (HostedCheckIns).
 model PostEventCheckIn {
-  id             String    @id @default(cuid())
-  userId         String
-  eventId        String
-  hostUserId     String
-  status         String    // pending | ok | flagged — CHECK enforced by migration
-  createdAt      DateTime  @default(now())
-  acknowledgedAt DateTime?
-  flaggedAt      DateTime?
-  reportBody     String?
-  resolvedAt     DateTime?
+  id                      String    @id @default(cuid())
+  userId                  String
+  eventId                 String
+  hostUserId              String
+  status                  String    // pending | ok | flagged — CHECK enforced by migration
+  createdAt               DateTime  @default(now())
+  acknowledgedAt          DateTime?
+  flaggedAt               DateTime?
+  reportBody              String?
+  resolvedAt              DateTime?
+  disclaimerAcknowledged  Boolean   @default(false) @map("disclaimer_acknowledged")
 
   // userId FK deliberately absent: TRI-134 pseudonymisation rewrites userId to a cuid2
   // with no User row; removing the FK lets check-ins remain queryable post-tombstone.

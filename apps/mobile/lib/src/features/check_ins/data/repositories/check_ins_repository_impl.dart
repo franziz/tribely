@@ -41,9 +41,10 @@ class CheckInsRepositoryImpl implements CheckInsRepository {
   Future<Either<Failure, Unit>> flag(
     String checkInId,
     String reportBody,
+    bool disclaimerAcknowledged,
   ) async {
     try {
-      await _remote.flag(checkInId, reportBody);
+      await _remote.flag(checkInId, reportBody, disclaimerAcknowledged);
       return const Right(unit);
     } on DioException catch (e) {
       return Left(_mapDioError(e));

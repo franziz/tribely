@@ -26,8 +26,9 @@ abstract class CheckInsRemoteDataSource {
 
   /// `POST /me/post-event-check-ins/:id/flag`
   ///
-  /// Flags the check-in for safety review. Body: `{ "reportBody": <string> }`.
-  Future<void> flag(String id, String reportBody);
+  /// Flags the check-in for safety review.
+  /// Body: `{ "reportBody": <string>, "disclaimerAcknowledged": <bool> }`.
+  Future<void> flag(String id, String reportBody, bool disclaimerAcknowledged);
 }
 
 class CheckInsRemoteDataSourceImpl implements CheckInsRemoteDataSource {
@@ -51,10 +52,17 @@ class CheckInsRemoteDataSourceImpl implements CheckInsRemoteDataSource {
   }
 
   @override
-  Future<void> flag(String id, String reportBody) async {
+  Future<void> flag(
+    String id,
+    String reportBody,
+    bool disclaimerAcknowledged,
+  ) async {
     await _dio.post<void>(
       '/me/post-event-check-ins/$id/flag',
-      data: {'reportBody': reportBody},
+      data: {
+        'reportBody': reportBody,
+        'disclaimerAcknowledged': disclaimerAcknowledged,
+      },
     );
   }
 }

@@ -33,6 +33,7 @@ describe('PostEventCheckIn', () => {
       expect(chk.flaggedAt).toBeNull();
       expect(chk.reportBody).toBeNull();
       expect(chk.resolvedAt).toBeNull();
+      expect(chk.disclaimerAcknowledged).toBe(false);
     });
 
     it('records checkIns.checkInCreated with correct payload', () => {
@@ -96,7 +97,7 @@ describe('PostEventCheckIn', () => {
 
     it('throws CONFLICT when status is flagged', () => {
       const chk = created();
-      chk.flag({ reportBody: 'Bad experience', now: NOW });
+      chk.flag({ reportBody: 'Bad experience', disclaimerAcknowledged: true, now: NOW });
       expect(() => {
         chk.acknowledge({ now: NOW });
       }).toThrow(AppError);
@@ -110,16 +111,17 @@ describe('PostEventCheckIn', () => {
   });
 
   describe('flag', () => {
-    it('transitions pending → flagged, sets flaggedAt + reportBody, records checkIns.checkInFlagged', () => {
+    it('transitions pending → flagged, sets flaggedAt + reportBody + disclaimerAcknowledged, records checkIns.checkInFlagged', () => {
       const chk = created();
       chk.pullEvents();
       const at = new Date(NOW.getTime() + 2000);
-      chk.flag({ reportBody: '  Host was rude.  ', now: at });
+      chk.flag({ reportBody: '  Host was rude.  ', disclaimerAcknowledged: true, now: at });
 
       expect(chk.status).toBe('flagged');
       expect(chk.flaggedAt).toEqual(at);
       expect(chk.reportBody).toBe('Host was rude.'); // trimmed
       expect(chk.acknowledgedAt).toBeNull();
+      expect(chk.disclaimerAcknowledged).toBe(true);
 
       const events = chk.pullEvents();
       expect(events).toHaveLength(1);
@@ -134,13 +136,14 @@ describe('PostEventCheckIn', () => {
         hostUserId: 'host_1',
         flaggedAt: at.toISOString(),
         reportBody: 'Host was rude.',
+        disclaimerAcknowledged: true,
       });
     });
 
     it('throws UNPROCESSABLE with subcode REPORT_EMPTY when reportBody is empty', () => {
       const chk = created();
       try {
-        chk.flag({ reportBody: '', now: NOW });
+        chk.flag({ reportBody: '', disclaimerAcknowledged: true, now: NOW });
         expect.fail('expected throw');
       } catch (err) {
         expect(err).toBeInstanceOf(AppError);
@@ -153,7 +156,7 @@ describe('PostEventCheckIn', () => {
     it('throws UNPROCESSABLE with subcode REPORT_EMPTY when reportBody is whitespace-only', () => {
       const chk = created();
       try {
-        chk.flag({ reportBody: '   ', now: NOW });
+        chk.flag({ reportBody: '   ', disclaimerAcknowledged: true, now: NOW });
         expect.fail('expected throw');
       } catch (err) {
         expect(err).toBeInstanceOf(AppError);
@@ -166,7 +169,7 @@ describe('PostEventCheckIn', () => {
     it('throws UNPROCESSABLE with subcode REPORT_TOO_LONG when reportBody exceeds 2000 chars', () => {
       const chk = created();
       try {
-        chk.flag({ reportBody: 'x'.repeat(2001), now: NOW });
+        chk.flag({ reportBody: 'x'.repeat(2001), disclaimerAcknowledged: true, now: NOW });
         expect.fail('expected throw');
       } catch (err) {
         expect(err).toBeInstanceOf(AppError);
@@ -179,7 +182,7 @@ describe('PostEventCheckIn', () => {
     it('accepts reportBody of exactly 2000 chars', () => {
       const chk = created();
       expect(() => {
-        chk.flag({ reportBody: 'x'.repeat(2000), now: NOW });
+        chk.flag({ reportBody: 'x'.repeat(2000), disclaimerAcknowledged: true, now: NOW });
       }).not.toThrow();
       expect(chk.status).toBe('flagged');
     });
@@ -188,7 +191,7 @@ describe('PostEventCheckIn', () => {
       const chk = created();
       chk.acknowledge({ now: NOW });
       try {
-        chk.flag({ reportBody: 'Something', now: NOW });
+        chk.flag({ reportBody: 'Something', disclaimerAcknowledged: true, now: NOW });
         expect.fail('expected throw');
       } catch (err) {
         expect((err as AppError).code).toBe('CONFLICT');
@@ -197,9 +200,9 @@ describe('PostEventCheckIn', () => {
 
     it('throws CONFLICT when status is already flagged', () => {
       const chk = created();
-      chk.flag({ reportBody: 'First report', now: NOW });
+      chk.flag({ reportBody: 'First report', disclaimerAcknowledged: true, now: NOW });
       try {
-        chk.flag({ reportBody: 'Second report', now: NOW });
+        chk.flag({ reportBody: 'Second report', disclaimerAcknowledged: true, now: NOW });
         expect.fail('expected throw');
       } catch (err) {
         expect((err as AppError).code).toBe('CONFLICT');
@@ -220,10 +223,12 @@ describe('PostEventCheckIn', () => {
         flaggedAt: new Date(NOW.getTime() + 5000),
         reportBody: 'Unsafe environment',
         resolvedAt: null,
+        disclaimerAcknowledged: true,
       });
       expect(chk.id).toBe('chk_2');
       expect(chk.status).toBe('flagged');
       expect(chk.reportBody).toBe('Unsafe environment');
+      expect(chk.disclaimerAcknowledged).toBe(true);
       expect(chk.pullEvents()).toHaveLength(0);
     });
   });

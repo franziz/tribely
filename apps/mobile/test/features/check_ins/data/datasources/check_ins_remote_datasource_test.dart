@@ -117,7 +117,7 @@ void main() {
       when(
         () => dio.post<void>(
           '/me/post-event-check-ins/ci-1/flag',
-          data: {'reportBody': 'Felt unsafe'},
+          data: {'reportBody': 'Felt unsafe', 'disclaimerAcknowledged': true},
         ),
       ).thenAnswer(
         (_) async => Response(
@@ -128,7 +128,10 @@ void main() {
         ),
       );
 
-      await expectLater(dataSource.flag('ci-1', 'Felt unsafe'), completes);
+      await expectLater(
+        dataSource.flag('ci-1', 'Felt unsafe', true),
+        completes,
+      );
     });
 
     test('throws DioException on server error', () async {
@@ -142,7 +145,7 @@ void main() {
       );
 
       expect(
-        dataSource.flag('ci-1', 'Felt unsafe'),
+        dataSource.flag('ci-1', 'Felt unsafe', true),
         throwsA(isA<DioException>()),
       );
     });

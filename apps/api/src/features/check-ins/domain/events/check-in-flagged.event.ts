@@ -9,6 +9,7 @@ export interface CheckInFlaggedPayload {
   hostUserId: string;
   flaggedAt: string;
   reportBody: string;
+  disclaimerAcknowledged: boolean;
 }
 
 export type CheckInFlaggedEvent = DomainEvent<CheckInFlaggedPayload> & {

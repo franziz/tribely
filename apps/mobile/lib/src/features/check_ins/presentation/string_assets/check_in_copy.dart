@@ -1,9 +1,12 @@
 /// Post-event check-in copy bank — verbatim from the Designer spec and policy SoT.
 ///
-/// SPF 999 disclaimer ([safetyReportSubmittedSpf999Disclaimer]) is sourced
-/// verbatim from [docs/policies/post-event-check-in.md] (§ "SPF 999 disclaimer",
-/// commit D0 / 8e29997). Any change to that string requires a corresponding
-/// update to the policy document first — the policy doc is the SoT.
+/// SG business-hours boilerplate (used in [safetyReportSubmittedBody],
+/// [safetyReportSubmittedSpf999Disclaimer], [safetyReportGateDisclaimerBody],
+/// and [safetyCheckInReminderBody]) is SoT-aligned with
+/// [docs/runbooks/safety-reports.md] and
+/// [docs/policies/post-event-check-in.in-app-excerpt.md] (updated in TRI-238
+/// Brief A2). Any change to that boilerplate requires a corresponding update to
+/// both policy documents first — those documents are the SoT.
 ///
 /// Copy changes require Designer sign-off. Do NOT paraphrase; do NOT reorder.
 library;
@@ -47,17 +50,55 @@ const String safetyReportSubmittedTitle = 'Report received';
 
 /// Body copy on the confirmation page.
 const String safetyReportSubmittedBody =
-    'Our team will reach out within 24 hours at the email address on your account.';
+    'We aim to review safety reports during Singapore business hours (Monday to Friday, 9am to 9pm SGT, excluding public holidays). We\'ll reach out at the email address on your account.';
 
 /// SPF 999 disclaimer — VERBATIM from docs/policies/post-event-check-in.md §
 /// "SPF 999 disclaimer". The policy document is the SoT; changes here must
-/// match the policy doc.
+/// match the policy doc (updated in TRI-238 Brief A2).
 const String safetyReportSubmittedSpf999Disclaimer =
-    'If you\'re in immediate danger, call the Singapore Police at 999. '
-    'We are not an emergency service.';
+    'If you or someone else is in immediate danger, or a crime is in progress, call the Police on 999 now.\n\n'
+    'This form is for non-emergency safety reports. It is not monitored in real time and is not a substitute for emergency services. We aim to review reports during Singapore business hours (Monday to Friday, 9am to 9pm SGT, excluding public holidays).';
 
 /// Label for the "Done" CTA on the confirmation page.
 const String safetyReportSubmittedDoneCta = 'Done';
+
+// ---------------------------------------------------------------------------
+// Safety report — hard pre-submit 999 gate
+// ---------------------------------------------------------------------------
+
+/// Heading for the hard pre-submit 999 disclaimer block on SafetyReportPage.
+/// Verbatim per TRI-238 legal-compliance ruling.
+const String safetyReportGateHeading = 'Emergency? Call 999 first.';
+
+/// Disclaimer body shown above the acknowledgement checkbox on SafetyReportPage.
+/// "999" appears twice; both render bolded; the FIRST occurrence renders as a
+/// `tel:999` launchable link. Renderer is responsible for the rich-text composition;
+/// this constant is the raw paragraph text for accessibility / screen-reader output.
+const String safetyReportGateDisclaimerBody =
+    'If you or someone else is in immediate danger, or a crime is in progress, call the Police on 999 now.\n\n'
+    'This form is for non-emergency safety reports. It is not monitored in real time and is not a substitute for emergency services. We aim to review reports during Singapore business hours (Monday to Friday, 9am to 9pm SGT, excluding public holidays).';
+
+/// Checkbox label for the hard pre-submit acknowledgement gate.
+const String safetyReportGateCheckboxLabel =
+    'I understand this form is not for emergencies and I will call 999 if there is immediate danger.';
+
+/// Helper text shown beneath the disabled submit CTA when the checkbox is unticked.
+const String safetyReportGateDisabledHelperText =
+    'Tick the box above to submit your report.';
+
+/// Tap-target label for the inline tel:999 link inside the disclaimer body.
+const String safetyReportGateTel999LinkLabel = '999';
+
+// ---------------------------------------------------------------------------
+// Safety check-in reminder (Surface B)
+// ---------------------------------------------------------------------------
+
+/// Surface B — post-event safety reminder body shown on the check-in prompt sheet.
+/// "999" renders bolded + tel:999 link; "file a safety report" renders as the CTA
+/// into Surface A (the safety report form).
+const String safetyCheckInReminderBody =
+    'If you or someone else is in immediate danger, call the Police on 999.\n\n'
+    'For non-emergency concerns about an event or another member, you can file a safety report. We aim to review reports during Singapore business hours (Monday to Friday, 9am to 9pm SGT, excluding public holidays).';
 
 // ---------------------------------------------------------------------------
 // One-time intro sheet

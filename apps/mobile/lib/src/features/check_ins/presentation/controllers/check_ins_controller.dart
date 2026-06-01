@@ -70,8 +70,15 @@ class CheckInsController extends Notifier<CheckInsState> {
 
   /// Flag the currently-shown check-in with a report. No-op if not [CheckInsShowing].
   ///
+  /// [disclaimerAcknowledged] must be `true` — the caller (SafetyReportPage)
+  /// enforces this via the hard pre-submit gate; the value is propagated to the
+  /// API for audit purposes.
+  ///
   /// Transitions: Showing → Loading (in-flight) → Showing(next) | Empty | Error.
-  Future<void> flagged(String reportBody) async {
+  Future<void> flagged(
+    String reportBody, {
+    required bool disclaimerAcknowledged,
+  }) async {
     final current = state;
     if (current is! CheckInsShowing) return;
 
@@ -82,6 +89,7 @@ class CheckInsController extends Notifier<CheckInsState> {
     final params = FlagCheckInParams(
       checkInId: checkInId,
       reportBody: reportBody,
+      disclaimerAcknowledged: disclaimerAcknowledged,
     );
     final result = await useCase(params);
 

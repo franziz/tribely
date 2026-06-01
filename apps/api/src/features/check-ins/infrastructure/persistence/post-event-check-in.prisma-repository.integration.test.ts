@@ -216,13 +216,14 @@ describe.skipIf(!dbUrl)('PostEventCheckInPrismaRepository (integration)', () => 
     const loaded = await repo.findById(chk.id);
     if (!loaded) throw new Error('not found');
     const flagTime = new Date();
-    loaded.flag({ reportBody: 'Unsafe experience', now: flagTime });
+    loaded.flag({ reportBody: 'Unsafe experience', disclaimerAcknowledged: true, now: flagTime });
     await persist(loaded, userId);
 
     const reloaded = await repo.findById(chk.id);
     expect(reloaded?.status).toBe('flagged');
     expect(reloaded?.flaggedAt?.getTime()).toBe(flagTime.getTime());
     expect(reloaded?.reportBody).toBe('Unsafe experience');
+    expect(reloaded?.disclaimerAcknowledged).toBe(true);
   });
 
   describe('unique pair invariant', () => {
