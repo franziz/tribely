@@ -80,7 +80,13 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
     final state = ref.read(phoneVerificationControllerProvider);
     if (!mounted) return;
     if (state is PhoneVerificationCodeSent) {
-      unawaited(context.push('/auth/phone/verify'));
+      final redirectTo = GoRouterState.of(
+        context,
+      ).uri.queryParameters['redirectTo'];
+      final verifyUri = redirectTo != null
+          ? '/auth/phone/verify?redirectTo=${Uri.encodeQueryComponent(redirectTo)}'
+          : '/auth/phone/verify';
+      unawaited(context.push(verifyUri));
     }
   }
 
