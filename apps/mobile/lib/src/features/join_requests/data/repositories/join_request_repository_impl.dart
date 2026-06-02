@@ -251,11 +251,7 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
       switch (statusCode) {
         case 403:
           if (subcode == 'REMOVED_BY_HOST_REREQUEST_BLOCKED') {
-            return ServerFailure(
-              message,
-              statusCode: 403,
-              code: subcode,
-            );
+            return ServerFailure(message, statusCode: 403, code: subcode);
           }
           return ServerFailure(message, statusCode: 403, code: code);
 
@@ -264,11 +260,7 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
             // Idempotency: already removed — surface as ConflictFailure so
             // callers can inspect the subcode and decide whether to treat it
             // as a no-op success or show a soft warning.
-            return ConflictFailure(
-              message,
-              subcode: subcode,
-              code: code,
-            );
+            return ConflictFailure(message, subcode: subcode, code: code);
           }
           return ServerFailure(message, statusCode: 409, code: code);
 

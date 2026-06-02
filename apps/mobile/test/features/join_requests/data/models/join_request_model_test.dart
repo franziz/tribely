@@ -5,7 +5,7 @@ import 'package:tribely/src/features/join_requests/domain/entities/join_request.
 void main() {
   final baseDate = DateTime.utc(2026, 1, 1);
 
-  Map<String, dynamic> _baseJson({required String status}) => {
+  Map<String, dynamic> baseJson({required String status}) => {
     'id': 'jr-1',
     'eventId': 'evt-1',
     'requesterUserId': 'usr-1',
@@ -14,8 +14,8 @@ void main() {
   };
 
   group('JoinRequestModel._mapStatus', () {
-    void _expectStatus(String wire, JoinRequestStatus expected) {
-      final model = JoinRequestModel.fromJson(_baseJson(status: wire));
+    void expectStatus(String wire, JoinRequestStatus expected) {
+      final model = JoinRequestModel.fromJson(baseJson(status: wire));
       expect(
         model.toEntity().status,
         expected,
@@ -24,33 +24,33 @@ void main() {
     }
 
     test("'pending' -> JoinRequestStatus.pending", () {
-      _expectStatus('pending', JoinRequestStatus.pending);
+      expectStatus('pending', JoinRequestStatus.pending);
     });
 
     test("'approved' -> JoinRequestStatus.approved", () {
-      _expectStatus('approved', JoinRequestStatus.approved);
+      expectStatus('approved', JoinRequestStatus.approved);
     });
 
-    test("'rejected' -> JoinRequestStatus.declined (product-spec language)", () {
-      _expectStatus('rejected', JoinRequestStatus.declined);
-    });
+    test(
+      "'rejected' -> JoinRequestStatus.declined (product-spec language)",
+      () {
+        expectStatus('rejected', JoinRequestStatus.declined);
+      },
+    );
 
     test(
       "'cancelled' -> JoinRequestStatus.withdrawn (product-spec language)",
       () {
-        _expectStatus('cancelled', JoinRequestStatus.withdrawn);
+        expectStatus('cancelled', JoinRequestStatus.withdrawn);
       },
     );
 
-    test(
-      "'removed_by_host' -> JoinRequestStatus.removedByHost (TRI-63)",
-      () {
-        _expectStatus('removed_by_host', JoinRequestStatus.removedByHost);
-      },
-    );
+    test("'removed_by_host' -> JoinRequestStatus.removedByHost (TRI-63)", () {
+      expectStatus('removed_by_host', JoinRequestStatus.removedByHost);
+    });
 
     test('unknown wire value falls back to pending defensively', () {
-      _expectStatus('__unknown__', JoinRequestStatus.pending);
+      expectStatus('__unknown__', JoinRequestStatus.pending);
     });
   });
 }

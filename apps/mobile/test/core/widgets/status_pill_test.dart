@@ -245,20 +245,16 @@ void main() {
       },
     );
 
-    testWidgets(
-      'removedByHost exposes "Request status: Removed"',
-      (tester) async {
-        await tester.pumpWidget(
-          _wrap(const StatusPill(state: StatusPillState.removedByHost)),
-        );
-        await tester.pump();
+    testWidgets('removedByHost exposes "Request status: Removed"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.removedByHost)),
+      );
+      await tester.pump();
 
-        expect(
-          find.bySemanticsLabel('Request status: Removed'),
-          findsOneWidget,
-        );
-      },
-    );
+      expect(find.bySemanticsLabel('Request status: Removed'), findsOneWidget);
+    });
 
     testWidgets(
       'without semanticsContext, label does NOT contain "for" suffix',

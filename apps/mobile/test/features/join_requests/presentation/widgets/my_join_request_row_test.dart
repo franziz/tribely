@@ -188,32 +188,25 @@ void main() {
     // 9. removedByHost → "Removed" pill + "No longer attending" subtext,
     //    no withdraw link, no other action affordances (Path B).
     // -------------------------------------------------------------------------
-    testWidgets(
-      'removedByHost → "Removed" StatusPill shown',
-      (tester) async {
-        await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+    testWidgets('removedByHost → "Removed" StatusPill shown', (tester) async {
+      await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
 
-        expect(find.byType(StatusPill), findsOneWidget);
-      },
-    );
+      expect(find.byType(StatusPill), findsOneWidget);
+    });
 
-    testWidgets(
-      'removedByHost → "No longer attending" subtext shown',
-      (tester) async {
-        await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+    testWidgets('removedByHost → "No longer attending" subtext shown', (
+      tester,
+    ) async {
+      await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
 
-        expect(find.text('No longer attending'), findsOneWidget);
-      },
-    );
+      expect(find.text('No longer attending'), findsOneWidget);
+    });
 
-    testWidgets(
-      'removedByHost → no "Withdraw request" link',
-      (tester) async {
-        await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+    testWidgets('removedByHost → no "Withdraw request" link', (tester) async {
+      await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
 
-        expect(find.text('Withdraw request'), findsNothing);
-      },
-    );
+      expect(find.text('Withdraw request'), findsNothing);
+    });
 
     testWidgets(
       'removedByHost → no GestureDetector tap targets (no kebab, no action)',

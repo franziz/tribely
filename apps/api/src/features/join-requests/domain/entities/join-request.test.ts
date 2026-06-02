@@ -289,7 +289,7 @@ describe('JoinRequest', () => {
   });
 
   describe('removeByHost', () => {
-    it('transitions approved → removed_by_host and records join-request.removed-by-host', () => {
+    it('transitions approved → removed_by_host and records joinRequests.removedByHost', () => {
       const jr = requested();
       jr.approve({ by: 'host_1', now: NOW, eventSnapshot: SNAPSHOT });
       jr.pullEvents();

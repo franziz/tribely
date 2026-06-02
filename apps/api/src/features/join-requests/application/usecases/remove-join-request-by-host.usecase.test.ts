@@ -96,7 +96,7 @@ const buildSut = () => {
 };
 
 describe('RemoveJoinRequestByHostUseCase', () => {
-  it('removes an approved JR and emits join-request.removed-by-host with reason persisted', async () => {
+  it('removes an approved JR and emits joinRequests.removedByHost with reason persisted', async () => {
     const { events, joinRequests, publisher, useCase } = buildSut();
     seedEvent(events);
     seedApproved(joinRequests);

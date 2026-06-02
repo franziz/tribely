@@ -1,6 +1,6 @@
 import type { DomainEvent } from '@/core/events/domain-event.js';
 
-export const JOIN_REQUEST_REMOVED_BY_HOST = 'join-request.removed-by-host' as const;
+export const JOIN_REQUEST_REMOVED_BY_HOST = 'joinRequests.removedByHost' as const;
 
 /**
  * Emitted when a host removes an approved attendee from the event. Reason is

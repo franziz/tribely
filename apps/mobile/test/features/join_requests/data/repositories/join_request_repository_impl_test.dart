@@ -129,8 +129,9 @@ void main() {
         );
 
         expect(result.isLeft(), isTrue);
-        final failure =
-            result.swap().getOrElse((_) => const UnknownFailure(''));
+        final failure = result.swap().getOrElse(
+          (_) => const UnknownFailure(''),
+        );
         expect(failure, isA<ServerFailure>());
         final serverFailure = failure as ServerFailure;
         expect(serverFailure.statusCode, 403);
@@ -138,39 +139,35 @@ void main() {
       },
     );
 
-    test(
-      '409 + subcode ALREADY_REMOVED_BY_HOST returns ConflictFailure '
-      '(idempotency — benign)',
-      () async {
-        when(
-          () => remote.removeAttendee(
-            eventId: any(named: 'eventId'),
-            joinRequestId: any(named: 'joinRequestId'),
-            reason: any(named: 'reason'),
-          ),
-        ).thenThrow(
-          _serverDioException(
-            statusCode: 409,
-            code: 'CONFLICT',
-            message: 'Already removed',
-            subcode: 'ALREADY_REMOVED_BY_HOST',
-          ),
-        );
+    test('409 + subcode ALREADY_REMOVED_BY_HOST returns ConflictFailure '
+        '(idempotency — benign)', () async {
+      when(
+        () => remote.removeAttendee(
+          eventId: any(named: 'eventId'),
+          joinRequestId: any(named: 'joinRequestId'),
+          reason: any(named: 'reason'),
+        ),
+      ).thenThrow(
+        _serverDioException(
+          statusCode: 409,
+          code: 'CONFLICT',
+          message: 'Already removed',
+          subcode: 'ALREADY_REMOVED_BY_HOST',
+        ),
+      );
 
-        final result = await repo.removeAttendee(
-          eventId: eventId,
-          joinRequestId: joinRequestId,
-          reason: reason,
-        );
+      final result = await repo.removeAttendee(
+        eventId: eventId,
+        joinRequestId: joinRequestId,
+        reason: reason,
+      );
 
-        expect(result.isLeft(), isTrue);
-        final failure =
-            result.swap().getOrElse((_) => const UnknownFailure(''));
-        expect(failure, isA<ConflictFailure>());
-        final conflictFailure = failure as ConflictFailure;
-        expect(conflictFailure.subcode, 'ALREADY_REMOVED_BY_HOST');
-      },
-    );
+      expect(result.isLeft(), isTrue);
+      final failure = result.swap().getOrElse((_) => const UnknownFailure(''));
+      expect(failure, isA<ConflictFailure>());
+      final conflictFailure = failure as ConflictFailure;
+      expect(conflictFailure.subcode, 'ALREADY_REMOVED_BY_HOST');
+    });
 
     test('unknown server error returns ServerFailure', () async {
       when(

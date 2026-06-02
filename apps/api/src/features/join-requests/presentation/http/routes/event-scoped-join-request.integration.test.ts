@@ -186,7 +186,10 @@ describe.skipIf(!dbUrl)(
 
     let hostUserId: string;
     let hostToken: string;
+    /** Requester used for the approved JR seeded each beforeEach. */
     let requesterUserId: string;
+    /** Requester used for the pending JR seeded each beforeEach — distinct to avoid unique(eventId, requesterUserId) violation. */
+    let requesterPendingUserId: string;
     let nonHostUserId: string;
     let nonHostToken: string;
     let eventId: string;
@@ -205,6 +208,7 @@ describe.skipIf(!dbUrl)(
 
       hostUserId = createId();
       requesterUserId = createId();
+      requesterPendingUserId = createId();
       nonHostUserId = createId();
 
       // phone column has UNIQUE constraint + E.164 validation on mapper read-back.
@@ -223,9 +227,17 @@ describe.skipIf(!dbUrl)(
           {
             id: requesterUserId,
             email: `req-${requesterUserId}@rm-jr.test`,
-            displayName: 'Requester',
+            displayName: 'RequesterApproved',
             emailVerifiedAt: new Date(),
             phone: `+6592${ts8.slice(0, 6)}`,
+            phoneVerifiedAt: new Date(),
+          },
+          {
+            id: requesterPendingUserId,
+            email: `req-pending-${requesterPendingUserId}@rm-jr.test`,
+            displayName: 'RequesterPending',
+            emailVerifiedAt: new Date(),
+            phone: `+6594${ts8.slice(0, 6)}`,
             phoneVerifiedAt: new Date(),
           },
           {
@@ -284,6 +296,9 @@ describe.skipIf(!dbUrl)(
       pendingJrId = createId();
       const now = new Date();
 
+      // Two distinct requesters to satisfy the unique(eventId, requesterUserId)
+      // composite constraint: requesterUserId for the approved JR,
+      // requesterPendingUserId for the pending JR.
       await db.joinRequest.createMany({
         data: [
           {
@@ -298,7 +313,7 @@ describe.skipIf(!dbUrl)(
           {
             id: pendingJrId,
             eventId,
-            requesterUserId,
+            requesterUserId: requesterPendingUserId,
             status: 'pending',
             requestedAt: now,
           },
@@ -316,7 +331,9 @@ describe.skipIf(!dbUrl)(
       await db.joinRequest.deleteMany({ where: { id: { in: allJrIds } } }).catch(() => null);
       await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
       await db.user
-        .deleteMany({ where: { id: { in: [hostUserId, requesterUserId, nonHostUserId] } } })
+        .deleteMany({
+          where: { id: { in: [hostUserId, requesterUserId, requesterPendingUserId, nonHostUserId] } },
+        })
         .catch(() => null);
       await db.$disconnect();
     });

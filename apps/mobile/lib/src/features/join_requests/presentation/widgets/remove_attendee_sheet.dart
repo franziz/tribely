@@ -59,12 +59,6 @@ class _RemoveAttendeeSheetState extends State<RemoveAttendeeSheet> {
   int _lastAnnouncedThreshold = -1;
   String _liveAnnouncement = '';
 
-  // Forward-compat placeholder for Path C (verbatim warning band).
-  // Set to true here when the backend signals that the reason text
-  // verbatim-matches the host's reported reason. Not rendered at Path B.
-  // ignore: unused_field
-  static const bool _showVerbatimWarning = false;
-
   static const int _maxLength = RemoveAttendeeCopy.maxLength;
   static const int _warnThreshold = 180;
 
