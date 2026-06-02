@@ -37,7 +37,12 @@ class CreateEventController extends Notifier<CreateEventState> {
 
   static const Map<int, List<String>> _stepFields = {
     0: ['title', 'category'],
-    1: ['venueName', 'latitude', 'longitude'],
+    // Brief F: Step 2 canAdvance is gated on lat/lng only — picker selection
+    // is the required action. venueName is auto-populated by the picker (or
+    // derived from venueDisplayNameOverride at render), so it is not in the
+    // blocking set. The server still validates venueName at submit time via
+    // the CreateEventParams builder which pulls from the draft.
+    1: ['latitude', 'longitude'],
     2: ['startsAt', 'endsAt'],
     3: ['capacity', 'approvalMode'],
     4: ['description'],
@@ -314,6 +319,141 @@ class CreateEventController extends Notifier<CreateEventState> {
     if (current is! CreateEventEditing) return;
     if (current.selectedVenueCategory != null) return;
     state = current.copyWith(venueCategoryNudge: true);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Venue picker integration (Brief F)
+  // ---------------------------------------------------------------------------
+
+  /// Writes provider-specific venue fields that are not covered by [updateField].
+  ///
+  /// Called by [VenuePickerSection] after [VenuePickerSelected] is emitted,
+  /// in conjunction with separate [updateField] calls for latitude, longitude,
+  /// and venueName.
+  ///
+  /// These fields — [providerPlaceId], [venueAddress], [rawProviderCategory] —
+  /// are not part of the validation / blocking-field derivation pipeline
+  /// (they are not in [_stepFields]) but still need to be written to the
+  /// draft for API submission.
+  void applyVenueDetails({
+    required String providerPlaceId,
+    required String venueAddress,
+    String? rawProviderCategory,
+  }) {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+
+    final updatedDraft = current.formData.copyWith(
+      providerPlaceId: providerPlaceId,
+      venueAddress: venueAddress,
+      rawProviderCategory: rawProviderCategory,
+    );
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      updatedDraft,
+    );
+    state = current.copyWith(
+      formData: updatedDraft,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
+    );
+    _scheduleAutosave(updatedDraft);
+  }
+
+  /// Clears all provider-owned venue fields from the draft when the user taps
+  /// "Change venue" in [VenuePickerSection].
+  ///
+  /// Nulls out: [providerPlaceId], [latitude], [longitude], [venueAddress],
+  /// [rawProviderCategory], [venueName].
+  ///
+  /// Preserves: [venueDisplayNameOverride] (user's free-text) and
+  /// [venueCategory] (chip selection). The user may have intentionally set
+  /// these and should not lose them on picker reset.
+  ///
+  /// Because [EventDraft.copyWith] uses ?? and cannot null-out fields,
+  /// this method constructs a new [EventDraft] explicitly.
+  void clearVenueSelection() {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+
+    final existing = current.formData;
+    final clearedDraft = EventDraft(
+      title: existing.title,
+      category: existing.category,
+      // venueName and provider coords are intentionally cleared.
+      venueName: null,
+      venueCategory: existing.venueCategory,
+      latitude: null,
+      longitude: null,
+      startsAt: existing.startsAt,
+      endsAt: existing.endsAt,
+      capacity: existing.capacity,
+      costNotes: existing.costNotes,
+      approvalMode: existing.approvalMode,
+      description: existing.description,
+      currentStep: existing.currentStep,
+      lastUpdatedAt: existing.lastUpdatedAt,
+      // Provider-specific fields cleared.
+      providerPlaceId: null,
+      venueAddress: null,
+      rawProviderCategory: null,
+      // venueDisplayNameOverride preserved — user typed this manually.
+      venueDisplayNameOverride: existing.venueDisplayNameOverride,
+    );
+
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      clearedDraft,
+    );
+    state = current.copyWith(
+      formData: clearedDraft,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
+    );
+    _scheduleAutosave(clearedDraft);
+  }
+
+  /// Updates [EventDraft.venueDisplayNameOverride] from the free-text
+  /// disambiguation field in [VenuePickerSection].
+  ///
+  /// Passing null clears the override (field was emptied).
+  ///
+  /// Unlike [updateField], this does NOT trigger blocking-field re-derivation
+  /// because [venueDisplayNameOverride] is not in [_stepFields] — it is a
+  /// display-only hint, not a required field for canAdvance or canSubmit.
+  void updateVenueDisplayNameOverride(String? value) {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+
+    // EventDraft.copyWith uses ?? so it cannot null-out fields. Construct
+    // explicitly when clearing; use copyWith when setting a value.
+    final EventDraft updatedDraft;
+    if (value == null) {
+      final existing = current.formData;
+      updatedDraft = EventDraft(
+        title: existing.title,
+        category: existing.category,
+        venueName: existing.venueName,
+        venueCategory: existing.venueCategory,
+        latitude: existing.latitude,
+        longitude: existing.longitude,
+        startsAt: existing.startsAt,
+        endsAt: existing.endsAt,
+        capacity: existing.capacity,
+        costNotes: existing.costNotes,
+        approvalMode: existing.approvalMode,
+        description: existing.description,
+        currentStep: existing.currentStep,
+        lastUpdatedAt: existing.lastUpdatedAt,
+        providerPlaceId: existing.providerPlaceId,
+        venueAddress: existing.venueAddress,
+        rawProviderCategory: existing.rawProviderCategory,
+        venueDisplayNameOverride: null,
+      );
+    } else {
+      updatedDraft = current.formData.copyWith(venueDisplayNameOverride: value);
+    }
+
+    state = current.copyWith(formData: updatedDraft);
+    _scheduleAutosave(updatedDraft);
   }
 
   void _scheduleAutosave(EventDraft draft) {

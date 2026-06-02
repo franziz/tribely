@@ -27,6 +27,10 @@ class EventDraft extends Equatable {
     this.description,
     this.currentStep = 0,
     this.lastUpdatedAt,
+    this.providerPlaceId,
+    this.venueAddress,
+    this.rawProviderCategory,
+    this.venueDisplayNameOverride,
   });
 
   final String? title;
@@ -61,6 +65,25 @@ class EventDraft extends Equatable {
 
   final DateTime? lastUpdatedAt;
 
+  /// Opaque Mapbox `mapbox_id` for the selected place. Passed back to
+  /// [PlaceSearchPort.retrieve] if the user re-opens the venue picker.
+  final String? providerPlaceId;
+
+  /// Formatted address from the place provider (e.g. "18 Raffles Quay,
+  /// Singapore 048582"). Maps to server `venue.address` on submit (alongside
+  /// the existing [venueName] which carries the short name).
+  final String? venueAddress;
+
+  /// Raw Mapbox `poi_category[0]` BEFORE mapping through
+  /// [mapProviderCategoryToVenueCategory]. Stored so the mapper can be
+  /// re-run if the mapping table changes, without re-fetching from the API.
+  final String? rawProviderCategory;
+
+  /// Optional free-text display label that overrides [venueName] in the UI.
+  /// Populated when the user manually edits the venue name after picker
+  /// selection. Does NOT affect [venueName] used for API submission.
+  final String? venueDisplayNameOverride;
+
   EventDraft copyWith({
     String? title,
     EventCategory? category,
@@ -76,6 +99,10 @@ class EventDraft extends Equatable {
     String? description,
     int? currentStep,
     DateTime? lastUpdatedAt,
+    String? providerPlaceId,
+    String? venueAddress,
+    String? rawProviderCategory,
+    String? venueDisplayNameOverride,
   }) => EventDraft(
     title: title ?? this.title,
     category: category ?? this.category,
@@ -91,6 +118,11 @@ class EventDraft extends Equatable {
     description: description ?? this.description,
     currentStep: currentStep ?? this.currentStep,
     lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+    providerPlaceId: providerPlaceId ?? this.providerPlaceId,
+    venueAddress: venueAddress ?? this.venueAddress,
+    rawProviderCategory: rawProviderCategory ?? this.rawProviderCategory,
+    venueDisplayNameOverride:
+        venueDisplayNameOverride ?? this.venueDisplayNameOverride,
   );
 
   @override
@@ -109,5 +141,9 @@ class EventDraft extends Equatable {
     description,
     currentStep,
     lastUpdatedAt,
+    providerPlaceId,
+    venueAddress,
+    rawProviderCategory,
+    venueDisplayNameOverride,
   ];
 }

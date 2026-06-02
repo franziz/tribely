@@ -462,8 +462,17 @@ class _BlockingHint extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final (_, errorMessage) = stepErrors.first;
+    final (fieldName, rawErrorMessage) = stepErrors.first;
     final stepLabel = 'Step ${currentStep + 1}';
+
+    // Step 2 (index 1): map technical lat/lng field errors to the venue-picker
+    // user-facing copy. "Latitude is required" / "Longitude is required" are
+    // too technical — the user sees a venue search UI, not lat/lng inputs.
+    final errorMessage =
+        (currentStep == 1 &&
+            (fieldName == 'latitude' || fieldName == 'longitude'))
+        ? 'Pick a venue from the search results to continue'
+        : rawErrorMessage;
 
     return Container(
       color: bgColor,

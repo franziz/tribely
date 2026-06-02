@@ -7,7 +7,7 @@ import '../../../../core/widgets/banner_message.dart';
 import '../../domain/entities/venue_category.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
-import '../widgets/event_form_field.dart';
+import '../widgets/venue_picker_section.dart';
 import '../widgets/venue_type_chip.dart';
 
 // ---------------------------------------------------------------------------
@@ -56,19 +56,22 @@ void _assertLabelCoverage() {
 /// Step 2 — Venue.
 ///
 /// Renders:
-///  1. A section heading "Public places in Singapore" + horizontally-scrolling
-///     chip grid of [VenueCategory.publicValues] (single-select).
-///  2. Free-text venue name field.
-///  3. Latitude / longitude fields.
-///  4. A non-functional map-picker placeholder (TRI-23).
-///  5. A private-venue warning banner below the venue name field when
-///     [CreateEventEditing.privateVenueWarning] is non-None.
-///  6. A non-blocking chip nudge near the chip grid when
+///  1. The [VenuePickerSection] — search field, results, static map, and
+///     free-text fallback (Brief F integration).
+///  2. A section heading "Public places in Singapore" + horizontally-scrolling
+///     chip grid of [VenueCategory.publicValues] (single-select). Always
+///     visible regardless of picker state.
+///  3. A non-blocking chip nudge near the chip grid when
 ///     [CreateEventEditing.venueCategoryNudge] is true.
+///  4. A private-venue warning banner when
+///     [CreateEventEditing.privateVenueWarning] is non-None.
 ///
-/// The "Next" button remains enabled when venue name is present regardless of
-/// chip selection — [selectVenueCategory] is encouraged but not required here.
-/// The server enforces the policy at publish time (Brief 11 modal).
+/// canAdvance for Step 2 is gated on [EventDraft.latitude] and
+/// [EventDraft.longitude] being non-null — the user must select a venue from
+/// the picker (or any future picker path that populates coordinates). Free-text
+/// entry alone does NOT advance. The blocker copy "Pick a venue from the search
+/// results to continue" is surfaced by [_BlockingHint] in [CreateEventPage]
+/// via the existing blockingFieldErrors mechanism.
 class CreateEventStep2VenuePage extends ConsumerWidget {
   const CreateEventStep2VenuePage({super.key});
 
@@ -86,16 +89,11 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
     }
 
     final controller = ref.read(createEventControllerProvider.notifier);
-    final draft = state.formData;
-    final errors = state.fieldErrors;
 
     final dark = Theme.of(context).brightness == Brightness.dark;
     final inkSecondary = dark
         ? TribelyColors.nightInkSecondary
         : TribelyColors.paperInkSecondary;
-    final border = dark
-        ? TribelyColors.nightBorderSubtle
-        : TribelyColors.paperBorderSubtle;
     final accentColor = dark
         ? TribelyColors.nightAccent
         : TribelyColors.paperAccent;
@@ -123,7 +121,15 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // ---------------------------------------------------------------
-          // 1. Public-places section heading
+          // 1. Venue picker section (Brief F integration)
+          //    Replaces the former lat/lng inputs and "coming soon" map stub.
+          // ---------------------------------------------------------------
+          const VenuePickerSection(),
+
+          const SizedBox(height: 24),
+
+          // ---------------------------------------------------------------
+          // 2. Public-places section heading
           // ---------------------------------------------------------------
           Text(
             'Public places in Singapore',
@@ -134,7 +140,7 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
           const SizedBox(height: 10),
 
           // ---------------------------------------------------------------
-          // 2. Chip grid — horizontally scrollable single-select
+          // 3. Chip grid — horizontally scrollable single-select
           // ---------------------------------------------------------------
           SizedBox(
             height: 44,
@@ -155,7 +161,7 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
           ),
 
           // ---------------------------------------------------------------
-          // 3. Non-blocking nudge when the user tapped Next without a chip
+          // 4. Non-blocking nudge when the user tapped Next without a chip
           // ---------------------------------------------------------------
           if (state.venueCategoryNudge) ...[
             const SizedBox(height: 6),
@@ -168,20 +174,6 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
             ),
           ],
 
-          const SizedBox(height: 20),
-
-          // ---------------------------------------------------------------
-          // 4. Venue name field
-          // ---------------------------------------------------------------
-          EventFormField(
-            label: 'Venue name',
-            value: draft.venueName,
-            errorText: errors['venueName'],
-            textInputAction: TextInputAction.next,
-            hint: 'e.g. Bukit Timah Nature Reserve',
-            onChanged: controller.onVenueNameChanged,
-          ),
-
           // ---------------------------------------------------------------
           // 5. Private-venue warning banner
           // ---------------------------------------------------------------
@@ -189,73 +181,6 @@ class CreateEventStep2VenuePage extends ConsumerWidget {
             const SizedBox(height: 12),
             BannerMessage(message: warningMessage),
           ],
-
-          const SizedBox(height: 20),
-
-          // ---------------------------------------------------------------
-          // 6. Latitude / longitude row
-          // ---------------------------------------------------------------
-          Row(
-            children: [
-              Expanded(
-                child: EventFormField(
-                  label: 'Latitude',
-                  value: draft.latitude?.toString(),
-                  errorText: errors['latitude'],
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  textInputAction: TextInputAction.next,
-                  hint: '1.3521',
-                  onChanged: (v) {
-                    final parsed = double.tryParse(v.trim());
-                    controller.updateField(field: 'latitude', value: parsed);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: EventFormField(
-                  label: 'Longitude',
-                  value: draft.longitude?.toString(),
-                  errorText: errors['longitude'],
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  textInputAction: TextInputAction.done,
-                  hint: '103.8198',
-                  onChanged: (v) {
-                    final parsed = double.tryParse(v.trim());
-                    controller.updateField(field: 'longitude', value: parsed);
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // ---------------------------------------------------------------
-          // 7. Non-functional map picker placeholder (TRI-23)
-          // ---------------------------------------------------------------
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              border: Border.all(color: border, width: 1.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.map_outlined, size: 18, color: inkSecondary),
-                const SizedBox(width: 8),
-                Text(
-                  'Tap to pick on map (coming soon)',
-                  style: TribelyType.bodyM(inkSecondary),
-                ),
-              ],
-            ),
-          ),
 
           // Bottom padding so the last field isn't obscured by the nav bar.
           SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
