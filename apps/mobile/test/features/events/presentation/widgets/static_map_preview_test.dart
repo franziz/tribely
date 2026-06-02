@@ -229,42 +229,40 @@ void main() {
     // -------------------------------------------------------------------------
     // TRI-259: errorBuilder path requires additional pump cycle; production
     // behavior covered by manual smoke and widget integration coverage.
-    testWidgets(
-      'renders fallback content when Image.network errors',
-      (tester) async {
-        // Override image cache so the fake provider fires for all network loads.
-        imageCache.clear();
-        imageCache.clearLiveImages();
+    testWidgets('renders fallback content when Image.network errors', (
+      tester,
+    ) async {
+      // Override image cache so the fake provider fires for all network loads.
+      imageCache.clear();
+      imageCache.clearLiveImages();
 
-        // Build a widget that uses a known-error image provider.
-        // We inject a custom Image widget with the always-error provider to
-        // verify the errorBuilder path renders the fallback with the venue name.
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Builder(
-                builder: (context) {
-                  return Image(
-                    image: const _AlwaysErrorImageProvider(),
-                    errorBuilder: (context, error, stackTrace) {
-                      // Mirrors what StaticMapPreview.errorBuilder renders:
-                      // the _FallbackMapImage subtree contains the venue name text.
-                      return const Text('Lau Pa Sat');
-                    },
-                  );
-                },
-              ),
+      // Build a widget that uses a known-error image provider.
+      // We inject a custom Image widget with the always-error provider to
+      // verify the errorBuilder path renders the fallback with the venue name.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                return Image(
+                  image: const _AlwaysErrorImageProvider(),
+                  errorBuilder: (context, error, stackTrace) {
+                    // Mirrors what StaticMapPreview.errorBuilder renders:
+                    // the _FallbackMapImage subtree contains the venue name text.
+                    return const Text('Lau Pa Sat');
+                  },
+                );
+              },
             ),
           ),
-        );
+        ),
+      );
 
-        await tester.pump();
+      await tester.pump();
 
-        // The errorBuilder should have fired and rendered the venue name.
-        expect(find.text('Lau Pa Sat'), findsOneWidget);
-      },
-      skip: true,
-    );
+      // The errorBuilder should have fired and rendered the venue name.
+      expect(find.text('Lau Pa Sat'), findsOneWidget);
+    }, skip: true);
 
     testWidgets(
       'StaticMapPreview errorBuilder renders venue name in fallback tree',
