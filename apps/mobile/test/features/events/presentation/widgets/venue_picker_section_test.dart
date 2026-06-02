@@ -34,6 +34,7 @@ import 'package:tribely/src/features/events/presentation/providers/events_provid
 import 'package:tribely/src/features/events/presentation/providers/venue_picker_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
 import 'package:tribely/src/features/events/presentation/state/venue_picker_state.dart';
+import 'package:tribely/src/core/widgets/place_result_row.dart';
 import 'package:tribely/src/features/events/presentation/widgets/static_map_preview.dart';
 import 'package:tribely/src/features/events/presentation/widgets/venue_picker_section.dart';
 import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
@@ -48,8 +49,9 @@ class _MockPlaceSearchPort extends Mock implements PlaceSearchPort {}
 // ---------------------------------------------------------------------------
 // Fixed venue-picker controller stubs
 //
-// Each stub forces a specific [VenuePickerState] by overriding [build]. The
-// [selectSuggestion] call-count is tracked via [selectedSuggestions].
+// Each stub forces a specific [VenuePickerState] by overriding [build].
+// Spy state is injected via constructor callbacks so no public properties
+// live on the Notifier (avoids avoid_public_notifier_properties lint).
 // ---------------------------------------------------------------------------
 
 class _FixedInitialController extends VenuePickerController {
@@ -58,9 +60,10 @@ class _FixedInitialController extends VenuePickerController {
 }
 
 class _FixedResultsController extends VenuePickerController {
-  // ignore: avoid_public_notifier_properties
-  // Test-only spy: tracks which suggestions were passed to selectSuggestion.
-  final List<PlaceSuggestion> calledWith = [];
+  /// [onSelectSuggestion] is called with each [PlaceSuggestion] passed to
+  /// [selectSuggestion], letting tests capture calls without a public field.
+  _FixedResultsController({this.onSelectSuggestion});
+  final void Function(PlaceSuggestion)? onSelectSuggestion;
 
   @override
   VenuePickerState build() =>
@@ -68,7 +71,7 @@ class _FixedResultsController extends VenuePickerController {
 
   @override
   Future<void> selectSuggestion(PlaceSuggestion suggestion) async {
-    calledWith.add(suggestion);
+    onSelectSuggestion?.call(suggestion);
     state = VenuePickerSelected(
       PlaceDetails(
         providerPlaceId: suggestion.providerPlaceId,
@@ -87,9 +90,10 @@ class _FixedEmptyController extends VenuePickerController {
 }
 
 class _FixedSelectedController extends VenuePickerController {
-  // ignore: avoid_public_notifier_properties
-  // Test-only spy: tracks whether clearSelection was called.
-  bool clearCalled = false;
+  /// [onClearSelection] is invoked when [clearSelection] is called,
+  /// letting tests assert the call without a public boolean field.
+  _FixedSelectedController({this.onClearSelection});
+  final void Function()? onClearSelection;
 
   @override
   VenuePickerState build() => const VenuePickerSelected(
@@ -104,7 +108,7 @@ class _FixedSelectedController extends VenuePickerController {
 
   @override
   void clearSelection() {
-    clearCalled = true;
+    onClearSelection?.call();
     state = const VenuePickerInitial();
   }
 }
@@ -129,14 +133,16 @@ class _FixedNoCoordsController extends VenuePickerController {
 // Fixed create-event controller stub
 //
 // Overrides [build] to return a [CreateEventEditing] with a fresh [EventDraft]
-// without triggering the async draft-load microtask. Captures the last
-// [venueDisplayNameOverride] written via [updateVenueDisplayNameOverride].
+// without triggering the async draft-load microtask.
+//
+// [onUpdateVenueDisplayNameOverride] is called with each value passed to
+// [updateVenueDisplayNameOverride], letting tests capture calls via a
+// test-local variable rather than a public Notifier property.
 // ---------------------------------------------------------------------------
 
 class _FixedCreateController extends CreateEventController {
-  // ignore: avoid_public_notifier_properties
-  // Test-only spy: captures the last value passed to updateVenueDisplayNameOverride.
-  String? lastVenueDisplayNameOverride;
+  _FixedCreateController({this.onUpdateVenueDisplayNameOverride});
+  final void Function(String?)? onUpdateVenueDisplayNameOverride;
 
   @override
   CreateEventState build() {
@@ -154,9 +160,64 @@ class _FixedCreateController extends CreateEventController {
     );
   }
 
+  /// Skips [_scheduleAutosave] so no provider reads fire during tests.
+  @override
+  void updateField({required String field, required Object? value}) {
+    // State mutation intentionally omitted: tests that care about the rendered
+    // draft (free-text tests) exercise [updateVenueDisplayNameOverride] directly.
+    // updateField is only called via _onVenueSelected in the selected-state tests
+    // which don't assert draft field values — so a no-op here is safe.
+  }
+
+  @override
+  void applyVenueDetails({
+    required String providerPlaceId,
+    required String venueAddress,
+    String? rawProviderCategory,
+  }) {
+    // No-op: skips _scheduleAutosave so no provider reads fire during tests.
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    final updatedDraft = current.formData.copyWith(
+      providerPlaceId: providerPlaceId,
+      venueAddress: venueAddress,
+      rawProviderCategory: rawProviderCategory,
+    );
+    state = current.copyWith(formData: updatedDraft);
+  }
+
+  @override
+  void clearVenueSelection() {
+    // No-op variant: skips _scheduleAutosave so no provider reads fire in tests.
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    final d = current.formData;
+    final cleared = EventDraft(
+      title: d.title,
+      category: d.category,
+      venueName: null,
+      venueCategory: d.venueCategory,
+      latitude: null,
+      longitude: null,
+      startsAt: d.startsAt,
+      endsAt: d.endsAt,
+      capacity: d.capacity,
+      costNotes: d.costNotes,
+      approvalMode: d.approvalMode,
+      description: d.description,
+      currentStep: d.currentStep,
+      lastUpdatedAt: d.lastUpdatedAt,
+      providerPlaceId: null,
+      venueAddress: null,
+      rawProviderCategory: null,
+      venueDisplayNameOverride: d.venueDisplayNameOverride,
+    );
+    state = current.copyWith(formData: cleared);
+  }
+
   @override
   void updateVenueDisplayNameOverride(String? value) {
-    lastVenueDisplayNameOverride = value;
+    onUpdateVenueDisplayNameOverride?.call(value);
     // Also update state so the free-text field reflects the change.
     final current = state;
     if (current is! CreateEventEditing) return;
@@ -267,12 +328,8 @@ void main() {
       // Search field present (PlaceSearchField renders a TextField).
       expect(find.byType(TextField), findsWidgets);
 
-      // No PlaceResultRow widgets.
-      // PlaceResultRow renders an InkWell containing text columns.
-      // In Initial state there are no suggestion rows — check via the
-      // unique text that would only appear on suggestion rows.
-      expect(find.text('Lau Pa Sat'), findsNothing);
-      expect(find.text('Marina Bay Sands'), findsNothing);
+      // No suggestion rows.
+      expect(find.byType(PlaceResultRow), findsNothing);
 
       // StaticMapPreview not present.
       expect(find.byType(StaticMapPreview), findsNothing);
@@ -288,7 +345,10 @@ void main() {
   group('VenuePickerSection — Results state', () {
     testWidgets('rows render with correct name and placeFormatted; '
         'tapping first row calls selectSuggestion', (tester) async {
-      final pickerController = _FixedResultsController();
+      final calledWith = <PlaceSuggestion>[];
+      final pickerController = _FixedResultsController(
+        onSelectSuggestion: calledWith.add,
+      );
 
       await _pump(tester, pickerFactory: () => pickerController);
 
@@ -303,14 +363,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // selectSuggestion was called with the first suggestion.
-      expect(pickerController.calledWith, hasLength(1));
+      expect(calledWith, hasLength(1));
+      expect(calledWith.first.providerPlaceId, equals('mapbox-1'));
+      expect(calledWith.first.name, equals('Lau Pa Sat'));
       expect(
-        pickerController.calledWith.first.providerPlaceId,
-        equals('mapbox-1'),
-      );
-      expect(pickerController.calledWith.first.name, equals('Lau Pa Sat'));
-      expect(
-        pickerController.calledWith.first.placeFormatted,
+        calledWith.first.placeFormatted,
         equals('18 Raffles Quay, Singapore 048582'),
       );
     });
@@ -347,9 +404,9 @@ void main() {
       // "Change venue" link.
       expect(find.text('Change venue'), findsOneWidget);
 
-      // No suggestion rows.
-      expect(find.text('Lau Pa Sat'), findsNothing);
-      expect(find.text('Marina Bay Sands'), findsNothing);
+      // No suggestion rows — use the widget type, not text, because
+      // StaticMapPreview also renders the venue name as Text labels.
+      expect(find.byType(PlaceResultRow), findsNothing);
 
       // Free-text section heading NOT visible.
       expect(find.text("Can't find it? Enter the venue name"), findsNothing);
@@ -358,14 +415,19 @@ void main() {
     testWidgets(
       '"Change venue" tap calls clearSelection on picker controller',
       (tester) async {
-        final pickerController = _FixedSelectedController();
+        var clearCalled = false;
+        final pickerController = _FixedSelectedController(
+          onClearSelection: () => clearCalled = true,
+        );
 
         await _pump(tester, pickerFactory: () => pickerController);
 
         await tester.tap(find.text('Change venue'));
-        await tester.pumpAndSettle();
+        // Drain the 500 ms autosave timer scheduled by clearVenueSelection
+        // before the test exits — flutter_test treats pending timers as fatal.
+        await tester.pump(const Duration(milliseconds: 500));
 
-        expect(pickerController.clearCalled, isTrue);
+        expect(clearCalled, isTrue);
       },
     );
   });
@@ -464,7 +526,10 @@ void main() {
       'typing in the free-text field calls updateVenueDisplayNameOverride '
       'on the create-event controller',
       (tester) async {
-        final createController = _FixedCreateController();
+        String? lastOverride;
+        final createController = _FixedCreateController(
+          onUpdateVenueDisplayNameOverride: (v) => lastOverride = v,
+        );
 
         await _pump(
           tester,
@@ -486,18 +551,17 @@ void main() {
         await tester.pump();
 
         // updateVenueDisplayNameOverride should have been called.
-        expect(
-          createController.lastVenueDisplayNameOverride,
-          equals('My Venue'),
-        );
+        expect(lastOverride, equals('My Venue'));
       },
     );
 
     testWidgets(
       'clearing the free-text field calls updateVenueDisplayNameOverride(null)',
       (tester) async {
-        // Seed the draft with an existing venueDisplayNameOverride.
-        final createController = _FixedCreateController();
+        String? lastOverride;
+        final createController = _FixedCreateController(
+          onUpdateVenueDisplayNameOverride: (v) => lastOverride = v,
+        );
 
         await _pump(
           tester,
@@ -511,17 +575,14 @@ void main() {
         await tester.pump();
         await tester.enterText(textFields.last, 'Test Name');
         await tester.pump();
-        expect(
-          createController.lastVenueDisplayNameOverride,
-          equals('Test Name'),
-        );
+        expect(lastOverride, equals('Test Name'));
 
         // Clear the text field.
         await tester.enterText(textFields.last, '');
         await tester.pump();
 
         // Should call with null on empty string.
-        expect(createController.lastVenueDisplayNameOverride, isNull);
+        expect(lastOverride, isNull);
       },
     );
   });

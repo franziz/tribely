@@ -15,8 +15,8 @@ Map<String, dynamic> _featureJson({
   'properties': {
     'mapbox_id': mapboxId,
     'name': name,
-    if (fullAddress != null) 'full_address': fullAddress,
-    if (poiCategory != null) 'poi_category': poiCategory,
+    'full_address': ?fullAddress,
+    'poi_category': ?poiCategory,
   },
   'geometry': {
     'type': 'Point',

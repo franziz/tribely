@@ -24,7 +24,7 @@ Map<String, dynamic> _suggestResponseBody({
       'mapbox_id': mapboxId,
       'name': 'Lau Pa Sat',
       'place_formatted': '18 Raffles Quay, Singapore 048582',
-      if (poiCategory != null) 'poi_category': poiCategory,
+      'poi_category': ?poiCategory,
     },
   ],
 };
