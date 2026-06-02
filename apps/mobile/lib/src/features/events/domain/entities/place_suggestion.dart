@@ -28,5 +28,10 @@ class PlaceSuggestion extends Equatable {
   final String? rawCategory;
 
   @override
-  List<Object?> get props => [providerPlaceId, name, placeFormatted, rawCategory];
+  List<Object?> get props => [
+    providerPlaceId,
+    name,
+    placeFormatted,
+    rawCategory,
+  ];
 }

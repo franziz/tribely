@@ -140,31 +140,32 @@ void main() {
       expect(cleared, isTrue);
     });
 
-    testWidgets('enabled=false makes the field non-editable (typing has no effect)', (
-      tester,
-    ) async {
-      final ctrl = TextEditingController();
-      addTearDown(ctrl.dispose);
-      final changes = <String>[];
+    testWidgets(
+      'enabled=false makes the field non-editable (typing has no effect)',
+      (tester) async {
+        final ctrl = TextEditingController();
+        addTearDown(ctrl.dispose);
+        final changes = <String>[];
 
-      await tester.pumpWidget(
-        _wrap(
-          PlaceSearchField(
-            controller: ctrl,
-            onChanged: changes.add,
-            onCleared: () {},
-            enabled: false,
+        await tester.pumpWidget(
+          _wrap(
+            PlaceSearchField(
+              controller: ctrl,
+              onChanged: changes.add,
+              onCleared: () {},
+              enabled: false,
+            ),
           ),
-        ),
-      );
+        );
 
-      // Attempt to type — disabled TextField ignores input.
-      await tester.enterText(find.byType(TextField), 'Sentosa');
-      await tester.pump();
+        // Attempt to type — disabled TextField ignores input.
+        await tester.enterText(find.byType(TextField), 'Sentosa');
+        await tester.pump();
 
-      // The controller text should remain empty.
-      expect(ctrl.text, isEmpty);
-      expect(changes, isEmpty);
-    });
+        // The controller text should remain empty.
+        expect(ctrl.text, isEmpty);
+        expect(changes, isEmpty);
+      },
+    );
   });
 }

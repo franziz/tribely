@@ -61,21 +61,22 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('default leading icon (Icons.place_outlined) renders when leading is null', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(
-          PlaceResultRow(
-            name: 'Sentosa',
-            placeFormatted: 'Sentosa Island, Singapore',
-            onTap: () {},
+    testWidgets(
+      'default leading icon (Icons.place_outlined) renders when leading is null',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            PlaceResultRow(
+              name: 'Sentosa',
+              placeFormatted: 'Sentosa Island, Singapore',
+              onTap: () {},
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(find.byIcon(Icons.place_outlined), findsOneWidget);
-    });
+        expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+      },
+    );
 
     testWidgets('custom leading widget renders instead of default icon', (
       tester,

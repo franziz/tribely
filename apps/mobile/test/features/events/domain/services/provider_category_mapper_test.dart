@@ -79,10 +79,7 @@ void main() {
     });
 
     test('coffee_shop → cafe', () {
-      expect(
-        mapProviderCategoryToVenueCategory('coffee_shop'),
-        equals('cafe'),
-      );
+      expect(mapProviderCategoryToVenueCategory('coffee_shop'), equals('cafe'));
     });
 
     test('hawker → hawker_centre', () {
@@ -124,48 +121,50 @@ void main() {
   // ---------------------------------------------------------------------------
   // All 12 Tribely public venue categories are reachable
   // ---------------------------------------------------------------------------
-  group('all 12 Tribely public categories are reachable via at least one key',
-      () {
-    const expectedCategories = {
-      'hawker_centre',
-      'park',
-      'museum',
-      'restaurant',
-      'bar',
-      'cafe',
-      'beach',
-      'mrt_landmark',
-      'library',
-      'community_centre',
-      'shopping_mall_common_area',
-      'tourist_attraction',
-    };
+  group(
+    'all 12 Tribely public categories are reachable via at least one key',
+    () {
+      const expectedCategories = {
+        'hawker_centre',
+        'park',
+        'museum',
+        'restaurant',
+        'bar',
+        'cafe',
+        'beach',
+        'mrt_landmark',
+        'library',
+        'community_centre',
+        'shopping_mall_common_area',
+        'tourist_attraction',
+      };
 
-    // Primary or synonym keys that map to each of the 12 values.
-    const reachableVia = {
-      'hawker_centre': 'hawker',
-      'park': 'park',
-      'museum': 'museum',
-      'restaurant': 'restaurant',
-      'bar': 'bar',
-      'cafe': 'cafe',
-      'beach': 'beach',
-      'mrt_landmark': 'transit_station',
-      'library': 'library',
-      'community_centre': 'community_center',
-      'shopping_mall_common_area': 'shopping_mall',
-      'tourist_attraction': 'tourist_attraction',
-    };
+      // Primary or synonym keys that map to each of the 12 values.
+      const reachableVia = {
+        'hawker_centre': 'hawker',
+        'park': 'park',
+        'museum': 'museum',
+        'restaurant': 'restaurant',
+        'bar': 'bar',
+        'cafe': 'cafe',
+        'beach': 'beach',
+        'mrt_landmark': 'transit_station',
+        'library': 'library',
+        'community_centre': 'community_center',
+        'shopping_mall_common_area': 'shopping_mall',
+        'tourist_attraction': 'tourist_attraction',
+      };
 
-    for (final venueCategory in expectedCategories) {
-      test('$venueCategory is reachable', () {
-        final input = reachableVia[venueCategory]!;
-        expect(
-          mapProviderCategoryToVenueCategory(input),
-          equals(venueCategory),
-          reason: 'Expected "$input" to map to "$venueCategory"',
-        );
-      });
-    }
-  });
+      for (final venueCategory in expectedCategories) {
+        test('$venueCategory is reachable', () {
+          final input = reachableVia[venueCategory]!;
+          expect(
+            mapProviderCategoryToVenueCategory(input),
+            equals(venueCategory),
+            reason: 'Expected "$input" to map to "$venueCategory"',
+          );
+        });
+      }
+    },
+  );
 }

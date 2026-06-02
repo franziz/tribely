@@ -31,24 +31,23 @@ class PlaceResultRow extends StatelessWidget {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
 
-    final nameStyle = (dark
-            ? theme.textTheme.bodyMedium?.copyWith(
-                fontFamily: 'GeneralSans',
-                color: const Color(0xFFF4EEDF),
-              )
-            : theme.textTheme.bodyMedium?.copyWith(
-                fontFamily: 'GeneralSans',
-                color: const Color(0xFF1A1714),
-              ))
-        ?.copyWith(fontWeight: FontWeight.w600);
+    final nameStyle =
+        (dark
+                ? theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'GeneralSans',
+                    color: const Color(0xFFF4EEDF),
+                  )
+                : theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: 'GeneralSans',
+                    color: const Color(0xFF1A1714),
+                  ))
+            ?.copyWith(fontWeight: FontWeight.w600);
 
     final secondaryStyle = dark
         ? TribelyType.caption(const Color(0xFFA39B8A))
         : TribelyType.caption(const Color(0xFF5C544A));
 
-    final iconColor = dark
-        ? const Color(0xFFA39B8A)
-        : const Color(0xFF5C544A);
+    final iconColor = dark ? const Color(0xFFA39B8A) : const Color(0xFF5C544A);
 
     final effectiveLeading =
         leading ?? Icon(Icons.place_outlined, color: iconColor, size: 22);

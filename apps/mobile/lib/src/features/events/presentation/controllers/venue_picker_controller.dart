@@ -117,8 +117,7 @@ class VenuePickerController extends Notifier<VenuePickerState> {
       (failure) {
         state = switch (failure) {
           QuotaExhaustedFailure() => const VenuePickerDegradedQuota(),
-          NetworkFailure(:final message) =>
-            VenuePickerDegradedNetwork(message),
+          NetworkFailure(:final message) => VenuePickerDegradedNetwork(message),
           // ProviderFailure and any other failure are treated as transient
           // from the user's POV — show the retry banner, not a hard error.
           _ => VenuePickerDegradedNetwork(failure.message),
