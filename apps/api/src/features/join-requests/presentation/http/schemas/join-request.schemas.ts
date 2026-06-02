@@ -6,6 +6,10 @@ export const rejectJoinRequestBodySchema = z.object({
   reason: z.string().min(1).max(500),
 });
 
+export const removeAttendeeBodySchema = z.object({
+  reason: z.string().trim().min(1).max(200),
+});
+
 // ---- Query ----
 
 /**
@@ -43,7 +47,13 @@ export const listJoinRequestsByEventQuerySchema = z.object({
 
 // ---- Shared sub-schema ----
 
-const joinRequestStatusSchema = z.enum(['pending', 'approved', 'rejected', 'cancelled']);
+const joinRequestStatusSchema = z.enum([
+  'pending',
+  'approved',
+  'rejected',
+  'cancelled',
+  'removed_by_host',
+]);
 
 export const joinRequestResponseSchema = z.object({
   id: z.string(),
@@ -92,6 +102,7 @@ export const enrichedJoinRequestListResponseSchema = z.object({
 // ---- Inferred types ----
 
 export type RejectJoinRequestBody = z.infer<typeof rejectJoinRequestBodySchema>;
+export type RemoveAttendeeBody = z.infer<typeof removeAttendeeBodySchema>;
 export type ListMyJoinRequestsQuery = z.infer<typeof listMyJoinRequestsQuerySchema>;
 export type ListJoinRequestsByEventQuery = z.infer<typeof listJoinRequestsByEventQuerySchema>;
 export type JoinRequestResponse = z.infer<typeof joinRequestResponseSchema>;

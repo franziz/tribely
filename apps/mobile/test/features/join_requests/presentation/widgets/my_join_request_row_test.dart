@@ -9,6 +9,8 @@
 //   6. Withdrawn status → StatusPill present, no withdraw link.
 //   7. Tapping "Withdraw request" calls onWithdraw.
 //   8. isWithdrawing=true → spinner shown, no tap target.
+//   9. removedByHost → "Removed" StatusPill + "No longer attending" subtext,
+//      no withdraw link, no kebab, no action affordances (Path B).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -181,5 +183,40 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Withdraw request'), findsNothing);
     });
+
+    // -------------------------------------------------------------------------
+    // 9. removedByHost → "Removed" pill + "No longer attending" subtext,
+    //    no withdraw link, no other action affordances (Path B).
+    // -------------------------------------------------------------------------
+    testWidgets('removedByHost → "Removed" StatusPill shown', (tester) async {
+      await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+
+      expect(find.byType(StatusPill), findsOneWidget);
+    });
+
+    testWidgets('removedByHost → "No longer attending" subtext shown', (
+      tester,
+    ) async {
+      await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+
+      expect(find.text('No longer attending'), findsOneWidget);
+    });
+
+    testWidgets('removedByHost → no "Withdraw request" link', (tester) async {
+      await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+
+      expect(find.text('Withdraw request'), findsNothing);
+    });
+
+    testWidgets(
+      'removedByHost → no GestureDetector tap targets (no kebab, no action)',
+      (tester) async {
+        await _pumpRow(tester, status: JoinRequestStatus.removedByHost);
+
+        // The only interactive element in a non-pending row is the StatusPill
+        // touch target (SizedBox height 48). There must be no GestureDetector.
+        expect(find.byType(GestureDetector), findsNothing);
+      },
+    );
   });
 }

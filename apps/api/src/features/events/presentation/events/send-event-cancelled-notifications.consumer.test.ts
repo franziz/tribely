@@ -113,6 +113,9 @@ class StubJoinRequestRepository implements JoinRequestRepository {
   listByRequester(): never {
     throw new Error('not needed');
   }
+  findLatestByRequesterAndEvent(): never {
+    throw new Error('not needed');
+  }
 }
 
 class StubUserRepository implements UserRepository {

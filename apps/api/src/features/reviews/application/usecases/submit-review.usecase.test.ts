@@ -118,6 +118,7 @@ describe('SubmitReviewUseCase', () => {
     joinRequestRepo = {
       findById: vi.fn(() => Promise.resolve(null)),
       findActiveByEventAndRequester: vi.fn(() => Promise.resolve(null)),
+      findLatestByRequesterAndEvent: vi.fn(() => Promise.resolve(null)),
       save: vi.fn((): Promise<void> => Promise.resolve()),
       countApproved: vi.fn(() => Promise.resolve(0)),
       findByEvent: joinRequestFindByEventSpy,

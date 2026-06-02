@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 /// The backend uses 'rejected' and 'cancelled'; the data layer translates
 /// those to [declined] and [withdrawn] in [JoinRequestModel.toEntity()] so
 /// the domain and UI use the same language the product spec describes.
-enum JoinRequestStatus { pending, approved, declined, withdrawn }
+enum JoinRequestStatus { pending, approved, declined, withdrawn, removedByHost }
 
 /// Core domain entity representing a single join-request record.
 /// Pure Dart — no JSON, no Flutter, no Riverpod.

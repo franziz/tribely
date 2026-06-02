@@ -118,6 +118,15 @@ class MyJoinRequestRow extends StatelessWidget {
                     ),
             ),
           ],
+          // Subtext — only shown for removedByHost (Path B: no note, no kebab,
+          // no report affordance).
+          if (item.joinRequest.status == JoinRequestStatus.removedByHost) ...[
+            const SizedBox(height: 4),
+            Text(
+              'No longer attending',
+              style: TribelyType.caption(TribelyColors.paperInkSecondary),
+            ),
+          ],
         ],
       ),
     );
@@ -135,6 +144,7 @@ class MyJoinRequestRow extends StatelessWidget {
       JoinRequestStatus.approved => StatusPillState.approved,
       JoinRequestStatus.declined => StatusPillState.declined,
       JoinRequestStatus.withdrawn => StatusPillState.withdrawn,
+      JoinRequestStatus.removedByHost => StatusPillState.removedByHost,
     };
   }
 }

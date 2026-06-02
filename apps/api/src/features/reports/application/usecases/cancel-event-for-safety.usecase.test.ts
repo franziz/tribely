@@ -190,6 +190,7 @@ class FakeJoinRequestRepository implements JoinRequestRepository {
   // Unused in CancelEventForSafetyUseCase tests — vi.fn() stubs for type compliance.
   findById = vi.fn();
   findActiveByEventAndRequester = vi.fn();
+  findLatestByRequesterAndEvent = vi.fn();
   save = vi.fn();
   countApproved = vi.fn();
   listByRequester = vi.fn();

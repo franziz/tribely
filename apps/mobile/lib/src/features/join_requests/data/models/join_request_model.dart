@@ -57,12 +57,15 @@ class JoinRequestModel extends Equatable {
   );
 
   /// Translates backend status strings to mobile-domain [JoinRequestStatus].
-  /// 'rejected' → declined  |  'cancelled' → withdrawn  (product-spec language).
+  /// 'rejected'       -> declined      (product-spec language)
+  /// 'cancelled'      -> withdrawn     (product-spec language)
+  /// 'removed_by_host'-> removedByHost (host-removal status)
   static JoinRequestStatus _mapStatus(String wire) => switch (wire) {
     'pending' => JoinRequestStatus.pending,
     'approved' => JoinRequestStatus.approved,
     'rejected' => JoinRequestStatus.declined,
     'cancelled' => JoinRequestStatus.withdrawn,
+    'removed_by_host' => JoinRequestStatus.removedByHost,
     _ => JoinRequestStatus.pending, // defensive fallback
   };
 

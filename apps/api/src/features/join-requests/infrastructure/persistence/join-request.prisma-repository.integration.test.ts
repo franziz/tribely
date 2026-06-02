@@ -545,4 +545,69 @@ describe.skipIf(!dbUrl)('JoinRequestPrismaRepository (integration)', () => {
       expect(count).toBe(0);
     });
   });
+
+  describe('findLatestByRequesterAndEvent', () => {
+    it('returns null when no prior JR exists for the (requester, event) pair', async () => {
+      const requesterId = await buildRequester();
+      const result = await repo.findLatestByRequesterAndEvent(requesterId, parentEventId);
+      expect(result).toBeNull();
+    });
+
+    it('returns the most-recent JR by requestedAt when multiple exist for the same pair', async () => {
+      // Seed two JRs for the same (requester, event) pair. The partial unique
+      // index only blocks concurrent ACTIVE rows, so we reject the first before
+      // inserting the second.
+      const requesterId = await buildRequester();
+
+      const first = buildJoinRequest(requesterId);
+      await persist(first, requesterId);
+      const loadedFirst = await repo.findById(first.id);
+      loadedFirst?.reject({ by: hostUserId, reason: 'Not a good fit', now: new Date() });
+      if (loadedFirst) await persist(loadedFirst, hostUserId);
+
+      // Brief pause so requestedAt differs.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const second = buildJoinRequest(requesterId);
+      await persist(second, requesterId);
+
+      const latest = await repo.findLatestByRequesterAndEvent(requesterId, parentEventId);
+      expect(latest).not.toBeNull();
+      expect(latest?.id).toBe(second.id);
+    });
+  });
+
+  it('save + findById round-trips a removed_by_host aggregate intact (status, decisionReason, decidedAt, decidedByUserId)', async () => {
+    const requesterId = await buildRequester();
+
+    // Create → approve → removeByHost
+    const jr = buildJoinRequest(requesterId);
+    await persist(jr, requesterId);
+
+    const afterRequest = await repo.findById(jr.id);
+    expect(afterRequest?.status).toBe('pending');
+    afterRequest?.approve({ by: hostUserId, now: new Date(), eventSnapshot: eventSnapshot() });
+    if (afterRequest) await persist(afterRequest, hostUserId);
+
+    const afterApprove = await repo.findById(jr.id);
+    expect(afterApprove?.status).toBe('approved');
+
+    const removalTime = new Date();
+    const removalReason = 'Violated community guidelines';
+    afterApprove?.removeByHost({
+      by: hostUserId,
+      reason: removalReason,
+      now: removalTime,
+      hostUserId,
+    });
+    if (afterApprove) await persist(afterApprove, hostUserId);
+
+    const reloaded = await repo.findById(jr.id);
+    expect(reloaded).not.toBeNull();
+    if (!reloaded) return;
+    expect(reloaded.status).toBe('removed_by_host');
+    expect(reloaded.decidedAt?.getTime()).toBe(removalTime.getTime());
+    expect(reloaded.decidedByUserId).toBe(hostUserId);
+    expect(reloaded.decisionReason).toBe(removalReason);
+  });
 });

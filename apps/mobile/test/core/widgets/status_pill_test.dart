@@ -25,6 +25,7 @@ void main() {
           StatusPillState.approved => 'Approved',
           StatusPillState.declined => 'Declined',
           StatusPillState.withdrawn => 'Withdrawn',
+          StatusPillState.removedByHost => 'Removed',
         };
         expect(find.text(expected), findsOneWidget);
       });
@@ -94,6 +95,45 @@ void main() {
         return deco.color == TribelyColors.paperBorderSubtle;
       });
       expect(hasBg, isTrue);
+    });
+
+    testWidgets('removedByHost: light background is paperBorderSubtle', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.removedByHost)),
+      );
+      await tester.pump();
+
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final hasBg = containers.any((c) {
+        final deco = c.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.color == TribelyColors.paperBorderSubtle;
+      });
+      expect(hasBg, isTrue);
+    });
+
+    testWidgets('removedByHost: light foreground dot is paperAccent', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.removedByHost)),
+      );
+      await tester.pump();
+
+      // The leading dot is a DecoratedBox with BoxShape.circle; its color must
+      // be paperAccent in light mode.
+      final decoratedBoxes = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final hasDot = decoratedBoxes.any((db) {
+        final deco = db.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.shape == BoxShape.circle &&
+            deco.color == TribelyColors.paperAccent;
+      });
+      expect(hasDot, isTrue);
     });
 
     testWidgets('pill has 99dp border-radius', (tester) async {
@@ -205,6 +245,17 @@ void main() {
       },
     );
 
+    testWidgets('removedByHost exposes "Request status: Removed"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.removedByHost)),
+      );
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('Request status: Removed'), findsOneWidget);
+    });
+
     testWidgets(
       'without semanticsContext, label does NOT contain "for" suffix',
       (tester) async {
@@ -259,6 +310,49 @@ void main() {
         return deco.color == TribelyColors.nightSuccessSoft;
       });
       expect(hasBg, isTrue);
+    });
+
+    testWidgets('removedByHost dark: background is nightBorderSubtle', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const StatusPill(state: StatusPillState.removedByHost),
+          brightness: Brightness.dark,
+        ),
+      );
+      await tester.pump();
+
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final hasBg = containers.any((c) {
+        final deco = c.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.color == TribelyColors.nightBorderSubtle;
+      });
+      expect(hasBg, isTrue);
+    });
+
+    testWidgets('removedByHost dark: foreground dot is nightAccent', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const StatusPill(state: StatusPillState.removedByHost),
+          brightness: Brightness.dark,
+        ),
+      );
+      await tester.pump();
+
+      final decoratedBoxes = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final hasDot = decoratedBoxes.any((db) {
+        final deco = db.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.shape == BoxShape.circle &&
+            deco.color == TribelyColors.nightAccent;
+      });
+      expect(hasDot, isTrue);
     });
   });
 

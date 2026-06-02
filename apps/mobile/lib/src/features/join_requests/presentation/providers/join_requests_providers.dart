@@ -6,6 +6,7 @@ import '../../domain/usecases/decline_join_request_usecase.dart';
 import '../../domain/usecases/list_approved_for_event_usecase.dart';
 import '../../domain/usecases/list_my_join_requests_usecase.dart';
 import '../../domain/usecases/list_pending_for_event_usecase.dart';
+import '../../domain/usecases/remove_attendee_usecase.dart';
 import '../../domain/usecases/request_to_join_event_usecase.dart';
 import '../../domain/usecases/withdraw_join_request_usecase.dart';
 import '../controllers/host_attending_list_controller.dart';
@@ -49,6 +50,10 @@ final listApprovedForEventUseCaseProvider =
 
 final listMyJoinRequestsUseCaseProvider = Provider<ListMyJoinRequestsUseCase>(
   (_) => sl<ListMyJoinRequestsUseCase>(),
+);
+
+final removeAttendeeUseCaseProvider = Provider<RemoveAttendeeUseCase>(
+  (_) => sl<RemoveAttendeeUseCase>(),
 );
 
 // ---------------------------------------------------------------------------

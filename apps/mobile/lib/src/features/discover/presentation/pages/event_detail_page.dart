@@ -22,10 +22,12 @@ import '../../../join_requests/presentation/providers/join_requests_providers.da
 import '../../../join_requests/presentation/state/host_attending_list_state.dart';
 import '../../../join_requests/presentation/state/host_pending_list_state.dart';
 import '../../../join_requests/presentation/state/request_to_join_state.dart';
+import '../../../join_requests/presentation/controllers/host_attending_list_controller.dart';
 import '../../../join_requests/presentation/widgets/attending_request_row.dart';
 import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
 import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
 import '../../../join_requests/presentation/widgets/pending_request_row.dart';
+import '../../../join_requests/presentation/widgets/remove_attendee_sheet.dart';
 import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../../../../core/widgets/verified_pill.dart';
 import '../providers/event_detail_providers.dart';
@@ -290,7 +292,7 @@ class _LoadedBody extends StatelessWidget {
                   const SizedBox(height: 16),
                   _PendingRequestsSection(eventId: eventId),
                   const SizedBox(height: 8),
-                  _AttendingSection(eventId: eventId),
+                  _AttendingSection(eventId: eventId, eventTitle: event.title),
                   const SizedBox(height: 8),
                 ],
               ],
@@ -842,9 +844,10 @@ class _AnimatedPendingRowState extends State<_AnimatedPendingRow>
 /// Automatically refreshed when [HostPendingListController.approve] succeeds
 /// via [ref.invalidate(hostAttendingListControllerProvider(eventId))].
 class _AttendingSection extends ConsumerWidget {
-  const _AttendingSection({required this.eventId});
+  const _AttendingSection({required this.eventId, required this.eventTitle});
 
   final String eventId;
+  final String eventTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -865,6 +868,8 @@ class _AttendingSection extends ConsumerWidget {
         const SizedBox.shrink(), // hide when no attendees
       HostAttendingListLoaded(:final items) => _AttendingLoadedSection(
         items: items,
+        eventId: eventId,
+        eventTitle: eventTitle,
       ),
     };
   }
@@ -890,13 +895,23 @@ class _AttendingErrorSection extends StatelessWidget {
   }
 }
 
-class _AttendingLoadedSection extends StatelessWidget {
-  const _AttendingLoadedSection({required this.items});
+class _AttendingLoadedSection extends ConsumerWidget {
+  const _AttendingLoadedSection({
+    required this.items,
+    required this.eventId,
+    required this.eventTitle,
+  });
 
   final List<JoinRequestWithRequester> items;
+  final String eventId;
+  final String eventTitle;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(
+      hostAttendingListControllerProvider(eventId).notifier,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -918,9 +933,27 @@ class _AttendingLoadedSection extends StatelessWidget {
             item: item,
             onTapRequester: () =>
                 showRequesterProfileSheet(context, item.requester.id),
+            onTapRemove: () => _handleRemoveRequest(context, controller, item),
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _handleRemoveRequest(
+    BuildContext context,
+    HostAttendingListController controller,
+    JoinRequestWithRequester item,
+  ) async {
+    await showRemoveAttendeeSheet(
+      context,
+      eventTitle: eventTitle,
+      requesterDisplayName: item.requester.displayName,
+      onSubmit: (reason) => controller.removeAttendee(
+        item: item,
+        eventTitle: eventTitle,
+        reason: reason,
+      ),
     );
   }
 }
@@ -967,6 +1000,13 @@ class _StickyJoinBar extends ConsumerWidget {
         event.endsAt.toUtc().isBefore(now) || event.status == 'cancelled';
 
     Widget content;
+
+    // Removed-by-host viewers: silent suppression — no CTA, no status pill.
+    // Per AC: the joiner's "removed_by_host" state is surfaced via
+    // my_join_request_row.dart (Brief 8); this page shows nothing.
+    if (effectiveRequest?.status == JoinRequestStatus.removedByHost) {
+      return const SizedBox.shrink();
+    }
 
     if (verificationFailure != null) {
       content = _VerificationBanner(
@@ -1069,6 +1109,9 @@ class _RequestStatusContent extends StatelessWidget {
       JoinRequestStatus.approved => StatusPillState.approved,
       JoinRequestStatus.declined => StatusPillState.declined,
       JoinRequestStatus.withdrawn => StatusPillState.withdrawn,
+      // removedByHost is suppressed upstream in _StickyJoinBar (no CTA shown).
+      // This arm is kept for exhaustiveness; it should never be reached.
+      JoinRequestStatus.removedByHost => StatusPillState.declined,
     };
 
     return Column(

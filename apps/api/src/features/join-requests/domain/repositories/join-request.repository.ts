@@ -93,6 +93,24 @@ export interface JoinRequestRepository {
     ctx?: TxContext,
   ): Promise<JoinRequest | null>;
 
+  /**
+   * Returns the most-recently-submitted join request (by `requestedAt DESC`)
+   * for this (requester, event) pair regardless of status, or null when no
+   * prior request exists.
+   *
+   * Used by the re-request gating logic (Brief 4) to surface the previous
+   * terminal state (`rejected` / `cancelled` / `removed_by_host`) so the use
+   * case can apply per-state re-request rules without a full `findByEvent` scan.
+   *
+   * A tie on `requestedAt` is broken by `id DESC` (cuid2 ids are lexicographically
+   * monotonic, so the tiebreak is stable).
+   */
+  findLatestByRequesterAndEvent(
+    requesterUserId: string,
+    eventId: string,
+    ctx?: TxContext,
+  ): Promise<JoinRequest | null>;
+
   save(joinRequest: JoinRequest, ctx?: TxContext): Promise<void>;
 
   /**

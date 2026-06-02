@@ -23,6 +23,9 @@ final class HostAttendingListLoaded extends HostAttendingListState {
 
   final List<JoinRequestWithRequester> items;
 
+  HostAttendingListLoaded copyWith({List<JoinRequestWithRequester>? items}) =>
+      HostAttendingListLoaded(items: items ?? this.items);
+
   @override
   List<Object?> get props => [items];
 }

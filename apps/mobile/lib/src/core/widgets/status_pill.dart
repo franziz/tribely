@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import '../design/colors.dart';
 import '../design/typography.dart';
 
-/// The four states a join-request-style status pill can represent.
+/// The states a join-request-style status pill can represent.
 ///
 /// Intentionally feature-agnostic — no dependency on any join-request domain
 /// type. Call-sites map their own enums to [StatusPillState].
-enum StatusPillState { pending, approved, declined, withdrawn }
+enum StatusPillState { pending, approved, declined, withdrawn, removedByHost }
 
 /// A read-only pill badge that communicates request status via colour and text.
 ///
@@ -92,6 +92,10 @@ class StatusPill extends StatelessWidget {
         return dark
             ? TribelyColors.nightBorderSubtle
             : TribelyColors.paperBorderSubtle;
+      case StatusPillState.removedByHost:
+        return dark
+            ? TribelyColors.nightBorderSubtle
+            : TribelyColors.paperBorderSubtle;
     }
   }
 
@@ -106,6 +110,8 @@ class StatusPill extends StatelessWidget {
         return dark
             ? TribelyColors.nightInkSecondary
             : TribelyColors.paperInkSecondary;
+      case StatusPillState.removedByHost:
+        return dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
     }
   }
 
@@ -119,6 +125,8 @@ class StatusPill extends StatelessWidget {
         return 'Declined';
       case StatusPillState.withdrawn:
         return 'Withdrawn';
+      case StatusPillState.removedByHost:
+        return 'Removed';
     }
   }
 }

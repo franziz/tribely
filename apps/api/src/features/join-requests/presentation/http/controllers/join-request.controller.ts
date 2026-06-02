@@ -7,6 +7,7 @@ import type {
   ListJoinRequestsByRequesterUseCase,
 } from '../../../application/usecases/list-join-requests-by-requester.usecase.js';
 import type { RejectJoinRequestUseCase } from '../../../application/usecases/reject-join-request.usecase.js';
+import type { RemoveJoinRequestByHostUseCase } from '../../../application/usecases/remove-join-request-by-host.usecase.js';
 import type { RequestToJoinEventUseCase } from '../../../application/usecases/request-to-join-event.usecase.js';
 import type { JoinRequest } from '../../../domain/entities/join-request.js';
 import { AppError } from '@/core/errors/app-error.js';
@@ -17,6 +18,7 @@ import type {
   ListMyJoinRequestsQuery,
   MyJoinRequestsListResponse,
   RejectJoinRequestBody,
+  RemoveAttendeeBody,
 } from '../schemas/join-request.schemas.js';
 import type { ListJoinRequestsByRequesterCursor } from '../../../domain/repositories/join-request.repository.js';
 
@@ -75,6 +77,7 @@ export class JoinRequestController {
     private readonly requestToJoinEvent: RequestToJoinEventUseCase,
     private readonly approveJoinRequest: ApproveJoinRequestUseCase,
     private readonly rejectJoinRequest: RejectJoinRequestUseCase,
+    private readonly removeJoinRequestByHost: RemoveJoinRequestByHostUseCase,
     private readonly cancelJoinRequestByRequester: CancelJoinRequestByRequesterUseCase,
     private readonly listJoinRequestsByEvent: ListJoinRequestsByEventUseCase,
     private readonly listJoinRequestsByRequester: ListJoinRequestsByRequesterUseCase,
@@ -154,6 +157,20 @@ export class JoinRequestController {
     body: RejectJoinRequestBody,
   ) => {
     const jr = await this.rejectJoinRequest.execute({
+      joinRequestId,
+      actorUserId,
+      reason: body.reason,
+    });
+    return c.json(toJoinRequestResponse(jr), 200);
+  };
+
+  removeAttendeeAction = async (
+    c: Context,
+    joinRequestId: string,
+    actorUserId: string,
+    body: RemoveAttendeeBody,
+  ) => {
+    const jr = await this.removeJoinRequestByHost.execute({
       joinRequestId,
       actorUserId,
       reason: body.reason,

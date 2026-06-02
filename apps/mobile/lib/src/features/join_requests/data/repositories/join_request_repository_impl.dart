@@ -117,6 +117,27 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, Unit>> removeAttendee({
+    required String eventId,
+    required String joinRequestId,
+    required String reason,
+  }) async {
+    try {
+      await _remote.removeAttendee(
+        eventId: eventId,
+        joinRequestId: joinRequestId,
+        reason: reason,
+      );
+      return const Right(unit);
+    } on DioException catch (e) {
+      final mapped = _mapRemoveAttendeeDioError(e);
+      return Left(mapped);
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Dio → Failure mapping
   //
@@ -199,5 +220,55 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
       // Defensive: malformed response shape — fall through to empty string.
     }
     return '';
+  }
+
+  /// Error mapping specific to [removeAttendee].
+  ///
+  /// 403 + subcode REMOVED_BY_HOST_REREQUEST_BLOCKED — the attendee is blocked
+  ///   from re-requesting; map to [ServerFailure] with the subcode preserved.
+  /// 409 + subcode ALREADY_REMOVED_BY_HOST — idempotency: the request is
+  ///   already removed; treat as a benign [ConflictFailure] so the caller can
+  ///   choose to treat this as success or surface a soft warning.
+  Failure _mapRemoveAttendeeDioError(DioException e) {
+    final inner = e.error;
+
+    if (inner is NetworkException) {
+      return NetworkFailure(inner.message);
+    }
+
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return const NetworkFailure('Request timed out');
+    }
+
+    if (inner is ServerException) {
+      final statusCode = inner.statusCode;
+      final code = inner.code;
+      final message = inner.message;
+      final subcode = _extractSubcode(e);
+
+      switch (statusCode) {
+        case 403:
+          if (subcode == 'REMOVED_BY_HOST_REREQUEST_BLOCKED') {
+            return ServerFailure(message, statusCode: 403, code: subcode);
+          }
+          return ServerFailure(message, statusCode: 403, code: code);
+
+        case 409:
+          if (subcode == 'ALREADY_REMOVED_BY_HOST') {
+            // Idempotency: already removed — surface as ConflictFailure so
+            // callers can inspect the subcode and decide whether to treat it
+            // as a no-op success or show a soft warning.
+            return ConflictFailure(message, subcode: subcode, code: code);
+          }
+          return ServerFailure(message, statusCode: 409, code: code);
+
+        default:
+          return ServerFailure(message, statusCode: statusCode, code: code);
+      }
+    }
+
+    return UnknownFailure(e.message ?? 'Unknown error');
   }
 }
