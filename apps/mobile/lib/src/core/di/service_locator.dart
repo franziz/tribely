@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -181,8 +182,9 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<EventDraftLocalDatasource>(
     () => EventDraftLocalDatasourceImpl(prefs),
   );
+  // Mapbox uses an isolated Dio — sharing ApiClient().dio would leak Tribely JWT to a third party.
   sl.registerLazySingleton<MapboxPlaceSearchRemoteDatasource>(
-    () => MapboxPlaceSearchRemoteDatasourceImpl(sl<ApiClient>().dio),
+    () => MapboxPlaceSearchRemoteDatasourceImpl(_buildMapboxDio()),
   );
 
   // Events — repositories
@@ -366,5 +368,20 @@ Future<void> configureDependencies() async {
   // Support — use cases
   sl.registerLazySingleton(
     () => SubmitSupportTicketUseCase(sl<SupportRepository>()),
+  );
+}
+
+/// Constructs a fresh, interceptor-free [Dio] instance for Mapbox requests.
+///
+/// Timeouts mirror [ApiClient] values for consistency.
+/// No auth interceptors are attached — Mapbox authenticates via API key in the
+/// query string, not a bearer header. Attaching ApiClient's interceptors would
+/// forward the Tribely user JWT to a third-party host.
+Dio _buildMapboxDio() {
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+    ),
   );
 }
