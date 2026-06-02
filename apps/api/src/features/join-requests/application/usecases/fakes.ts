@@ -131,6 +131,20 @@ export class FakeJoinRequestRepository implements JoinRequestRepository {
     return Promise.resolve(count);
   }
 
+  findLatestByRequesterAndEvent(
+    requesterUserId: string,
+    eventId: string,
+    _ctx?: TxContext,
+  ): Promise<JoinRequest | null> {
+    const matches = Array.from(this.byId.values())
+      .filter((jr) => jr.requesterUserId === requesterUserId && jr.eventId === eventId)
+      .sort((a, b) => {
+        const delta = b.requestedAt.getTime() - a.requestedAt.getTime();
+        return delta !== 0 ? delta : b.id.localeCompare(a.id);
+      });
+    return Promise.resolve(matches[0] ?? null);
+  }
+
   listApprovedByEvents(eventIds: string[], _ctx?: TxContext): Promise<JoinRequest[]> {
     if (eventIds.length === 0) return Promise.resolve([]);
     const idSet = new Set(eventIds);

@@ -294,7 +294,12 @@ describe('JoinRequest', () => {
       jr.approve({ by: 'host_1', now: NOW, eventSnapshot: SNAPSHOT });
       jr.pullEvents();
       const at = new Date(NOW.getTime() + 1000);
-      jr.removeByHost({ by: 'host_1', reason: '  behaviour issue  ', now: at, hostUserId: 'host_1' });
+      jr.removeByHost({
+        by: 'host_1',
+        reason: '  behaviour issue  ',
+        now: at,
+        hostUserId: 'host_1',
+      });
       expect(jr.status).toBe('removed_by_host');
       expect(jr.decidedAt).toEqual(at);
       expect(jr.decidedByUserId).toBe('host_1');

@@ -6,7 +6,12 @@ import { joinRequestRejected } from '../events/rejected.event.js';
 import { joinRequestRemovedByHost } from '../events/removed-by-host.event.js';
 import { joinRequestRequested } from '../events/requested.event.js';
 
-export type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'removed_by_host';
+export type JoinRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'cancelled'
+  | 'removed_by_host';
 
 const REJECTION_REASON_MAX = 500;
 const REMOVE_REASON_MAX = 200;
@@ -225,12 +230,7 @@ export class JoinRequest extends AggregateRoot {
    * `removedByUserId` and `hostUserId` are carried in the event for symmetry
    * with `joinRequestApproved` and future Path C (admin-remove) optionality.
    */
-  removeByHost(input: {
-    by: string;
-    reason: string;
-    now: Date;
-    hostUserId: string;
-  }): void {
+  removeByHost(input: { by: string; reason: string; now: Date; hostUserId: string }): void {
     const trimmed = input.reason.trim();
     if (trimmed.length === 0) {
       throw AppError.validation('Removal reason is required');
@@ -286,6 +286,9 @@ export class JoinRequest extends AggregateRoot {
     }
     if (this._status === 'rejected') {
       throw AppError.conflict('Cannot cancel a rejected join request');
+    }
+    if (this._status === 'removed_by_host') {
+      throw AppError.conflict('Cannot cancel a join request that was removed by the host');
     }
     const previousStatus = this._status; // 'pending' | 'approved'
     this._status = 'cancelled';

@@ -43,7 +43,13 @@ export const listJoinRequestsByEventQuerySchema = z.object({
 
 // ---- Shared sub-schema ----
 
-const joinRequestStatusSchema = z.enum(['pending', 'approved', 'rejected', 'cancelled']);
+const joinRequestStatusSchema = z.enum([
+  'pending',
+  'approved',
+  'rejected',
+  'cancelled',
+  'removed_by_host',
+]);
 
 export const joinRequestResponseSchema = z.object({
   id: z.string(),
