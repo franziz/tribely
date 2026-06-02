@@ -68,6 +68,16 @@ export class RequestToJoinEventUseCase {
       });
     }
 
+    const latest = await this.joinRequests.findLatestByRequesterAndEvent(
+      input.requesterUserId,
+      input.eventId,
+    );
+    if (latest?.status === 'removed_by_host') {
+      throw AppError.forbidden('You cannot request to join this event again', {
+        subcode: 'REMOVED_BY_HOST_REREQUEST_BLOCKED',
+      });
+    }
+
     const autoApprove = event.approvalMode === 'auto';
     const id = createId();
 

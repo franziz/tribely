@@ -193,6 +193,35 @@ describe('RequestToJoinEventUseCase', () => {
       }
     });
 
+    it('throws REMOVED_BY_HOST_REREQUEST_BLOCKED when a prior removed_by_host JR exists', async () => {
+      const { events, joinRequests, useCase } = buildSut();
+      seedPublishedEvent(events);
+      // Seed a prior approved JR then remove it by host to put it in removed_by_host state.
+      const priorJr = JoinRequest.request({
+        id: 'jr_prior',
+        eventId: 'evt_1',
+        requesterUserId: 'requester_1',
+        now: NOW,
+        autoApprove: true,
+        hostUserId: 'host_1',
+        eventSnapshot: snapshotFor(STARTS, ENDS, 'host_1'),
+      });
+      priorJr.pullEvents();
+      priorJr.removeByHost({ by: 'host_1', hostUserId: 'host_1', reason: 'kicked', now: NOW });
+      priorJr.pullEvents();
+      joinRequests.put(priorJr);
+
+      try {
+        await useCase.execute({ eventId: 'evt_1', requesterUserId: 'requester_1' });
+        expect.fail('expected throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(AppError);
+        const e = err as AppError;
+        expect(e.code).toBe('FORBIDDEN');
+        expect(e.details).toEqual({ subcode: 'REMOVED_BY_HOST_REREQUEST_BLOCKED' });
+      }
+    });
+
     it('throws EVENT_ALREADY_STARTED when endsAt is in the past relative to clock', async () => {
       const { events, clock, useCase } = buildSut();
       seedPublishedEvent(events);

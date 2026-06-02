@@ -135,6 +135,9 @@ class MyJoinRequestRow extends StatelessWidget {
       JoinRequestStatus.approved => StatusPillState.approved,
       JoinRequestStatus.declined => StatusPillState.declined,
       JoinRequestStatus.withdrawn => StatusPillState.withdrawn,
+      // TODO(TRI-63 Brief 7): replace with StatusPillState.removedByHost once
+      // the pill state is added in the Brief 7 widget pass.
+      JoinRequestStatus.removedByHost => StatusPillState.declined,
     };
   }
 }

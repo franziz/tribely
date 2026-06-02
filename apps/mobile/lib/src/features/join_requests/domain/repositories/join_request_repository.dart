@@ -38,4 +38,14 @@ abstract class JoinRequestRepository {
   Future<Either<Failure, List<JoinRequestWithEvent>>> listMyJoinRequests({
     String? eventId,
   });
+
+  /// POST /events/:eventId/join-requests/:joinRequestId/remove  (host action)
+  ///
+  /// Removes an approved attendee from the event. [reason] is mandatory on the
+  /// wire (backend enforces non-empty).
+  Future<Either<Failure, Unit>> removeAttendee({
+    required String eventId,
+    required String joinRequestId,
+    required String reason,
+  });
 }

@@ -173,6 +173,7 @@ import { RecordModerationActionUseCase } from '@/features/audit/application/usec
 
 import { ApproveJoinRequestUseCase } from '@/features/join-requests/application/usecases/approve-join-request.usecase.js';
 import { CancelJoinRequestByRequesterUseCase } from '@/features/join-requests/application/usecases/cancel-join-request-by-requester.usecase.js';
+import { RemoveJoinRequestByHostUseCase } from '@/features/join-requests/application/usecases/remove-join-request-by-host.usecase.js';
 import { ListJoinRequestsByEventUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-event.usecase.js';
 import { ListJoinRequestsByRequesterUseCase } from '@/features/join-requests/application/usecases/list-join-requests-by-requester.usecase.js';
 import { PseudonymiseJoinRequestsAuthorForUserUseCase } from '@/features/join-requests/application/usecases/pseudonymise-join-requests-author-for-user.usecase.js';
@@ -366,6 +367,7 @@ export interface Container {
   requestToJoinEventUseCase: RequestToJoinEventUseCase;
   approveJoinRequestUseCase: ApproveJoinRequestUseCase;
   rejectJoinRequestUseCase: RejectJoinRequestUseCase;
+  removeJoinRequestByHostUseCase: RemoveJoinRequestByHostUseCase;
   cancelJoinRequestByRequesterUseCase: CancelJoinRequestByRequesterUseCase;
   listJoinRequestsByEventUseCase: ListJoinRequestsByEventUseCase;
   listJoinRequestsByRequesterUseCase: ListJoinRequestsByRequesterUseCase;
@@ -723,6 +725,13 @@ export const buildContainer = (): Container => {
     clock,
   );
   const rejectJoinRequestUseCase = new RejectJoinRequestUseCase(
+    unitOfWork,
+    joinRequestRepository,
+    eventRepository,
+    publisher,
+    clock,
+  );
+  const removeJoinRequestByHostUseCase = new RemoveJoinRequestByHostUseCase(
     unitOfWork,
     joinRequestRepository,
     eventRepository,
@@ -1098,6 +1107,7 @@ export const buildContainer = (): Container => {
     requestToJoinEventUseCase,
     approveJoinRequestUseCase,
     rejectJoinRequestUseCase,
+    removeJoinRequestByHostUseCase,
     cancelJoinRequestByRequesterUseCase,
     listJoinRequestsByEventUseCase,
     listJoinRequestsByRequesterUseCase,

@@ -37,6 +37,15 @@ abstract class JoinRequestRemoteDatasource {
 
   /// GET /me/join-requests?eventId=...  (joiner view; eventId is optional)
   Future<List<JoinRequestWithEventModel>> listMyJoinRequests({String? eventId});
+
+  /// POST /events/:eventId/join-requests/:joinRequestId/remove  (host action)
+  ///
+  /// Throws [DioException] on network or server errors.
+  Future<void> removeAttendee({
+    required String eventId,
+    required String joinRequestId,
+    required String reason,
+  });
 }
 
 class JoinRequestRemoteDatasourceImpl implements JoinRequestRemoteDatasource {
@@ -117,5 +126,17 @@ class JoinRequestRemoteDatasourceImpl implements JoinRequestRemoteDatasource {
     return list
         .map(JoinRequestWithRequesterModel.fromJson)
         .toList(growable: false);
+  }
+
+  @override
+  Future<void> removeAttendee({
+    required String eventId,
+    required String joinRequestId,
+    required String reason,
+  }) async {
+    await _dio.post<void>(
+      '/events/$eventId/join-requests/$joinRequestId/remove',
+      data: {'reason': reason},
+    );
   }
 }
