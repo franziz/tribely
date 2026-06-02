@@ -233,7 +233,7 @@ model JoinRequest {
   id              String    @id @default(cuid())
   eventId         String
   requesterUserId String
-  status          String // pending | approved | rejected | cancelled
+  status          String // pending | approved | rejected | cancelled | removed_by_host
   requestedAt     DateTime  @default(now())
   decidedAt       DateTime?
   decidedByUserId String?
