@@ -13,6 +13,8 @@
 //  10. SUPPORT section header renders.
 //  11. "Help & Support" tile is present.
 //  12. Tapping "Help & Support" navigates to /support/contact.
+//  13. "Verification" tile is present under ACCOUNT between Edit profile and Notifications.
+//  14. Tapping "Verification" navigates to /settings/verification.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +27,7 @@ import 'package:tribely/src/features/auth/presentation/controllers/session_contr
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
 import 'package:tribely/src/features/users/presentation/pages/settings_page.dart';
+import 'package:tribely/src/features/users/presentation/string_assets/verification_settings_copy.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -96,6 +99,11 @@ Future<void> _pumpPage(
             builder: (context, state) =>
                 const Scaffold(body: Text('Support contact page')),
           ),
+          GoRoute(
+            path: '/settings/verification',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Verification settings page')),
+          ),
         ],
       );
 
@@ -152,6 +160,31 @@ void main() {
       await _pumpPage(tester);
       expect(find.text('Help & Support'), findsOneWidget);
     });
+
+    testWidgets('renders "Verification" tile under ACCOUNT', (tester) async {
+      await _pumpPage(tester);
+      expect(find.text(kVerificationSettingsTitle), findsOneWidget);
+    });
+
+    testWidgets(
+      '"Verification" tile is between "Edit profile" and "Notifications"',
+      (tester) async {
+        await _pumpPage(tester);
+
+        final editProfileIndex = tester
+            .getTopLeft(find.text('Edit profile'))
+            .dy;
+        final verificationIndex = tester
+            .getTopLeft(find.text(kVerificationSettingsTitle))
+            .dy;
+        final notificationsIndex = tester
+            .getTopLeft(find.text('Notifications'))
+            .dy;
+
+        expect(verificationIndex, greaterThan(editProfileIndex));
+        expect(notificationsIndex, greaterThan(verificationIndex));
+      },
+    );
   });
 
   group('SettingsPage — sign-out flow', () {
@@ -227,6 +260,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Support contact page'), findsOneWidget);
+    });
+
+    testWidgets('tapping "Verification" navigates to /settings/verification', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
+      await tester.tap(find.text(kVerificationSettingsTitle));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verification settings page'), findsOneWidget);
     });
   });
 }
