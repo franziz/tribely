@@ -29,7 +29,7 @@ import '../state/venue_picker_state.dart';
 ///
 /// AutoDispose lives on the provider declaration ([venuePickerControllerProvider]),
 /// NOT on this class — per the established Riverpod 3.x convention in this repo.
-/// See `mobile-architecture.md` gotchas: "Mobile controllers use Notifier<T>,
+/// See `mobile-architecture.md` gotchas: "Mobile controllers use `Notifier<T>`,
 /// auto-dispose lives on the provider."
 class VenuePickerController extends Notifier<VenuePickerState> {
   Timer? _debounceTimer;
@@ -97,7 +97,7 @@ class VenuePickerController extends Notifier<VenuePickerState> {
     state = VenuePickerSearching(trimmed);
 
     _debounceTimer = Timer(
-      Duration(milliseconds: kTypeaheadDebounceMs),
+      const Duration(milliseconds: kTypeaheadDebounceMs),
       () => _executeSuggest(trimmed),
     );
   }

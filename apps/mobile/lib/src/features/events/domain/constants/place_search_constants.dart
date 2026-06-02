@@ -1,9 +1,3 @@
-/// Singapore-specific constants for the Mapbox place-search integration.
-///
-/// These are compile-time constants — they do NOT pull from app config or env.
-/// If a second launch market is added, extract to a per-market config object
-/// and inject at the use-case layer.
-
 /// Mapbox proximity bias expressed as `lng,lat` (longitude first — Mapbox
 /// convention, which is the reverse of the GeoJSON / Google Maps `lat,lng`
 /// order).

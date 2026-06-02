@@ -70,7 +70,7 @@ class MapboxPlaceSearchRemoteDatasourceImpl
         },
       );
     } on DioException catch (e) {
-      _mapDioExceptionToDataLayerException(e);
+      throw _mapDioExceptionToDataLayerException(e);
     }
 
     try {
@@ -100,7 +100,7 @@ class MapboxPlaceSearchRemoteDatasourceImpl
         },
       );
     } on DioException catch (e) {
-      _mapDioExceptionToDataLayerException(e);
+      throw _mapDioExceptionToDataLayerException(e);
     }
 
     try {
@@ -125,21 +125,21 @@ class MapboxPlaceSearchRemoteDatasourceImpl
   /// - HTTP 5xx → [ProviderException]
   /// - Other HTTP errors → [ProviderException] (conservative)
   ///
-  /// Network-level [DioException]s (no response) are left to bubble through to
-  /// the repository layer which maps them to [NetworkFailure].
+  /// Network-level [DioException]s (no response) are returned as-is so the
+  /// repository layer can map them to [NetworkFailure].
   ///
-  /// Always throws — never returns normally.
-  Never _mapDioExceptionToDataLayerException(DioException e) {
+  /// Returns the exception — callers must `throw` the result explicitly.
+  Exception _mapDioExceptionToDataLayerException(DioException e) {
     final response = e.response;
     if (response == null) {
-      // Network-level failure — bubble through unchanged.
-      throw e;
+      // Network-level failure — return unchanged so the repository maps it.
+      return e;
     }
 
     final statusCode = response.statusCode ?? 0;
 
     if (statusCode == 429) {
-      throw const QuotaExhaustedException(
+      return const QuotaExhaustedException(
         'Mapbox rate limit exceeded (HTTP 429)',
       );
     }
@@ -147,18 +147,18 @@ class MapboxPlaceSearchRemoteDatasourceImpl
     if (statusCode == 403) {
       final body = response.data?.toString() ?? '';
       if (body.contains('quota') || body.contains('billing')) {
-        throw const QuotaExhaustedException(
+        return const QuotaExhaustedException(
           'Mapbox quota exhausted (HTTP 403)',
         );
       }
-      throw const ProviderException('Mapbox returned HTTP 403');
+      return const ProviderException('Mapbox returned HTTP 403');
     }
 
     if (statusCode >= 500) {
-      throw ProviderException('Mapbox server error (HTTP $statusCode)');
+      return ProviderException('Mapbox server error (HTTP $statusCode)');
     }
 
     // Any other HTTP error (4xx not handled above) treated as provider error.
-    throw ProviderException('Mapbox returned HTTP $statusCode');
+    return ProviderException('Mapbox returned HTTP $statusCode');
   }
 }

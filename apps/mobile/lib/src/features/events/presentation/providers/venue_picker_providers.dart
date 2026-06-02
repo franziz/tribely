@@ -31,7 +31,7 @@ final placeSearchPortProvider = Provider<PlaceSearchPort>(
 ///
 /// AutoDispose is configured HERE (on the provider), not on the
 /// [VenuePickerController] class — Riverpod 3.x convention for this repo.
-/// See `mobile-architecture.md`: "Mobile controllers use Notifier<T>,
+/// See `mobile-architecture.md`: "Mobile controllers use `Notifier<T>`,
 /// auto-dispose lives on the provider."
 ///
 /// The provider is autoDispose so the picker state is reclaimed when the
