@@ -115,6 +115,25 @@ class RateLimitedFailure extends Failure {
   const RateLimitedFailure(super.message, {super.code});
 }
 
+/// Provider quota or rate-limit exhausted (HTTP 429, or 403 with a
+/// quota-exceeded body from Mapbox).
+///
+/// Distinct from [ServerFailure] so the presentation layer can switch to a
+/// degraded mode (e.g. manual address entry) WITHOUT inspecting message
+/// strings.
+class QuotaExhaustedFailure extends Failure {
+  const QuotaExhaustedFailure(super.message, {super.code});
+}
+
+/// External provider returned an unrecoverable error: 5xx response, malformed
+/// JSON, or an unexpected schema that cannot be mapped to a domain entity.
+///
+/// Distinct from [ServerFailure] (which is reserved for Tribely's own API) so
+/// the presentation layer can distinguish provider outages from backend errors.
+class ProviderFailure extends Failure {
+  const ProviderFailure(super.message, {super.code});
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event
