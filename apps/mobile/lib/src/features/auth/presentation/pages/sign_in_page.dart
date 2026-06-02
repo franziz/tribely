@@ -9,7 +9,7 @@ import '../../../../core/widgets/tribely_text_field.dart';
 import '../providers/auth_providers.dart';
 import '../state/auth_state.dart';
 import '../widgets/auth_dismissible_banner.dart';
-import '../widgets/auth_page_scaffold.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 import '../widgets/password_field.dart';
 import 'forgot_password_sheet.dart';
 

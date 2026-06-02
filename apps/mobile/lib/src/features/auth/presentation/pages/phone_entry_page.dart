@@ -13,7 +13,7 @@ import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/tribely_text_field.dart';
 import '../providers/auth_providers.dart';
 import '../state/auth_state.dart';
-import '../widgets/auth_page_scaffold.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 
 /// Phone OTP wizard — step 1: country picker + phone number entry.
 ///
@@ -80,7 +80,13 @@ class _PhoneEntryPageState extends ConsumerState<PhoneEntryPage> {
     final state = ref.read(phoneVerificationControllerProvider);
     if (!mounted) return;
     if (state is PhoneVerificationCodeSent) {
-      unawaited(context.push('/auth/phone/verify'));
+      final redirectTo = GoRouterState.of(
+        context,
+      ).uri.queryParameters['redirectTo'];
+      final verifyUri = redirectTo != null
+          ? '/auth/phone/verify?redirectTo=${Uri.encodeQueryComponent(redirectTo)}'
+          : '/auth/phone/verify';
+      unawaited(context.push(verifyUri));
     }
   }
 

@@ -17,6 +17,7 @@ import '../../features/auth/presentation/state/auth_state.dart';
 import '../../features/discover/presentation/pages/discover_page.dart';
 import '../../features/discover/presentation/pages/event_detail_page.dart';
 import '../../features/events/presentation/pages/create_event_page.dart';
+import '../../features/events/presentation/pages/phone_gate_page.dart';
 import '../../features/my_events/presentation/pages/my_events_page.dart';
 import '../../features/account/presentation/pages/account_deleted_page.dart';
 import '../../features/account/presentation/pages/delete_account_page.dart';
@@ -110,6 +111,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // back to /verify-email so sensitive actions can't be reached.
           if (!session.user.isEmailVerified) {
             return isVerify ? null : '/verify-email';
+          }
+          // Phone-verification gate at the entry to the create-event wizard.
+          // Server-side gate (POST /events) remains the source of truth; this
+          // client-side gate prevents the user from filling 5 wizard steps then
+          // hitting a 403. Mid-session revocation (phoneVerifiedAt → null) is
+          // handled by this same redirect on the next router refresh.
+          if (loc == '/events/new' && !session.user.isPhoneVerified) {
+            return '/events/new/phone-gate';
+          }
+          // Symmetric guard: a phone-verified user who somehow lands on the gate
+          // (deep link, back-stack) is forwarded into the wizard.
+          if (loc == '/events/new/phone-gate' && session.user.isPhoneVerified) {
+            return '/events/new';
           }
           // Splash, auth-flow pages, and verify all bounce to the shell landing.
           if (isSplash || isAuthFlow || isVerify) return '/events';
@@ -249,6 +263,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'blockedUsers',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const BlockedUsersPage(),
+      ),
+      // Phone-verification gate — shown to unverified users who attempt to
+      // enter the create-event wizard. Declared outside the shell so the
+      // bottom nav bar is hidden, matching the /events/new sibling.
+      GoRoute(
+        path: '/events/new/phone-gate',
+        name: 'createEventPhoneGate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const PhoneGatePage(),
       ),
       // Full-screen create-event flow. Declared outside the shell with
       // parentNavigatorKey pointing at root so it renders without the bottom

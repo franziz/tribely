@@ -38,17 +38,26 @@ void main() {
     // Structural / render tests
     // -------------------------------------------------------------------------
     testWidgets('renders "Pick a date" headline', (tester) async {
-      await _pumpSheet(tester, initial: DateTime(2026, 6, 1));
+      await _pumpSheet(
+        tester,
+        initial: DateTime.now().add(const Duration(days: 1)),
+      );
       expect(find.text('Pick a date'), findsOneWidget);
     });
 
     testWidgets('renders "Confirm date" button', (tester) async {
-      await _pumpSheet(tester, initial: DateTime(2026, 6, 1));
+      await _pumpSheet(
+        tester,
+        initial: DateTime.now().add(const Duration(days: 1)),
+      );
       expect(find.text('Confirm date'), findsOneWidget);
     });
 
     testWidgets('renders "Cancel" button', (tester) async {
-      await _pumpSheet(tester, initial: DateTime(2026, 6, 1));
+      await _pumpSheet(
+        tester,
+        initial: DateTime.now().add(const Duration(days: 1)),
+      );
       expect(find.text('Cancel'), findsOneWidget);
     });
 
@@ -56,12 +65,18 @@ void main() {
     // 1. CupertinoDatePicker is present (pre-selected to initial)
     // -------------------------------------------------------------------------
     testWidgets('renders a CupertinoDatePicker', (tester) async {
-      await _pumpSheet(tester, initial: DateTime(2026, 6, 15));
+      await _pumpSheet(
+        tester,
+        initial: DateTime.now().add(const Duration(days: 1)),
+      );
       expect(find.byType(CupertinoDatePicker), findsOneWidget);
     });
 
     testWidgets('CupertinoDatePicker is in date-only mode', (tester) async {
-      await _pumpSheet(tester, initial: DateTime(2026, 6, 15));
+      await _pumpSheet(
+        tester,
+        initial: DateTime.now().add(const Duration(days: 1)),
+      );
 
       final picker = tester.widget<CupertinoDatePicker>(
         find.byType(CupertinoDatePicker),
@@ -75,7 +90,7 @@ void main() {
     testWidgets('tapping "Confirm date" pops the sheet with initial date', (
       tester,
     ) async {
-      final initial = DateTime(2026, 8, 20);
+      final initial = DateTime.now().add(const Duration(days: 1));
       DateTime? poppedResult;
 
       await tester.pumpWidget(
@@ -130,7 +145,9 @@ void main() {
                     context,
                     MaterialPageRoute<DateTime?>(
                       builder: (_) => Scaffold(
-                        body: DatePickerSheet(initial: DateTime(2026, 8, 20)),
+                        body: DatePickerSheet(
+                          initial: DateTime.now().add(const Duration(days: 1)),
+                        ),
                       ),
                     ),
                   );
@@ -159,7 +176,10 @@ void main() {
     testWidgets('sheet root has Semantics label "Pick a date dialog"', (
       tester,
     ) async {
-      await _pumpSheet(tester, initial: DateTime(2026, 6, 1));
+      await _pumpSheet(
+        tester,
+        initial: DateTime.now().add(const Duration(days: 1)),
+      );
 
       expect(find.bySemanticsLabel('Pick a date dialog'), findsOneWidget);
     });

@@ -9,7 +9,7 @@ import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/otp_code_input.dart';
 import '../providers/auth_providers.dart';
 import '../state/auth_state.dart';
-import '../widgets/auth_page_scaffold.dart';
+import '../../../../core/widgets/auth_page_scaffold.dart';
 
 /// Phone OTP wizard — step 2: 6-digit code entry.
 ///
@@ -39,9 +39,19 @@ class _VerifyPhonePageState extends ConsumerState<VerifyPhonePage> {
     final state = ref.read(phoneVerificationControllerProvider);
     if (!mounted) return;
     if (state is PhoneVerificationSuccess) {
-      // Wizard complete — return to the profile page (or wherever the user
-      // came from). go() so they can't navigate back into the OTP flow.
-      context.go('/profile');
+      // Wizard complete — navigate based on redirectTo query param.
+      // Allowlist: only honour known internal targets. Open-redirect defense.
+      final redirectTo = GoRouterState.of(
+        context,
+      ).uri.queryParameters['redirectTo'];
+      const allowed = {'/events/new'};
+      if (redirectTo != null && allowed.contains(redirectTo)) {
+        context.go(redirectTo);
+      } else {
+        // Default: return to the profile page. go() so they can't navigate
+        // back into the OTP flow.
+        context.go('/profile');
+      }
     }
   }
 
