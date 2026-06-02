@@ -8,7 +8,10 @@ import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type { JoinRequestController } from '../controllers/join-request.controller.js';
-import { listJoinRequestsByEventQuerySchema } from '../schemas/join-request.schemas.js';
+import {
+  listJoinRequestsByEventQuerySchema,
+  removeAttendeeBodySchema,
+} from '../schemas/join-request.schemas.js';
 
 export interface EventScopedJoinRequestRouteDeps {
   controller: JoinRequestController;
@@ -62,5 +65,19 @@ export const buildEventScopedJoinRequestRoutes = (
       zValidator('query', listJoinRequestsByEventQuerySchema),
       (c) =>
         deps.controller.listAction(c, c.req.param('id'), c.get('userId'), c.req.valid('query')),
+    )
+    .post(
+      '/:id/join-requests/:joinRequestId/remove',
+      auth,
+      verifiedEmail,
+      verifiedPhone,
+      zValidator('json', removeAttendeeBodySchema),
+      (c) =>
+        deps.controller.removeAttendeeAction(
+          c,
+          c.req.param('joinRequestId'),
+          c.get('userId'),
+          c.req.valid('json'),
+        ),
     );
 };

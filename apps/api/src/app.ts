@@ -115,6 +115,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
     container.requestToJoinEventUseCase,
     container.approveJoinRequestUseCase,
     container.rejectJoinRequestUseCase,
+    container.removeJoinRequestByHostUseCase,
     container.cancelJoinRequestByRequesterUseCase,
     container.listJoinRequestsByEventUseCase,
     container.listJoinRequestsByRequesterUseCase,
