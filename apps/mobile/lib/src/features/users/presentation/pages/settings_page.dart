@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../string_assets/verification_settings_copy.dart';
 
 /// Settings page — route: /settings.
 ///
@@ -43,6 +44,11 @@ class SettingsPage extends ConsumerWidget {
             title: 'Edit profile',
             ink: ink,
             onTap: () => context.push('/profile/edit'),
+          ),
+          _SettingsTile(
+            title: kVerificationSettingsTitle,
+            ink: ink,
+            onTap: () => context.push('/settings/verification'),
           ),
           _SettingsTile(
             title: 'Notifications',
