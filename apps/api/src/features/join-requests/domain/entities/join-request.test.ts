@@ -3,6 +3,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import { JOIN_REQUEST_APPROVED } from '../events/approved.event.js';
 import { JOIN_REQUEST_CANCELLED_BY_REQUESTER } from '../events/cancelled-by-requester.event.js';
 import { JOIN_REQUEST_REJECTED } from '../events/rejected.event.js';
+import { JOIN_REQUEST_REMOVED_BY_HOST } from '../events/removed-by-host.event.js';
 import { JOIN_REQUEST_REQUESTED } from '../events/requested.event.js';
 import { JoinRequest, type JoinRequestEventSnapshot } from './join-request.js';
 
@@ -284,6 +285,90 @@ describe('JoinRequest', () => {
       expect(() => {
         jr.cancelByRequester(NOW);
       }).toThrowError(/Cannot cancel/);
+    });
+  });
+
+  describe('removeByHost', () => {
+    it('transitions approved → removed_by_host and records join-request.removed-by-host', () => {
+      const jr = requested();
+      jr.approve({ by: 'host_1', now: NOW, eventSnapshot: SNAPSHOT });
+      jr.pullEvents();
+      const at = new Date(NOW.getTime() + 1000);
+      jr.removeByHost({ by: 'host_1', reason: '  behaviour issue  ', now: at, hostUserId: 'host_1' });
+      expect(jr.status).toBe('removed_by_host');
+      expect(jr.decidedAt).toEqual(at);
+      expect(jr.decidedByUserId).toBe('host_1');
+      expect(jr.decisionReason).toBe('behaviour issue');
+      const events = jr.pullEvents();
+      expect(events).toHaveLength(1);
+      const ev = events[0];
+      expect(ev?.type).toBe(JOIN_REQUEST_REMOVED_BY_HOST);
+      expect(ev?.payload).toMatchObject({
+        id: 'jr_1',
+        eventId: 'evt_1',
+        requesterUserId: 'requester_1',
+        removedByUserId: 'host_1',
+        hostUserId: 'host_1',
+        reason: 'behaviour issue',
+        removedAt: at.toISOString(),
+      });
+    });
+
+    it('rejects empty / whitespace reason', () => {
+      const jr = requested();
+      jr.approve({ by: 'host_1', now: NOW, eventSnapshot: SNAPSHOT });
+      expect(() => {
+        jr.removeByHost({ by: 'host_1', reason: '', now: NOW, hostUserId: 'host_1' });
+      }).toThrowError(/reason/);
+      expect(() => {
+        jr.removeByHost({ by: 'host_1', reason: '   ', now: NOW, hostUserId: 'host_1' });
+      }).toThrowError(/reason/);
+    });
+
+    it('rejects a reason longer than 200 chars', () => {
+      const jr = requested();
+      jr.approve({ by: 'host_1', now: NOW, eventSnapshot: SNAPSHOT });
+      expect(() => {
+        jr.removeByHost({ by: 'host_1', reason: 'x'.repeat(201), now: NOW, hostUserId: 'host_1' });
+      }).toThrowError(/200/);
+    });
+
+    it('throws CONFLICT with subcode ALREADY_REMOVED_BY_HOST when already removed', () => {
+      const jr = requested();
+      jr.approve({ by: 'host_1', now: NOW, eventSnapshot: SNAPSHOT });
+      jr.removeByHost({ by: 'host_1', reason: 'bad vibe', now: NOW, hostUserId: 'host_1' });
+      try {
+        jr.removeByHost({ by: 'host_1', reason: 'still bad', now: NOW, hostUserId: 'host_1' });
+        expect.fail('expected throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(AppError);
+        const e = err as AppError;
+        expect(e.code).toBe('CONFLICT');
+        expect(e.details).toEqual({ subcode: 'ALREADY_REMOVED_BY_HOST' });
+      }
+    });
+
+    it('throws CONFLICT when pending', () => {
+      const jr = requested();
+      expect(() => {
+        jr.removeByHost({ by: 'host_1', reason: 'wrong', now: NOW, hostUserId: 'host_1' });
+      }).toThrowError(/Cannot remove from status: pending/);
+    });
+
+    it('throws CONFLICT when rejected', () => {
+      const jr = requested();
+      jr.reject({ by: 'host_1', reason: 'full', now: NOW });
+      expect(() => {
+        jr.removeByHost({ by: 'host_1', reason: 'wrong', now: NOW, hostUserId: 'host_1' });
+      }).toThrowError(/Cannot remove from status: rejected/);
+    });
+
+    it('throws CONFLICT when cancelled', () => {
+      const jr = requested();
+      jr.cancelByRequester(NOW);
+      expect(() => {
+        jr.removeByHost({ by: 'host_1', reason: 'wrong', now: NOW, hostUserId: 'host_1' });
+      }).toThrowError(/Cannot remove from status: cancelled/);
     });
   });
 

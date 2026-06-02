@@ -3,11 +3,13 @@ import { AppError } from '@/core/errors/app-error.js';
 import { joinRequestApproved } from '../events/approved.event.js';
 import { joinRequestCancelledByRequester } from '../events/cancelled-by-requester.event.js';
 import { joinRequestRejected } from '../events/rejected.event.js';
+import { joinRequestRemovedByHost } from '../events/removed-by-host.event.js';
 import { joinRequestRequested } from '../events/requested.event.js';
 
-export type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'removed_by_host';
 
 const REJECTION_REASON_MAX = 500;
+const REMOVE_REASON_MAX = 200;
 
 /**
  * Snapshot of the parent Event taken at request time. Embedded in `request()`
@@ -211,6 +213,54 @@ export class JoinRequest extends AggregateRoot {
         rejectedByUserId: input.by,
         reason: trimmed,
         rejectedAt: input.now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Remove an approved attendee (host action). Only valid from `approved` —
+   * the host can only remove someone who has already been let in. Reason is
+   * REQUIRED (1-200 chars; the cap is tighter than rejection per CEO Condition
+   * B — keep REMOVE_REASON_MAX and REJECTION_REASON_MAX separate). Both
+   * `removedByUserId` and `hostUserId` are carried in the event for symmetry
+   * with `joinRequestApproved` and future Path C (admin-remove) optionality.
+   */
+  removeByHost(input: {
+    by: string;
+    reason: string;
+    now: Date;
+    hostUserId: string;
+  }): void {
+    const trimmed = input.reason.trim();
+    if (trimmed.length === 0) {
+      throw AppError.validation('Removal reason is required');
+    }
+    if (trimmed.length > REMOVE_REASON_MAX) {
+      throw AppError.validation(
+        `Removal reason must be at most ${String(REMOVE_REASON_MAX)} characters`,
+      );
+    }
+    if (this._status === 'removed_by_host') {
+      throw AppError.conflict('Join request was already removed by host', {
+        subcode: 'ALREADY_REMOVED_BY_HOST',
+      });
+    }
+    if (this._status !== 'approved') {
+      throw AppError.conflict(`Cannot remove from status: ${this._status}`);
+    }
+    this._status = 'removed_by_host';
+    this._decidedAt = input.now;
+    this._decidedByUserId = input.by;
+    this._decisionReason = trimmed;
+    this.record(
+      joinRequestRemovedByHost({
+        id: this.id,
+        eventId: this.eventId,
+        requesterUserId: this.requesterUserId,
+        removedByUserId: input.by,
+        hostUserId: input.hostUserId,
+        reason: trimmed,
+        removedAt: input.now.toISOString(),
       }),
     );
   }
