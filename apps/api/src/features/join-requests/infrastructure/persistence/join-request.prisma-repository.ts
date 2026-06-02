@@ -39,6 +39,19 @@ export class JoinRequestPrismaRepository implements JoinRequestRepository {
     return row ? toJoinRequest(row) : null;
   }
 
+  async findLatestByRequesterAndEvent(
+    requesterUserId: string,
+    eventId: string,
+    ctx?: TxContext,
+  ): Promise<JoinRequest | null> {
+    const client = ctx ? unwrapTx(ctx) : this.db;
+    const row = await client.joinRequest.findFirst({
+      where: { requesterUserId, eventId },
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+    });
+    return row ? toJoinRequest(row) : null;
+  }
+
   async save(jr: JoinRequest, ctx?: TxContext): Promise<void> {
     const client = ctx ? unwrapTx(ctx) : this.db;
     // `create` uses the full row projection (id, requestedAt, ...). `update`

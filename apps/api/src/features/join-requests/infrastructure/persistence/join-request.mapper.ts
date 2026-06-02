@@ -2,7 +2,7 @@ import type { JoinRequest as JoinRequestRow, Prisma } from '@prisma/client';
 import { AppError } from '@/core/errors/app-error.js';
 import { JoinRequest, type JoinRequestStatus } from '../../domain/entities/join-request.js';
 
-const STATUSES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
+const STATUSES = ['pending', 'approved', 'rejected', 'cancelled', 'removed_by_host'] as const;
 
 const isStatus = (s: string): s is JoinRequestStatus => (STATUSES as readonly string[]).includes(s);
 
