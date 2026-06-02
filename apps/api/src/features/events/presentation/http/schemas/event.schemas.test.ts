@@ -20,7 +20,6 @@ const baseCreate = {
   endsAt: '2026-06-01T22:00:00Z',
   capacity: 6,
   category: 'food',
-  costSplit: 'own',
   approvalMode: 'manual',
 };
 
@@ -42,6 +41,32 @@ describe('createEventBodySchema', () => {
   it('rejects capacity below the minimum', () => {
     expect(() => createEventBodySchema.parse({ ...baseCreate, capacity: 1 })).toThrowError();
   });
+
+  it('accepts costNotes as a non-empty string', () => {
+    const result = createEventBodySchema.parse({ ...baseCreate, costNotes: 'Each pays own way' });
+    expect(result.costNotes).toBe('Each pays own way');
+  });
+
+  it('accepts costNotes as null', () => {
+    const result = createEventBodySchema.parse({ ...baseCreate, costNotes: null });
+    expect(result.costNotes).toBeNull();
+  });
+
+  it('accepts omitted costNotes (optional)', () => {
+    const result = createEventBodySchema.parse(baseCreate);
+    expect(result.costNotes).toBeUndefined();
+  });
+
+  it('rejects costNotes exceeding 200 characters', () => {
+    expect(() =>
+      createEventBodySchema.parse({ ...baseCreate, costNotes: 'x'.repeat(201) }),
+    ).toThrowError(/costNotes/);
+  });
+
+  it('silently strips legacy costSplit field (no strict mode)', () => {
+    const result = createEventBodySchema.parse({ ...baseCreate, costSplit: 'own' });
+    expect(result).not.toHaveProperty('costSplit');
+  });
 });
 
 describe('updateEventBodySchema', () => {
@@ -55,6 +80,22 @@ describe('updateEventBodySchema', () => {
 
   it('accepts description=null (explicit clear)', () => {
     expect(updateEventBodySchema.parse({ description: null })).toEqual({ description: null });
+  });
+
+  it('accepts costNotes string', () => {
+    const result = updateEventBodySchema.parse({ costNotes: 'Host covers drinks' });
+    expect(result.costNotes).toBe('Host covers drinks');
+  });
+
+  it('accepts costNotes=null (explicit clear)', () => {
+    const result = updateEventBodySchema.parse({ costNotes: null });
+    expect(result.costNotes).toBeNull();
+  });
+
+  it('rejects costNotes exceeding 200 characters', () => {
+    expect(() =>
+      updateEventBodySchema.parse({ costNotes: 'x'.repeat(201) }),
+    ).toThrowError(/costNotes/);
   });
 });
 

@@ -11,12 +11,12 @@ import type { VenueCategory } from '../value-objects/venue-category.js';
 import type { Venue } from '../value-objects/venue.js';
 
 export type EventStatus = 'draft' | 'published' | 'cancelled' | 'completed';
-export type CostSplit = 'own' | 'host_paid' | 'split';
 export type ApprovalMode = 'auto' | 'manual';
 
 const TITLE_MIN = 3;
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 2000;
+const COST_NOTES_MAX = 200;
 const CANCELLATION_REASON_MAX = 500;
 
 /**
@@ -36,6 +36,7 @@ const CANCELLATION_REASON_MAX = 500;
  * Invariants enforced in `create`:
  *   - title 3-120 chars (trimmed; empty rejected)
  *   - description ≤ 2000 chars (optional; empty → null)
+ *   - costNotes ≤ 200 chars (optional; empty/whitespace → null)
  *   - endsAt > startsAt
  *   - startsAt > now (clock-injected; tests stay deterministic)
  */
@@ -51,7 +52,7 @@ export class Event extends AggregateRoot {
     private _capacity: Capacity,
     private _category: EventCategory,
     private _venueCategory: VenueCategory,
-    private _costSplit: CostSplit,
+    private _costNotes: string | null,
     private _approvalMode: ApprovalMode,
     private _status: EventStatus,
     private _cancellationReason: string | null,
@@ -72,7 +73,7 @@ export class Event extends AggregateRoot {
     capacity: Capacity;
     category: EventCategory;
     venueCategory: VenueCategory;
-    costSplit: CostSplit;
+    costNotes?: string | null;
     approvalMode: ApprovalMode;
     now: Date;
   }): Event {
@@ -86,6 +87,12 @@ export class Event extends AggregateRoot {
     if (description !== null && description.length > DESCRIPTION_MAX) {
       throw AppError.validation(
         `Event description must be at most ${String(DESCRIPTION_MAX)} characters`,
+      );
+    }
+    const costNotes = normalizeCostNotes(input.costNotes ?? null);
+    if (costNotes !== null && costNotes.length > COST_NOTES_MAX) {
+      throw AppError.validation(
+        `Event costNotes must be at most ${String(COST_NOTES_MAX)} characters`,
       );
     }
     if (input.endsAt.getTime() <= input.startsAt.getTime()) {
@@ -106,7 +113,7 @@ export class Event extends AggregateRoot {
       input.capacity,
       input.category,
       input.venueCategory,
-      input.costSplit,
+      costNotes,
       input.approvalMode,
       'draft',
       null,
@@ -130,7 +137,7 @@ export class Event extends AggregateRoot {
         capacity: input.capacity.value,
         category: input.category.value,
         venueCategory: input.venueCategory.value,
-        costSplit: input.costSplit,
+        costNotes,
         approvalMode: input.approvalMode,
         createdAt: input.now.toISOString(),
       }),
@@ -149,7 +156,7 @@ export class Event extends AggregateRoot {
     capacity: Capacity;
     category: EventCategory;
     venueCategory: VenueCategory;
-    costSplit: CostSplit;
+    costNotes: string | null;
     approvalMode: ApprovalMode;
     status: EventStatus;
     cancellationReason: string | null;
@@ -167,7 +174,7 @@ export class Event extends AggregateRoot {
       state.capacity,
       state.category,
       state.venueCategory,
-      state.costSplit,
+      state.costNotes,
       state.approvalMode,
       state.status,
       state.cancellationReason,
@@ -200,8 +207,8 @@ export class Event extends AggregateRoot {
   get venueCategory(): VenueCategory {
     return this._venueCategory;
   }
-  get costSplit(): CostSplit {
-    return this._costSplit;
+  get costNotes(): string | null {
+    return this._costNotes;
   }
   get approvalMode(): ApprovalMode {
     return this._approvalMode;
@@ -236,7 +243,7 @@ export class Event extends AggregateRoot {
       capacity?: Capacity;
       category?: EventCategory;
       venueCategory?: VenueCategory;
-      costSplit?: CostSplit;
+      costNotes?: string | null;
       approvalMode?: ApprovalMode;
     },
     now: Date,
@@ -258,6 +265,13 @@ export class Event extends AggregateRoot {
         `Event description must be at most ${String(DESCRIPTION_MAX)} characters`,
       );
     }
+    const nextCostNotes =
+      patch.costNotes !== undefined ? normalizeCostNotes(patch.costNotes) : this._costNotes;
+    if (nextCostNotes !== null && nextCostNotes.length > COST_NOTES_MAX) {
+      throw AppError.validation(
+        `Event costNotes must be at most ${String(COST_NOTES_MAX)} characters`,
+      );
+    }
     const nextVenue = patch.venue ?? this._venue;
     const nextStartsAt = patch.startsAt ?? this._startsAt;
     const nextEndsAt = patch.endsAt ?? this._endsAt;
@@ -270,31 +284,30 @@ export class Event extends AggregateRoot {
     const nextCapacity = patch.capacity ?? this._capacity;
     const nextCategory = patch.category ?? this._category;
     const nextVenueCategory = patch.venueCategory ?? this._venueCategory;
-    const nextCostSplit = patch.costSplit ?? this._costSplit;
     const nextApprovalMode = patch.approvalMode ?? this._approvalMode;
 
     const unchanged =
       nextTitle === this._title &&
       nextDescription === this._description &&
+      nextCostNotes === this._costNotes &&
       nextVenue.equals(this._venue) &&
       nextStartsAt.getTime() === this._startsAt.getTime() &&
       nextEndsAt.getTime() === this._endsAt.getTime() &&
       nextCapacity.equals(this._capacity) &&
       nextCategory.equals(this._category) &&
       nextVenueCategory.equals(this._venueCategory) &&
-      nextCostSplit === this._costSplit &&
       nextApprovalMode === this._approvalMode;
     if (unchanged) return;
 
     this._title = nextTitle;
     this._description = nextDescription;
+    this._costNotes = nextCostNotes;
     this._venue = nextVenue;
     this._startsAt = nextStartsAt;
     this._endsAt = nextEndsAt;
     this._capacity = nextCapacity;
     this._category = nextCategory;
     this._venueCategory = nextVenueCategory;
-    this._costSplit = nextCostSplit;
     this._approvalMode = nextApprovalMode;
     this._updatedAt = now;
 
@@ -315,7 +328,7 @@ export class Event extends AggregateRoot {
         capacity: this._capacity.value,
         category: this._category.value,
         venueCategory: this._venueCategory.value,
-        costSplit: this._costSplit,
+        costNotes: this._costNotes,
         approvalMode: this._approvalMode,
         updatedAt: now.toISOString(),
       }),
@@ -383,6 +396,12 @@ export class Event extends AggregateRoot {
 }
 
 const normalizeDescription = (raw: string | null): string | null => {
+  if (raw === null) return null;
+  const trimmed = raw.trim();
+  return trimmed.length === 0 ? null : trimmed;
+};
+
+const normalizeCostNotes = (raw: string | null): string | null => {
   if (raw === null) return null;
   const trimmed = raw.trim();
   return trimmed.length === 0 ? null : trimmed;

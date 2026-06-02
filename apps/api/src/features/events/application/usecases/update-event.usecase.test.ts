@@ -41,7 +41,7 @@ const seedDraft = (repo: FakeEventRepository, hostUserId = 'user_1', venueCat = 
     capacity: Capacity.create(4),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create(venueCat),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'auto',
     now: NOW,
   });

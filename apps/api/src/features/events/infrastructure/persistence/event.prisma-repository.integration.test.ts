@@ -70,7 +70,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       capacity: Capacity.create(6),
       category: EventCategory.create('food'),
       venueCategory: VenueCategory.create('cafe'),
-      costSplit: 'own',
+      costNotes: null,
       approvalMode: 'manual',
       now,
     });
@@ -132,7 +132,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
     expect(loaded.venue.longitude).toBeCloseTo(103.8504, 4);
     expect(loaded.capacity.value).toBe(6);
     expect(loaded.category.value).toBe('food');
-    expect(loaded.costSplit).toBe('own');
+    expect(loaded.costNotes).toBeNull();
     expect(loaded.approvalMode).toBe('manual');
     expect(loaded.status).toBe('draft');
     expect(loaded.cancellationReason).toBeNull();
@@ -201,7 +201,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       capacity: Capacity.create(2),
       category: EventCategory.create('other'),
       venueCategory: VenueCategory.create('cafe'),
-      costSplit: 'own',
+      costNotes: null,
       approvalMode: 'auto',
       now: new Date(),
     });
@@ -239,7 +239,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
         endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
         capacity: 4,
         category: 'food',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'draft',
         cancellationReason: null,
@@ -320,7 +320,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
         capacity: Capacity.create(6),
         category: EventCategory.create(overrides.category ?? 'food'),
         venueCategory: VenueCategory.create('cafe'),
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         now,
       });

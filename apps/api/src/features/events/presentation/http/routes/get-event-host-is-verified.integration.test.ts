@@ -60,7 +60,7 @@ describe.skipIf(!dbUrl)('GET /events/:id — host.isVerified field (integration)
         endsAt: futureEnd,
         capacity: 6,
         category: 'food',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'published',
         cancellationReason: null,

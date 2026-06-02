@@ -108,7 +108,7 @@ describe.skipIf(!dbUrl)('Join-request routes — requireVerifiedPhone gate (TRI-
         endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
         capacity: 6,
         category: 'drinks',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'published',
         cancellationReason: null,

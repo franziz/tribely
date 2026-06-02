@@ -4,7 +4,7 @@ import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { UserCapabilitiesPort } from '@/features/users/application/ports/user-capabilities.port.js';
-import { Event, type ApprovalMode, type CostSplit } from '../../domain/entities/event.js';
+import { Event, type ApprovalMode } from '../../domain/entities/event.js';
 import { privateVenueAttempted } from '../../domain/events/private-venue-attempted.event.js';
 import type { EventRepository } from '../../domain/repositories/event.repository.js';
 import { detectPrivateVenue } from '../../domain/services/private-venue-policy.js';
@@ -23,7 +23,7 @@ export interface CreateEventInput {
   capacity: number;
   category: string;
   venueCategory: string;
-  costSplit: CostSplit;
+  costNotes: string | null;
   approvalMode: ApprovalMode;
 }
 
@@ -108,7 +108,7 @@ export class CreateEventUseCase {
       capacity,
       category,
       venueCategory,
-      costSplit: input.costSplit,
+      costNotes: input.costNotes,
       approvalMode: input.approvalMode,
       now,
     });
