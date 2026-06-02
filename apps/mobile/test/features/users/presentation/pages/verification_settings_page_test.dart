@@ -2,7 +2,7 @@
 //
 // Covers:
 //   1. All three verified → green banner + "You're verified" copy; all rows show "Verified" state, no CTAs.
-//   2. Email verified only, phone + selfie not started → neutral banner + locked copy; phone + selfie show "Verify now" CTAs.
+//   2. Email verified only, phone + selfie not started → neutral banner + locked copy; phone shows "Verify now" CTA; selfie chip hidden.
 //   3. Selfie pending → row shows "Photo under review" + "Check status" CTA; tap → spinner appears; after delay spinner clears.
 //   4. Selfie failed → "Retry" CTA; tap → navigates to /verification/failure.
 //   5. Phone not verified → tap "Verify now" on phone row → navigates to /auth/phone/entry.
@@ -166,10 +166,9 @@ void main() {
         // Banner shows the locked / partial copy.
         expect(find.text(kVerificationBannerPartial), findsOneWidget);
 
-        // Exactly two "Verify now" CTAs — phone and selfie.
-        // Note: selfie-not-started CTA is rendered but onCtaTap is null (Brief C wires the route).
-        // The chip is still rendered per VerificationSignalRow when ctaLabel != null.
-        expect(find.text(kVerificationCtaVerifyNow), findsNWidgets(2));
+        // Only one "Verify now" CTA — phone row.
+        // Selfie row hides the chip on NotStarted (route not yet registered; Brief C wires it).
+        expect(find.text(kVerificationCtaVerifyNow), findsOneWidget);
 
         // Email row shows "Verified" (no CTA for email).
         expect(find.text(kVerificationStateVerified), findsOneWidget);
@@ -298,10 +297,7 @@ void main() {
       (tester) async {
         // Phone verified + selfie approved so only ONE "Verify now" CTA is
         // visible (email), making the tap target unambiguous.
-        final user = _user(
-          phoneVerified: true,
-          selfieStatus: 'approved',
-        );
+        final user = _user(phoneVerified: true, selfieStatus: 'approved');
 
         await _pumpPage(
           tester,
@@ -321,22 +317,21 @@ void main() {
   });
 
   group('VerificationSettingsPage — skeleton', () {
-    testWidgets(
-      'Shows skeleton when session is not yet authenticated',
-      (tester) async {
-        await _pumpPage(
-          tester,
-          sessionState: const SessionRestoring(),
-          selfieState: const SelfieGatingNotStarted(),
-        );
+    testWidgets('Shows skeleton when session is not yet authenticated', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        sessionState: const SessionRestoring(),
+        selfieState: const SelfieGatingNotStarted(),
+      );
 
-        // Banner and rows are absent when unauthenticated.
-        expect(find.text(kVerificationBannerPartial), findsNothing);
-        expect(find.text(kVerificationBannerFullyVerified), findsNothing);
-        expect(find.text(kVerificationLabelEmail), findsNothing);
-        // SkeletonLoader widgets are present.
-        expect(find.byType(SkeletonLoader), findsWidgets);
-      },
-    );
+      // Banner and rows are absent when unauthenticated.
+      expect(find.text(kVerificationBannerPartial), findsNothing);
+      expect(find.text(kVerificationBannerFullyVerified), findsNothing);
+      expect(find.text(kVerificationLabelEmail), findsNothing);
+      // SkeletonLoader widgets are present.
+      expect(find.byType(SkeletonLoader), findsWidgets);
+    });
   });
 }

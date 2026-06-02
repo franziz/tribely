@@ -151,11 +151,7 @@ class _VerificationSettingsPageState
               children: [
                 _buildEmailRow(context, dark: dark, user: user),
                 _buildPhoneRow(context, dark: dark, user: user),
-                _buildSelfieRow(
-                  context,
-                  dark: dark,
-                  selfieState: selfieState,
-                ),
+                _buildSelfieRow(context, dark: dark, selfieState: selfieState),
               ],
             ),
           ),
@@ -177,9 +173,7 @@ class _VerificationSettingsPageState
 
     return VerificationSignalRow(
       label: kVerificationLabelEmail,
-      icon: isVerified
-          ? Icons.check_circle
-          : Icons.radio_button_unchecked,
+      icon: isVerified ? Icons.check_circle : Icons.radio_button_unchecked,
       iconColor: isVerified
           ? (dark ? TribelyColors.nightSuccess : TribelyColors.paperSuccess)
           : (dark
@@ -208,9 +202,7 @@ class _VerificationSettingsPageState
 
     return VerificationSignalRow(
       label: kVerificationLabelPhone,
-      icon: isVerified
-          ? Icons.check_circle
-          : Icons.radio_button_unchecked,
+      icon: isVerified ? Icons.check_circle : Icons.radio_button_unchecked,
       iconColor: isVerified
           ? (dark ? TribelyColors.nightSuccess : TribelyColors.paperSuccess)
           : (dark
@@ -255,11 +247,7 @@ class _VerificationSettingsPageState
             ? TribelyColors.nightInkSecondary
             : TribelyColors.paperInkSecondary,
         stateLabel: kVerificationStateNotStarted,
-        ctaLabel: kVerificationCtaVerifyNow,
-        // TODO(TRI-68-BriefC): wire to selfie capture route once registered in
-        // app_router.dart. The route was NOT present at Brief B implementation
-        // time — the selfie capture route is absent from app_router.dart.
-        // Brief C must register the route before this onCtaTap can be wired.
+        ctaLabel: null,
         onCtaTap: null,
         isLastRow: true,
         isCheckingStatus: false,
@@ -279,9 +267,7 @@ class _VerificationSettingsPageState
       SelfieGatingFailed() || SelfieGatingLocked() => VerificationSignalRow(
         label: kVerificationLabelSelfie,
         icon: Icons.warning_amber,
-        iconColor: dark
-            ? TribelyColors.nightAccent
-            : TribelyColors.paperAccent,
+        iconColor: dark ? TribelyColors.nightAccent : TribelyColors.paperAccent,
         stateLabel: kVerificationStateFailed,
         ctaLabel: kVerificationCtaRetry,
         onCtaTap: () => context.push('/verification/failure'),
