@@ -27,6 +27,7 @@ import '../../features/users/presentation/pages/own_profile_page.dart';
 import '../../features/users/presentation/pages/settings_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
+import '../../features/users/presentation/pages/verification_settings_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_submitted_page.dart';
 import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
@@ -263,6 +264,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'blockedUsers',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const BlockedUsersPage(),
+      ),
+      // Full-screen Verification settings page (under Settings → Account).
+      // No bottom nav — lives on root navigator.
+      GoRoute(
+        path: '/settings/verification',
+        name: 'verificationSettings',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const VerificationSettingsPage(),
       ),
       // Phone-verification gate — shown to unverified users who attempt to
       // enter the create-event wizard. Declared outside the shell so the
