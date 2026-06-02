@@ -289,6 +289,11 @@ describe.skipIf(!dbUrl)(
 
     beforeEach(async () => {
       if (!dbUrl) return;
+      // Remove any JR rows left by the previous test (including rows the
+      // route-under-test may have created) before seeding fresh ones.
+      // Keyed on eventId so we don't touch sibling describe blocks' rows.
+      await db.joinRequest.deleteMany({ where: { eventId } });
+
       // Seed a fresh approved JR and a pending JR before each test so each
       // test operates on an untouched row (the remove operation is a state
       // transition — the row can only be removed once).
@@ -332,7 +337,9 @@ describe.skipIf(!dbUrl)(
       await db.event.deleteMany({ where: { id: eventId } }).catch(() => null);
       await db.user
         .deleteMany({
-          where: { id: { in: [hostUserId, requesterUserId, requesterPendingUserId, nonHostUserId] } },
+          where: {
+            id: { in: [hostUserId, requesterUserId, requesterPendingUserId, nonHostUserId] },
+          },
         })
         .catch(() => null);
       await db.$disconnect();
