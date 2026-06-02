@@ -22,7 +22,10 @@ import '../../features/auth/domain/usecases/verify_email_usecase.dart';
 import '../../features/auth/domain/usecases/verify_phone_usecase.dart';
 import '../../features/events/data/datasources/event_draft_local_datasource.dart';
 import '../../features/events/data/datasources/event_remote_datasource.dart';
+import '../../features/events/data/datasources/mapbox_place_search_remote_datasource.dart';
 import '../../features/events/data/repositories/event_repository_impl.dart';
+import '../../features/events/data/repositories/place_search_repository_impl.dart';
+import '../../features/events/domain/ports/place_search_port.dart';
 import '../../features/events/domain/repositories/event_repository.dart';
 import '../../features/events/domain/usecases/clear_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/create_event_usecase.dart';
@@ -178,12 +181,20 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<EventDraftLocalDatasource>(
     () => EventDraftLocalDatasourceImpl(prefs),
   );
+  sl.registerLazySingleton<MapboxPlaceSearchRemoteDatasource>(
+    () => MapboxPlaceSearchRemoteDatasourceImpl(sl<ApiClient>().dio),
+  );
 
   // Events — repositories
   sl.registerLazySingleton<EventRepository>(
     () => EventRepositoryImpl(
       remote: sl<EventRemoteDatasource>(),
       local: sl<EventDraftLocalDatasource>(),
+    ),
+  );
+  sl.registerLazySingleton<PlaceSearchPort>(
+    () => PlaceSearchRepositoryImpl(
+      datasource: sl<MapboxPlaceSearchRemoteDatasource>(),
     ),
   );
 
