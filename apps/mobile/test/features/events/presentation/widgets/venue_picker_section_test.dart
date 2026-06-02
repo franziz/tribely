@@ -22,19 +22,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:tribely/src/core/widgets/place_result_row.dart';
 import 'package:tribely/src/features/events/domain/entities/event_draft.dart';
 import 'package:tribely/src/features/events/domain/entities/place_details.dart';
 import 'package:tribely/src/features/events/domain/entities/place_suggestion.dart';
 import 'package:tribely/src/features/events/domain/ports/place_search_port.dart';
+import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/presentation/controllers/create_event_controller.dart';
 import 'package:tribely/src/features/events/presentation/controllers/venue_picker_controller.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
 import 'package:tribely/src/features/events/presentation/providers/venue_picker_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
 import 'package:tribely/src/features/events/presentation/state/venue_picker_state.dart';
-import 'package:tribely/src/core/widgets/place_result_row.dart';
 import 'package:tribely/src/features/events/presentation/widgets/static_map_preview.dart';
 import 'package:tribely/src/features/events/presentation/widgets/venue_picker_section.dart';
 import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
@@ -45,6 +47,9 @@ import 'package:tribely/src/features/users/presentation/providers/capability_pro
 // ---------------------------------------------------------------------------
 
 class _MockPlaceSearchPort extends Mock implements PlaceSearchPort {}
+
+class _MockSaveEventDraftUseCase extends Mock
+    implements SaveEventDraftUseCase {}
 
 // ---------------------------------------------------------------------------
 // Fixed venue-picker controller stubs
@@ -160,61 +165,6 @@ class _FixedCreateController extends CreateEventController {
     );
   }
 
-  /// Skips [_scheduleAutosave] so no provider reads fire during tests.
-  @override
-  void updateField({required String field, required Object? value}) {
-    // State mutation intentionally omitted: tests that care about the rendered
-    // draft (free-text tests) exercise [updateVenueDisplayNameOverride] directly.
-    // updateField is only called via _onVenueSelected in the selected-state tests
-    // which don't assert draft field values — so a no-op here is safe.
-  }
-
-  @override
-  void applyVenueDetails({
-    required String providerPlaceId,
-    required String venueAddress,
-    String? rawProviderCategory,
-  }) {
-    // No-op: skips _scheduleAutosave so no provider reads fire during tests.
-    final current = state;
-    if (current is! CreateEventEditing) return;
-    final updatedDraft = current.formData.copyWith(
-      providerPlaceId: providerPlaceId,
-      venueAddress: venueAddress,
-      rawProviderCategory: rawProviderCategory,
-    );
-    state = current.copyWith(formData: updatedDraft);
-  }
-
-  @override
-  void clearVenueSelection() {
-    // No-op variant: skips _scheduleAutosave so no provider reads fire in tests.
-    final current = state;
-    if (current is! CreateEventEditing) return;
-    final d = current.formData;
-    final cleared = EventDraft(
-      title: d.title,
-      category: d.category,
-      venueName: null,
-      venueCategory: d.venueCategory,
-      latitude: null,
-      longitude: null,
-      startsAt: d.startsAt,
-      endsAt: d.endsAt,
-      capacity: d.capacity,
-      costNotes: d.costNotes,
-      approvalMode: d.approvalMode,
-      description: d.description,
-      currentStep: d.currentStep,
-      lastUpdatedAt: d.lastUpdatedAt,
-      providerPlaceId: null,
-      venueAddress: null,
-      rawProviderCategory: null,
-      venueDisplayNameOverride: d.venueDisplayNameOverride,
-    );
-    state = current.copyWith(formData: cleared);
-  }
-
   @override
   void updateVenueDisplayNameOverride(String? value) {
     onUpdateVenueDisplayNameOverride?.call(value);
@@ -284,11 +234,16 @@ Future<void> _pump(
   CreateEventController Function()? createFactory,
 }) async {
   final mockPort = _MockPlaceSearchPort();
+  final mockSaveUseCase = _MockSaveEventDraftUseCase();
+  when(
+    () => mockSaveUseCase.call(any()),
+  ).thenAnswer((_) async => const Right(null));
 
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         placeSearchPortProvider.overrideWithValue(mockPort),
+        saveEventDraftUseCaseProvider.overrideWithValue(mockSaveUseCase),
         venuePickerControllerProvider.overrideWith(pickerFactory),
         createEventControllerProvider.overrideWith(
           createFactory ?? _FixedCreateController.new,
@@ -317,6 +272,10 @@ Future<void> _pump(
 // ---------------------------------------------------------------------------
 
 void main() {
+  setUpAll(() {
+    registerFallbackValue(const EventDraft());
+  });
+
   // -------------------------------------------------------------------------
   // 1. Initial state
   // -------------------------------------------------------------------------
@@ -361,6 +320,9 @@ void main() {
       // Tap the first row.
       await tester.tap(find.text('Lau Pa Sat'));
       await tester.pumpAndSettle();
+      // Drain the 500 ms autosave timer scheduled by updateField /
+      // applyVenueDetails inside _onVenueSelected.
+      await tester.pump(const Duration(milliseconds: 500));
 
       // selectSuggestion was called with the first suggestion.
       expect(calledWith, hasLength(1));
