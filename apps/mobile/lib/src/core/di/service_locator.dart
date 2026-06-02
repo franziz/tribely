@@ -42,6 +42,7 @@ import '../../features/join_requests/domain/usecases/decline_join_request_usecas
 import '../../features/join_requests/domain/usecases/list_approved_for_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/list_my_join_requests_usecase.dart';
 import '../../features/join_requests/domain/usecases/list_pending_for_event_usecase.dart';
+import '../../features/join_requests/domain/usecases/remove_attendee_usecase.dart';
 import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/withdraw_join_request_usecase.dart';
 import '../../features/users/data/datasources/user_capabilities_remote_datasource.dart';
@@ -264,6 +265,9 @@ Future<void> configureDependencies() async {
   );
   sl.registerLazySingleton(
     () => ListMyJoinRequestsUseCase(sl<JoinRequestRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => RemoveAttendeeUseCase(sl<JoinRequestRepository>()),
   );
 
   // Account — datasources
