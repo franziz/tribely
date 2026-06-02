@@ -25,13 +25,16 @@ import 'package:tribely/src/features/events/domain/usecases/clear_event_draft_us
 import 'package:tribely/src/features/events/domain/usecases/create_event_usecase.dart';
 import 'package:tribely/src/features/events/domain/usecases/load_event_draft_usecase.dart';
 import 'package:tribely/src/features/events/domain/usecases/save_event_draft_usecase.dart';
+import 'package:tribely/src/features/events/domain/ports/place_search_port.dart';
 import 'package:tribely/src/features/events/domain/validators/event_validators.dart';
 import 'package:tribely/src/features/events/presentation/controllers/create_event_controller.dart';
 import 'package:tribely/src/features/events/presentation/pages/create_event_page.dart';
 import 'package:tribely/src/features/events/presentation/providers/events_providers.dart';
+import 'package:tribely/src/features/events/presentation/providers/venue_picker_providers.dart';
 import 'package:tribely/src/features/events/presentation/state/create_event_state.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_navigation_bar.dart';
 import 'package:tribely/src/features/events/presentation/widgets/step_progress_indicator.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
 import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
 import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
 
@@ -50,6 +53,11 @@ class _MockSaveEventDraftUseCase extends Mock
 class _MockClearEventDraftUseCase extends Mock
     implements ClearEventDraftUseCase {}
 
+// Stub PlaceSearchPort — VenuePickerSection reads placeSearchPortProvider
+// which would call sl<PlaceSearchPort>() without an override. Provide a
+// minimal stub so the venue-picker widget tree initialises without GetIt.
+class _MockPlaceSearchPort extends Mock implements PlaceSearchPort {}
+
 // Mocktail fallback values
 class _FakeCreateEventParams extends Fake implements CreateEventParams {}
 
@@ -65,7 +73,9 @@ class _FakeNoParams extends Fake implements NoParams {}
 
 const _testStepFields = {
   0: ['title', 'category'],
-  1: ['venueName', 'latitude', 'longitude'],
+  // Brief F: Step 2 canAdvance is gated on lat/lng only (venue picker selection).
+  // venueName is auto-populated by the picker, not a separate blocking field.
+  1: ['latitude', 'longitude'],
   2: ['startsAt', 'endsAt'],
   3: ['capacity', 'approvalMode'],
   4: ['description'],
@@ -230,6 +240,8 @@ Future<void> _pumpPage(
   WidgetTester tester,
   CreateEventController Function() controllerFactory,
 ) async {
+  final mockPort = _MockPlaceSearchPort();
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -237,6 +249,14 @@ Future<void> _pumpPage(
         // Default to Approved so existing tests are unaffected by selfie gating.
         selfieGatingStateProvider.overrideWithValue(
           const SelfieGatingApproved(),
+        ),
+        // Brief F: VenuePickerSection reads placeSearchPortProvider (via
+        // venuePickerControllerProvider). Override to avoid GetIt access in tests.
+        placeSearchPortProvider.overrideWithValue(mockPort),
+        // myCapabilitiesProvider is read by _computeWarning in the controller.
+        // Override to avoid sl<UserCapabilitiesRepository>() in tests.
+        myCapabilitiesProvider.overrideWith(
+          (_) async => const UserCapabilities(canPostPrivateVenue: false),
         ),
       ],
       child: MaterialApp.router(routerConfig: _buildTestRouter()),
