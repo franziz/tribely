@@ -339,7 +339,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       const future2 = await buildPublished({ startsAt: new Date(base + 2 * 24 * 60 * 60 * 1000) });
 
       const page = await repo.findManyForListing(
-        { now: new Date(past.endsAt.getTime() + 1000) },
+        { now: new Date(past.endsAt.getTime() + 1000), hostUserId },
         null,
         50,
       );
@@ -370,7 +370,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       });
 
       const cityOnly = await repo.findManyForListing(
-        { now: new Date(base), city: 'Singapore' },
+        { now: new Date(base), city: 'Singapore', hostUserId },
         null,
         50,
       );
@@ -380,7 +380,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
       expect(cityIds).not.toContain(jktFood.id);
 
       const cityAndCategory = await repo.findManyForListing(
-        { now: new Date(base), city: 'Singapore', category: 'food' },
+        { now: new Date(base), city: 'Singapore', category: 'food', hostUserId },
         null,
         50,
       );
@@ -393,6 +393,7 @@ describe.skipIf(!dbUrl)('EventPrismaRepository (integration)', () => {
           now: new Date(base),
           from: sgFood.startsAt,
           to: sgDrinks.startsAt,
+          hostUserId,
         },
         null,
         50,

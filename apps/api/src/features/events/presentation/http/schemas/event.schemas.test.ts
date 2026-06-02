@@ -93,9 +93,9 @@ describe('updateEventBodySchema', () => {
   });
 
   it('rejects costNotes exceeding 200 characters', () => {
-    expect(() =>
-      updateEventBodySchema.parse({ costNotes: 'x'.repeat(201) }),
-    ).toThrowError(/costNotes/);
+    expect(() => updateEventBodySchema.parse({ costNotes: 'x'.repeat(201) })).toThrowError(
+      /costNotes/,
+    );
   });
 });
 

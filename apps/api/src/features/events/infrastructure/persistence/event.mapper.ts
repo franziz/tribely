@@ -1,10 +1,6 @@
 import type { Event as EventRow, Prisma } from '@prisma/client';
 import { AppError } from '@/core/errors/app-error.js';
-import {
-  Event,
-  type ApprovalMode,
-  type EventStatus,
-} from '../../domain/entities/event.js';
+import { Event, type ApprovalMode, type EventStatus } from '../../domain/entities/event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
 import { VenueCategory } from '../../domain/value-objects/venue-category.js';
