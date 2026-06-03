@@ -65,6 +65,7 @@ const seedUser = (repo: FakeUserRepository, id: string): User => {
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
   repo.put(user);
   return user;

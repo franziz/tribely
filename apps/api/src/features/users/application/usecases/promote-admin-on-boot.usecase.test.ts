@@ -80,6 +80,7 @@ const buildNonAdminUser = (): User =>
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 const buildAdminUser = (): User =>
@@ -104,6 +105,7 @@ const buildAdminUser = (): User =>
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: true,
+    safetyReminderSeenAt: null,
   });
 
 const buildSut = () => {
