@@ -7,6 +7,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/status_pill.dart';
 import '../../../events/domain/entities/event.dart';
 import '../controllers/hosting_pending_count_controller.dart';
 import '../controllers/hosting_tab_controller.dart';
@@ -180,13 +181,22 @@ class _HostingEventRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final startsAtSgt = event.startsAt.toUtc().add(_sgtOffset);
     final dateLabel = _formatDate(startsAtSgt);
-    final hasPending = pendingCount > 0;
+    final isCancelled = event.status == 'cancelled';
+    final hasPending = !isCancelled && pendingCount > 0;
+
+    // Semantics label priority:
+    //   1. Cancelled → announce status, not pending count.
+    //   2. Pending requests → include count.
+    //   3. Default → event title only.
+    final semanticsLabel = isCancelled
+        ? '${event.title}, cancelled'
+        : hasPending
+            ? '${event.title}, $pendingCount pending request${pendingCount == 1 ? '' : 's'}'
+            : event.title;
 
     return Semantics(
       button: true,
-      label: hasPending
-          ? '${event.title}, $pendingCount pending request${pendingCount == 1 ? '' : 's'}'
-          : event.title,
+      label: semanticsLabel,
       child: InkWell(
         onTap: () => context.push('/events/${event.id}'),
         child: Padding(
@@ -234,8 +244,15 @@ class _HostingEventRow extends StatelessWidget {
                         TribelyColors.paperInkSecondary,
                       ),
                     ),
-                    // Pending badge — only when > 0.
-                    if (hasPending) ...[
+                    // Cancelled badge — replaces pending count for cancelled events.
+                    if (isCancelled) ...[
+                      const SizedBox(height: 2),
+                      const StatusPill(
+                        state: StatusPillState.cancelled,
+                        semanticsPrefix: 'Event status',
+                      ),
+                    ] else if (hasPending) ...[
+                      // Pending badge — only when > 0 and not cancelled.
                       const SizedBox(height: 2),
                       Row(
                         mainAxisSize: MainAxisSize.min,
