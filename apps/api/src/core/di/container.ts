@@ -61,6 +61,7 @@ import type { RefreshTokenRepository } from '@/features/auth/domain/repositories
 import { DeleteAccountUseCase } from '@/features/users/application/usecases/delete-account.usecase.js';
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
+import { MarkSafetyReminderSeenUseCase } from '@/features/users/application/usecases/mark-safety-reminder-seen.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { RejectSelfieUseCase } from '@/features/users/application/usecases/reject-selfie.usecase.js';
 import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
@@ -288,6 +289,7 @@ export interface Container {
   getUserUseCase: GetUserUseCase;
   updateUserProfileUseCase: UpdateUserProfileUseCase;
   getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
+  markSafetyReminderSeenUseCase: MarkSafetyReminderSeenUseCase;
   rejectSelfieUseCase: RejectSelfieUseCase;
   approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
   deleteAccountUseCase: DeleteAccountUseCase;
@@ -577,6 +579,12 @@ export const buildContainer = (): Container => {
   // --- Users (selfie moderation — depends on clock from auth section) ---
   const rejectSelfieUseCase = new RejectSelfieUseCase(unitOfWork, userRepository, publisher, clock);
   const approveSelfieAppealUseCase = new ApproveSelfieAppealUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+    clock,
+  );
+  const markSafetyReminderSeenUseCase = new MarkSafetyReminderSeenUseCase(
     unitOfWork,
     userRepository,
     publisher,
@@ -1048,6 +1056,7 @@ export const buildContainer = (): Container => {
     getUserUseCase,
     updateUserProfileUseCase,
     getUserCapabilitiesUseCase,
+    markSafetyReminderSeenUseCase,
     rejectSelfieUseCase,
     approveSelfieAppealUseCase,
     deleteAccountUseCase,
