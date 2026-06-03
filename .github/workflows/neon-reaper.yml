@@ -32,6 +32,12 @@ on:
 # Default-deny at workflow level (repo convention).
 permissions: {}
 
+# Serialize against overlapping manual dispatch + scheduled cron runs.
+# cancel-in-progress: false so a manual run never aborts an in-flight sweep — it queues.
+concurrency:
+  group: neon-reaper-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   reap:
     name: Reap stale ci-pr-* branches
@@ -79,6 +85,7 @@ jobs:
           stale_branches=$(echo "$body" | jq -r \
             --argjson cutoff "$cutoff_epoch" \
             '.branches[]
+             # Convention owner: _neon-branch.yml creates ci-pr-<N>. Keep this prefix in sync.
              | select(.name | startswith("ci-pr-"))
              | select((.created_at | fromdateiso8601) < $cutoff)
              | "\(.name) \(.id)"')
@@ -99,7 +106,7 @@ jobs:
               -H "Accept: application/json" \
               "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${branch_id}")
 
-            if [[ "$del_code" == "200" || "$del_code" == "204" ]]; then
+            if [[ "$del_code" -ge 200 && "$del_code" -lt 300 ]]; then
               echo "  Deleted: ${branch_name} (${branch_id}) — HTTP ${del_code}"
               reaped=$((reaped + 1))
             else

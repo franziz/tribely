@@ -38,7 +38,6 @@ jobs:
 
     steps:
       - name: Delete Neon branch
-        if: always()
         # continue-on-error covers the case where the PR never triggered the
         # neon-branch path filter (no migration files changed), so no ephemeral
         # branch was ever created for this PR number.
@@ -47,4 +46,5 @@ jobs:
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
+          # Convention owner: _neon-branch.yml creates ci-pr-<N>. Keep this prefix in sync.
           branch: ci-pr-${{ github.event.pull_request.number }}
