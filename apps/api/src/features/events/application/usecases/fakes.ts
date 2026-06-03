@@ -67,10 +67,11 @@ export class FakeGetUserCapabilitiesUseCase {
   }
   execute(_input: {
     userId: string;
-  }): Promise<{ canPostPrivateVenue: boolean; canPerformVerifiedAction: boolean }> {
+  }): Promise<{ canPostPrivateVenue: boolean; canPerformVerifiedAction: boolean; safetyReminderSeen: boolean }> {
     return Promise.resolve({
       canPostPrivateVenue: this._canPostPrivateVenue,
       canPerformVerifiedAction: this._canPerformVerifiedAction,
+      safetyReminderSeen: false,
     });
   }
 }

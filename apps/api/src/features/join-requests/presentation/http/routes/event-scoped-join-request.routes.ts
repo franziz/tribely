@@ -62,7 +62,8 @@ export const buildEventScopedJoinRequestRoutes = (
       verifiedPhone,
       limitCreate,
       zValidator('json', requestToJoinEventBodySchema),
-      (c) => deps.controller.createAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+      (c) =>
+        deps.controller.createAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
     )
     .get(
       '/:id/join-requests',
