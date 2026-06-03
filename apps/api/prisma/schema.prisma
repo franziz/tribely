@@ -31,9 +31,12 @@ model User {
   interests       String[] @default([])
   currentCity     String?
   travelerType    String?
-  phone           String?
-  phoneVerifiedAt DateTime?
+  phone                 String?
+  phoneVerifiedAt       DateTime?
   // Partial unique on `phone WHERE phoneVerifiedAt IS NOT NULL` — see migration 20260518131307_add_user_phone/migration.sql
+  /// TRI-34 pre-event safety reminder: null = user has never been shown (or not yet seen) the safety reminder;
+  /// non-null = timestamp when the user last acknowledged the safety reminder modal.
+  safetyReminderSeenAt  DateTime? @map("safety_reminder_seen_at")
   // Selfie verification (TRI-70). selfieStatus / selfieLastFailureCategory are TEXT + CHECK constraint
   // (not Postgres enum) per codebase convention. selfieAttemptCount is NOT NULL DEFAULT 0.
   // selfieAppealLockedAt is set when attemptCount >= 3 after a rejection; cleared by appeal approval.
