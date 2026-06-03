@@ -33,7 +33,7 @@ const toEventResponse = (event: Event): EventResponse => ({
   endsAt: event.endsAt.toISOString(),
   capacity: event.capacity.value,
   category: event.category.value,
-  costSplit: event.costSplit,
+  costNotes: event.costNotes,
   approvalMode: event.approvalMode,
   status: event.status,
   cancellationReason: event.cancellationReason,
@@ -103,7 +103,7 @@ export class EventController {
       capacity: body.capacity,
       category: body.category,
       venueCategory,
-      costSplit: body.costSplit,
+      costNotes: body.costNotes ?? null,
       approvalMode: body.approvalMode,
     });
     return c.json(toEventResponse(event), 201);
@@ -186,7 +186,7 @@ export class EventController {
         ...(body.capacity !== undefined && { capacity: body.capacity }),
         ...(body.category !== undefined && { category: body.category }),
         ...(venueCategoryFromVenue !== undefined && { venueCategory: venueCategoryFromVenue }),
-        ...(body.costSplit !== undefined && { costSplit: body.costSplit }),
+        ...(body.costNotes !== undefined && { costNotes: body.costNotes }),
         ...(body.approvalMode !== undefined && { approvalMode: body.approvalMode }),
       },
     });

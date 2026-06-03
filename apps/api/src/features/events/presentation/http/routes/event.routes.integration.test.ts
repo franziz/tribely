@@ -24,7 +24,6 @@ const validPostBody = () => ({
   endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000).toISOString(),
   capacity: 6,
   category: 'food',
-  costSplit: 'own',
   approvalMode: 'manual',
 });
 
@@ -70,7 +69,6 @@ describe.skipIf(!dbUrl)('Event routes — venue.category integration (TRI-33)', 
     endsAt: new Date(futureMs() + 3 * 60 * 60 * 1000).toISOString(),
     capacity: 6,
     category: 'food',
-    costSplit: 'own',
     approvalMode: 'manual',
   });
 

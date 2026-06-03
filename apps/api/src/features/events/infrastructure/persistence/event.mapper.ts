@@ -1,22 +1,15 @@
 import type { Event as EventRow, Prisma } from '@prisma/client';
 import { AppError } from '@/core/errors/app-error.js';
-import {
-  Event,
-  type ApprovalMode,
-  type CostSplit,
-  type EventStatus,
-} from '../../domain/entities/event.js';
+import { Event, type ApprovalMode, type EventStatus } from '../../domain/entities/event.js';
 import { Capacity } from '../../domain/value-objects/capacity.js';
 import { EventCategory } from '../../domain/value-objects/event-category.js';
 import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 
 const STATUSES = ['draft', 'published', 'cancelled', 'completed'] as const;
-const COST_SPLITS = ['own', 'host_paid', 'split'] as const;
 const APPROVAL_MODES = ['auto', 'manual'] as const;
 
 const isStatus = (s: string): s is EventStatus => (STATUSES as readonly string[]).includes(s);
-const isCostSplit = (s: string): s is CostSplit => (COST_SPLITS as readonly string[]).includes(s);
 const isApprovalMode = (s: string): s is ApprovalMode =>
   (APPROVAL_MODES as readonly string[]).includes(s);
 
@@ -30,9 +23,6 @@ const isApprovalMode = (s: string): s is ApprovalMode =>
 export const toEvent = (row: EventRow): Event => {
   if (!isStatus(row.status)) {
     throw AppError.internal(`Invalid event status in DB row ${row.id}: ${row.status}`);
-  }
-  if (!isCostSplit(row.costSplit)) {
-    throw AppError.internal(`Invalid event costSplit in DB row ${row.id}: ${row.costSplit}`);
   }
   if (!isApprovalMode(row.approvalMode)) {
     throw AppError.internal(`Invalid event approvalMode in DB row ${row.id}: ${row.approvalMode}`);
@@ -53,7 +43,7 @@ export const toEvent = (row: EventRow): Event => {
     capacity: Capacity.create(row.capacity),
     category: EventCategory.create(row.category),
     venueCategory: VenueCategory.create(row.venueCategory),
-    costSplit: row.costSplit,
+    costNotes: row.costNotes,
     approvalMode: row.approvalMode,
     status: row.status,
     cancellationReason: row.cancellationReason,
@@ -82,7 +72,7 @@ export const toRow = (event: Event): Prisma.EventUncheckedCreateInput => ({
   capacity: event.capacity.value,
   category: event.category.value,
   venueCategory: event.venueCategory.value,
-  costSplit: event.costSplit,
+  costNotes: event.costNotes,
   approvalMode: event.approvalMode,
   status: event.status,
   cancellationReason: event.cancellationReason,

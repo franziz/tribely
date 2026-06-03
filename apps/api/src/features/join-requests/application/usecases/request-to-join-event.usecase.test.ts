@@ -46,7 +46,7 @@ const seedPublishedEvent = (repo: FakeEventRepository, opts: SeedOpts = {}): Eve
     capacity: Capacity.create(opts.capacity ?? 6),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: opts.approvalMode ?? 'manual',
     now: NOW,
   });

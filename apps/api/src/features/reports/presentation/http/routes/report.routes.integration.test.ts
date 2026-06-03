@@ -67,7 +67,7 @@ describe.skipIf(!dbUrl)('POST /reports (integration)', () => {
         endsAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
         capacity: 5,
         category: 'food',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'completed',
       },

@@ -48,7 +48,7 @@ const makePublishedEvent = (overrides: { endsAt?: Date; status?: Event['status']
     capacity: Capacity.create(5),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'manual',
     now: new Date(NOW.getTime() - 60 * 60 * 1000), // created 1 h before NOW
   });
@@ -81,7 +81,7 @@ const makeCompletedEvent = (): Event => {
     capacity: Capacity.create(4),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'auto',
     status: 'completed',
     cancellationReason: null,
@@ -107,7 +107,7 @@ const makeCancelledEvent = (): Event => {
     capacity: Capacity.create(4),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'auto',
     status: 'cancelled',
     cancellationReason: 'Host cancelled',
@@ -358,7 +358,7 @@ describe('CancelEventForSafetyUseCase', () => {
         capacity: Capacity.create(4),
         category: EventCategory.create('food'),
         venueCategory: VenueCategory.create('cafe'),
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'auto',
         status: 'published', // still "published" but past endsAt
         cancellationReason: null,

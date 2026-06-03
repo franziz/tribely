@@ -48,7 +48,7 @@ const makeEvent = (overrides: { title?: string } = {}): Event => {
     endsAt: ENDS_AT_RECENT,
     capacity: Capacity.create(8),
     category: EventCategory.create('food'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'manual',
     status: 'completed',
     cancellationReason: null,

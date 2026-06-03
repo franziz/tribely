@@ -258,7 +258,7 @@ describe.skipIf(!dbUrl)('ReportPrismaRepository — integration', () => {
           endsAt: new Date(now.getTime() + 3_600_000),
           capacity: 5,
           category: 'drinks',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'auto',
           status: 'completed',
         },
