@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { AppError } from '@/core/errors/app-error.js';
 import type { ApproveJoinRequestUseCase } from '../../../application/usecases/approve-join-request.usecase.js';
 import type { CancelJoinRequestByRequesterUseCase } from '../../../application/usecases/cancel-join-request-by-requester.usecase.js';
 import type { ListJoinRequestsByEventUseCase } from '../../../application/usecases/list-join-requests-by-event.usecase.js';
@@ -10,8 +11,6 @@ import type { RejectJoinRequestUseCase } from '../../../application/usecases/rej
 import type { RemoveJoinRequestByHostUseCase } from '../../../application/usecases/remove-join-request-by-host.usecase.js';
 import type { RequestToJoinEventUseCase } from '../../../application/usecases/request-to-join-event.usecase.js';
 import type { JoinRequest } from '../../../domain/entities/join-request.js';
-import { AppError } from '@/core/errors/app-error.js';
-import { requestToJoinEventBodySchema } from '../schemas/join-request.schemas.js';
 import type {
   EnrichedJoinRequestListResponse,
   JoinRequestResponse,
@@ -20,6 +19,7 @@ import type {
   MyJoinRequestsListResponse,
   RejectJoinRequestBody,
   RemoveAttendeeBody,
+  RequestToJoinEventBody,
 } from '../schemas/join-request.schemas.js';
 import type { ListJoinRequestsByRequesterCursor } from '../../../domain/repositories/join-request.repository.js';
 
@@ -89,20 +89,18 @@ export class JoinRequestController {
    *
    * Body is entirely optional — the mobile Dio client sends Content-Type:
    * application/json with an empty body and must receive 201 (TRI-28 / TRI-34
-   * empty-body trap). Using `zValidator('json', ...)` on the route triggers
-   * Hono's `c.req.json()` path, which throws 400 on an empty body before any
-   * Zod schema runs. To avoid this, we parse the body tolerantly here:
-   *   - absent / empty / unparseable body → treat as `{}`
-   *   - present but schema-invalid body (e.g. `acknowledgedSafetyReminder: "yes"`)
-   *     → 400 via AppError.validation
+   * empty-body trap). Tolerant body parsing is handled upstream by
+   * `optionalJsonValidator(requestToJoinEventBodySchema)` on the route, which
+   * resolves absent/empty/unparseable bodies to `{}` before schema validation.
+   * Invalid bodies (e.g. `acknowledgedSafetyReminder: "yes"`) are rejected 400
+   * by the middleware before this handler runs.
    */
-  createAction = async (c: Context, eventId: string, requesterUserId: string) => {
-    const raw = await c.req.json<unknown>().catch(() => ({}));
-    const parsed = requestToJoinEventBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      throw AppError.validation('Invalid request body', parsed.error.flatten());
-    }
-    const body = parsed.data;
+  createAction = async (
+    c: Context,
+    eventId: string,
+    requesterUserId: string,
+    body: RequestToJoinEventBody,
+  ) => {
     const jr = await this.requestToJoinEvent.execute({
       eventId,
       requesterUserId,
