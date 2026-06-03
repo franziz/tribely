@@ -11,6 +11,7 @@ import type { JoinRequestController } from '../controllers/join-request.controll
 import {
   listJoinRequestsByEventQuerySchema,
   removeAttendeeBodySchema,
+  requestToJoinEventBodySchema,
 } from '../schemas/join-request.schemas.js';
 
 export interface EventScopedJoinRequestRouteDeps {
@@ -54,8 +55,14 @@ export const buildEventScopedJoinRequestRoutes = (
   });
 
   return new Hono<{ Variables: AuthVariables }>()
-    .post('/:id/join-requests', auth, verifiedEmail, verifiedPhone, limitCreate, (c) =>
-      deps.controller.createAction(c, c.req.param('id'), c.get('userId')),
+    .post(
+      '/:id/join-requests',
+      auth,
+      verifiedEmail,
+      verifiedPhone,
+      limitCreate,
+      zValidator('json', requestToJoinEventBodySchema),
+      (c) => deps.controller.createAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
     )
     .get(
       '/:id/join-requests',

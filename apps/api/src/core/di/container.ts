@@ -724,6 +724,7 @@ export const buildContainer = (): Container => {
     eventRepository,
     publisher,
     clock,
+    markSafetyReminderSeenUseCase,
   );
   const approveJoinRequestUseCase = new ApproveJoinRequestUseCase(
     unitOfWork,

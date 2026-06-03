@@ -19,6 +19,7 @@ import type {
   MyJoinRequestsListResponse,
   RejectJoinRequestBody,
   RemoveAttendeeBody,
+  RequestToJoinEventBody,
 } from '../schemas/join-request.schemas.js';
 import type { ListJoinRequestsByRequesterCursor } from '../../../domain/repositories/join-request.repository.js';
 
@@ -83,8 +84,19 @@ export class JoinRequestController {
     private readonly listJoinRequestsByRequester: ListJoinRequestsByRequesterUseCase,
   ) {}
 
-  createAction = async (c: Context, eventId: string, requesterUserId: string) => {
-    const jr = await this.requestToJoinEvent.execute({ eventId, requesterUserId });
+  createAction = async (
+    c: Context,
+    eventId: string,
+    requesterUserId: string,
+    body: RequestToJoinEventBody,
+  ) => {
+    const jr = await this.requestToJoinEvent.execute({
+      eventId,
+      requesterUserId,
+      ...(body.acknowledgedSafetyReminder !== undefined && {
+        acknowledgedSafetyReminder: body.acknowledgedSafetyReminder,
+      }),
+    });
     return c.json(toJoinRequestResponse(jr), 201);
   };
 

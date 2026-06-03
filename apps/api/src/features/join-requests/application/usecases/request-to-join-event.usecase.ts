@@ -5,12 +5,14 @@ import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { Event } from '@/features/events/domain/entities/event.js';
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
+import type { SafetyReminderMarkerPort } from '@/features/users/application/ports/safety-reminder-marker.port.js';
 import { JoinRequest, type JoinRequestEventSnapshot } from '../../domain/entities/join-request.js';
 import type { JoinRequestRepository } from '../../domain/repositories/join-request.repository.js';
 
 export interface RequestToJoinEventInput {
   eventId: string;
   requesterUserId: string;
+  acknowledgedSafetyReminder?: boolean;
 }
 
 /**
@@ -42,9 +44,21 @@ export class RequestToJoinEventUseCase {
     private readonly events: EventRepository,
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
+    private readonly safetyReminderMarker: SafetyReminderMarkerPort,
   ) {}
 
   async execute(input: RequestToJoinEventInput): Promise<JoinRequest> {
+    // Set-on-tap: if the client sent the safety acknowledgement, mark it seen
+    // in its own independent UoW BEFORE the join transaction. This way the
+    // seen-flag persists even if the subsequent join fails (capacity, conflict,
+    // etc.) — the user is not re-shown the safety sheet on retry.
+    if (input.acknowledgedSafetyReminder === true) {
+      await this.safetyReminderMarker.execute({
+        userId: input.requesterUserId,
+        eventId: input.eventId,
+      });
+    }
+
     const now = this.clock.now();
 
     const event = await this.events.findById(input.eventId);
