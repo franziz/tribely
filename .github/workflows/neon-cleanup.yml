@@ -1,0 +1,50 @@
+# Standalone workflow: delete the Neon ephemeral branch when a PR closes.
+#
+# This workflow is event-triggered (not a reusable workflow_call) so it runs
+# independently of ci.yml's dispatch chain. That means:
+#   - No dependency on detect-changes / neon-branch path filter.
+#   - No checkout required — the head ref may be gone after merge/close.
+#   - Not subject to the ci-${{ github.ref }} cancel-in-progress group that
+#     fires when a PR merge triggers a push-to-main run.
+#
+# Operator setup: NEON_API_KEY and NEON_PROJECT_ID provisioning is tracked in
+# TRI-183 (VPS-deploy follow-up). See that ticket for setup steps.
+
+name: Neon branch cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+# Default-deny at workflow level (repo convention).
+permissions: {}
+
+# Own concurrency group keyed to the PR number with cancel-in-progress: false.
+# This makes the cleanup immune to the merge's push-to-main run cancelling it —
+# the push fires on github.ref = refs/heads/main, a different group entirely,
+# and even within this group a second cleanup run would not cancel the first.
+concurrency:
+  group: neon-cleanup-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Delete Neon branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # No elevated permissions needed — delete-branch-action authenticates via
+    # NEON_API_KEY, not GITHUB_TOKEN.
+    permissions: {}
+
+    steps:
+      - name: Delete Neon branch
+        # continue-on-error covers the case where the PR never triggered the
+        # neon-branch path filter (no migration files changed), so no ephemeral
+        # branch was ever created for this PR number.
+        continue-on-error: true
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          # Convention owner: _neon-branch.yml creates ci-pr-<N>. Keep this prefix in sync.
+          branch: ci-pr-${{ github.event.pull_request.number }}
