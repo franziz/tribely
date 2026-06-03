@@ -3,14 +3,15 @@
 # Operator setup: NEON_API_KEY and NEON_PROJECT_ID provisioning is tracked in
 # TRI-183 (VPS-deploy follow-up). See that ticket for setup steps.
 #
-# Two jobs, guarded by github.event.action:
-#   migrate  — runs on any PR event that is NOT 'closed'; creates an ephemeral
-#              Neon branch and applies all pending migrations.
-#   cleanup  — runs ONLY on 'closed'; deletes the ephemeral branch so the Neon
-#              project doesn't accumulate stale branches.
+# Single job:
+#   migrate  — runs on any PR event; creates an ephemeral Neon branch (deleting
+#              any stale branch first) and applies all pending migrations.
 #
-# The workflow is dispatched from ci.yml with explicit secret passing so both
-# jobs can access NEON_API_KEY and NEON_PROJECT_ID.
+# Branch cleanup (delete on PR close) is handled by the standalone event-triggered
+# workflow neon-cleanup.yml, which runs independently of ci.yml dispatch.
+#
+# The workflow is dispatched from ci.yml with explicit secret passing so the
+# migrate job can access NEON_API_KEY and NEON_PROJECT_ID.
 
 name: Neon migration check
 
@@ -29,8 +30,6 @@ permissions: {}
 jobs:
   migrate:
     name: Migrate
-    # Run on any PR event except 'closed' (open, synchronize, reopened, etc.).
-    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -48,6 +47,15 @@ jobs:
       # deletions that don't fire the 'closed' PR event).
       - name: Compute branch expiry
         run: echo "EXPIRES_AT=$(date -u -d '+72 hours' '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+      # First run has no branch to delete; neonctl exits non-zero on a missing branch, so this step is allowed to fail.
+      - name: Delete stale branch (idempotent)
+        continue-on-error: true
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch: ci-pr-${{ github.event.pull_request.number }}
 
       # Create the ephemeral branch.
       # parent_branch is intentionally omitted — it defaults to the Neon
@@ -67,21 +75,3 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.create.outputs.db_url }}
         run: npm run --workspace=@tribely/api db:migrate:deploy
-
-  cleanup:
-    name: Cleanup
-    # Run only on PR close — deletes the ephemeral branch regardless of how
-    # the PR was closed (merged, dismissed, or abandoned).
-    if: github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    permissions: {}
-
-    steps:
-      - name: Delete Neon branch
-        if: always()
-        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776 # v3.2.1
-        with:
-          project_id: ${{ secrets.NEON_PROJECT_ID }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-          branch: ci-pr-${{ github.event.pull_request.number }}

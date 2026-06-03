@@ -114,7 +114,7 @@ jobs:
   neon-branch:
     name: Neon migration check
     needs: detect-changes
-    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.neon-branch == 'true' || github.event.action == 'closed')
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.neon-branch == 'true'
     uses: ./.github/workflows/_neon-branch.yml
     secrets:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
