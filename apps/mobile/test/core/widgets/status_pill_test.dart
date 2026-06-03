@@ -26,6 +26,7 @@ void main() {
           StatusPillState.declined => 'Declined',
           StatusPillState.withdrawn => 'Withdrawn',
           StatusPillState.removedByHost => 'Removed',
+          StatusPillState.cancelled => 'Cancelled',
         };
         expect(find.text(expected), findsOneWidget);
       });
@@ -132,6 +133,43 @@ void main() {
         if (deco is! BoxDecoration) return false;
         return deco.shape == BoxShape.circle &&
             deco.color == TribelyColors.paperAccent;
+      });
+      expect(hasDot, isTrue);
+    });
+
+    testWidgets('cancelled: light background is paperBorderSubtle', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.cancelled)),
+      );
+      await tester.pump();
+
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final hasBg = containers.any((c) {
+        final deco = c.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.color == TribelyColors.paperBorderSubtle;
+      });
+      expect(hasBg, isTrue);
+    });
+
+    testWidgets('cancelled: light foreground dot is paperInkSecondary', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.cancelled)),
+      );
+      await tester.pump();
+
+      final decoratedBoxes = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final hasDot = decoratedBoxes.any((db) {
+        final deco = db.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.shape == BoxShape.circle &&
+            deco.color == TribelyColors.paperInkSecondary;
       });
       expect(hasDot, isTrue);
     });
@@ -256,6 +294,81 @@ void main() {
       expect(find.bySemanticsLabel('Request status: Removed'), findsOneWidget);
     });
 
+    testWidgets('cancelled exposes "Request status: Cancelled"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const StatusPill(state: StatusPillState.cancelled)),
+      );
+      await tester.pump();
+
+      expect(
+        find.bySemanticsLabel('Request status: Cancelled'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'semanticsPrefix overrides leading portion of semantics label',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const StatusPill(
+              state: StatusPillState.cancelled,
+              semanticsPrefix: 'Event status',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.bySemanticsLabel('Event status: Cancelled'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'semanticsPrefix with semanticsContext produces full composite label',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const StatusPill(
+              state: StatusPillState.cancelled,
+              semanticsPrefix: 'Event status',
+              semanticsContext: 'Morning jog',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.bySemanticsLabel('Event status: Cancelled, for Morning jog'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'null semanticsPrefix falls back to "Request status" default',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            const StatusPill(
+              state: StatusPillState.approved,
+              // semanticsPrefix not set — should use the default
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.bySemanticsLabel('Request status: Approved'),
+          findsOneWidget,
+        );
+      },
+    );
+
     testWidgets(
       'without semanticsContext, label does NOT contain "for" suffix',
       (tester) async {
@@ -351,6 +464,49 @@ void main() {
         if (deco is! BoxDecoration) return false;
         return deco.shape == BoxShape.circle &&
             deco.color == TribelyColors.nightAccent;
+      });
+      expect(hasDot, isTrue);
+    });
+
+    testWidgets('cancelled dark: background is nightBorderSubtle', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const StatusPill(state: StatusPillState.cancelled),
+          brightness: Brightness.dark,
+        ),
+      );
+      await tester.pump();
+
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final hasBg = containers.any((c) {
+        final deco = c.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.color == TribelyColors.nightBorderSubtle;
+      });
+      expect(hasBg, isTrue);
+    });
+
+    testWidgets('cancelled dark: foreground dot is nightInkSecondary', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const StatusPill(state: StatusPillState.cancelled),
+          brightness: Brightness.dark,
+        ),
+      );
+      await tester.pump();
+
+      final decoratedBoxes = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final hasDot = decoratedBoxes.any((db) {
+        final deco = db.decoration;
+        if (deco is! BoxDecoration) return false;
+        return deco.shape == BoxShape.circle &&
+            deco.color == TribelyColors.nightInkSecondary;
       });
       expect(hasDot, isTrue);
     });
