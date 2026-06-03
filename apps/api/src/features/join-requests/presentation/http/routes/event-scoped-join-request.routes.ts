@@ -34,6 +34,15 @@ export interface EventScopedJoinRequestRouteDeps {
  * per IP) — the cap should follow the actor across networks, mirroring the
  * `events-create` rate-limit pattern. Approve/reject/cancel/list have no
  * rate limit; hosts may bulk-approve a backlog at scale.
+ *
+ * IMPORTANT: `POST /:id/join-requests` has NO `zValidator('json', ...)` middleware.
+ * The body is entirely optional (only carries an optional `acknowledgedSafetyReminder`
+ * flag added in TRI-34). Mounting a JSON body validator triggers Hono's
+ * `c.req.json()` path, which throws 400 on an empty body BEFORE any Zod schema
+ * runs — breaking the mobile Dio client that always sets Content-Type: application/json
+ * but sends no body. Tolerant body parsing is done inside `createAction` in the
+ * controller instead (same pattern as the check-ins acknowledge route; see TRI-28
+ * and TRI-34 for the empty-body trap history).
  */
 export const buildEventScopedJoinRequestRoutes = (
   deps: EventScopedJoinRequestRouteDeps,
@@ -54,8 +63,14 @@ export const buildEventScopedJoinRequestRoutes = (
   });
 
   return new Hono<{ Variables: AuthVariables }>()
-    .post('/:id/join-requests', auth, verifiedEmail, verifiedPhone, limitCreate, (c) =>
-      deps.controller.createAction(c, c.req.param('id'), c.get('userId')),
+    .post(
+      '/:id/join-requests',
+      auth,
+      verifiedEmail,
+      verifiedPhone,
+      limitCreate,
+      // No zValidator — empty-body POST trap (see module JSDoc).
+      (c) => deps.controller.createAction(c, c.req.param('id'), c.get('userId')),
     )
     .get(
       '/:id/join-requests',

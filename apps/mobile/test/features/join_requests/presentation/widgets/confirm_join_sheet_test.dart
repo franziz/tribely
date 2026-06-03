@@ -65,7 +65,7 @@ class _FixedRequestToJoinController extends RequestToJoinController {
   Future<void> loadExisting() async {}
 
   @override
-  Future<void> submit() async {
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {
     onSubmitCalled?.call();
   }
 

@@ -58,6 +58,8 @@ export const toUser = (row: UserRow): User =>
     deletedAt: row.deletedAt,
     // TRI-132 admin role: read from DB; never modified by the aggregate.
     isAdmin: row.isAdmin,
+    // TRI-34 pre-event safety reminder: null until first reminder is acknowledged.
+    safetyReminderSeenAt: row.safetyReminderSeenAt,
   });
 
 export const toRow = (user: User): UserRow => ({
@@ -81,4 +83,5 @@ export const toRow = (user: User): UserRow => ({
   selfieAppealLockedAt: user.selfieAppealLockedAt,
   deletedAt: user.deletedAt,
   isAdmin: user.isAdmin,
+  safetyReminderSeenAt: user.safetyReminderSeenAt,
 });

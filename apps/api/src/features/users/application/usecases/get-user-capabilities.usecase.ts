@@ -38,12 +38,16 @@ export class GetUserCapabilitiesUseCase {
       selfieAppealLockedAt: user.selfieAppealLockedAt,
     });
 
-    if (completedCount === 0) return { canPostPrivateVenue: false, canPerformVerifiedAction };
+    const safetyReminderSeen = user.safetyReminderSeenAt !== null;
+
+    if (completedCount === 0)
+      return { canPostPrivateVenue: false, canPerformVerifiedAction, safetyReminderSeen };
 
     const avgRating = await this.hostRatings.getAverageRatingForHost(input.userId);
     return {
       canPostPrivateVenue: avgRating !== null && avgRating >= 4.0,
       canPerformVerifiedAction,
+      safetyReminderSeen,
     };
   }
 }

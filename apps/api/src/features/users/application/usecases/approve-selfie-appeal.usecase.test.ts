@@ -83,6 +83,7 @@ const buildAlreadyApprovedUser = (): User =>
     selfieAppealLockedAt: null, // already cleared by prior approval
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 /** A locked user: 3 rejections, selfieAppealLockedAt set. */
@@ -108,6 +109,7 @@ const buildLockedUser = (): User =>
     selfieAppealLockedAt: LOCKED_AT,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 const buildSut = () => {

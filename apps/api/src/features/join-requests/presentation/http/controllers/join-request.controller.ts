@@ -11,6 +11,7 @@ import type { RemoveJoinRequestByHostUseCase } from '../../../application/usecas
 import type { RequestToJoinEventUseCase } from '../../../application/usecases/request-to-join-event.usecase.js';
 import type { JoinRequest } from '../../../domain/entities/join-request.js';
 import { AppError } from '@/core/errors/app-error.js';
+import { requestToJoinEventBodySchema } from '../schemas/join-request.schemas.js';
 import type {
   EnrichedJoinRequestListResponse,
   JoinRequestResponse,
@@ -83,8 +84,32 @@ export class JoinRequestController {
     private readonly listJoinRequestsByRequester: ListJoinRequestsByRequesterUseCase,
   ) {}
 
+  /**
+   * POST /events/:id/join-requests
+   *
+   * Body is entirely optional — the mobile Dio client sends Content-Type:
+   * application/json with an empty body and must receive 201 (TRI-28 / TRI-34
+   * empty-body trap). Using `zValidator('json', ...)` on the route triggers
+   * Hono's `c.req.json()` path, which throws 400 on an empty body before any
+   * Zod schema runs. To avoid this, we parse the body tolerantly here:
+   *   - absent / empty / unparseable body → treat as `{}`
+   *   - present but schema-invalid body (e.g. `acknowledgedSafetyReminder: "yes"`)
+   *     → 400 via AppError.validation
+   */
   createAction = async (c: Context, eventId: string, requesterUserId: string) => {
-    const jr = await this.requestToJoinEvent.execute({ eventId, requesterUserId });
+    const raw = await c.req.json<unknown>().catch(() => ({}));
+    const parsed = requestToJoinEventBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      throw AppError.validation('Invalid request body', parsed.error.flatten());
+    }
+    const body = parsed.data;
+    const jr = await this.requestToJoinEvent.execute({
+      eventId,
+      requesterUserId,
+      ...(body.acknowledgedSafetyReminder !== undefined && {
+        acknowledgedSafetyReminder: body.acknowledgedSafetyReminder,
+      }),
+    });
     return c.json(toJoinRequestResponse(jr), 201);
   };
 

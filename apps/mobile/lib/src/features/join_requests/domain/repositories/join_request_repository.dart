@@ -9,7 +9,10 @@ import '../entities/join_request_with_requester.dart';
 /// All methods return [Either<Failure, T>]; throwing is not part of the contract.
 abstract class JoinRequestRepository {
   /// POST /events/:eventId/join-requests
-  Future<Either<Failure, JoinRequest>> requestToJoin({required String eventId});
+  Future<Either<Failure, JoinRequest>> requestToJoin({
+    required String eventId,
+    bool acknowledgedSafetyReminder = false,
+  });
 
   /// POST /join-requests/:id/approve
   Future<Either<Failure, JoinRequest>> approve({required String joinRequestId});

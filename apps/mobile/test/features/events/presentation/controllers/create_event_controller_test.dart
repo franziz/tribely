@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
@@ -31,6 +33,27 @@ class _MockSaveEventDraftUseCase extends Mock
 
 class _MockClearEventDraftUseCase extends Mock
     implements ClearEventDraftUseCase {}
+
+// ---------------------------------------------------------------------------
+// Fake capabilities notifiers
+// ---------------------------------------------------------------------------
+
+/// Synchronously resolves to [_caps] so [ref.read(myCapabilitiesProvider)]
+/// immediately returns [AsyncData] in tests.
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
+
+/// Never resolves — keeps the provider in [AsyncLoading] for tests that need
+/// capabilities to remain in the loading state.
+class _LoadingMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  @override
+  Future<UserCapabilities> build() => Completer<UserCapabilities>().future;
+}
 
 // ---------------------------------------------------------------------------
 // Fallback registrations required by mocktail
@@ -819,7 +842,9 @@ void main() {
         loadEventDraftUseCaseProvider.overrideWithValue(load),
         saveEventDraftUseCaseProvider.overrideWithValue(save),
         clearEventDraftUseCaseProvider.overrideWithValue(clear),
-        myCapabilitiesProvider.overrideWith((_) async => caps),
+        myCapabilitiesProvider.overrideWith(
+          () => _FakeMyCapabilitiesNotifier(caps),
+        ),
       ],
     );
 
@@ -887,7 +912,7 @@ void main() {
             clearEventDraftUseCaseProvider.overrideWithValue(clear),
             // Caps stay in loading state — never resolves.
             myCapabilitiesProvider.overrideWith(
-              (_) => Future.delayed(const Duration(days: 1)),
+              _LoadingMyCapabilitiesNotifier.new,
             ),
           ],
         );
@@ -918,7 +943,10 @@ void main() {
       'C: selecting a private category with canPostPrivateVenue=true → PrivateVenueWarningEstablishedHost',
       () async {
         final result = makeContainerWithCaps(
-          caps: const UserCapabilities(canPostPrivateVenue: true),
+          caps: const UserCapabilities(
+            canPostPrivateVenue: true,
+            safetyReminderSeen: false,
+          ),
         );
         final container = result.container;
         addTearDown(container.dispose);

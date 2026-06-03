@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/error/failures.dart';
+import '../../../users/presentation/providers/capability_providers.dart';
 import '../../domain/entities/join_request.dart';
 import '../../domain/usecases/list_my_join_requests_usecase.dart';
 import '../../domain/usecases/request_to_join_event_usecase.dart';
@@ -45,14 +47,31 @@ class RequestToJoinController extends Notifier<RequestToJoinState> {
 
     if (!ref.mounted) return;
     result.fold(
-      // On failure (e.g. 401 unauthenticated) stay at Idle with no request —
-      // the user is not signed in so they have no existing request.
-      (_) => null,
+      (failure) {
+        state = _classifyLoadFailure(failure);
+      },
       (items) {
         final existing = items.isNotEmpty ? items.first.joinRequest : null;
         state = RequestToJoinIdle(existingRequest: existing);
       },
     );
+  }
+
+  /// Classifies a [Failure] from [loadExisting] into the appropriate state.
+  ///
+  /// An [AuthFailure] means the viewer is unauthenticated — they have no
+  /// existing request, so we stay at [RequestToJoinIdle] with no request.
+  /// All other failures (network, 5xx, timeout, etc.) are surfaced as
+  /// [RequestToJoinFailed] so the UI can react rather than silently staying
+  /// Idle with stale or missing data.
+  RequestToJoinState _classifyLoadFailure(Failure failure) {
+    if (failure is AuthFailure) {
+      // Unauthenticated → definitively no existing request. Explicit Idle,
+      // not a bare null no-op.
+      return const RequestToJoinIdle(existingRequest: null);
+    }
+    // Network, 5xx, timeout, or any other unexpected failure — surface it.
+    return RequestToJoinFailed(failure: failure);
   }
 
   /// Seed an already-known [JoinRequest] into the Idle state (e.g. when the
@@ -62,19 +81,47 @@ class RequestToJoinController extends Notifier<RequestToJoinState> {
   }
 
   /// Submits a join request for [eventId].
-  Future<void> submit() async {
+  ///
+  /// [acknowledgedSafetyReminder] — pass `true` when the user has tapped
+  /// through the safety reminder sheet (TRI-34 Brief G). The flag is forwarded
+  /// to the POST body as `acknowledgedSafetyReminder`.
+  ///
+  /// On success with [acknowledgedSafetyReminder] == true, locally flips the
+  /// [myCapabilitiesProvider] cache so [safetyReminderSeen] becomes `true`
+  /// without a network re-fetch.
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {
     if (state is RequestToJoinSubmitting) return;
     state = const RequestToJoinSubmitting();
 
     final useCase = ref.read(requestToJoinEventUseCaseProvider);
-    final params = RequestToJoinEventParams(eventId: eventId);
+    final params = RequestToJoinEventParams(
+      eventId: eventId,
+      acknowledgedSafetyReminder: acknowledgedSafetyReminder,
+    );
     final result = await useCase(params);
 
     if (!ref.mounted) return;
-    state = result.fold(
-      (failure) => RequestToJoinFailed(failure: failure),
-      (joinRequest) => RequestToJoinSubmitted(joinRequest: joinRequest),
-    );
+    state = result.fold((failure) => RequestToJoinFailed(failure: failure), (
+      joinRequest,
+    ) {
+      // Local cache flip: when the safety reminder was acknowledged, update
+      // the cached capabilities so subsequent joins go straight to
+      // ConfirmJoinSheet without a network round-trip. No ref.invalidate —
+      // that would trigger a redundant fetch on the hot path.
+      if (acknowledgedSafetyReminder) {
+        _flipSafetyReminderSeen();
+      }
+      return RequestToJoinSubmitted(joinRequest: joinRequest);
+    });
+  }
+
+  /// Locally flips the [myCapabilitiesProvider] cache so `safetyReminderSeen`
+  /// becomes `true` without a network re-fetch.
+  ///
+  /// Delegates to [MyCapabilitiesNotifier.markSafetyReminderSeen] which does a
+  /// no-op when the value is already true or the provider is not yet loaded.
+  void _flipSafetyReminderSeen() {
+    ref.read(myCapabilitiesProvider.notifier).markSafetyReminderSeen();
   }
 
   /// Withdraws the pending join request identified by [joinRequestId].

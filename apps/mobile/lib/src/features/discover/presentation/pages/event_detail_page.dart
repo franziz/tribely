@@ -28,6 +28,8 @@ import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
 import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
 import '../../../join_requests/presentation/widgets/pending_request_row.dart';
 import '../../../join_requests/presentation/widgets/remove_attendee_sheet.dart';
+import '../../../join_requests/presentation/widgets/safety_reminder_sheet.dart';
+import '../../../users/presentation/providers/capability_providers.dart';
 import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../../../../core/widgets/verified_pill.dart';
 import '../providers/event_detail_providers.dart';
@@ -999,6 +1001,18 @@ class _StickyJoinBar extends ConsumerWidget {
     final isEventPast =
         event.endsAt.toUtc().isBefore(now) || event.status == 'cancelled';
 
+    // Sanctioned cross-feature import per CLAUDE.md mobile rules —
+    // myCapabilitiesProvider is app-global session state in users/.
+    // Default false when unreachable → show safety sheet (safer: over-show
+    // a safety reminder than skip it — Brief G offline ruling).
+    final safetyReminderSeen = ref
+        .watch(myCapabilitiesProvider)
+        .when(
+          data: (caps) => caps.safetyReminderSeen,
+          loading: () => false,
+          error: (e, st) => false,
+        );
+
     Widget content;
 
     // Removed-by-host viewers: silent suppression — no CTA, no status pill.
@@ -1018,8 +1032,8 @@ class _StickyJoinBar extends ConsumerWidget {
         effectiveRequest!.status == JoinRequestStatus.withdrawn &&
         !isEventPast) {
       // Withdrawn → re-request CTA. PM verdict: same affordance as never-
-      // requested; tapping opens ConfirmJoinSheet which creates a new
-      // JoinRequest. No cooldown, no per-event cap.
+      // requested; tapping opens the appropriate sheet (safety or confirm)
+      // based on safetyReminderSeen. No cooldown, no per-event cap.
       // Note: capacity-full / cancelled are covered by isEventPast above.
       final isSubmitting = joinState is RequestToJoinSubmitting;
       content = PrimaryButton(
@@ -1029,13 +1043,14 @@ class _StickyJoinBar extends ConsumerWidget {
             : PrimaryButtonState.idle,
         onPressed: isSubmitting
             ? null
-            : () => showConfirmJoinSheet(
+            : () => _openJoinSheet(
                 context,
                 eventId: event.id,
                 hostName: hostName,
                 eventTitle: event.title,
                 startsAt: event.startsAt,
                 endsAt: event.endsAt,
+                safetyReminderSeen: safetyReminderSeen,
               ),
       );
     } else if (effectiveRequest != null) {
@@ -1059,13 +1074,14 @@ class _StickyJoinBar extends ConsumerWidget {
             : PrimaryButtonState.idle,
         onPressed: isSubmitting
             ? null
-            : () => showConfirmJoinSheet(
+            : () => _openJoinSheet(
                 context,
                 eventId: event.id,
                 hostName: hostName,
                 eventTitle: event.title,
                 startsAt: event.startsAt,
                 endsAt: event.endsAt,
+                safetyReminderSeen: safetyReminderSeen,
               ),
       );
     }
@@ -1079,6 +1095,38 @@ class _StickyJoinBar extends ConsumerWidget {
         ),
       ),
       child: content,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Join sheet dispatch helper
+// ---------------------------------------------------------------------------
+
+/// Opens [SafetyReminderSheet] when [safetyReminderSeen] is false (first-timer
+/// path, TRI-34), otherwise opens [ConfirmJoinSheet] directly.
+///
+/// Offline / capabilities-unreachable default: [safetyReminderSeen] == false
+/// → show the safety sheet (safer to over-show a reminder than skip it).
+void _openJoinSheet(
+  BuildContext context, {
+  required String eventId,
+  required String hostName,
+  required String eventTitle,
+  required DateTime startsAt,
+  required DateTime endsAt,
+  required bool safetyReminderSeen,
+}) {
+  if (!safetyReminderSeen) {
+    showSafetyReminderSheet(context, eventId: eventId);
+  } else {
+    showConfirmJoinSheet(
+      context,
+      eventId: eventId,
+      hostName: hostName,
+      eventTitle: eventTitle,
+      startsAt: startsAt,
+      endsAt: endsAt,
     );
   }
 }

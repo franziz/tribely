@@ -7,12 +7,19 @@ import '../entities/join_request.dart';
 import '../repositories/join_request_repository.dart';
 
 class RequestToJoinEventParams extends Equatable {
-  const RequestToJoinEventParams({required this.eventId});
+  const RequestToJoinEventParams({
+    required this.eventId,
+    this.acknowledgedSafetyReminder = false,
+  });
 
   final String eventId;
 
+  /// When true, the user has acknowledged the pre-event safety reminder.
+  /// Sent as `acknowledgedSafetyReminder` in the POST body (TRI-34 Brief D).
+  final bool acknowledgedSafetyReminder;
+
   @override
-  List<Object?> get props => [eventId];
+  List<Object?> get props => [eventId, acknowledgedSafetyReminder];
 }
 
 /// Request to join an event as a participant.
@@ -24,5 +31,8 @@ class RequestToJoinEventUseCase
 
   @override
   Future<Either<Failure, JoinRequest>> call(RequestToJoinEventParams params) =>
-      _repository.requestToJoin(eventId: params.eventId);
+      _repository.requestToJoin(
+        eventId: params.eventId,
+        acknowledgedSafetyReminder: params.acknowledgedSafetyReminder,
+      );
 }

@@ -30,17 +30,42 @@ final _userCapabilitiesRepositoryProvider =
 /// than silently bypassed. This prevents a capability-API outage from
 /// accidentally granting new users the private-venue permission.
 ///
-/// Uses plain [FutureProvider] (not autoDispose) because capabilities are
-/// stable per session. Riverpod's natural FutureProvider caching avoids
-/// repeated network calls; no additional caching layer is needed.
-final myCapabilitiesProvider = FutureProvider<UserCapabilities>((ref) async {
-  final repo = ref.watch(_userCapabilitiesRepositoryProvider);
-  final result = await repo.getMyCapabilities();
-  return result.fold(
-    (failure) => const UserCapabilities.restricted(),
-    (caps) => caps,
-  );
-});
+/// Uses [AsyncNotifierProvider] (rather than plain [FutureProvider]) so that
+/// callers can perform local cache mutations (e.g. [markSafetyReminderSeen])
+/// without invalidating the provider and triggering an extra network call.
+/// The consumer API (`ref.watch(myCapabilitiesProvider)`) is unchanged — it
+/// still returns `AsyncValue<UserCapabilities>`.
+final myCapabilitiesProvider =
+    AsyncNotifierProvider<MyCapabilitiesNotifier, UserCapabilities>(
+      MyCapabilitiesNotifier.new,
+    );
+
+/// Notifier backing [myCapabilitiesProvider].
+class MyCapabilitiesNotifier extends AsyncNotifier<UserCapabilities> {
+  @override
+  Future<UserCapabilities> build() async {
+    final repo = ref.watch(_userCapabilitiesRepositoryProvider);
+    final result = await repo.getMyCapabilities();
+    return result.fold(
+      (failure) => const UserCapabilities.restricted(),
+      (caps) => caps,
+    );
+  }
+
+  /// Locally flips [UserCapabilities.safetyReminderSeen] to `true` in the
+  /// cached state without triggering a network re-fetch (TRI-34 Brief G).
+  ///
+  /// No-op when the current state is not [AsyncData] (e.g. still loading
+  /// or in error — the reminder will re-appear, which is the safe default).
+  void markSafetyReminderSeen() {
+    final current = state;
+    if (current is AsyncData<UserCapabilities>) {
+      final caps = current.value;
+      if (caps.safetyReminderSeen) return; // already true — skip no-op write
+      state = AsyncData(caps.copyWith(safetyReminderSeen: true));
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Selfie gating state provider

@@ -25,6 +25,7 @@ const BASE_ROW: UserRow = {
   selfieAppealLockedAt: null,
   deletedAt: null,
   isAdmin: false,
+  safetyReminderSeenAt: null,
 };
 
 describe('user mapper', () => {

@@ -6,8 +6,13 @@
  *
  * canPerformVerifiedAction (TRI-70): real-time gate — true only when
  * selfieStatus === 'approved' AND selfieAppealLockedAt === null.
+ *
+ * safetyReminderSeen (TRI-34): true iff users.safety_reminder_seen_at IS NOT
+ * NULL — raw stored state, not a projection. Mobile reads this once per session
+ * to decide whether to suppress the pre-event safety sheet.
  */
 export interface UserCapabilitiesResult {
   canPostPrivateVenue: boolean;
   canPerformVerifiedAction: boolean;
+  safetyReminderSeen: boolean;
 }

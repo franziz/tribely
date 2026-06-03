@@ -10,6 +10,7 @@ import { userPhoneVerified } from '../events/user-phone-verified.event.js';
 import { userEmailVerified } from '../events/user-email-verified.event.js';
 import { userUpdated } from '../events/user-updated.event.js';
 import { userRegistered } from '../events/user-registered.event.js';
+import { safetyReminderShown } from '../events/safety-reminder-shown.event.js';
 import { AvatarUrl } from '../value-objects/avatar-url.js';
 import { Bio } from '../value-objects/bio.js';
 import { CurrentCity } from '../value-objects/current-city.js';
@@ -83,6 +84,8 @@ export class User extends AggregateRoot {
     private _deletedAt: Date | null,
     // TRI-132 admin role: set via User.promote() for env-bootstrap promotion (TRI-156).
     private _isAdmin: boolean,
+    // TRI-34 pre-event safety reminder: null until first reminder is acknowledged.
+    private _safetyReminderSeenAt: Date | null,
   ) {
     super();
   }
@@ -109,6 +112,7 @@ export class User extends AggregateRoot {
       null,
       null, // deletedAt
       false, // isAdmin — new registrations are never admins
+      null, // safetyReminderSeenAt — unset until first safety reminder is acknowledged
     );
     user.record(
       userRegistered({
@@ -142,6 +146,7 @@ export class User extends AggregateRoot {
     selfieAppealLockedAt: Date | null;
     deletedAt: Date | null;
     isAdmin: boolean;
+    safetyReminderSeenAt: Date | null;
   }): User {
     return new User(
       state.id,
@@ -164,6 +169,7 @@ export class User extends AggregateRoot {
       state.selfieAppealLockedAt,
       state.deletedAt,
       state.isAdmin,
+      state.safetyReminderSeenAt,
     );
   }
 
@@ -237,6 +243,10 @@ export class User extends AggregateRoot {
 
   get isAdmin(): boolean {
     return this._isAdmin;
+  }
+
+  get safetyReminderSeenAt(): Date | null {
+    return this._safetyReminderSeenAt;
   }
 
   /**
@@ -337,6 +347,36 @@ export class User extends AggregateRoot {
         userId: this.id,
         email: this._email.value,
         verifiedAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Records that the pre-event safety reminder has been shown to the user for
+   * a given event. Idempotent — if `_safetyReminderSeenAt` is already set,
+   * returns immediately with no state change and no event, mirroring the
+   * `verifyEmail` idempotency guard exactly.
+   *
+   * On first call: sets `_safetyReminderSeenAt = now`, bumps `_updatedAt`, and
+   * records `users.safetyReminderShown` with the triggering event ID for
+   * metric attribution.
+   *
+   * The `eventId` is injected by the caller (the aggregate does not know which
+   * event triggered the reminder) and is carried in the event payload for
+   * downstream metric use only.
+   *
+   * @param eventId  The id of the event that caused the reminder to be shown.
+   * @param now      Wall-clock time of the acknowledgement.
+   */
+  markSafetyReminderSeen(eventId: string, now: Date): void {
+    if (this._safetyReminderSeenAt !== null) return;
+    this._safetyReminderSeenAt = now;
+    this._updatedAt = now;
+    this.record(
+      safetyReminderShown({
+        userId: this.id,
+        eventId,
+        shownAt: now.toISOString(),
       }),
     );
   }
