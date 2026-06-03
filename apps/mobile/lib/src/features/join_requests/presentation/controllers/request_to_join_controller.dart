@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../users/presentation/providers/capability_providers.dart';
 import '../../domain/entities/join_request.dart';
 import '../../domain/usecases/list_my_join_requests_usecase.dart';
 import '../../domain/usecases/request_to_join_event_usecase.dart';
@@ -62,19 +63,47 @@ class RequestToJoinController extends Notifier<RequestToJoinState> {
   }
 
   /// Submits a join request for [eventId].
-  Future<void> submit() async {
+  ///
+  /// [acknowledgedSafetyReminder] — pass `true` when the user has tapped
+  /// through the safety reminder sheet (TRI-34 Brief G). The flag is forwarded
+  /// to the POST body as `acknowledgedSafetyReminder`.
+  ///
+  /// On success with [acknowledgedSafetyReminder] == true, locally flips the
+  /// [myCapabilitiesProvider] cache so [safetyReminderSeen] becomes `true`
+  /// without a network re-fetch.
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {
     if (state is RequestToJoinSubmitting) return;
     state = const RequestToJoinSubmitting();
 
     final useCase = ref.read(requestToJoinEventUseCaseProvider);
-    final params = RequestToJoinEventParams(eventId: eventId);
+    final params = RequestToJoinEventParams(
+      eventId: eventId,
+      acknowledgedSafetyReminder: acknowledgedSafetyReminder,
+    );
     final result = await useCase(params);
 
     if (!ref.mounted) return;
-    state = result.fold(
-      (failure) => RequestToJoinFailed(failure: failure),
-      (joinRequest) => RequestToJoinSubmitted(joinRequest: joinRequest),
-    );
+    state = result.fold((failure) => RequestToJoinFailed(failure: failure), (
+      joinRequest,
+    ) {
+      // Local cache flip: when the safety reminder was acknowledged, update
+      // the cached capabilities so subsequent joins go straight to
+      // ConfirmJoinSheet without a network round-trip. No ref.invalidate —
+      // that would trigger a redundant fetch on the hot path.
+      if (acknowledgedSafetyReminder) {
+        _flipSafetyReminderSeen();
+      }
+      return RequestToJoinSubmitted(joinRequest: joinRequest);
+    });
+  }
+
+  /// Locally flips the [myCapabilitiesProvider] cache so `safetyReminderSeen`
+  /// becomes `true` without a network re-fetch.
+  ///
+  /// Delegates to [MyCapabilitiesNotifier.markSafetyReminderSeen] which does a
+  /// no-op when the value is already true or the provider is not yet loaded.
+  void _flipSafetyReminderSeen() {
+    ref.read(myCapabilitiesProvider.notifier).markSafetyReminderSeen();
   }
 
   /// Withdraws the pending join request identified by [joinRequestId].

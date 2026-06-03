@@ -58,6 +58,16 @@ class _MockClearEventDraftUseCase extends Mock
 // minimal stub so the venue-picker widget tree initialises without GetIt.
 class _MockPlaceSearchPort extends Mock implements PlaceSearchPort {}
 
+/// Synchronously resolves to the given [UserCapabilities] so overrides work
+/// with the [AsyncNotifierProvider]-based [myCapabilitiesProvider].
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
+
 // Mocktail fallback values
 class _FakeCreateEventParams extends Fake implements CreateEventParams {}
 
@@ -256,9 +266,11 @@ Future<void> _pumpPage(
         // myCapabilitiesProvider is read by _computeWarning in the controller.
         // Override to avoid sl<UserCapabilitiesRepository>() in tests.
         myCapabilitiesProvider.overrideWith(
-          (_) async => const UserCapabilities(
-            canPostPrivateVenue: false,
-            safetyReminderSeen: false,
+          () => _FakeMyCapabilitiesNotifier(
+            const UserCapabilities(
+              canPostPrivateVenue: false,
+              safetyReminderSeen: false,
+            ),
           ),
         ),
       ],

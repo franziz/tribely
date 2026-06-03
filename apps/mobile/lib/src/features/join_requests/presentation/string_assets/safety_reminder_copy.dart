@@ -19,7 +19,8 @@ abstract final class SafetyReminderCopy {
   /// Row 1 — public meeting spot.
   static const String row1Emoji = '📍';
   static const String row1Copy = 'Meet in a public spot';
-  static const String row1SemanticsLabel = 'Location pin. Meet in a public spot';
+  static const String row1SemanticsLabel =
+      'Location pin. Meet in a public spot';
 
   /// Row 2 — tell a friend.
   static const String row2Emoji = '👥';

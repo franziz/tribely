@@ -59,6 +59,22 @@ import 'package:tribely/src/features/join_requests/presentation/providers/join_r
 import 'package:tribely/src/features/join_requests/presentation/state/host_attending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/host_pending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+
+// ---------------------------------------------------------------------------
+// Fake capabilities notifier
+// ---------------------------------------------------------------------------
+
+/// Synchronously resolves to the given [UserCapabilities].
+/// Needed because [_StickyJoinBar] watches [myCapabilitiesProvider] (Brief G).
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -155,7 +171,7 @@ class _FixedRequestToJoinController extends RequestToJoinController {
   Future<void> loadExisting() async {}
 
   @override
-  Future<void> submit() async {}
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {}
 
   @override
   Future<void> withdraw(String joinRequestId) async {}
@@ -212,11 +228,16 @@ class _FixedHostPendingListController extends HostPendingListController {
 ///
 /// [sessionState] defaults to [SessionUnauthenticated] — pass an
 /// [SessionAuthenticated] instance to test the host-viewer CTA gating.
+///
+/// [safetyReminderSeen] defaults to true so pre-Brief-G tests that expect
+/// ConfirmJoinSheet remain valid. Set to false to test the SafetyReminderSheet
+/// path (Brief G).
 Future<void> _pumpPage(
   WidgetTester tester, {
   required String eventId,
   required EventDetailState initialState,
   SessionState sessionState = const SessionUnauthenticated(),
+  bool safetyReminderSeen = true,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -241,6 +262,16 @@ Future<void> _pumpPage(
         hostAttendingListControllerProvider(
           eventId,
         ).overrideWith(() => _FixedHostAttendingListController(eventId)),
+        // myCapabilitiesProvider: default safetyReminderSeen=true so existing
+        // tests that expect ConfirmJoinSheet are unaffected (Brief G).
+        myCapabilitiesProvider.overrideWith(
+          () => _FakeMyCapabilitiesNotifier(
+            UserCapabilities(
+              canPostPrivateVenue: false,
+              safetyReminderSeen: safetyReminderSeen,
+            ),
+          ),
+        ),
       ],
       child: MaterialApp(home: EventDetailPage(eventId: eventId)),
     ),

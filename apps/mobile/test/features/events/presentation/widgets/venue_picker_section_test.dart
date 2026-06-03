@@ -134,6 +134,16 @@ class _FixedNoCoordsController extends VenuePickerController {
   VenuePickerState build() => const VenuePickerNoCoords('Mapbox');
 }
 
+/// Synchronously resolves to the given [UserCapabilities] so overrides work
+/// with the [AsyncNotifierProvider]-based [myCapabilitiesProvider].
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
+
 // ---------------------------------------------------------------------------
 // Fixed create-event controller stub
 //
@@ -249,9 +259,11 @@ Future<void> _pump(
           createFactory ?? _FixedCreateController.new,
         ),
         myCapabilitiesProvider.overrideWith(
-          (_) async => const UserCapabilities(
-            canPostPrivateVenue: false,
-            safetyReminderSeen: false,
+          () => _FakeMyCapabilitiesNotifier(
+            const UserCapabilities(
+              canPostPrivateVenue: false,
+              safetyReminderSeen: false,
+            ),
           ),
         ),
       ],

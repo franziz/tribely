@@ -6,7 +6,7 @@ import '../../../../core/design/typography.dart';
 /// A single safety-reminder row: an emoji glyph + body copy.
 ///
 /// The entire row is wrapped in a [Semantics] node with
-/// [Semantics.mergeDescendants] set to true so VoiceOver and TalkBack read
+/// [Semantics.excludeSemantics] set to true so VoiceOver and TalkBack read
 /// the [semanticsLabel] as one unit ("Location pin. Meet in a public spot")
 /// rather than announcing the emoji and text separately.
 ///
@@ -41,31 +41,22 @@ class SafetyReminderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      // Merge so the emoji + text text read as one announcement.
-      mergeDescendants: true,
+      // Provide a single merged label for VoiceOver/TalkBack so the emoji
+      // and text are announced as one unit (matches `status_pill.dart` pattern).
       label: semanticsLabel,
-      child: ExcludeSemantics(
-        // Exclude the children's individual semantics — the parent label covers
-        // the entire row.
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              emoji,
-              style: const TextStyle(
-                fontSize: 22,
-                height: 1.2,
-              ),
+      excludeSemantics: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 22, height: 1.2)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              copy,
+              style: TribelyType.bodyM(TribelyColors.paperInkSecondary),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                copy,
-                style: TribelyType.bodyM(TribelyColors.paperInkSecondary),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

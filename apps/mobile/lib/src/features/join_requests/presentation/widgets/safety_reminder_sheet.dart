@@ -5,7 +5,10 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../providers/join_requests_providers.dart';
+import '../state/request_to_join_state.dart';
 import '../string_assets/safety_reminder_copy.dart';
+import 'join_request_failure_copy.dart';
 import 'safety_reminder_row.dart';
 
 /// Modal bottom sheet shown once before the user's first-ever join request.
@@ -22,9 +25,9 @@ import 'safety_reminder_row.dart';
 ///   - On failure: inline [BannerMessage] above CTA; sheet stays open.
 ///   - No amber/red; no forced-delay timer.
 ///
-/// **Brief G seam:** The CTA's submit wiring is intentionally left as an
-/// [onAcknowledge] callback parameter. Brief G will replace the stub callback
-/// with controller wiring without restructuring this widget.
+/// The CTA calls `requestToJoinControllerProvider(eventId).notifier
+///   .submit(acknowledgedSafetyReminder: true)` and listens for
+/// [RequestToJoinSubmitted] to auto-dismiss (mirrors [ConfirmJoinSheet]).
 ///
 /// Usage:
 /// ```dart
@@ -33,58 +36,34 @@ import 'safety_reminder_row.dart';
 ///   eventId: event.id,
 /// );
 /// ```
-class SafetyReminderSheet extends ConsumerStatefulWidget {
-  const SafetyReminderSheet({
-    required this.eventId,
-    required this.onAcknowledge,
-    super.key,
-  });
+class SafetyReminderSheet extends ConsumerWidget {
+  const SafetyReminderSheet({required this.eventId, super.key});
 
   /// The event the user is about to request to join.
   final String eventId;
 
-  /// Called when the user taps the CTA.
-  ///
-  /// Returns null on success; returns a non-null error message on failure.
-  ///
-  /// TODO(Brief G): replace with controller wiring from
-  ///   `requestToJoinControllerProvider(eventId)`.
-  final Future<String?> Function() onAcknowledge;
-
   @override
-  ConsumerState<SafetyReminderSheet> createState() =>
-      _SafetyReminderSheetState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(requestToJoinControllerProvider(eventId));
+    final controller = ref.read(
+      requestToJoinControllerProvider(eventId).notifier,
+    );
 
-class _SafetyReminderSheetState extends ConsumerState<SafetyReminderSheet> {
-  bool _isSubmitting = false;
-  String? _errorMessage;
-
-  Future<void> _handleAcknowledge() async {
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
+    // Auto-dismiss 150ms after a successful submission (mirrors ConfirmJoinSheet).
+    ref.listen<RequestToJoinState>(requestToJoinControllerProvider(eventId), (
+      previous,
+      next,
+    ) {
+      if (next is RequestToJoinSubmitted) {
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (context.mounted) Navigator.of(context).maybePop();
+        });
+      }
     });
 
-    final error = await widget.onAcknowledge();
+    final isSubmitting = state is RequestToJoinSubmitting;
+    final failure = state is RequestToJoinFailed ? state.failure : null;
 
-    if (!mounted) return;
-
-    if (error != null) {
-      setState(() {
-        _isSubmitting = false;
-        _errorMessage = error;
-      });
-    } else {
-      // Success — auto-dismiss after 150ms (mirrors ConfirmJoinSheet).
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted) Navigator.of(context).maybePop();
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: TribelyColors.paperSurfaceHigh,
@@ -121,36 +100,39 @@ class _SafetyReminderSheetState extends ConsumerState<SafetyReminderSheet> {
                 ),
                 const SizedBox(height: 20),
                 // Reminder rows.
-                SafetyReminderRow(
+                const SafetyReminderRow(
                   emoji: SafetyReminderCopy.row1Emoji,
                   copy: SafetyReminderCopy.row1Copy,
                   semanticsLabel: SafetyReminderCopy.row1SemanticsLabel,
                 ),
                 const SizedBox(height: 14),
-                SafetyReminderRow(
+                const SafetyReminderRow(
                   emoji: SafetyReminderCopy.row2Emoji,
                   copy: SafetyReminderCopy.row2Copy,
                   semanticsLabel: SafetyReminderCopy.row2SemanticsLabel,
                 ),
                 const SizedBox(height: 14),
-                SafetyReminderRow(
+                const SafetyReminderRow(
                   emoji: SafetyReminderCopy.row3Emoji,
                   copy: SafetyReminderCopy.row3Copy,
                   semanticsLabel: SafetyReminderCopy.row3SemanticsLabel,
                 ),
                 const SizedBox(height: 24),
                 // Error banner (shown only on failure).
-                if (_errorMessage != null) ...[
-                  BannerMessage(message: _errorMessage!),
+                if (failure != null) ...[
+                  BannerMessage(message: joinRequestFailureMessage(failure)),
                   const SizedBox(height: 16),
                 ],
                 // Primary CTA — no "Cancel" link per design spec.
                 PrimaryButton(
                   label: SafetyReminderCopy.ctaLabel,
-                  state: _isSubmitting
+                  state: isSubmitting
                       ? PrimaryButtonState.loading
                       : PrimaryButtonState.idle,
-                  onPressed: _isSubmitting ? null : _handleAcknowledge,
+                  onPressed: isSubmitting
+                      ? null
+                      : () =>
+                            controller.submit(acknowledgedSafetyReminder: true),
                 ),
                 SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
               ],
@@ -166,13 +148,9 @@ class _SafetyReminderSheetState extends ConsumerState<SafetyReminderSheet> {
 ///
 /// Mirrors [showConfirmJoinSheet]'s [showModalBottomSheet] configuration:
 /// `isScrollControlled: true`, transparent background, drag + dismiss enabled.
-///
-/// [onAcknowledge] is the CTA callback — Brief G will wire this to the
-/// `requestToJoinControllerProvider(eventId)`.
 Future<void> showSafetyReminderSheet(
   BuildContext context, {
   required String eventId,
-  required Future<String?> Function() onAcknowledge,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -180,9 +158,6 @@ Future<void> showSafetyReminderSheet(
     backgroundColor: Colors.transparent,
     isDismissible: true,
     enableDrag: true,
-    builder: (_) => SafetyReminderSheet(
-      eventId: eventId,
-      onAcknowledge: onAcknowledge,
-    ),
+    builder: (_) => SafetyReminderSheet(eventId: eventId),
   );
 }

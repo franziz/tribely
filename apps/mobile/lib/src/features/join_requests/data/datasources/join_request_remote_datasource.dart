@@ -11,7 +11,10 @@ import '../models/join_request_with_requester_model.dart';
 /// [Failure] types, following the established pattern in auth_remote_datasource.dart.
 abstract class JoinRequestRemoteDatasource {
   /// POST /events/:eventId/join-requests
-  Future<JoinRequestModel> requestToJoin({required String eventId});
+  Future<JoinRequestModel> requestToJoin({
+    required String eventId,
+    bool acknowledgedSafetyReminder = false,
+  });
 
   /// POST /join-requests/:id/approve
   Future<JoinRequestModel> approve({required String joinRequestId});
@@ -54,9 +57,15 @@ class JoinRequestRemoteDatasourceImpl implements JoinRequestRemoteDatasource {
   final Dio _dio;
 
   @override
-  Future<JoinRequestModel> requestToJoin({required String eventId}) async {
+  Future<JoinRequestModel> requestToJoin({
+    required String eventId,
+    bool acknowledgedSafetyReminder = false,
+  }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/events/$eventId/join-requests',
+      data: acknowledgedSafetyReminder
+          ? {'acknowledgedSafetyReminder': true}
+          : null,
     );
     return JoinRequestModel.fromJson(response.data!);
   }
