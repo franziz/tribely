@@ -125,7 +125,7 @@ class EventDetailPage extends ConsumerWidget {
         // Host kebab — shown only when the viewer is the host AND the event
         // is not yet cancelled (already-cancelled events have no cancel action).
         actions: showHostKebab
-            ? [_HostKebabButton(eventId: eventId, ref: ref)]
+            ? [_HostKebabButton(eventId: eventId)]
             : null,
         // Share action deferred per §E technical non-goals.
       ),
@@ -1330,14 +1330,13 @@ class _CancelledEventContent extends StatelessWidget {
 /// Tapping opens a [showModalBottomSheet] action sheet with "Cancel event"
 /// as the only item. Selecting it opens [CancelEventSheet]; on success the
 /// event-detail and hosting-tab providers are invalidated so the page refreshes.
-class _HostKebabButton extends StatelessWidget {
-  const _HostKebabButton({required this.eventId, required this.ref});
+class _HostKebabButton extends ConsumerWidget {
+  const _HostKebabButton({required this.eventId});
 
   final String eventId;
-  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return IconButton(
       icon: Container(
         padding: const EdgeInsets.all(6),
@@ -1348,11 +1347,11 @@ class _HostKebabButton extends StatelessWidget {
         child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
       ),
       tooltip: 'More options',
-      onPressed: () => _showActionSheet(context),
+      onPressed: () => _showActionSheet(context, ref),
     );
   }
 
-  Future<void> _showActionSheet(BuildContext context) async {
+  Future<void> _showActionSheet(BuildContext context, WidgetRef ref) async {
     final selected = await showModalBottomSheet<_HostAction>(
       context: context,
       backgroundColor: TribelyColors.paperSurfaceHigh,
