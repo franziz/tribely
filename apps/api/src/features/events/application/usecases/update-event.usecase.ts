@@ -4,7 +4,7 @@ import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { UserCapabilitiesPort } from '@/features/users/application/ports/user-capabilities.port.js';
-import type { Event, ApprovalMode, CostSplit } from '../../domain/entities/event.js';
+import type { Event, ApprovalMode } from '../../domain/entities/event.js';
 import { privateVenueAttempted } from '../../domain/events/private-venue-attempted.event.js';
 import type { EventRepository } from '../../domain/repositories/event.repository.js';
 import { detectPrivateVenue } from '../../domain/services/private-venue-policy.js';
@@ -25,7 +25,7 @@ export interface UpdateEventInput {
     capacity?: number;
     category?: string;
     venueCategory?: string;
-    costSplit?: CostSplit;
+    costNotes?: string | null;
     approvalMode?: ApprovalMode;
   };
 }
@@ -120,7 +120,7 @@ export class UpdateEventUseCase {
     if (input.patch.venueCategory !== undefined) {
       patch.venueCategory = VenueCategory.create(input.patch.venueCategory);
     }
-    if (input.patch.costSplit !== undefined) patch.costSplit = input.patch.costSplit;
+    if (input.patch.costNotes !== undefined) patch.costNotes = input.patch.costNotes;
     if (input.patch.approvalMode !== undefined) patch.approvalMode = input.patch.approvalMode;
 
     const now = this.clock.now();

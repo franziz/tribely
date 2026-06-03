@@ -172,11 +172,11 @@ model PasswordResetToken {
 /// `earth_distance` or app-side calculation, with a PostGIS migration in a
 /// later issue once geospatial query volume justifies it.
 ///
-/// `category` / `costSplit` / `approvalMode` / `status` are plain String
-/// columns rather than Prisma enums — matches the codebase convention
-/// (cf. `revokedReason` on RefreshToken) and avoids Prisma enum migration
-/// friction when values evolve. Type guards in the mapper narrow strings
-/// back to unions when rehydrating.
+/// `category` / `approvalMode` / `status` are plain String columns rather
+/// than Prisma enums — matches the codebase convention (cf. `revokedReason`
+/// on RefreshToken) and avoids Prisma enum migration friction when values
+/// evolve. Type guards in the mapper narrow strings back to unions when
+/// rehydrating.
 ///
 /// TRI-134 cascade tombstones the User row; `onDelete: Cascade` remains as
 /// defence-in-depth for any future hard-delete path but is NOT exercised by
@@ -195,7 +195,7 @@ model Event {
   capacity           Int
   category           String // drinks | food | hike | museum | sports | nightlife | other
   venueCategory      String @default("other") // hawker_centre | park | museum | ... | other (CHECK enforced by migration)
-  costSplit          String // own | host_paid | split
+  costNotes          String? @db.VarChar(200) // optional host-supplied free-text cost notes
   approvalMode       String // auto | manual
   status             String // draft | published | cancelled | completed
   cancellationReason String?

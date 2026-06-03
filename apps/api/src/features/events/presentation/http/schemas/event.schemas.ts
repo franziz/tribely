@@ -12,7 +12,6 @@ const venueSchema = z.object({
   category: z.enum(VenueCategory.VALUES),
 });
 
-const costSplitSchema = z.enum(['own', 'host_paid', 'split']);
 const approvalModeSchema = z.enum(['auto', 'manual']);
 const categorySchema = z.enum(EventCategory.VALUES);
 
@@ -29,7 +28,7 @@ export const createEventBodySchema = z
     endsAt: isoDatetime,
     capacity: z.number().int().min(2).max(1000),
     category: categorySchema,
-    costSplit: costSplitSchema,
+    costNotes: z.string().max(200).nullable().optional(),
     approvalMode: approvalModeSchema,
   })
   .refine((v) => new Date(v.endsAt).getTime() > new Date(v.startsAt).getTime(), {
@@ -46,7 +45,7 @@ export const updateEventBodySchema = z
     endsAt: isoDatetime.optional(),
     capacity: z.number().int().min(2).max(1000).optional(),
     category: categorySchema.optional(),
-    costSplit: costSplitSchema.optional(),
+    costNotes: z.string().max(200).nullable().optional(),
     approvalMode: approvalModeSchema.optional(),
   })
   .refine((v) => Object.values(v).some((field) => field !== undefined), {
@@ -88,7 +87,7 @@ const eventResponseSchema = z.object({
   endsAt: z.string(),
   capacity: z.number(),
   category: categorySchema,
-  costSplit: costSplitSchema,
+  costNotes: z.string().nullable(),
   approvalMode: approvalModeSchema,
   status: z.enum(['draft', 'published', 'cancelled', 'completed']),
   cancellationReason: z.string().nullable(),

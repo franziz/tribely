@@ -40,7 +40,7 @@ const seedEvent = (repo: FakeEventRepository): Event => {
     capacity: Capacity.create(6),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'manual',
     now: NOW,
   });

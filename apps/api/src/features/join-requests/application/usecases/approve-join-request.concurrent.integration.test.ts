@@ -91,7 +91,7 @@ describe.skipIf(!dbUrl)(
           endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000),
           capacity: CAPACITY,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'published',
           cancellationReason: null,

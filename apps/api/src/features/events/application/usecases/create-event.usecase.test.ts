@@ -32,7 +32,7 @@ const baseInput: CreateEventInput = {
   capacity: 6,
   category: 'food',
   venueCategory: 'cafe',
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
 };
 
