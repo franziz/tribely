@@ -1,0 +1,117 @@
+# Standalone workflow: scheduled reaper for stale ci-pr-* Neon branches (AC3).
+#
+# Purpose:
+#   Safety-net sweep that deletes any ci-pr-* Neon branches older than 24 hours.
+#   This is the backstop mechanism. The PRIMARY deletion path is neon-cleanup.yml,
+#   which deletes a branch immediately when its PR closes. This reaper exists to
+#   catch any branches that leak through — e.g. force-merges, GitHub event delivery
+#   failures, or PRs closed while NEON_API_KEY was temporarily unavailable.
+#
+# Age threshold rationale:
+#   24 hours is comfortably longer than the 10-minute migration timeout in
+#   _neon-branch.yml, so an in-flight branch from an active PR run is never reaped.
+#   Healthy branches are also deleted at PR close by neon-cleanup.yml, so any
+#   ci-pr-* branch surviving past ~24h is effectively leaked.
+#
+# Extension point (v2):
+#   If young-but-closed branches need faster reaping (e.g. ci.yml is flaky and
+#   neon-cleanup.yml misses some closes), cross-reference the GitHub API for PR
+#   state and reap branches whose PR is closed regardless of age. Not implemented
+#   in v1 — age-only is the safe, dependency-free default.
+#
+# Operator setup: NEON_API_KEY and NEON_PROJECT_ID provisioning is tracked in
+# TRI-183 (VPS-deploy follow-up). See that ticket for setup steps.
+
+name: Neon branch reaper
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # daily 03:00 UTC
+  workflow_dispatch:        # on-demand manual run
+
+# Default-deny at workflow level (repo convention).
+permissions: {}
+
+jobs:
+  reap:
+    name: Reap stale ci-pr-* branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # No GITHUB_TOKEN permissions needed — all Neon API calls authenticate via
+    # NEON_API_KEY. Explicit empty block keeps this job at the workflow-level deny.
+    permissions: {}
+
+    steps:
+      - name: Delete stale ci-pr-* branches older than 24 hours
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          echo "Fetching branch list for project ${NEON_PROJECT_ID} ..."
+
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${NEON_API_KEY}" \
+            -H "Accept: application/json" \
+            "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+
+          if [[ "$http_code" == "401" || "$http_code" == "403" ]]; then
+            echo "ERROR: Authentication failed (HTTP ${http_code}). Check NEON_API_KEY secret."
+            exit 1
+          fi
+
+          if [[ "$http_code" != "200" ]]; then
+            echo "ERROR: Unexpected HTTP ${http_code} from branch list. Response body:"
+            echo "$body"
+            exit 1
+          fi
+
+          # Compute the cutoff timestamp as epoch seconds (now minus 24 hours).
+          cutoff_epoch=$(date -u -d '-24 hours' '+%s')
+          echo "Cutoff: branches created before $(date -u -d "@${cutoff_epoch}" '+%Y-%m-%dT%H:%M:%SZ') will be reaped."
+
+          # Select ci-pr-* branches whose created_at is older than the cutoff.
+          # Output: "<name> <id>" per line.
+          stale_branches=$(echo "$body" | jq -r \
+            --argjson cutoff "$cutoff_epoch" \
+            '.branches[]
+             | select(.name | startswith("ci-pr-"))
+             | select((.created_at | fromdateiso8601) < $cutoff)
+             | "\(.name) \(.id)"')
+
+          if [[ -z "$stale_branches" ]]; then
+            echo "No stale ci-pr-* branches found. Nothing to reap."
+            exit 0
+          fi
+
+          reaped=0
+          failed=0
+
+          while IFS=' ' read -r branch_name branch_id; do
+            echo "Deleting branch '${branch_name}' (${branch_id}) ..."
+            del_code=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X DELETE \
+              -H "Authorization: Bearer ${NEON_API_KEY}" \
+              -H "Accept: application/json" \
+              "https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}/branches/${branch_id}")
+
+            if [[ "$del_code" == "200" || "$del_code" == "204" ]]; then
+              echo "  Deleted: ${branch_name} (${branch_id}) — HTTP ${del_code}"
+              reaped=$((reaped + 1))
+            else
+              # Log and continue — one bad branch must not abort the sweep.
+              echo "  WARNING: Failed to delete ${branch_name} (${branch_id}) — HTTP ${del_code}. Continuing sweep."
+              failed=$((failed + 1))
+            fi
+          done <<< "$stale_branches"
+
+          echo ""
+          echo "Reaper summary: ${reaped} branch(es) deleted, ${failed} failed."
+
+          # Non-zero failures are informational — do not fail the job.
+          # Auth errors already exited above.
+          exit 0
