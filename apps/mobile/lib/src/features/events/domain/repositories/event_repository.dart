@@ -88,4 +88,10 @@ abstract class EventRepository {
   /// Remove the locally-persisted draft. Idempotent — succeeds if no draft
   /// exists.
   Future<Either<Failure, void>> clearDraft();
+
+  /// Cancel a published event on the server.
+  ///
+  /// Only the host may cancel. The server returns 204 No Content on success.
+  /// Returns [Right(null)] on success, or a typed [Failure] on error.
+  Future<Either<Failure, void>> cancelEvent(String eventId);
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../domain/usecases/cancel_event_usecase.dart';
 import '../../domain/usecases/clear_event_draft_usecase.dart';
 import '../../domain/usecases/create_event_usecase.dart';
 import '../../domain/usecases/load_event_draft_usecase.dart';
@@ -27,6 +28,10 @@ final loadEventDraftUseCaseProvider = Provider<LoadEventDraftUseCase>(
 
 final clearEventDraftUseCaseProvider = Provider<ClearEventDraftUseCase>(
   (_) => sl<ClearEventDraftUseCase>(),
+);
+
+final cancelEventUseCaseProvider = Provider<CancelEventUseCase>(
+  (_) => sl<CancelEventUseCase>(),
 );
 
 // ---------------------------------------------------------------------------

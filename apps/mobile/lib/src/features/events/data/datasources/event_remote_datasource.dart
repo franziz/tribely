@@ -6,14 +6,15 @@ import '../models/event_model.dart';
 /// Driving-adapter interface for the events remote API.
 ///
 /// This datasource throws [DioException] on network or server errors — it does
-/// NOT return Either. The repository (Brief 4 / EventRepositoryImpl) maps
+/// NOT return Either. The repository (EventRepositoryImpl) maps
 /// DioExceptions to domain [Failure] types. This matches the established
 /// pattern in auth_remote_datasource.dart.
-///
-/// Only [createEvent] is implemented for the v1 create-event flow. Read/update/
-/// delete/list methods will be added in future tickets.
 abstract class EventRemoteDatasource {
   Future<EventModel> createEvent(CreateEventParamsModel params);
+
+  /// Cancel a published event. The server returns 204 No Content on success.
+  /// Throws [DioException] on network or server errors.
+  Future<void> cancelEvent(String eventId);
 }
 
 class EventRemoteDatasourceImpl implements EventRemoteDatasource {
@@ -28,5 +29,10 @@ class EventRemoteDatasourceImpl implements EventRemoteDatasource {
       data: params.toJson(),
     );
     return EventModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> cancelEvent(String eventId) async {
+    await _dio.delete<void>('/events/$eventId');
   }
 }
