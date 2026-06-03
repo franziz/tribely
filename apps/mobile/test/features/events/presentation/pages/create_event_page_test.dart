@@ -256,7 +256,10 @@ Future<void> _pumpPage(
         // myCapabilitiesProvider is read by _computeWarning in the controller.
         // Override to avoid sl<UserCapabilitiesRepository>() in tests.
         myCapabilitiesProvider.overrideWith(
-          (_) async => const UserCapabilities(canPostPrivateVenue: false),
+          (_) async => const UserCapabilities(
+            canPostPrivateVenue: false,
+            safetyReminderSeen: false,
+          ),
         ),
       ],
       child: MaterialApp.router(routerConfig: _buildTestRouter()),

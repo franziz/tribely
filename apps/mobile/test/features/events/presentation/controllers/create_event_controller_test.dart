@@ -918,7 +918,10 @@ void main() {
       'C: selecting a private category with canPostPrivateVenue=true → PrivateVenueWarningEstablishedHost',
       () async {
         final result = makeContainerWithCaps(
-          caps: const UserCapabilities(canPostPrivateVenue: true),
+          caps: const UserCapabilities(
+            canPostPrivateVenue: true,
+            safetyReminderSeen: false,
+          ),
         );
         final container = result.container;
         addTearDown(container.dispose);

@@ -249,7 +249,10 @@ Future<void> _pump(
           createFactory ?? _FixedCreateController.new,
         ),
         myCapabilitiesProvider.overrideWith(
-          (_) async => const UserCapabilities(canPostPrivateVenue: false),
+          (_) async => const UserCapabilities(
+            canPostPrivateVenue: false,
+            safetyReminderSeen: false,
+          ),
         ),
       ],
       child: const MaterialApp(
