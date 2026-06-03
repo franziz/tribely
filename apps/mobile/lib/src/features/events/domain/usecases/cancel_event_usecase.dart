@@ -6,9 +6,7 @@ import '../../../../core/usecase/usecase.dart';
 import '../repositories/event_repository.dart';
 
 class CancelEventParams extends Equatable {
-  const CancelEventParams({
-    required this.eventId,
-  });
+  const CancelEventParams({required this.eventId});
 
   final String eventId;
 

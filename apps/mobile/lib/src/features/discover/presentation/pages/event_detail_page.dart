@@ -124,9 +124,7 @@ class EventDetailPage extends ConsumerWidget {
         leading: _BackButton(),
         // Host kebab — shown only when the viewer is the host AND the event
         // is not yet cancelled (already-cancelled events have no cancel action).
-        actions: showHostKebab
-            ? [_HostKebabButton(eventId: eventId)]
-            : null,
+        actions: showHostKebab ? [_HostKebabButton(eventId: eventId)] : null,
         // Share action deferred per §E technical non-goals.
       ),
       // Scaffold.bottomNavigationBar auto-insets the body by the bar's exact

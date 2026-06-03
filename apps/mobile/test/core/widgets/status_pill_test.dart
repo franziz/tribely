@@ -349,25 +349,21 @@ void main() {
       },
     );
 
-    testWidgets(
-      'null semanticsPrefix falls back to "Request status" default',
-      (tester) async {
-        await tester.pumpWidget(
-          _wrap(
-            const StatusPill(
-              state: StatusPillState.approved,
-              // semanticsPrefix not set — should use the default
-            ),
+    testWidgets('null semanticsPrefix falls back to "Request status" default', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(
+          const StatusPill(
+            state: StatusPillState.approved,
+            // semanticsPrefix not set — should use the default
           ),
-        );
-        await tester.pump();
+        ),
+      );
+      await tester.pump();
 
-        expect(
-          find.bySemanticsLabel('Request status: Approved'),
-          findsOneWidget,
-        );
-      },
-    );
+      expect(find.bySemanticsLabel('Request status: Approved'), findsOneWidget);
+    });
 
     testWidgets(
       'without semanticsContext, label does NOT contain "for" suffix',

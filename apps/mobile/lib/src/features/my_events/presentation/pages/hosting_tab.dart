@@ -191,8 +191,8 @@ class _HostingEventRow extends StatelessWidget {
     final semanticsLabel = isCancelled
         ? '${event.title}, cancelled'
         : hasPending
-            ? '${event.title}, $pendingCount pending request${pendingCount == 1 ? '' : 's'}'
-            : event.title;
+        ? '${event.title}, $pendingCount pending request${pendingCount == 1 ? '' : 's'}'
+        : event.title;
 
     return Semantics(
       button: true,

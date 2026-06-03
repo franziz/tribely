@@ -332,9 +332,7 @@ void main() {
                 () => _FixedPendingCountController(key, pendingState),
               ),
             ],
-            child: const MaterialApp(
-              home: Scaffold(body: HostingTab()),
-            ),
+            child: const MaterialApp(home: Scaffold(body: HostingTab())),
           ),
         );
         // Pump to let the zero-delay Future(() => load()) fire, then settle.
