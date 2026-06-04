@@ -356,7 +356,7 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('cancelled event → disabled button with "Event has ended"', (
+    testWidgets('cancelled event → read-only Cancelled badge + caption, no CTA', (
       tester,
     ) async {
       await _pumpPage(
@@ -365,10 +365,23 @@ void main() {
         ctaState: const RequestToJoinIdle(),
       );
 
-      final button = tester.widget<PrimaryButton>(
-        find.widgetWithText(PrimaryButton, 'Event has ended'),
+      // At least one cancelled StatusPill is present (the sticky bar renders
+      // one; the event-body header also renders one when status == cancelled).
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is StatusPill && w.state == StatusPillState.cancelled,
+        ),
+        findsAtLeastNWidgets(1),
       );
-      expect(button.onPressed, isNull);
+
+      // Caption is present.
+      expect(find.text('This event has been cancelled.'), findsOneWidget);
+
+      // The old disabled "Event has ended" CTA is absent for cancelled events.
+      expect(
+        find.widgetWithText(PrimaryButton, 'Event has ended'),
+        findsNothing,
+      );
     });
 
     // -----------------------------------------------------------------------

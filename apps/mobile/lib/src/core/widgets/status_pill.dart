@@ -7,7 +7,14 @@ import '../design/typography.dart';
 ///
 /// Intentionally feature-agnostic — no dependency on any join-request domain
 /// type. Call-sites map their own enums to [StatusPillState].
-enum StatusPillState { pending, approved, declined, withdrawn, removedByHost }
+enum StatusPillState {
+  pending,
+  approved,
+  declined,
+  withdrawn,
+  removedByHost,
+  cancelled,
+}
 
 /// A read-only pill badge that communicates request status via colour and text.
 ///
@@ -15,17 +22,28 @@ enum StatusPillState { pending, approved, declined, withdrawn, removedByHost }
 /// 12dp horizontal padding, 6dp leading dot, caption/13 medium weight text.
 ///
 /// Accessibility: the widget exposes a Semantics label of the form
-/// "Request status: [State]". When [semanticsContext] is supplied the label
-/// becomes "Request status: [State], for [semanticsContext]", allowing
-/// call-sites to add event-name context without baking it into the widget.
+/// "[semanticsPrefix]: [State]". The prefix defaults to `'Request status'`.
+/// When [semanticsContext] is supplied the label becomes
+/// "[semanticsPrefix]: [State], for [semanticsContext]", allowing call-sites to
+/// add event-name context without baking it into the widget.
 class StatusPill extends StatelessWidget {
-  const StatusPill({required this.state, this.semanticsContext, super.key});
+  const StatusPill({
+    required this.state,
+    this.semanticsContext,
+    this.semanticsPrefix,
+    super.key,
+  });
 
   final StatusPillState state;
 
   /// Optional context appended to the semantics label.
-  /// When non-null, label = "Request status: [State], for [semanticsContext]".
+  /// When non-null, label = "[semanticsPrefix]: [State], for [semanticsContext]".
   final String? semanticsContext;
+
+  /// Overrides the leading portion of the semantics label.
+  /// Defaults to `'Request status'`. Pass `'Event status'` for event-level
+  /// call-sites.
+  final String? semanticsPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +51,10 @@ class StatusPill extends StatelessWidget {
     final bg = _background(dark);
     final fg = _foreground(dark);
     final label = _label();
+    final prefix = semanticsPrefix ?? 'Request status';
     final semanticsLabel = semanticsContext != null
-        ? 'Request status: $label, for $semanticsContext'
-        : 'Request status: $label';
+        ? '$prefix: $label, for $semanticsContext'
+        : '$prefix: $label';
 
     return Semantics(
       label: semanticsLabel,
@@ -89,6 +108,7 @@ class StatusPill extends StatelessWidget {
             : TribelyColors.paperSuccessSoft;
       case StatusPillState.declined:
       case StatusPillState.withdrawn:
+      case StatusPillState.cancelled:
         return dark
             ? TribelyColors.nightBorderSubtle
             : TribelyColors.paperBorderSubtle;
@@ -107,6 +127,7 @@ class StatusPill extends StatelessWidget {
         return dark ? TribelyColors.nightSuccess : TribelyColors.paperSuccess;
       case StatusPillState.declined:
       case StatusPillState.withdrawn:
+      case StatusPillState.cancelled:
         return dark
             ? TribelyColors.nightInkSecondary
             : TribelyColors.paperInkSecondary;
@@ -127,6 +148,8 @@ class StatusPill extends StatelessWidget {
         return 'Withdrawn';
       case StatusPillState.removedByHost:
         return 'Removed';
+      case StatusPillState.cancelled:
+        return 'Cancelled';
     }
   }
 }

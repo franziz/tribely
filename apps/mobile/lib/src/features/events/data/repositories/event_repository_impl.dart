@@ -19,6 +19,10 @@ import '../models/event_draft_model.dart';
 /// 422 UNPROCESSABLE error is due to the first-event-must-be-public policy.
 const _kFirstEventMustBePublic = 'FIRST_EVENT_MUST_BE_PUBLIC';
 
+/// Value of `error.code` returned by the server when an attempt is made to
+/// cancel an event that is already cancelled.
+const _kEventCancelled = 'EVENT_CANCELLED';
+
 class EventRepositoryImpl implements EventRepository {
   const EventRepositoryImpl({
     required EventRemoteDatasource remote,
@@ -40,6 +44,18 @@ class EventRepositoryImpl implements EventRepository {
         CreateEventParamsModel.fromDomain(params),
       );
       return Right(model.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> cancelEvent(String eventId) async {
+    try {
+      await _remote.cancelEvent(eventId);
+      return const Right(null);
     } on DioException catch (e) {
       return Left(_mapDioError(e));
     } catch (e) {
@@ -124,6 +140,21 @@ class EventRepositoryImpl implements EventRepository {
           return ServerFailure(
             inner.message,
             statusCode: 422,
+            code: inner.code,
+          );
+        case 409:
+          // EVENT_CANCELLED: the event is already cancelled. Map to
+          // ConflictFailure with the subcode so the UI can show specific copy.
+          if (inner.code == _kEventCancelled) {
+            return ConflictFailure(
+              inner.message,
+              subcode: _kEventCancelled,
+              code: inner.code,
+            );
+          }
+          return ConflictFailure(
+            inner.message,
+            subcode: inner.code ?? 'CONFLICT',
             code: inner.code,
           );
         case 429:
