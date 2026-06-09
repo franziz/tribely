@@ -107,4 +107,31 @@ export default tseslint.config(
       ],
     },
   },
+  // Enforce the Sentry SDK import boundary. `@sentry/node` must only be
+  // imported from the Sentry observability module and its unit test.
+  // All other files must consume the helpers (initSentry, captureAppError,
+  // captureUnhandled) from core/observability/sentry.ts instead.
+  // Any violation is caught at lint time, before CI tests run.
+  {
+    files: ['src/**/*.ts'],
+    ignores: [
+      'src/core/observability/sentry.ts',
+      'src/core/observability/sentry.test.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@sentry/node',
+              message:
+                "Import '@sentry/node' only from core/observability/sentry.ts. " +
+                'Consume the helpers (initSentry, captureAppError, captureUnhandled) elsewhere.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
