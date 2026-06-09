@@ -271,9 +271,9 @@ This env var is documented in `apps/api/.env.example`. It is blank-allowed (abse
 
 ### 9.3 Mobile path — dSYM / obfuscation maps via `sentry_dart_plugin`
 
-The plugin is declared in `apps/mobile/pubspec.yaml` under `dev_dependencies` (`sentry_dart_plugin: ^3.4.0`) and configured in the top-level `sentry:` block of the same file. It reads `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` from the environment.
+The plugin is declared in `apps/mobile/pubspec.yaml` under `dev_dependencies` (`sentry_dart_plugin: ^3.4.0`). It reads `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` exclusively from the environment — `SENTRY_ORG` and `SENTRY_PROJECT` are **required**; the plugin will fail loudly if either is absent. The `sentry:` block in `pubspec.yaml` carries only upload paths and plugin flags, not the org/project identity.
 
-**Before building:** ensure the same three env vars are set (same token and org/project slugs as §9.2).
+**Before building:** ensure all three env vars are set (same token and org/project slugs as §9.2). `SENTRY_ORG` and `SENTRY_PROJECT` must be present in the environment before running `mobile:upload-symbols` — the upload will error if they are missing.
 
 **Build for release (Android):**
 
@@ -300,7 +300,7 @@ This runs `flutter build ios --release` with the same `--obfuscate --split-debug
 npm run mobile:upload-symbols
 ```
 
-This invokes `dart run sentry_dart_plugin` from inside `apps/mobile/`. The plugin reads the `sentry:` block in `pubspec.yaml` and uploads the contents of `build/symbols/` (native debug symbols) and `build/app/obfuscation.map.json` (Dart obfuscation map) to the Sentry project.
+This invokes `dart run sentry_dart_plugin` from inside `apps/mobile/`. The plugin reads upload paths from the `sentry:` block in `pubspec.yaml` and resolves the org/project from `SENTRY_ORG`/`SENTRY_PROJECT` in the environment. It uploads the contents of `build/symbols/` (native debug symbols) and `build/app/obfuscation.map.json` (Dart obfuscation map) to the Sentry project.
 
 **Release naming:** The plugin derives the release identifier from the pubspec `version` field. With `version: 0.0.1+1` the release string is `tribely@0.0.1+1`. The runtime SDK composes the same string via `buildSentryRelease()` in `apps/mobile/lib/src/core/observability/sentry_bootstrap.dart` using `PackageInfo.fromPlatform()` — so the uploaded symbols and live events share the same release tag automatically.
 
