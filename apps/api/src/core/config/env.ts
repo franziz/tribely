@@ -131,6 +131,12 @@ export const envSchema = z
     // transmission of error payloads.
     SENTRY_DSN: optionalString(),
 
+    // TRI-278 — Sentry release identifier. When set, every API event in Sentry
+    // is tagged with this release string, enabling source-map resolution.
+    // Absent = no release tag (degraded stack-trace readability, not a boot
+    // failure). Typically set to the Docker image tag, e.g. tribely-api@prd.42.
+    SENTRY_RELEASE: optionalString(),
+
     // How often the selfie-deletion audit table is swept for rows older than
     // the 24-month PDPA retention window (PDPA s25). Default 86400000 ms = 24h.
     // Reject anything below 60000 ms (1 min) to prevent Postgres churn.
