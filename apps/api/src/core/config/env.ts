@@ -124,6 +124,13 @@ export const envSchema = z
     // so dev "just works" without an env override.
     SAFETY_REPORT_EMAIL: z.string().email().default('safety@gotribely.com'),
 
+    // TRI-12 — Sentry error tracking DSN. Leave blank (or absent) in dev/test;
+    // set to a real project DSN in production. When blank, Sentry is not
+    // initialised and no events are sent. When set, the boot-guard below
+    // rejects any non-https DSN value to prevent accidental plaintext
+    // transmission of error payloads.
+    SENTRY_DSN: optionalString(),
+
     // How often the selfie-deletion audit table is swept for rows older than
     // the 24-month PDPA retention window (PDPA s25). Default 86400000 ms = 24h.
     // Reject anything below 60000 ms (1 min) to prevent Postgres churn.
@@ -289,6 +296,25 @@ export const envSchema = z
           'PHONE_HASH_SALT is required when NODE_ENV=production — ' +
           'set it to a random string of at least 32 characters. ' +
           'Generate with: openssl rand -hex 32',
+      });
+    }
+
+    // TRI-12 — Production Sentry DSN guard. In production, SENTRY_DSN must
+    // be a valid https:// URL (Sentry's ingest endpoint). An http:// DSN
+    // would transmit error payloads — potentially containing PII — over
+    // plaintext, violating PDPA obligations. Leave SENTRY_DSN unset in
+    // development/test to skip Sentry initialisation entirely.
+    if (
+      data.NODE_ENV === 'production' &&
+      data.SENTRY_DSN &&
+      !data.SENTRY_DSN.startsWith('https://')
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SENTRY_DSN'],
+        message:
+          'SENTRY_DSN must be an https:// URL when NODE_ENV=production — ' +
+          'an http:// DSN would transmit error payloads over plaintext.',
       });
     }
 
