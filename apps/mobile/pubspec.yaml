@@ -28,6 +28,7 @@ dependencies:
   package_info_plus: ^9.0.1
   pretty_dio_logger: ^1.4.0
   riverpod_annotation: ^4.0.2
+  sentry_flutter: ^9.21.0
   shared_preferences: ^2.5.3
   shimmer: ^3.0.0
   url_launcher: ^6.3.1
