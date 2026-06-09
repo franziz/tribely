@@ -4,8 +4,14 @@ import { env } from './core/config/env.js';
 import { logger } from './core/middleware/logger.js';
 import { S3FileStorageAdapter } from './core/storage/s3-file-storage.js';
 import { runAsSystem } from './core/context/system-context.js';
+import { initSentry } from './core/observability/sentry.js';
 
 async function main(): Promise<void> {
+  // Sentry must be initialised before any other module that might throw, so
+  // that all subsequent errors — including errors inside buildApp() — are
+  // captured. No-ops when SENTRY_DSN is absent.
+  initSentry();
+
   const { app, container } = buildApp();
 
   if (env.NODE_ENV === 'production' && env.STORAGE_TRANSPORT === 's3') {
