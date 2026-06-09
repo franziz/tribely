@@ -13,6 +13,8 @@ LIB_DIR="${repo_root}/tools/scripts/lib"
 source "${LIB_DIR}/config.sh"
 # shellcheck source=/dev/null
 source "${LIB_DIR}/docker_hub.sh"
+# shellcheck source=/dev/null
+source "${LIB_DIR}/sentry.sh"
 
 # Requirements
 require_tools_for_config
@@ -93,3 +95,5 @@ cmd=(docker buildx build
 
 echo "Done. Pushed:"
 echo " - ${IMAGE}:${TAG}"
+
+upload_api_sourcemaps "${TAG}"
