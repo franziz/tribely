@@ -87,7 +87,7 @@ describe.skipIf(!dbUrl)('POST /events/:id/join-requests (integration)', () => {
         endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
         capacity: 6,
         category: 'drinks',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'published',
         cancellationReason: null,
@@ -157,6 +157,32 @@ describe.skipIf(!dbUrl)('POST /events/:id/join-requests (integration)', () => {
 
     // Track for cleanup
     createdJoinRequestIds.push(body.id);
+  });
+
+  /**
+   * Migration-confirming pin for TRI-272.
+   * After migrating from inline controller tolerant-parse to
+   * `optionalJsonValidator`, schema validation must still reject a
+   * present-but-invalid body. `acknowledgedSafetyReminder` must be a boolean;
+   * sending a string "yes" must return 400 (NOT 422 — Hono maps ZodError →
+   * 400 via the global error-handler, matching the established codebase pattern).
+   * The validator fires before the handler so no DB row is created.
+   */
+  it('returns 400 for a present-but-invalid body (acknowledgedSafetyReminder as string)', async () => {
+    const { app } = buildApp();
+    const res = await app.request(`/events/${eventId}/join-requests`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${requesterToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ acknowledgedSafetyReminder: 'yes' }),
+    });
+    // optionalJsonValidator runs requestToJoinEventBodySchema.safeParse —
+    // z.boolean() rejects a string. AppError.validation → HTTP 400.
+    // Note: NOT 422 — see established codebase pattern in check-ins and
+    // remove-attendee integration tests.
+    expect(res.status).toBe(400);
   });
 });
 
@@ -277,7 +303,7 @@ describe.skipIf(!dbUrl)(
           endsAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
           capacity: 6,
           category: 'drinks',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'published',
           cancellationReason: null,

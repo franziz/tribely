@@ -31,7 +31,22 @@ import 'package:tribely/src/features/join_requests/presentation/controllers/requ
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
 import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
 import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
+
+// ---------------------------------------------------------------------------
+// Fake capabilities notifier
+// ---------------------------------------------------------------------------
+
+/// Synchronously resolves to the given [UserCapabilities].
+/// Needed because [_StickyJoinBar] watches [myCapabilitiesProvider] (Brief G).
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -134,7 +149,7 @@ class _FixedRequestToJoinController extends RequestToJoinController {
   Future<void> loadExisting() async {}
 
   @override
-  Future<void> submit() async {
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {
     onSubmitCalled?.call();
   }
 
@@ -164,6 +179,9 @@ Future<_FixedRequestToJoinController> _pumpPage(
   // Default to Approved so existing tests are unaffected by selfie gating.
   // Pass a different value to exercise gating behaviour in dedicated tests.
   SelfieGatingState selfieGatingState = const SelfieGatingApproved(),
+  // Default to true so pre-Brief-G tests still open ConfirmJoinSheet.
+  // Set to false to exercise the SafetyReminderSheet path.
+  bool safetyReminderSeen = true,
   VoidCallback? onWithdrawCalled,
   VoidCallback? onSubmitCalled,
 }) async {
@@ -187,6 +205,16 @@ Future<_FixedRequestToJoinController> _pumpPage(
         ).overrideWith(() => controller),
         // Selfie gating is approved by default so non-selfie tests are unaffected.
         selfieGatingStateProvider.overrideWithValue(selfieGatingState),
+        // myCapabilitiesProvider: default safetyReminderSeen=true so existing
+        // tests that expect ConfirmJoinSheet are unaffected (Brief G).
+        myCapabilitiesProvider.overrideWith(
+          () => _FakeMyCapabilitiesNotifier(
+            UserCapabilities(
+              canPostPrivateVenue: false,
+              safetyReminderSeen: safetyReminderSeen,
+            ),
+          ),
+        ),
       ],
       child: const MaterialApp(home: EventDetailPage(eventId: _testEventId)),
     ),
@@ -328,7 +356,7 @@ void main() {
       expect(button.onPressed, isNull);
     });
 
-    testWidgets('cancelled event → disabled button with "Event has ended"', (
+    testWidgets('cancelled event → read-only Cancelled badge + caption, no CTA', (
       tester,
     ) async {
       await _pumpPage(
@@ -337,10 +365,23 @@ void main() {
         ctaState: const RequestToJoinIdle(),
       );
 
-      final button = tester.widget<PrimaryButton>(
-        find.widgetWithText(PrimaryButton, 'Event has ended'),
+      // At least one cancelled StatusPill is present (the sticky bar renders
+      // one; the event-body header also renders one when status == cancelled).
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is StatusPill && w.state == StatusPillState.cancelled,
+        ),
+        findsAtLeastNWidgets(1),
       );
-      expect(button.onPressed, isNull);
+
+      // Caption is present.
+      expect(find.text('This event has been cancelled.'), findsOneWidget);
+
+      // The old disabled "Event has ended" CTA is absent for cancelled events.
+      expect(
+        find.widgetWithText(PrimaryButton, 'Event has ended'),
+        findsNothing,
+      );
     });
 
     // -----------------------------------------------------------------------

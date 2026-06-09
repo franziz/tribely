@@ -18,9 +18,13 @@ class JoinRequestRepositoryImpl implements JoinRequestRepository {
   @override
   Future<Either<Failure, JoinRequest>> requestToJoin({
     required String eventId,
+    bool acknowledgedSafetyReminder = false,
   }) async {
     try {
-      final model = await _remote.requestToJoin(eventId: eventId);
+      final model = await _remote.requestToJoin(
+        eventId: eventId,
+        acknowledgedSafetyReminder: acknowledgedSafetyReminder,
+      );
       return Right(model.toEntity());
     } on DioException catch (e) {
       return Left(_mapDioError(e));

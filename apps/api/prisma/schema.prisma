@@ -31,9 +31,12 @@ model User {
   interests       String[] @default([])
   currentCity     String?
   travelerType    String?
-  phone           String?
-  phoneVerifiedAt DateTime?
+  phone                 String?
+  phoneVerifiedAt       DateTime?
   // Partial unique on `phone WHERE phoneVerifiedAt IS NOT NULL` — see migration 20260518131307_add_user_phone/migration.sql
+  /// TRI-34 pre-event safety reminder: null = user has never been shown (or not yet seen) the safety reminder;
+  /// non-null = timestamp when the user last acknowledged the safety reminder modal.
+  safetyReminderSeenAt  DateTime? @map("safety_reminder_seen_at")
   // Selfie verification (TRI-70). selfieStatus / selfieLastFailureCategory are TEXT + CHECK constraint
   // (not Postgres enum) per codebase convention. selfieAttemptCount is NOT NULL DEFAULT 0.
   // selfieAppealLockedAt is set when attemptCount >= 3 after a rejection; cleared by appeal approval.
@@ -172,11 +175,11 @@ model PasswordResetToken {
 /// `earth_distance` or app-side calculation, with a PostGIS migration in a
 /// later issue once geospatial query volume justifies it.
 ///
-/// `category` / `costSplit` / `approvalMode` / `status` are plain String
-/// columns rather than Prisma enums — matches the codebase convention
-/// (cf. `revokedReason` on RefreshToken) and avoids Prisma enum migration
-/// friction when values evolve. Type guards in the mapper narrow strings
-/// back to unions when rehydrating.
+/// `category` / `approvalMode` / `status` are plain String columns rather
+/// than Prisma enums — matches the codebase convention (cf. `revokedReason`
+/// on RefreshToken) and avoids Prisma enum migration friction when values
+/// evolve. Type guards in the mapper narrow strings back to unions when
+/// rehydrating.
 ///
 /// TRI-134 cascade tombstones the User row; `onDelete: Cascade` remains as
 /// defence-in-depth for any future hard-delete path but is NOT exercised by
@@ -195,7 +198,7 @@ model Event {
   capacity           Int
   category           String // drinks | food | hike | museum | sports | nightlife | other
   venueCategory      String @default("other") // hawker_centre | park | museum | ... | other (CHECK enforced by migration)
-  costSplit          String // own | host_paid | split
+  costNotes          String? @db.VarChar(200) // optional host-supplied free-text cost notes
   approvalMode       String // auto | manual
   status             String // draft | published | cancelled | completed
   cancellationReason String?

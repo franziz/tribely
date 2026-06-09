@@ -1,4 +1,5 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
+import type { SafetyReminderMarkerPort } from '@/features/users/application/ports/safety-reminder-marker.port.js';
 import type { JoinRequest } from '../../domain/entities/join-request.js';
 import type {
   JoinRequestRepository,
@@ -24,6 +25,20 @@ export {
   FakeEventRepository,
   FakeUserRepository,
 } from '../../../events/application/usecases/fakes.js';
+
+/**
+ * No-op SafetyReminderMarkerPort — records calls for assertion but never
+ * throws. Use in use-case unit tests that don't care about the seen-flag
+ * side-effect; swap for a spy or stub when testing mark-seen behaviour.
+ */
+export class FakeSafetyReminderMarker implements SafetyReminderMarkerPort {
+  readonly calls: Array<{ userId: string; eventId: string }> = [];
+
+  execute(input: { userId: string; eventId: string }): Promise<void> {
+    this.calls.push(input);
+    return Promise.resolve();
+  }
+}
 
 /**
  * In-memory JoinRequestRepository.

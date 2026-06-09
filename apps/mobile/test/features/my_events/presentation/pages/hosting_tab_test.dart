@@ -13,6 +13,7 @@
 //  10. Notification dot a11y label: plain "Hosting" when dot hidden.
 //  11. Auto-retry: first call fails for one id, retry succeeds → total converges.
 //  12. Auto-retry: both calls fail → no further retry, failedEventIds persists.
+//  13. Hosting tab: cancelled event row shows StatusPill(cancelled), not pending count.
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tribely/src/core/design/colors.dart';
 import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/core/widgets/banner_message.dart';
+import 'package:tribely/src/core/widgets/status_pill.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
 import 'package:tribely/src/features/join_requests/domain/entities/join_request.dart';
@@ -30,6 +32,9 @@ import 'package:tribely/src/features/join_requests/domain/entities/join_request_
 import 'package:tribely/src/features/join_requests/domain/usecases/list_pending_for_event_usecase.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
+import 'package:tribely/src/features/my_events/presentation/pages/hosting_tab.dart';
+import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -47,6 +52,7 @@ Event _event({
   String id = 'evt-1',
   String title = 'Evening Drinks',
   int capacity = 8,
+  String status = 'published',
 }) {
   return Event(
     id: id,
@@ -60,10 +66,31 @@ Event _event({
     category: EventCategory.drinks,
     costSplit: 'own',
     approvalMode: 'manual',
-    status: 'published',
+    status: status,
     createdAt: DateTime.utc(2026, 5, 1),
     hostIsVerified: false,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Fixed-state hosting tab controller (for test 13)
+// ---------------------------------------------------------------------------
+
+/// Stubs [HostingTabController] with a pre-baked state so tests drive the
+/// exact list content without touching use cases or DI.
+class _FixedHostingTabController extends HostingTabController {
+  _FixedHostingTabController(this._fixed);
+
+  final HostingTabState _fixed;
+
+  @override
+  HostingTabState build() => _fixed;
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> refresh() async {}
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +294,63 @@ void main() {
 
       expect(find.textContaining('pending'), findsNothing);
     });
+
+    // -----------------------------------------------------------------------
+    // 13. Cancelled event row shows StatusPill(cancelled), not pending count.
+    //
+    // Pumps the real HostingTab widget with both hostingTabControllerProvider
+    // and hostingPendingCountControllerProvider overridden so that the actual
+    // _HostingEventRow widget is exercised (not a hand-rolled harness).
+    // A non-zero pendingCount is supplied to confirm it is suppressed.
+    // -----------------------------------------------------------------------
+    testWidgets(
+      'cancelled event shows StatusPill(cancelled) instead of pending count',
+      (tester) async {
+        final cancelledEvent = _event(
+          id: 'evt-c',
+          title: 'Rooftop Drinks',
+          status: 'cancelled',
+        );
+        final eventIds = [cancelledEvent.id];
+        final key = ([...eventIds]..sort()).join(',');
+        // Supply a non-zero pending count to confirm it is NOT rendered for
+        // cancelled events.
+        const pendingState = HostingPendingCountState(
+          total: 2,
+          perEvent: {'evt-c': 2},
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              hostingTabControllerProvider.overrideWith(
+                () => _FixedHostingTabController(
+                  HostingTabLoaded(events: [cancelledEvent]),
+                ),
+              ),
+              hostingPendingCountControllerProvider(key).overrideWith(
+                () => _FixedPendingCountController(key, pendingState),
+              ),
+            ],
+            child: const MaterialApp(home: Scaffold(body: HostingTab())),
+          ),
+        );
+        // Pump to let the zero-delay Future(() => load()) fire, then settle.
+        await tester.pump();
+        await tester.pump();
+
+        // The real _HostingEventRow must render StatusPill(cancelled).
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is StatusPill && w.state == StatusPillState.cancelled,
+          ),
+          findsOneWidget,
+        );
+
+        // Pending count text must NOT be shown for a cancelled event.
+        expect(find.textContaining('pending'), findsNothing);
+      },
+    );
   });
 
   // =========================================================================

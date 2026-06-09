@@ -42,6 +42,7 @@ const buildUser = (
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 interface FakeVerifier extends PhoneVerifier {

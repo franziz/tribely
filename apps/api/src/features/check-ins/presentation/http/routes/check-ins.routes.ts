@@ -1,9 +1,13 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { optionalJsonValidator } from '@/core/middleware/optional-json-validator.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { CheckInsController } from '../controllers/check-ins.controller.js';
-import { flagCheckInBodySchema } from '../schemas/check-ins.schemas.js';
+import {
+  acknowledgeCheckInBodySchema,
+  flagCheckInBodySchema,
+} from '../schemas/check-ins.schemas.js';
 
 export interface CheckInsRouteDeps {
   controller: CheckInsController;
@@ -22,12 +26,14 @@ export interface CheckInsRouteDeps {
  * POST /me/post-event-check-ins/:id/acknowledge — acknowledge (no body)
  * POST /me/post-event-check-ins/:id/flag       — flag with safety report
  *
- * IMPORTANT: the acknowledge route has NO zValidator('json', ...) middleware.
- * Mounting a JSON body validator on a no-body POST triggers Hono's
- * c.req.json() path, which throws a 400 "Malformed JSON" when the mobile
- * client sends Content-Type: application/json with an empty body (identical
- * to the TRI-28 regression on join-requests). See the integration test for
- * the regression pin.
+ * The acknowledge route uses `optionalJsonValidator(acknowledgeCheckInBodySchema)`
+ * rather than `zValidator('json', ...)`. The mobile Dio client always sends
+ * Content-Type: application/json with an empty body on no-body POSTs;
+ * `zValidator` calls `c.req.json()` before schema validation runs, which
+ * throws 400 on an empty body (TRI-28 regression). `optionalJsonValidator`
+ * performs a tolerant body read (absent/empty/unparseable → `{}`) before
+ * schema validation, so the empty-body tolerance is structural rather than
+ * implicit. See the integration test for the regression pin.
  */
 export const buildCheckInsRoutes = (
   deps: CheckInsRouteDeps,
@@ -36,11 +42,8 @@ export const buildCheckInsRoutes = (
 
   return new Hono<{ Variables: AuthVariables }>()
     .get('/', auth, (c) => deps.controller.listPendingAction(c, c.get('userId')))
-    .post(
-      '/:id/acknowledge',
-      auth,
-      // No zValidator — empty-body POST trap (see module JSDoc).
-      (c) => deps.controller.acknowledgeAction(c, c.req.param('id'), c.get('userId')),
+    .post('/:id/acknowledge', auth, optionalJsonValidator(acknowledgeCheckInBodySchema), (c) =>
+      deps.controller.acknowledgeAction(c, c.req.param('id'), c.get('userId')),
     )
     .post('/:id/flag', auth, zValidator('json', flagCheckInBodySchema), (c) =>
       deps.controller.flagAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),

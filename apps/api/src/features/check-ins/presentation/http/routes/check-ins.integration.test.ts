@@ -214,7 +214,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
         endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
         capacity: 6,
         category: 'food',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'completed',
         cancellationReason: null,
@@ -317,7 +317,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'drinks',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,
@@ -398,7 +398,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,
@@ -449,9 +449,10 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
 
     /**
      * Regression pin for TRI-28 / Hono zValidator empty-body trap.
-     * The acknowledge route must NOT have zValidator('json', ...) mounted.
-     * This test reproduces the Dio wire shape: Content-Type: application/json,
-     * empty body. If the validator were mounted it would throw 400 before auth.
+     * The acknowledge route now uses `optionalJsonValidator` (TRI-272) rather
+     * than having no validator at all. This test reproduces the Dio wire shape:
+     * Content-Type: application/json, empty body. The validator must resolve the
+     * empty body to `{}` and pass through — NOT throw 400 "Malformed JSON".
      */
     it('does not throw Malformed JSON when called with Content-Type: application/json and empty body', async () => {
       const res = await testApp.request(`/me/post-event-check-ins/nonexistent/acknowledge`, {
@@ -466,6 +467,85 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
       expect(res.status).toBe(404);
       const body = (await res.json()) as { error: { code: string } };
       expect(body.error.code).toBe('NOT_FOUND');
+    });
+
+    /**
+     * Migration-confirming pin for TRI-272.
+     * After mounting `optionalJsonValidator`, the Dio wire shape (Content-Type:
+     * application/json, empty body) must still reach the use case and return 200.
+     * Exercises the full happy path through the new validator construct.
+     */
+    it('returns 200 { ok: true } when called with Content-Type: application/json and empty body (Dio wire shape)', async () => {
+      const dioWireEventId = createId();
+      const now = new Date();
+      await db.event.create({
+        data: {
+          id: dioWireEventId,
+          hostUserId,
+          title: 'Dio Wire Ack Event',
+          description: null,
+          venueAddress: '9 Raffles Quay, Singapore',
+          venueCity: 'Singapore',
+          venueLatitude: 1.288,
+          venueLongitude: 103.858,
+          startsAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+          endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+          capacity: 6,
+          category: 'food',
+          costNotes: null,
+          approvalMode: 'manual',
+          status: 'completed',
+          cancellationReason: null,
+          createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+          updatedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const unitOfWork = new PrismaUnitOfWork(db);
+      const checkInsRepo = new PostEventCheckInPrismaRepository(db);
+      const publisher = new OutboxEventPublisher();
+      const dioWireCheckInId = createId();
+      const dioWireCheckIn = PostEventCheckIn.create({
+        id: dioWireCheckInId,
+        userId: attendeeUserId,
+        eventId: dioWireEventId,
+        hostUserId,
+        now: new Date(),
+      });
+      await runWithContext({ requestId: createId(), actorUserId: attendeeUserId }, () =>
+        unitOfWork.run(async (ctx) => {
+          const events = dioWireCheckIn.pullEvents();
+          await checkInsRepo.save(dioWireCheckIn, ctx);
+          await publisher.publish(ctx, ...events);
+        }),
+      );
+      createdCheckInIds.push(dioWireCheckInId);
+      createdOutboxIds.push(dioWireCheckInId);
+
+      const res = await testApp.request(
+        `/me/post-event-check-ins/${dioWireCheckInId}/acknowledge`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${attendeeToken}`,
+            'Content-Type': 'application/json',
+          },
+          // No body — empty body, exactly as Dio sends it.
+        },
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { ok: boolean };
+      expect(body.ok).toBe(true);
+
+      // Cleanup
+      await db.outboxEvent
+        .deleteMany({ where: { aggregateType: 'PostEventCheckIn', aggregateId: dioWireCheckInId } })
+        .catch(() => null);
+      await db.postEventCheckInEvent
+        .deleteMany({ where: { checkInId: dioWireCheckInId } })
+        .catch(() => null);
+      await db.postEventCheckIn.delete({ where: { id: dioWireCheckInId } }).catch(() => null);
+      await db.event.delete({ where: { id: dioWireEventId } }).catch(() => null);
     });
 
     it('returns 404 for a non-existent check-in id', async () => {
@@ -494,7 +574,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,
@@ -559,7 +639,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,
@@ -654,7 +734,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,
@@ -739,7 +819,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,
@@ -847,7 +927,7 @@ describe.skipIf(!dbUrl)('Check-ins HTTP routes (integration)', () => {
           endsAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
           capacity: 6,
           category: 'food',
-          costSplit: 'own',
+          costNotes: null,
           approvalMode: 'manual',
           status: 'completed',
           cancellationReason: null,

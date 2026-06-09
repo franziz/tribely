@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/disabled_cta_hint.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -13,6 +12,7 @@ import '../../../users/presentation/state/selfie_gating_state.dart';
 import '../../../users/presentation/string_assets/verification_failure_copy.dart';
 import '../providers/join_requests_providers.dart';
 import '../state/request_to_join_state.dart';
+import 'join_request_failure_copy.dart';
 
 /// 50% modal bottom sheet for confirming a join request.
 ///
@@ -179,7 +179,7 @@ class ConfirmJoinSheet extends ConsumerWidget {
                 const SizedBox(height: 24),
                 // Error banner (shown only on failure).
                 if (failure != null) ...[
-                  BannerMessage(message: _failureMessage(failure)),
+                  BannerMessage(message: joinRequestFailureMessage(failure)),
                   const SizedBox(height: 16),
                 ],
                 // Selfie-gating hint — shown when selfie is not approved.
@@ -225,19 +225,6 @@ class ConfirmJoinSheet extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  String _failureMessage(Failure failure) {
-    return switch (failure) {
-      EmailNotVerifiedFailure() =>
-        'Please verify your email before requesting to join.',
-      CapacityFullFailure() => 'This event is full.',
-      ConflictFailure(:final subcode) when subcode == 'ALREADY_APPROVED' =>
-        'You have already been approved for this event.',
-      ConflictFailure() => 'You already have a pending request for this event.',
-      NetworkFailure() => 'No connection. Check your network and try again.',
-      _ => failure.message,
-    };
   }
 }
 

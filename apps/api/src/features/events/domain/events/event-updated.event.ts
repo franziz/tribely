@@ -24,7 +24,7 @@ export interface EventUpdatedPayload {
   capacity: number;
   category: EventCategoryValue;
   venueCategory: VenueCategoryValue;
-  costSplit: 'own' | 'host_paid' | 'split';
+  costNotes: string | null;
   approvalMode: 'auto' | 'manual';
   updatedAt: string;
 }

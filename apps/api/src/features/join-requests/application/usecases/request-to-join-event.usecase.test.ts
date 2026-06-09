@@ -14,6 +14,7 @@ import {
   FakeEventPublisher,
   FakeEventRepository,
   FakeJoinRequestRepository,
+  FakeSafetyReminderMarker,
   FakeUnitOfWork,
   FixedClock,
 } from './fakes.js';
@@ -46,7 +47,7 @@ const seedPublishedEvent = (repo: FakeEventRepository, opts: SeedOpts = {}): Eve
     capacity: Capacity.create(opts.capacity ?? 6),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: opts.approvalMode ?? 'manual',
     now: NOW,
   });
@@ -62,8 +63,16 @@ const buildSut = () => {
   const publisher = new FakeEventPublisher();
   const uow = new FakeUnitOfWork();
   const clock = new FixedClock(NOW);
-  const useCase = new RequestToJoinEventUseCase(uow, joinRequests, events, publisher, clock);
-  return { events, joinRequests, publisher, clock, useCase };
+  const safetyReminderMarker = new FakeSafetyReminderMarker();
+  const useCase = new RequestToJoinEventUseCase(
+    uow,
+    joinRequests,
+    events,
+    publisher,
+    clock,
+    safetyReminderMarker,
+  );
+  return { events, joinRequests, publisher, clock, safetyReminderMarker, useCase };
 };
 
 describe('RequestToJoinEventUseCase', () => {

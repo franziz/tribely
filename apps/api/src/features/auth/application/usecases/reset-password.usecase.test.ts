@@ -44,6 +44,7 @@ const buildUser = (verifiedAt: Date | null = new Date('2026-01-01T00:00:00Z')): 
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 const buildCredential = (): CredentialEntity => {

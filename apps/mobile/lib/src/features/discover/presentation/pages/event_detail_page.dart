@@ -14,6 +14,8 @@ import '../../../../core/widgets/status_pill.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
 import '../../../events/domain/entities/event.dart';
+import '../../../events/presentation/string_assets/cancel_event_copy.dart';
+import '../../../events/presentation/widgets/cancel_event_sheet.dart';
 import '../../../join_requests/domain/entities/join_request.dart';
 import '../../../join_requests/domain/entities/join_request_with_requester.dart';
 import '../../../join_requests/presentation/controllers/host_pending_list_controller.dart';
@@ -28,6 +30,9 @@ import '../../../join_requests/presentation/widgets/confirm_join_sheet.dart';
 import '../../../join_requests/presentation/widgets/decline_reason_sheet.dart';
 import '../../../join_requests/presentation/widgets/pending_request_row.dart';
 import '../../../join_requests/presentation/widgets/remove_attendee_sheet.dart';
+import '../../../join_requests/presentation/widgets/safety_reminder_sheet.dart';
+import '../../../my_events/presentation/controllers/hosting_tab_controller.dart';
+import '../../../users/presentation/providers/capability_providers.dart';
 import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../../../../core/widgets/verified_pill.dart';
 import '../providers/event_detail_providers.dart';
@@ -98,6 +103,15 @@ class EventDetailPage extends ConsumerWidget {
     final showStickyBar =
         !isHostViewer && state is EventDetailLoaded && joinState != null;
 
+    // Show the host kebab only when the viewer is the host AND the event is
+    // not yet cancelled. isHostViewer already implies state is EventDetailLoaded,
+    // so we use a switch expression to safely downcast without a redundant check.
+    final showHostKebab = switch (state) {
+      EventDetailLoaded(:final event) when isHostViewer =>
+        event.status != 'cancelled',
+      _ => false,
+    };
+
     return Scaffold(
       backgroundColor: TribelyColors.paperSurface,
       // extendBodyBehindAppBar = true allows the hero image to bleed behind
@@ -108,6 +122,9 @@ class EventDetailPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: _BackButton(),
+        // Host kebab — shown only when the viewer is the host AND the event
+        // is not yet cancelled (already-cancelled events have no cancel action).
+        actions: showHostKebab ? [_HostKebabButton(eventId: eventId)] : null,
         // Share action deferred per §E technical non-goals.
       ),
       // Scaffold.bottomNavigationBar auto-insets the body by the bar's exact
@@ -280,7 +297,18 @@ class _LoadedBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _TitleBlock(event: event),
-                const SizedBox(height: 20),
+                // Cancelled badge — shown to ALL viewers (host and non-host)
+                // when the event status is 'cancelled'. Canonical event-level
+                // indicator; 12dp vertical spacing on both sides.
+                if (event.status == 'cancelled') ...[
+                  const SizedBox(height: 12),
+                  const StatusPill(
+                    state: StatusPillState.cancelled,
+                    semanticsPrefix: 'Event status',
+                  ),
+                  const SizedBox(height: 12),
+                ] else
+                  const SizedBox(height: 20),
                 _MetaRows(event: event),
                 const SizedBox(height: 24),
                 _AboutSection(description: event.description),
@@ -994,10 +1022,22 @@ class _StickyJoinBar extends ConsumerWidget {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final hostName = event.hostDisplayName ?? 'Host';
 
-    // Determine whether the event is past or cancelled.
+    // Determine whether the event is past (end-time only — cancelled is
+    // handled separately below with a dedicated UI, not the generic "ended" copy).
     final now = DateTime.now().toUtc();
-    final isEventPast =
-        event.endsAt.toUtc().isBefore(now) || event.status == 'cancelled';
+    final isEventPast = event.endsAt.toUtc().isBefore(now);
+
+    // Sanctioned cross-feature import per CLAUDE.md mobile rules —
+    // myCapabilitiesProvider is app-global session state in users/.
+    // Default false when unreachable → show safety sheet (safer: over-show
+    // a safety reminder than skip it — Brief G offline ruling).
+    final safetyReminderSeen = ref
+        .watch(myCapabilitiesProvider)
+        .when(
+          data: (caps) => caps.safetyReminderSeen,
+          loading: () => false,
+          error: (e, st) => false,
+        );
 
     Widget content;
 
@@ -1008,7 +1048,12 @@ class _StickyJoinBar extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    if (verificationFailure != null) {
+    // Cancelled event: read-only badge + caption for ALL non-host viewers.
+    // Dominates all request-status branches — a cancelled event supersedes
+    // pending/approved/declined/withdrawn state.
+    if (event.status == 'cancelled') {
+      content = const _CancelledEventContent();
+    } else if (verificationFailure != null) {
       content = _VerificationBanner(
         event: event,
         controller: controller,
@@ -1018,9 +1063,10 @@ class _StickyJoinBar extends ConsumerWidget {
         effectiveRequest!.status == JoinRequestStatus.withdrawn &&
         !isEventPast) {
       // Withdrawn → re-request CTA. PM verdict: same affordance as never-
-      // requested; tapping opens ConfirmJoinSheet which creates a new
-      // JoinRequest. No cooldown, no per-event cap.
-      // Note: capacity-full / cancelled are covered by isEventPast above.
+      // requested; tapping opens the appropriate sheet (safety or confirm)
+      // based on safetyReminderSeen. No cooldown, no per-event cap.
+      // Note: capacity-full is covered by isEventPast; cancelled is handled
+      // by the branch above (event.status == 'cancelled').
       final isSubmitting = joinState is RequestToJoinSubmitting;
       content = PrimaryButton(
         label: 'Request to join',
@@ -1029,13 +1075,14 @@ class _StickyJoinBar extends ConsumerWidget {
             : PrimaryButtonState.idle,
         onPressed: isSubmitting
             ? null
-            : () => showConfirmJoinSheet(
+            : () => _openJoinSheet(
                 context,
                 eventId: event.id,
                 hostName: hostName,
                 eventTitle: event.title,
                 startsAt: event.startsAt,
                 endsAt: event.endsAt,
+                safetyReminderSeen: safetyReminderSeen,
               ),
       );
     } else if (effectiveRequest != null) {
@@ -1059,13 +1106,14 @@ class _StickyJoinBar extends ConsumerWidget {
             : PrimaryButtonState.idle,
         onPressed: isSubmitting
             ? null
-            : () => showConfirmJoinSheet(
+            : () => _openJoinSheet(
                 context,
                 eventId: event.id,
                 hostName: hostName,
                 eventTitle: event.title,
                 startsAt: event.startsAt,
                 endsAt: event.endsAt,
+                safetyReminderSeen: safetyReminderSeen,
               ),
       );
     }
@@ -1079,6 +1127,38 @@ class _StickyJoinBar extends ConsumerWidget {
         ),
       ),
       child: content,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Join sheet dispatch helper
+// ---------------------------------------------------------------------------
+
+/// Opens [SafetyReminderSheet] when [safetyReminderSeen] is false (first-timer
+/// path, TRI-34), otherwise opens [ConfirmJoinSheet] directly.
+///
+/// Offline / capabilities-unreachable default: [safetyReminderSeen] == false
+/// → show the safety sheet (safer to over-show a reminder than skip it).
+void _openJoinSheet(
+  BuildContext context, {
+  required String eventId,
+  required String hostName,
+  required String eventTitle,
+  required DateTime startsAt,
+  required DateTime endsAt,
+  required bool safetyReminderSeen,
+}) {
+  if (!safetyReminderSeen) {
+    showSafetyReminderSheet(context, eventId: eventId);
+  } else {
+    showConfirmJoinSheet(
+      context,
+      eventId: eventId,
+      hostName: hostName,
+      eventTitle: eventTitle,
+      startsAt: startsAt,
+      endsAt: endsAt,
     );
   }
 }
@@ -1207,6 +1287,121 @@ class _DisabledCta extends StatelessWidget {
     );
   }
 }
+
+/// Read-only cancelled state shown in the sticky join bar for non-host viewers
+/// when the event status is 'cancelled'.
+///
+/// Renders a [StatusPill(cancelled)] + the caption "This event has been
+/// cancelled." — no CTA, no action affordance.
+class _CancelledEventContent extends StatelessWidget {
+  const _CancelledEventContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Center(
+          child: StatusPill(
+            state: StatusPillState.cancelled,
+            semanticsPrefix: 'Event status',
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'This event has been cancelled.',
+          textAlign: TextAlign.center,
+          style: TribelyType.caption(TribelyColors.paperInkSecondary),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Host kebab button — AppBar trailing slot (Brief D)
+// ---------------------------------------------------------------------------
+
+/// A single-item kebab button rendered in the AppBar trailing slot for the
+/// host of a non-cancelled loaded event.
+///
+/// Tapping opens a [showModalBottomSheet] action sheet with "Cancel event"
+/// as the only item. Selecting it opens [CancelEventSheet]; on success the
+/// event-detail and hosting-tab providers are invalidated so the page refreshes.
+class _HostKebabButton extends ConsumerWidget {
+  const _HostKebabButton({required this.eventId});
+
+  final String eventId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return IconButton(
+      icon: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+      ),
+      tooltip: 'More options',
+      onPressed: () => _showActionSheet(context, ref),
+    );
+  }
+
+  Future<void> _showActionSheet(BuildContext context, WidgetRef ref) async {
+    final selected = await showModalBottomSheet<_HostAction>(
+      context: context,
+      backgroundColor: TribelyColors.paperSurfaceHigh,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle.
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: TribelyColors.paperBorderSubtle,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            ListTile(
+              title: Text(
+                CancelEventCopy.actionSheetLabel,
+                style: TribelyType.bodyM(TribelyColors.paperAccent),
+              ),
+              onTap: () =>
+                  Navigator.of(sheetContext).pop(_HostAction.cancelEvent),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (selected == _HostAction.cancelEvent && context.mounted) {
+      await showCancelEventSheet(
+        context,
+        eventId: eventId,
+        onSuccess: () {
+          ref.invalidate(eventDetailControllerProvider(eventId));
+          // Cross-feature invalidate — EL pre-ruled: fire-and-forget refresh
+          // is acceptable (invalidate, not a watch of feature state).
+          ref.invalidate(hostingTabControllerProvider);
+        },
+      );
+    }
+  }
+}
+
+enum _HostAction { cancelEvent }
 
 /// Inline verification banner. Shown above the (disabled) CTA when the
 /// server returns a 403 with code EMAIL_NOT_VERIFIED or PHONE_NOT_VERIFIED.

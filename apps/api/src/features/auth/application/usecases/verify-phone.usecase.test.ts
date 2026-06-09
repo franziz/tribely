@@ -51,6 +51,7 @@ const buildUser = (
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 interface FakePhoneHasher extends PhoneHasher {

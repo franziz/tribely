@@ -33,7 +33,7 @@ const buildPublished = (overrides: {
     capacity: Capacity.create(4),
     category: EventCategory.create(overrides.category ?? 'food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'auto',
     now: creationNow,
   });

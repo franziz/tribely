@@ -95,6 +95,7 @@ describe('User aggregate', () => {
         selfieAppealLockedAt: null,
         deletedAt: null,
         isAdmin: false,
+        safetyReminderSeenAt: null,
       });
       expect(user.isEmailVerified()).toBe(true);
       expect(user.emailVerifiedAt).toEqual(verifiedAt);
@@ -123,6 +124,7 @@ describe('User aggregate', () => {
         selfieAppealLockedAt: null,
         deletedAt: null,
         isAdmin: false,
+        safetyReminderSeenAt: null,
       });
       expect(user.phone?.value).toBe('+6591234567');
       expect(user.phoneVerifiedAt).toEqual(verifiedAt);
@@ -152,6 +154,7 @@ describe('User aggregate', () => {
         selfieAppealLockedAt: lockedAt,
         deletedAt: null,
         isAdmin: false,
+        safetyReminderSeenAt: null,
       });
       expect(user.selfieStatus).toBe('rejected');
       expect(user.selfieAttemptCount).toBe(3);
@@ -182,6 +185,7 @@ describe('User aggregate', () => {
         selfieAppealLockedAt: null,
         deletedAt: null,
         isAdmin: true,
+        safetyReminderSeenAt: null,
       });
       expect(user.isAdmin).toBe(true);
     });
@@ -533,6 +537,7 @@ describe('User aggregate', () => {
         selfieAppealLockedAt: null,
         deletedAt: null,
         isAdmin: true,
+        safetyReminderSeenAt: null,
       });
       const promoteAgain = new Date('2026-06-01T10:00:00Z');
 

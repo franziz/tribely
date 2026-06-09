@@ -32,7 +32,7 @@ const draftEvent = (overrides: Partial<Parameters<typeof Event.create>[0]> = {})
     capacity: Capacity.create(6),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('hawker_centre'),
-    costSplit: 'own' as const,
+    costNotes: null,
     approvalMode: 'manual' as const,
     now: NOW,
     ...overrides,
@@ -63,7 +63,7 @@ describe('Event', () => {
         capacity: 6,
         category: 'food',
         venueCategory: 'hawker_centre',
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
       });
     });
@@ -117,6 +117,20 @@ describe('Event', () => {
 
     it('rejects a too-long description', () => {
       expect(() => draftEvent({ description: 'd'.repeat(2001) })).toThrowError(/description/);
+    });
+
+    it('normalizes empty / whitespace costNotes to null', () => {
+      expect(draftEvent({ costNotes: '' }).costNotes).toBeNull();
+      expect(draftEvent({ costNotes: '   ' }).costNotes).toBeNull();
+    });
+
+    it('stores a valid non-empty costNotes string trimmed', () => {
+      const e = draftEvent({ costNotes: '  Host covers drinks  ' });
+      expect(e.costNotes).toBe('Host covers drinks');
+    });
+
+    it('rejects a too-long costNotes (>200 chars)', () => {
+      expect(() => draftEvent({ costNotes: 'x'.repeat(201) })).toThrowError(/costNotes/);
     });
 
     it('rejects endsAt <= startsAt', () => {
@@ -330,6 +344,45 @@ describe('Event', () => {
       expect(e.description).toBeNull();
     });
 
+    it('updates costNotes and emits eventUpdated with new value', () => {
+      const e = draftEvent({ costNotes: null });
+      e.pullEvents();
+      e.edit({ costNotes: 'Each pays own way' }, editNow);
+      expect(e.costNotes).toBe('Each pays own way');
+      const events = e.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.payload).toMatchObject({ costNotes: 'Each pays own way' });
+    });
+
+    it('clears costNotes when patched to null', () => {
+      const e = draftEvent({ costNotes: 'Some notes' });
+      e.pullEvents();
+      e.edit({ costNotes: null }, editNow);
+      expect(e.costNotes).toBeNull();
+    });
+
+    it('clears costNotes when patched to empty string', () => {
+      const e = draftEvent({ costNotes: 'Some notes' });
+      e.pullEvents();
+      e.edit({ costNotes: '' }, editNow);
+      expect(e.costNotes).toBeNull();
+    });
+
+    it('is a no-op when costNotes is patched with the same value', () => {
+      const e = draftEvent({ costNotes: 'Same notes' });
+      e.pullEvents();
+      e.edit({ costNotes: 'Same notes' }, editNow);
+      expect(e.pullEvents()).toHaveLength(0);
+      expect(e.updatedAt).toEqual(NOW);
+    });
+
+    it('rejects costNotes > 200 chars in edit', () => {
+      const e = draftEvent();
+      expect(() => {
+        e.edit({ costNotes: 'x'.repeat(201) }, editNow);
+      }).toThrowError(/costNotes/);
+    });
+
     it('rejects edit when cancelled', () => {
       const e = draftEvent();
       e.cancel('weather', new Date(NOW.getTime() + 500));
@@ -415,7 +468,7 @@ describe('Event', () => {
         capacity: Capacity.create(6),
         category: EventCategory.create('food'),
         venueCategory: VenueCategory.create('hawker_centre'),
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'published',
         cancellationReason: null,
@@ -443,7 +496,7 @@ describe('Event', () => {
         capacity: Capacity.create(6),
         category: EventCategory.create('food'),
         venueCategory: VenueCategory.create('museum'),
-        costSplit: 'own',
+        costNotes: null,
         approvalMode: 'manual',
         status: 'draft',
         cancellationReason: null,

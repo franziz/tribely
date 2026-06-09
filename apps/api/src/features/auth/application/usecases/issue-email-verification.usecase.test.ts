@@ -41,6 +41,7 @@ const buildUser = (overrides: { verifiedAt?: Date | null } = {}): User => {
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 };
 

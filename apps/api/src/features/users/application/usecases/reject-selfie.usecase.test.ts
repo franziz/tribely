@@ -80,6 +80,7 @@ const buildUserWithAttempts = (attemptCount: number): User =>
     selfieAppealLockedAt: attemptCount >= 3 ? NOW : null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 const buildFreshUser = (): User =>
@@ -104,6 +105,7 @@ const buildFreshUser = (): User =>
     selfieAppealLockedAt: null,
     deletedAt: null,
     isAdmin: false,
+    safetyReminderSeenAt: null,
   });
 
 const buildSut = () => {
@@ -175,6 +177,7 @@ describe('RejectSelfieUseCase', () => {
         selfieAppealLockedAt: null,
         deletedAt: null,
         isAdmin: false,
+        safetyReminderSeenAt: null,
       }),
     );
 
@@ -244,6 +247,7 @@ describe('RejectSelfieUseCase', () => {
         selfieAppealLockedAt: null,
         deletedAt: null,
         isAdmin: false,
+        safetyReminderSeenAt: null,
       }),
     );
 

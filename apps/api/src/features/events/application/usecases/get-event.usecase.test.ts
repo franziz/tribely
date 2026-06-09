@@ -35,7 +35,7 @@ const buildEvent = (id: string, hostUserId: string): Event => {
     capacity: Capacity.create(4),
     category: EventCategory.create('food'),
     venueCategory: VenueCategory.create('cafe'),
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'auto',
     now: NOW,
   });

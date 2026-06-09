@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 // ---- Bodies ----
 
+export const requestToJoinEventBodySchema = z.object({
+  acknowledgedSafetyReminder: z.boolean().optional(),
+});
+
 export const rejectJoinRequestBodySchema = z.object({
   reason: z.string().min(1).max(500),
 });
@@ -101,6 +105,7 @@ export const enrichedJoinRequestListResponseSchema = z.object({
 
 // ---- Inferred types ----
 
+export type RequestToJoinEventBody = z.infer<typeof requestToJoinEventBodySchema>;
 export type RejectJoinRequestBody = z.infer<typeof rejectJoinRequestBodySchema>;
 export type RemoveAttendeeBody = z.infer<typeof removeAttendeeBodySchema>;
 export type ListMyJoinRequestsQuery = z.infer<typeof listMyJoinRequestsQuerySchema>;
