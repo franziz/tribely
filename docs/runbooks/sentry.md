@@ -196,6 +196,138 @@ Inspect the raw event JSON in Sentry (**Event → JSON** view) and grep for each
 
 ## 8. Follow-ups deferred (to be filed at TRI-12 closeout)
 
-- **Source map / dSYM upload:** symbolication for minified API JS bundles and Flutter dSYM files is not documented here. Deferred to a follow-up ticket — the smoke test above validates raw stack traces only.
+- **Source map / dSYM upload:** covered in §9 below (TRI-278). ~~Deferred to a follow-up ticket.~~
 - **Alert rules:** configure Sentry alert rules (error rate spikes, new issue alerts) after confirming the smoke test passes. Not required for launch enablement.
 - **Sub-processor inventory update:** once the DPA is accepted and the acceptance date is recorded (Step P2), update the internal sub-processor registry and hand the Sentry entry to external counsel for inclusion in the Privacy Policy before public launch.
+
+---
+
+## 9. Symbol & source-map upload (TRI-278)
+
+This section documents how to produce fully symbolicated stack traces for both the API (TypeScript source maps) and the mobile app (Dart dSYM / obfuscation maps). It is gated on having an owner-supplied `SENTRY_AUTH_TOKEN`; without it every step is a safe no-op and does not block builds or launches.
+
+### 9.1 Minting the auth token (owner's one-time out-of-band step)
+
+This token is used only by upload tooling (`sentry-cli` and `sentry_dart_plugin`). It is **not** the DSN from §3 — do not confuse them.
+
+1. Log in to [sentry.io](https://sentry.io) and navigate to **Settings → Auth Tokens**.
+2. Click **Create New Token**.
+3. Grant exactly these two scopes:
+   - `project:releases`
+   - `org:read`
+4. No other scopes are needed. Do not grant `org:admin` or `project:write`.
+5. Copy the token value immediately — it is only shown once.
+6. Store it in your secrets manager / CI secrets store. Do NOT commit it.
+
+### 9.2 API path — source maps via `tools/build.sh`
+
+The upload is wired directly into the build script. When `SENTRY_AUTH_TOKEN` is set, `tools/build.sh` calls `upload_api_sourcemaps` (from `tools/scripts/lib/sentry.sh`) automatically after the Docker push. When the token is absent the step is a silent no-op — builds are byte-for-byte identical.
+
+**Install `sentry-cli`:**
+
+```bash
+npm install -g @sentry/cli
+# or via Homebrew on macOS:
+brew install getsentry/tools/sentry-cli
+```
+
+Verify: `sentry-cli --version`
+
+**Configure the build environment:**
+
+Copy `tools/.env.build.example` to `tools/.env.build` (git-ignored) and fill in the three Sentry vars:
+
+```bash
+SENTRY_AUTH_TOKEN=sntrys_xxx   # token from §9.1
+SENTRY_ORG=my-org              # Settings → Organisation → Organisation Slug
+SENTRY_PROJECT=tribely         # Settings → Projects → your project → Project Slug
+```
+
+Source the file before running the build:
+
+```bash
+set -a && source tools/.env.build && set +a
+bash tools/build.sh
+```
+
+Alternatively, export the vars in your shell session or CI environment directly.
+
+**What the script does:**
+
+1. Runs `npm run --workspace=@tribely/api build` to emit `apps/api/dist/**/*.js` + `*.js.map`.
+2. Calls `sentry-cli sourcemap inject apps/api/dist` to inject `//# sourceMappingURL` references into the JS bundles.
+3. Creates and finalises a Sentry release named `tribely-api@<docker-tag>` (e.g., `tribely-api@prd.42`).
+4. Uploads all source maps under `apps/api/dist/` to that release.
+
+**Release naming:** `tribely-api@<docker-tag>` — the `<docker-tag>` is the same `<type>.<n>` tag pushed to Docker Hub (e.g., `prd.42`, `uat.7`). The name is assembled inside `upload_api_sourcemaps` as `tribely-api@${tag}`.
+
+**VPS runtime binding:** For Sentry to correlate live errors with the uploaded maps, the deployed API must emit the matching release identifier. On the VPS host, set:
+
+```bash
+SENTRY_RELEASE=tribely-api@prd.42   # match the deployed Docker tag exactly
+```
+
+This env var is documented in `apps/api/.env.example`. It is blank-allowed (absent means no release tag, degrading stack-trace readability but not causing a boot failure). Set it for every production and UAT deployment.
+
+### 9.3 Mobile path — dSYM / obfuscation maps via `sentry_dart_plugin`
+
+The plugin is declared in `apps/mobile/pubspec.yaml` under `dev_dependencies` (`sentry_dart_plugin: ^3.4.0`) and configured in the top-level `sentry:` block of the same file. It reads `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` from the environment.
+
+**Before building:** ensure the same three env vars are set (same token and org/project slugs as §9.2).
+
+**Build for release (Android):**
+
+```bash
+npm run mobile:build:apk:release
+```
+
+This runs Flutter with `--obfuscate --split-debug-info=build/symbols --extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json`, producing:
+
+- `apps/mobile/build/symbols/` — native dSYM / `.so` debug info
+- `apps/mobile/build/app/obfuscation.map.json` — Dart obfuscation map (used to resolve mangled Dart identifiers)
+
+**Build for release (iOS):**
+
+```bash
+npm run mobile:build:ios:release
+```
+
+This runs `flutter build ios --release` with the same `--obfuscate --split-debug-info=build/symbols` flags. The iOS dSYM files are written to `apps/mobile/build/symbols/`.
+
+**Upload symbols:**
+
+```bash
+npm run mobile:upload-symbols
+```
+
+This invokes `dart run sentry_dart_plugin` from inside `apps/mobile/`. The plugin reads the `sentry:` block in `pubspec.yaml` and uploads the contents of `build/symbols/` (native debug symbols) and `build/app/obfuscation.map.json` (Dart obfuscation map) to the Sentry project.
+
+**Release naming:** The plugin derives the release identifier from the pubspec `version` field. With `version: 0.0.1+1` the release string is `tribely@0.0.1+1`. The runtime SDK composes the same string via `buildSentryRelease()` in `apps/mobile/lib/src/core/observability/sentry_bootstrap.dart` using `PackageInfo.fromPlatform()` — so the uploaded symbols and live events share the same release tag automatically.
+
+**iOS verification:** Open the uploaded release in Sentry (**Releases → tribely@0.0.1+1 → Artifacts**) and confirm dSYM files for both `arm64` and the Dart snapshot appear. A missing dSYM means the `build/symbols/` path did not contain the expected output — re-check that the `--split-debug-info` flag was present in the build command.
+
+**Android verification:** Confirm `.sym` / `.so` debug-info files appear under the same release. If the Dart obfuscation map is absent, the `build/app/obfuscation.map.json` path may not have been produced — verify the `--extra-gen-snapshot-options=--save-obfuscation-map=...` flag was passed (the `mobile:build:apk:release` script includes it by default).
+
+### 9.4 AC verification (gated on first real release)
+
+Run this check after the first deployment that includes source maps / symbols uploaded under a real release tag.
+
+**API:**
+
+1. In a staging environment, trigger a deliberate unhandled exception (e.g., temporarily throw inside an endpoint behind a feature flag).
+2. Locate the event in the Sentry dashboard.
+3. Verify the stack trace resolves to original `.ts` file + line (not minified JS line numbers).
+4. Verify the event's `release` tag reads `tribely-api@<expected-tag>`.
+
+**Mobile:**
+
+1. In a staging release build, call `Sentry.captureException(Exception('symbol-smoke-test'))` once from a debug menu, then remove it before production.
+2. Locate the event in Sentry.
+3. Verify the Dart stack frames show original Dart identifiers and file:line (not mangled names like `minified$0`).
+4. Verify the event's `release` tag reads `tribely@<version>+<build>` (e.g., `tribely@0.0.1+1`).
+
+If either surface shows unresolved frames, the most common causes are:
+
+- Release name mismatch between upload and runtime (check `SENTRY_RELEASE` on the API host; check `buildSentryRelease()` output against the pubspec version).
+- Upload ran against the wrong build artefacts (rerun after a clean `flutter build` with the release flags).
+- `sentry-cli` was not on PATH during the API build (the script warns but silently skips — install `sentry-cli` and rebuild).
