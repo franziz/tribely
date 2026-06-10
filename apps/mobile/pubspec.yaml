@@ -49,6 +49,7 @@ dev_dependencies:
   # the depend_on_referenced_packages lint in test files.
   plugin_platform_interface: ^2.1.8
   riverpod_generator: ^4.0.3
+  sentry_dart_plugin: ^3.4.0
   url_launcher_platform_interface: ^2.3.2
   # NOTE: `custom_lint`, `custom_lint_builder`, `riverpod_lint` are NOT
   # in dev_dependencies. Per riverpod.dev docs, riverpod_lint is loaded
@@ -74,3 +75,13 @@ flutter:
         - asset: assets/fonts/GeneralSans-Variable.ttf
         - asset: assets/fonts/GeneralSans-VariableItalic.ttf
           style: italic
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: false
+  upload_sources: false
+  symbols_path: build/symbols
+  dart_symbol_map_path: build/app/obfuscation.map.json
+  commits: false
+  log_level: error
+  ignore_missing: true

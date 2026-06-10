@@ -234,6 +234,7 @@ export const initSentry = (): void => {
   Sentry.initWithoutDefaultIntegrations({
     dsn: env.SENTRY_DSN,
     environment: env.NODE_ENV,
+    ...(env.SENTRY_RELEASE ? { release: env.SENTRY_RELEASE } : {}),
 
     // Rule 1 — explicitly disable PII capture
     sendDefaultPii: false,

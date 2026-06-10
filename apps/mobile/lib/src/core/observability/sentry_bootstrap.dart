@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 // Rule 17 (no extra device PII): sentry_flutter's default device context
@@ -113,12 +114,28 @@ Breadcrumb? scrubBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
   );
 }
 
+/// Composes the Sentry release identifier from [PackageInfo].
+///
+/// Returns `'tribely@<version>+<buildNumber>'`, which byte-matches the string
+/// the `sentry_dart_plugin` derives from the pubspec during symbol upload.
+/// Callers should pass this value to [initSentry] as [release].
+Future<String> buildSentryRelease() async {
+  final info = await PackageInfo.fromPlatform();
+  return 'tribely@${info.version}+${info.buildNumber}';
+}
+
 /// Initialises Sentry and runs [appRunner].
 ///
 /// When [dsn] is blank (local dev / CI without secrets), Sentry is skipped
 /// entirely and [appRunner] is called directly — no overhead, no errors.
+///
+/// [release] must byte-match the release string the `sentry_dart_plugin`
+/// derives at build time (`tribely@<version>+<buildNumber>`). Pass the result
+/// of [buildSentryRelease] from the caller — keeping this function I/O-free
+/// and unit-testable.
 Future<void> initSentry({
   required String dsn,
+  required String release,
   required Future<void> Function() appRunner,
 }) async {
   if (dsn.isEmpty) {
@@ -128,6 +145,9 @@ Future<void> initSentry({
 
   await SentryFlutter.init((options) {
     options.dsn = dsn;
+
+    // ── Release — must match symbol-upload identifier (sentry_dart_plugin) ─
+    options.release = release;
 
     // ── Environment ──────────────────────────────────────────────────────
     options.environment = kReleaseMode ? 'production' : 'development';
