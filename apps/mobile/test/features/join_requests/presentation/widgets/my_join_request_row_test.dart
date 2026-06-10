@@ -11,6 +11,12 @@
 //   8. isWithdrawing=true → spinner shown, no tap target.
 //   9. removedByHost → "Removed" StatusPill + "No longer attending" subtext,
 //      no withdraw link, no kebab, no action affordances (Path B).
+//  10. Cancelled event + pending request → two pills, no withdraw link.
+//  11. Cancelled event + approved request → two pills, no withdraw link.
+//  12. Non-cancelled regression guard → one pill, no "Cancelled" text, withdraw link present.
+//  13. A11y label distinctness — cancelled+pending → distinct "Event status: Cancelled"
+//      and "Request status: Pending, for Evening Drinks" semantics nodes.
+//  14. Completed event → one pill (strict == 'cancelled' guard).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,11 +49,22 @@ final _baseRequest = JoinRequest(
   requestedAt: DateTime.utc(2026, 5, 1),
 );
 
-JoinRequestWithEvent _makeItem(JoinRequestStatus status) =>
-    JoinRequestWithEvent(
-      joinRequest: _baseRequest.copyWith(status: status),
-      event: _baseEvent,
-    );
+JoinRequestWithEvent _makeItem(
+  JoinRequestStatus status, {
+  String eventStatus = 'published',
+}) => JoinRequestWithEvent(
+  joinRequest: _baseRequest.copyWith(status: status),
+  event: JoinRequestEventSummary(
+    id: _baseEvent.id,
+    title: _baseEvent.title,
+    startsAt: _baseEvent.startsAt,
+    endsAt: _baseEvent.endsAt,
+    venueAddress: _baseEvent.venueAddress,
+    venueCity: _baseEvent.venueCity,
+    status: eventStatus,
+    capacity: _baseEvent.capacity,
+  ),
+);
 
 // ---------------------------------------------------------------------------
 // Pump helper
@@ -56,6 +73,7 @@ JoinRequestWithEvent _makeItem(JoinRequestStatus status) =>
 Future<void> _pumpRow(
   WidgetTester tester, {
   required JoinRequestStatus status,
+  String eventStatus = 'published',
   VoidCallback? onWithdraw,
   bool isWithdrawing = false,
 }) async {
@@ -63,7 +81,7 @@ Future<void> _pumpRow(
     MaterialApp(
       home: Scaffold(
         body: MyJoinRequestRow(
-          item: _makeItem(status),
+          item: _makeItem(status, eventStatus: eventStatus),
           onWithdraw: onWithdraw,
           isWithdrawing: isWithdrawing,
         ),
@@ -216,6 +234,108 @@ void main() {
         // The only interactive element in a non-pending row is the StatusPill
         // touch target (SizedBox height 48). There must be no GestureDetector.
         expect(find.byType(GestureDetector), findsNothing);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // 10. Cancelled event + pending request → two pills, no withdraw link
+    // -------------------------------------------------------------------------
+    testWidgets(
+      'cancelled event + pending → two StatusPills, "Cancelled" + "Pending" text, no withdraw link',
+      (tester) async {
+        await _pumpRow(
+          tester,
+          status: JoinRequestStatus.pending,
+          eventStatus: 'cancelled',
+        );
+
+        expect(find.byType(StatusPill), findsNWidgets(2));
+        expect(find.text('Cancelled'), findsOneWidget);
+        expect(find.text('Pending'), findsOneWidget);
+        expect(find.text('Withdraw request'), findsNothing);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // 11. Cancelled event + approved request → two pills, no withdraw link
+    // -------------------------------------------------------------------------
+    testWidgets(
+      'cancelled event + approved → two StatusPills, "Cancelled" + "Approved" text',
+      (tester) async {
+        await _pumpRow(
+          tester,
+          status: JoinRequestStatus.approved,
+          eventStatus: 'cancelled',
+        );
+
+        expect(find.byType(StatusPill), findsNWidgets(2));
+        expect(find.text('Cancelled'), findsOneWidget);
+        expect(find.text('Approved'), findsOneWidget);
+        expect(find.text('Withdraw request'), findsNothing);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // 12. Non-cancelled regression guard (AC3)
+    // -------------------------------------------------------------------------
+    testWidgets(
+      'published event + pending → exactly one StatusPill, no "Cancelled" text, withdraw link present',
+      (tester) async {
+        await _pumpRow(tester, status: JoinRequestStatus.pending);
+
+        expect(find.byType(StatusPill), findsOneWidget);
+        expect(find.text('Cancelled'), findsNothing);
+        expect(find.text('Withdraw request'), findsOneWidget);
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // 13. A11y label distinctness — cancelled+pending (AC5 + CEO hard condition)
+    // -------------------------------------------------------------------------
+    testWidgets(
+      'cancelled event + pending → distinct "Event status: Cancelled" and "Request status: Pending" semantics nodes',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: MyJoinRequestRow(
+                item: _makeItem(
+                  JoinRequestStatus.pending,
+                  eventStatus: 'cancelled',
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(
+          find.bySemanticsLabel(RegExp('Event status: Cancelled')),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(
+            RegExp('Request status: Pending, for Evening Drinks'),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // 14. Completed event → one pill (strict == 'cancelled' guard)
+    // -------------------------------------------------------------------------
+    testWidgets(
+      'completed event + approved → one StatusPill, no "Cancelled" text',
+      (tester) async {
+        await _pumpRow(
+          tester,
+          status: JoinRequestStatus.approved,
+          eventStatus: 'completed',
+        );
+
+        expect(find.byType(StatusPill), findsOneWidget);
+        expect(find.text('Cancelled'), findsNothing);
       },
     );
   });
