@@ -11,6 +11,7 @@ import { userEmailVerified } from '../events/user-email-verified.event.js';
 import { userUpdated } from '../events/user-updated.event.js';
 import { userRegistered } from '../events/user-registered.event.js';
 import { safetyReminderShown } from '../events/safety-reminder-shown.event.js';
+import { safetyReminderReset } from '../events/safety-reminder-reset.event.js';
 import { AvatarUrl } from '../value-objects/avatar-url.js';
 import { Bio } from '../value-objects/bio.js';
 import { CurrentCity } from '../value-objects/current-city.js';
@@ -377,6 +378,31 @@ export class User extends AggregateRoot {
         userId: this.id,
         eventId,
         shownAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Clears the safety-reminder seen flag so the pre-event safety sheet
+   * re-shows on the user's next request-to-join (TRI-270).
+   *
+   * Idempotent — if the flag is already null (not seen), this is a no-op:
+   * no state change and no event recorded (AC-6, AC-4).
+   *
+   * @param reason  The trigger reason for the reset (e.g. `'checkInFlagged'`).
+   *                A plain string, not an enum, to allow future triggers
+   *                (e.g. `'negativeReview'`) additively without a schema change.
+   * @param now     Wall-clock time of the reset.
+   */
+  clearSafetyReminderSeen(reason: string, now: Date): void {
+    if (this._safetyReminderSeenAt === null) return; // idempotent no-op (AC-6, AC-4)
+    this._safetyReminderSeenAt = null;
+    this._updatedAt = now;
+    this.record(
+      safetyReminderReset({
+        userId: this.id,
+        resetReason: reason,
+        resetAt: now.toISOString(),
       }),
     );
   }
