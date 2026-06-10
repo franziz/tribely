@@ -44,6 +44,7 @@ class MyJoinRequestRow extends StatelessWidget {
     final startsAtSgt = item.event.startsAt.toUtc().add(_sgtOffset);
     final dateLabel = _formatDate(startsAtSgt);
     final pillState = _pillState(item.joinRequest.status);
+    final isEventCancelled = item.event.status == 'cancelled';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -61,10 +62,13 @@ class MyJoinRequestRow extends StatelessWidget {
                   color: TribelyColors.paperBorderSubtle,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.image_outlined,
-                  size: 22,
-                  color: TribelyColors.paperInkSecondary,
+                child: Opacity(
+                  opacity: isEventCancelled ? 0.5 : 1.0,
+                  child: const Icon(
+                    Icons.image_outlined,
+                    size: 22,
+                    color: TribelyColors.paperInkSecondary,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -76,7 +80,9 @@ class MyJoinRequestRow extends StatelessWidget {
                     Text(
                       item.event.title,
                       style: TribelyType.bodyM(
-                        TribelyColors.paperInkPrimary,
+                        isEventCancelled
+                            ? TribelyColors.paperInkSecondary
+                            : TribelyColors.paperInkPrimary,
                       ).copyWith(fontWeight: FontWeight.w600),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -92,12 +98,32 @@ class MyJoinRequestRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              // Status pill — right-aligned.
-              StatusPill(state: pillState, semanticsContext: item.event.title),
+              // Status pill(s) — right-aligned.
+              // When the event is cancelled: two pills stacked (event-status
+              // on top, request-status below). When not cancelled: single pill.
+              if (isEventCancelled)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StatusPill(
+                      state: StatusPillState.cancelled,
+                      semanticsPrefix: 'Event status',
+                    ),
+                    const SizedBox(height: 4),
+                    StatusPill(
+                      state: pillState,
+                      semanticsContext: item.event.title,
+                    ),
+                  ],
+                )
+              else
+                StatusPill(state: pillState, semanticsContext: item.event.title),
             ],
           ),
-          // Withdraw link — only shown for pending requests.
-          if (item.joinRequest.status == JoinRequestStatus.pending) ...[
+          // Withdraw link — only shown for pending requests on non-cancelled events.
+          if (item.joinRequest.status == JoinRequestStatus.pending &&
+              !isEventCancelled) ...[
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
