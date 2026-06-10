@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
 import { buildApp } from '../../../../../app.js';
+import { prisma } from '../../../../../core/db/prisma.js';
 
 const dbUrl = process.env.DATABASE_URL;
 
@@ -103,6 +104,27 @@ describe.skipIf(!dbUrl)(
         })
         .catch(() => null);
       await db.$disconnect();
+
+      // ── Serial-mode isolation: disconnect the module-level prisma singleton ──
+      //
+      // Each test in this suite calls buildApp() inline, which routes through
+      // buildContainer() → the module-level `prisma` singleton in core/db/prisma.ts.
+      // The auditHttp middleware writes http_audit_log rows via that singleton,
+      // opening its pg connection pool. The singleton is never disconnected by
+      // buildApp() itself — that lifecycle lives in the server entry point.
+      //
+      // In serial vitest (fileParallelism: false), this suite and check-ins
+      // run in the same worker. If this suite runs first and the singleton's
+      // pool remains open when check-ins' beforeAll starts, the Neon pooler
+      // can be saturated (two concurrent pg.Pool instances competing for the
+      // pooler's connection slots). A saturated pooler causes check-ins'
+      // db.user.createMany() to timeout, leaving attendeeToken undefined;
+      // a subsequent `Bearer undefined` header fails JWT verify → spurious 401.
+      //
+      // Disconnecting the singleton here releases its pool before any subsequent
+      // file's beforeAll runs. Prisma lazily reconnects on the next query, so
+      // this is safe for any files running after this suite.
+      await prisma.$disconnect();
     });
 
     // ── Test 1: no Authorization header → 401 ──────────────────────────────
