@@ -62,6 +62,7 @@ import { DeleteAccountUseCase } from '@/features/users/application/usecases/dele
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
 import { MarkSafetyReminderSeenUseCase } from '@/features/users/application/usecases/mark-safety-reminder-seen.usecase.js';
+import { ResetSafetyReminderSeenUseCase } from '@/features/users/application/usecases/reset-safety-reminder-seen.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { RejectSelfieUseCase } from '@/features/users/application/usecases/reject-selfie.usecase.js';
 import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
@@ -290,6 +291,7 @@ export interface Container {
   updateUserProfileUseCase: UpdateUserProfileUseCase;
   getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
   markSafetyReminderSeenUseCase: MarkSafetyReminderSeenUseCase;
+  resetSafetyReminderSeenUseCase: ResetSafetyReminderSeenUseCase;
   rejectSelfieUseCase: RejectSelfieUseCase;
   approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
   deleteAccountUseCase: DeleteAccountUseCase;
@@ -585,6 +587,12 @@ export const buildContainer = (): Container => {
     clock,
   );
   const markSafetyReminderSeenUseCase = new MarkSafetyReminderSeenUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+    clock,
+  );
+  const resetSafetyReminderSeenUseCase = new ResetSafetyReminderSeenUseCase(
     unitOfWork,
     userRepository,
     publisher,
@@ -1019,7 +1027,9 @@ export const buildContainer = (): Container => {
   );
 
   // --- Consumers (per-consumer offsets registry) ---
-  registerUsersConsumers(consumerRegistry);
+  registerUsersConsumers(consumerRegistry, {
+    resetSafetyReminderSeen: resetSafetyReminderSeenUseCase,
+  });
   registerUserBlocksConsumers(consumerRegistry);
   registerReviewsConsumers(consumerRegistry);
   registerReportsConsumers(consumerRegistry);
@@ -1058,6 +1068,7 @@ export const buildContainer = (): Container => {
     updateUserProfileUseCase,
     getUserCapabilitiesUseCase,
     markSafetyReminderSeenUseCase,
+    resetSafetyReminderSeenUseCase,
     rejectSelfieUseCase,
     approveSelfieAppealUseCase,
     deleteAccountUseCase,
