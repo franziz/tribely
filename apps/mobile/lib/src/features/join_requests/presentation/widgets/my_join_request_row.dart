@@ -106,7 +106,7 @@ class MyJoinRequestRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    StatusPill(
+                    const StatusPill(
                       state: StatusPillState.cancelled,
                       semanticsPrefix: 'Event status',
                     ),
@@ -118,7 +118,10 @@ class MyJoinRequestRow extends StatelessWidget {
                   ],
                 )
               else
-                StatusPill(state: pillState, semanticsContext: item.event.title),
+                StatusPill(
+                  state: pillState,
+                  semanticsContext: item.event.title,
+                ),
             ],
           ),
           // Withdraw link — only shown for pending requests on non-cancelled events.
