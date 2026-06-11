@@ -24,10 +24,14 @@ import '../../features/account/presentation/pages/delete_account_page.dart';
 import '../../features/user_blocks/presentation/pages/blocked_users_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
+import '../../features/users/presentation/pages/selfie_capture_page.dart';
+import '../../features/users/presentation/pages/selfie_consent_page.dart';
 import '../../features/users/presentation/pages/settings_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
 import '../../features/users/presentation/pages/verification_settings_page.dart';
+import '../../features/users/presentation/providers/capability_providers.dart';
+import '../../features/users/presentation/state/selfie_gating_state.dart';
 import '../../features/check_ins/presentation/pages/safety_report_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_submitted_page.dart';
 import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
@@ -368,6 +372,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'supportContactSuccess',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const SupportContactSuccessPage(),
+      ),
+      // Selfie consent screen — entry point for the selfie verification flow.
+      // The router guard reads SelfieGatingState from the Riverpod graph:
+      //   NotStarted / Failed / Locked → allow entry
+      //   Approved → redirect to /settings/verification (already done)
+      //   Pending  → redirect to /settings/verification (already under review)
+      // The intake-disabled variant is driven by the `intakeDisabled` query param
+      // set by the calling entry point (Verify now CTA or gated-action banner).
+      GoRoute(
+        path: '/selfie/consent',
+        name: 'selfieConsent',
+        parentNavigatorKey: _rootNavigatorKey,
+        redirect: (context, routeState) {
+          final selfieState = ref.read(selfieGatingStateProvider);
+          return switch (selfieState) {
+            // Already done — no need to re-enter the flow.
+            SelfieGatingApproved() => '/settings/verification',
+            // Already under review — send to settings where pending state renders.
+            SelfieGatingPending() => '/settings/verification',
+            // Entry allowed for all other states.
+            _ => null,
+          };
+        },
+        builder: (context, routeState) {
+          final intakeDisabled =
+              routeState.uri.queryParameters['intakeDisabled'] == 'true';
+          return SelfieConsentPage(intakeDisabled: intakeDisabled);
+        },
+      ),
+      // Selfie capture screen — step 2 of the intake flow.
+      // Only reachable from /selfie/consent after camera permission is granted.
+      GoRoute(
+        path: '/selfie/capture',
+        name: 'selfieCapture',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, routeState) => const SelfieCapturePageStub(),
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
       // OnResumedListener is mounted HERE — above the indexedStack — so a
