@@ -1,13 +1,9 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import type { RequestSelfieUploadResult } from '../dto/request-selfie-upload.result.js';
 
 export interface RequestSelfieUploadInput {
   userId: string;
-}
-
-export interface RequestSelfieUploadResult {
-  uploadUrl: string;
-  storageKey: string;
 }
 
 /**

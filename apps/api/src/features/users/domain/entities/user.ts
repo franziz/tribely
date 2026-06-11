@@ -555,12 +555,13 @@ export class User extends AggregateRoot {
    * `recordSelfieAppealApproved` (which sets status to `pending` for a fresh
    * re-submission) then `approveSelfie` on the new submission.
    *
-   * Idempotency: callers must short-circuit if `selfieStatus === 'approved'`
-   * before calling this method (mirrors `recordSelfieAppealApproved` pattern).
+   * Idempotent: a no-op if already approved (no event emitted), mirroring
+   * `verifyEmail`.
    *
    * @param now  Wall-clock time of approval (injected for testability).
    */
   approveSelfie({ now }: { now: Date }): void {
+    if (this._selfieStatus === 'approved') return;
     this._selfieStatus = 'approved';
     this._updatedAt = now;
 

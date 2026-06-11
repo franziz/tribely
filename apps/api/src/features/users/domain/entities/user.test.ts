@@ -2,6 +2,7 @@ import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { describe, expect, it } from 'vitest';
 import { SAFETY_REMINDER_RESET } from '../events/safety-reminder-reset.event.js';
 import { SELFIE_APPEAL_APPROVED } from '../events/selfie-appeal-approved.event.js';
+import { SELFIE_APPROVED } from '../events/selfie-approved.event.js';
 import { SELFIE_REJECTED } from '../events/selfie-rejected.event.js';
 import { USER_ACCOUNT_DELETED } from '../events/user-account-deleted.event.js';
 import { USER_PHONE_VERIFICATION_REVOKED } from '../events/user-phone-verification-revoked.event.js';
@@ -425,6 +426,43 @@ describe('User aggregate', () => {
 
       expect(user.selfieAttemptCount).toBe(4);
       expect(user.selfieAppealLockedAt).toEqual(lockTime2);
+    });
+  });
+
+  describe('approveSelfie', () => {
+    it('sets selfieStatus=approved + bumps updatedAt + records event', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const now = new Date('2026-06-01T10:00:00Z');
+
+      user.approveSelfie({ now });
+
+      expect(user.selfieStatus).toBe('approved');
+      expect(user.updatedAt).toEqual(now);
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(SELFIE_APPROVED);
+      expect(events[0]?.payload).toMatchObject({
+        userId: 'user_1',
+        approvedAt: now.toISOString(),
+      });
+    });
+
+    it('is idempotent — second call is a no-op (event emitted exactly once)', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const first = new Date('2026-06-01T10:00:00Z');
+      const second = new Date('2026-06-02T10:00:00Z');
+
+      user.approveSelfie({ now: first });
+      user.pullEvents();
+      user.approveSelfie({ now: second });
+
+      // selfieStatus and updatedAt stay at first-call values
+      expect(user.selfieStatus).toBe('approved');
+      expect(user.updatedAt).toEqual(first);
+      // no event on the second call
+      expect(user.pullEvents()).toHaveLength(0);
     });
   });
 
