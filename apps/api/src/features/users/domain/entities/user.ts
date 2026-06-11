@@ -3,6 +3,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { selfieAppealApproved } from '../events/selfie-appeal-approved.event.js';
+import { selfieApproved } from '../events/selfie-approved.event.js';
 import { selfieRejected } from '../events/selfie-rejected.event.js';
 import { userAccountDeleted } from '../events/user-account-deleted.event.js';
 import { userPhoneVerificationRevoked } from '../events/user-phone-verification-revoked.event.js';
@@ -540,6 +541,34 @@ export class User extends AggregateRoot {
       selfieAppealApproved({
         userId: this.id,
         clearedAt: input.now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Records a selfie approval. Sets `selfieStatus` to `approved` and emits
+   * `users.selfieApproved` with the approval timestamp.
+   *
+   * Attempt count is preserved (historical record of any prior failures).
+   * `selfieAppealLockedAt` is NOT touched here — the selfie-approval path is
+   * for the normal first-submission flow. Appeal approval goes through
+   * `recordSelfieAppealApproved` (which sets status to `pending` for a fresh
+   * re-submission) then `approveSelfie` on the new submission.
+   *
+   * Idempotent: a no-op if already approved (no event emitted), mirroring
+   * `verifyEmail`.
+   *
+   * @param now  Wall-clock time of approval (injected for testability).
+   */
+  approveSelfie({ now }: { now: Date }): void {
+    if (this._selfieStatus === 'approved') return;
+    this._selfieStatus = 'approved';
+    this._updatedAt = now;
+
+    this.record(
+      selfieApproved({
+        userId: this.id,
+        approvedAt: now.toISOString(),
       }),
     );
   }

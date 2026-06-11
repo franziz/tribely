@@ -27,6 +27,7 @@ import {
 } from './features/reviews/presentation/http/routes/review.routes.js';
 import { buildReportRoutes } from './features/reports/presentation/http/routes/report.routes.js';
 import { buildUserBlockRoutes } from './features/user-blocks/presentation/http/routes/user-block.routes.js';
+import { buildSelfieIntakeRoutes } from './features/selfies/presentation/http/routes/selfie-intake.routes.js';
 import { buildSupportRoutes } from './features/support/presentation/http/routes/support.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
@@ -63,6 +64,18 @@ export const buildApp = (): { app: Hono; container: Container } => {
       verifyPhone: container.verifyPhoneUseCase,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
+    }),
+  );
+  // TRI-23 Brief A — selfie intake routes (presign + submit), additive under /auth.
+  // POST /auth/selfie        — presign a selfie upload URL
+  // POST /auth/selfie/submit — record a submitted selfie as pending
+  app.route(
+    '/auth',
+    buildSelfieIntakeRoutes({
+      requestSelfieUpload: container.requestSelfieUploadUseCase,
+      submitSelfie: container.submitSelfieUseCase,
+      accessTokens: container.accessTokens,
+      logger: container.logger,
     }),
   );
   app.route(
@@ -215,6 +228,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
     '/users',
     buildAdminSelfieRoutes({
       rejectSelfie: container.rejectSelfieUseCase,
+      approveSelfie: container.approveSelfieUseCase,
       approveSelfieAppeal: container.approveSelfieAppealUseCase,
     }),
   );

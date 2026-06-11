@@ -166,9 +166,10 @@ void main() {
         // Banner shows the locked / partial copy.
         expect(find.text(kVerificationBannerPartial), findsOneWidget);
 
-        // Only one "Verify now" CTA — phone row.
-        // Selfie row hides the chip on NotStarted (route not yet registered; Brief C wires it).
-        expect(find.text(kVerificationCtaVerifyNow), findsOneWidget);
+        // Two "Verify now" CTAs — phone row + selfie row. The selfie row now
+        // renders its entry CTA on NotStarted (/selfie/consent registered in TRI-23);
+        // the prior suppression (route-not-yet-registered) no longer applies.
+        expect(find.text(kVerificationCtaVerifyNow), findsNWidgets(2));
 
         // Email row shows "Verified" (no CTA for email).
         expect(find.text(kVerificationStateVerified), findsOneWidget);

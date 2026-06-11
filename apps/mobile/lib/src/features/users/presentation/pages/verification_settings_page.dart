@@ -247,8 +247,8 @@ class _VerificationSettingsPageState
             ? TribelyColors.nightInkSecondary
             : TribelyColors.paperInkSecondary,
         stateLabel: kVerificationStateNotStarted,
-        ctaLabel: null,
-        onCtaTap: null,
+        ctaLabel: kVerificationCtaVerifyNow,
+        onCtaTap: () => context.push('/selfie/consent'),
         isLastRow: true,
         isCheckingStatus: false,
       ),

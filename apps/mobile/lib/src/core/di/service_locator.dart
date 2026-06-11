@@ -50,13 +50,18 @@ import '../../features/join_requests/domain/usecases/list_pending_for_event_usec
 import '../../features/join_requests/domain/usecases/remove_attendee_usecase.dart';
 import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/withdraw_join_request_usecase.dart';
+import '../../features/users/data/datasources/selfie_remote_datasource.dart';
 import '../../features/users/data/datasources/user_capabilities_remote_datasource.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
+import '../../features/users/data/repositories/selfie_repository_impl.dart';
 import '../../features/users/data/repositories/user_capabilities_repository_impl.dart';
 import '../../features/users/data/repositories/user_profile_repository_impl.dart';
 import '../../features/users/domain/ports/user_profile_port.dart';
+import '../../features/users/domain/repositories/selfie_repository.dart';
 import '../../features/users/domain/repositories/user_capabilities_repository.dart';
 import '../../features/users/domain/repositories/user_profile_repository.dart';
+import '../../features/users/domain/usecases/request_selfie_upload_usecase.dart';
+import '../../features/users/domain/usecases/submit_selfie_usecase.dart';
 import '../../features/check_ins/data/datasources/check_ins_remote_datasource.dart';
 import '../../features/check_ins/data/repositories/check_ins_repository_impl.dart';
 import '../../features/check_ins/domain/repositories/check_ins_repository.dart';
@@ -163,6 +168,24 @@ Future<void> configureDependencies() async {
       remote: sl<UserCapabilitiesRemoteDatasource>(),
     ),
   );
+
+  // Users — selfie datasource + repository
+  sl.registerLazySingleton<SelfieRemoteDatasource>(
+    () => SelfieRemoteDatasourceImpl(
+      apiDio: sl<ApiClient>().dio,
+      // Isolated Dio for direct presigned-URL uploads — no Tribely JWT forwarded.
+      storageDio: _buildStorageDio(),
+    ),
+  );
+  sl.registerLazySingleton<SelfieRepository>(
+    () => SelfieRepositoryImpl(remote: sl<SelfieRemoteDatasource>()),
+  );
+
+  // Users — selfie use cases
+  sl.registerLazySingleton(
+    () => RequestSelfieUploadUseCase(sl<SelfieRepository>()),
+  );
+  sl.registerLazySingleton(() => SubmitSelfieUseCase(sl<SelfieRepository>()));
 
   // Users — use cases
   // GetUserProfileUseCase is registered here so core/providers/ can bridge it
@@ -384,6 +407,22 @@ Dio _buildMapboxDio() {
     BaseOptions(
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 15),
+    ),
+  );
+}
+
+/// Constructs a fresh, interceptor-free [Dio] instance for direct
+/// presigned-URL storage uploads (selfie JPEG upload).
+///
+/// The presigned URL carries its own authorization token — attaching the
+/// Tribely JWT would forward user credentials to the storage host. Large
+/// binary uploads need a longer receive timeout than API calls.
+Dio _buildStorageDio() {
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      // Selfie JPEG upload may take longer on slow mobile connections.
+      receiveTimeout: const Duration(seconds: 60),
     ),
   );
 }
