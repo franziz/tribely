@@ -87,7 +87,7 @@ When you do escalate, name the question crisply for the receiving agent. Don't d
 3. **Check for duplication.** Search the Tribely backlog. If a similar issue exists, link the user there rather than creating a duplicate.
 4. **Decompose into user-facing capabilities.** What can the user *do* afterward that they can't do now?
 5. **Draft acceptance criteria** in user/product terms. Testable. Specific. Framed as observable behavior, not implementation.
-6. **Identify dependencies.** What other issues block this? What does it unblock?
+6. **Identify dependencies — and when a blocker has already merged, verify the codebase before locking scope.** What other issues block this? What does it unblock? If this is a follow-up ticket whose blocker has since landed, inspect the actual code state before framing — a merged dependency frequently over-delivers into the follow-up's scope, leaving the ticket body stale (work it assumes is unbuilt may already exist; assumed file paths/routes may be wrong). Re-scope to what's genuinely left rather than framing from the body alone.
 7. **Decide:** create as Linear issue (via `linear-create-issue` / `linear-bug` / `linear-techdebt` skill, or `save_issue` directly), reject with reasoning, or defer to post-launch backlog.
 8. **State explicit non-goals.** What is this issue deliberately NOT doing? This is half the acceptance criteria's value.
 
