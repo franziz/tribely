@@ -188,8 +188,7 @@ class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
 /// Bypasses EventDetailController's use-case fetch (which calls sl<>) so that
 /// the /events/:id route can be rendered in router tests without GetIt.
 class _FixedEventDetailController extends EventDetailController {
-  _FixedEventDetailController(this._eventId, this._state) : super(_eventId);
-  final String _eventId;
+  _FixedEventDetailController(super.eventId, this._state);
   final EventDetailState _state;
 
   @override
@@ -545,32 +544,24 @@ Future<GoRouter> pumpProductionRouter(
         // providers EventDetailPage watches so GetIt is never touched.
         // The override is keyed to _kRouterTestEventId — only the
         // B5-Q2-7 test navigates to this id; other tests are unaffected.
-        eventDetailControllerProvider(
-          _kRouterTestEventId,
-        ).overrideWith(
+        eventDetailControllerProvider(_kRouterTestEventId).overrideWith(
           () => _FixedEventDetailController(
             _kRouterTestEventId,
             EventDetailLoaded(_routerTestEvent),
           ),
         ),
-        requestToJoinControllerProvider(
-          _kRouterTestEventId,
-        ).overrideWith(
+        requestToJoinControllerProvider(_kRouterTestEventId).overrideWith(
           () => _FixedRequestToJoinRouterController(_kRouterTestEventId),
         ),
-        hostPendingListControllerProvider(
-          _kRouterTestEventId,
-        ).overrideWith(
+        hostPendingListControllerProvider(_kRouterTestEventId).overrideWith(
           () => _FixedHostPendingListRouterController(_kRouterTestEventId),
         ),
-        hostAttendingListControllerProvider(
-          _kRouterTestEventId,
-        ).overrideWith(
+        hostAttendingListControllerProvider(_kRouterTestEventId).overrideWith(
           () => _FixedHostAttendingListRouterController(_kRouterTestEventId),
         ),
         myCapabilitiesProvider.overrideWith(
           () => _FakeMyCapabilitiesNotifier(
-            UserCapabilities(
+            const UserCapabilities(
               canPostPrivateVenue: false,
               safetyReminderSeen: true,
             ),
