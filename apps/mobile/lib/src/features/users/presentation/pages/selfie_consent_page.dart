@@ -8,7 +8,6 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
-import '../state/selfie_gating_state.dart';
 import '../string_assets/selfie_capture_copy.dart';
 
 /// Screen 1 — Selfie consent.
@@ -30,9 +29,9 @@ import '../string_assets/selfie_capture_copy.dart';
 ///   - Body copy
 ///   - "Got it" CTA → pops (never opens camera)
 ///
-/// The router guard (in app_router.dart) ensures the user's [SelfieGatingState]
-/// is one that allows entry before this page is shown. Defensive copy is
-/// rendered here only as a final fallback.
+/// The router guard (in app_router.dart) ensures the user's selfie gating
+/// state allows entry before this page is shown. Defensive copy is rendered
+/// here only as a final fallback.
 class SelfieConsentPage extends ConsumerWidget {
   const SelfieConsentPage({required this.intakeDisabled, super.key});
 
@@ -273,20 +272,3 @@ class SelfieConsentPage extends ConsumerWidget {
     // The user can tap "Take my photo" again to re-request.
   }
 }
-
-// ---------------------------------------------------------------------------
-// Router guard helper — exposed so app_router.dart can read it without
-// importing presentation state directly.
-// ---------------------------------------------------------------------------
-
-/// Returns whether [state] allows entry into the selfie consent flow.
-///
-/// Allowed: NotStarted, Failed, Locked (retry-after is enforced server-side).
-/// Blocked: Approved (already done), Pending (already under review).
-bool selfieConsentEntryAllowed(SelfieGatingState state) => switch (state) {
-      SelfieGatingNotStarted() ||
-      SelfieGatingFailed() ||
-      SelfieGatingLocked() =>
-        true,
-      SelfieGatingPending() || SelfieGatingApproved() => false,
-    };

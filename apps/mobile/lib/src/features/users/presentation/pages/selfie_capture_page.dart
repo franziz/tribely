@@ -10,14 +10,11 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/motion.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/di/service_locator.dart';
-import '../../../../core/error/failures.dart';
-import '../../../../core/usecase/usecase.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/loading_dots.dart';
 import '../../../../core/widgets/primary_button.dart';
-import '../../domain/usecases/request_selfie_upload_usecase.dart';
-import '../../domain/usecases/submit_selfie_usecase.dart';
+import '../controllers/selfie_capture_controller.dart';
+import '../state/selfie_capture_upload_state.dart';
 import '../string_assets/selfie_capture_copy.dart';
 import '../widgets/camera_overlay_widget.dart';
 import '../widgets/selfie_challenge_card.dart';
@@ -41,17 +38,20 @@ typedef SelfieCapturePageStub = SelfieCapturePage;
 /// Camera lifecycle requires a [ConsumerStatefulWidget] to own the
 /// [CameraController] so it is properly disposed on pop.
 ///
+/// Upload orchestration is delegated to [SelfieCaptureController]; this page
+/// only holds camera-hardware and ML-Kit lifecycle.
+///
 /// State matrix:
 ///   - [_CaptureState.checkingPermission] — initial, checking camera status
 ///   - [_CaptureState.permissionDenied]   — camera access denied
 ///   - [_CaptureState.initialising]       — camera starting up
 ///   - [_CaptureState.mlKitUnavailable]  — ML-Kit init failed (graceful)
 ///   - [_CaptureState.ready]              — camera live, guidance active
-///   - [_CaptureState.frozen]             — frame captured, uploading
-///   - [_CaptureState.uploading]          — use-cases in flight
+///   - [_CaptureState.frozen]             — frame captured, upload in flight
 ///   - [_CaptureState.error]              — upload failed, retry banner shown
 ///
-/// On success: context.go('/settings/verification').
+/// On success: [SelfieCaptureController] emits [SelfieCaptureUploadSuccess];
+/// the page's ref.listen navigates to /settings/verification.
 class SelfieCapturePage extends ConsumerStatefulWidget {
   const SelfieCapturePage({super.key});
 
@@ -70,7 +70,6 @@ enum _CaptureState {
   mlKitUnavailable,
   ready,
   frozen,
-  uploading,
   error,
 }
 
@@ -113,12 +112,6 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
 
   /// Non-null when state == error. Holds the human-readable banner message.
   String? _errorMessage;
-
-  /// Captured JPEG bytes — non-null in [_CaptureState.frozen] onward.
-  List<int>? _capturedJpegBytes;
-
-  /// Pre-sign result — populated after [RequestSelfieUploadUseCase] succeeds.
-  ({String uploadUrl, String storageKey})? _presign;
 
   bool _mlKitAvailable = true;
 
@@ -298,7 +291,7 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
   }
 
   // ---------------------------------------------------------------------------
-  // Capture + submit flow
+  // Capture flow — camera-hardware only
   // ---------------------------------------------------------------------------
 
   Future<void> _onCapture() async {
@@ -319,10 +312,10 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
       _guidance = _GuidanceState.holdSteady;
     });
 
+    List<int> jpegBytes;
     try {
       final file = await controller.takePicture();
-      final bytes = await file.readAsBytes();
-      _capturedJpegBytes = bytes;
+      jpegBytes = await file.readAsBytes();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -332,68 +325,17 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
       return;
     }
 
-    // Step 1: request presign.
-    setState(() => _state = _CaptureState.uploading);
-
-    final requestUseCase = sl<RequestSelfieUploadUseCase>();
-    final presignResult = await requestUseCase(const NoParams());
-
-    if (!mounted) return;
-
-    final presignFailure = presignResult.fold(
-      (failure) => failure,
-      (presign) {
-        _presign = presign;
-        return null;
-      },
-    );
-
-    if (presignFailure != null) {
-      _handleSubmitFailure(presignFailure);
-      return;
-    }
-
-    // Step 2: upload JPEG + submit.
-    final submitUseCase = sl<SubmitSelfieUseCase>();
-    final presign = _presign!;
-    final submitParams = SubmitSelfieParams(
-      uploadUrl: presign.uploadUrl,
-      storageKey: presign.storageKey,
-      jpegBytes: _capturedJpegBytes!,
-    );
-    final submitResult = await submitUseCase(submitParams);
-
-    if (!mounted) return;
-
-    submitResult.fold(
-      _handleSubmitFailure,
-      (_) {
-        // Success — navigate to verification settings where pending state renders.
-        context.go('/settings/verification');
-      },
-    );
-  }
-
-  void _handleSubmitFailure(Failure failure) {
-    if (!mounted) return;
-    final message = switch (failure) {
-      NetworkFailure() => kCaptureOfflineBanner,
-      SelfieIntakeDisabledFailure() =>
-        'Verification is temporarily unavailable. Please try again later.',
-      _ => kCaptureServerErrorBanner,
-    };
-    setState(() {
-      _state = _CaptureState.error;
-      _errorMessage = message;
-    });
+    // Delegate upload orchestration to the controller.
+    await ref
+        .read(selfieCaptureControllerProvider.notifier)
+        .submit(jpegBytes);
   }
 
   Future<void> _onRetry() async {
+    ref.read(selfieCaptureControllerProvider.notifier).reset();
     setState(() {
       _state = _CaptureState.checkingPermission;
       _errorMessage = null;
-      _capturedJpegBytes = null;
-      _presign = null;
     });
     await _init();
   }
@@ -404,6 +346,27 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch upload state to drive the uploading overlay.
+    final uploadState = ref.watch(selfieCaptureControllerProvider);
+
+    // Navigate to verification settings on upload success.
+    ref.listen<SelfieCaptureUploadState>(
+      selfieCaptureControllerProvider,
+      (_, next) {
+        if (next is SelfieCaptureUploadSuccess) {
+          context.go('/settings/verification');
+        } else if (next is SelfieCaptureUploadError) {
+          setState(() {
+            _state = _CaptureState.error;
+            _errorMessage = next.message;
+          });
+        }
+      },
+    );
+
+    final isUploading = uploadState is SelfieCaptureUploadInProgress ||
+        _state == _CaptureState.frozen;
+
     final dark = Theme.of(context).brightness == Brightness.dark;
     final ink = dark
         ? TribelyColors.nightInkPrimary
@@ -427,9 +390,8 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
           _CaptureState.ready ||
           _CaptureState.mlKitUnavailable ||
           _CaptureState.frozen ||
-          _CaptureState.uploading ||
           _CaptureState.error =>
-            _buildCapture(context, dark: dark),
+            _buildCapture(context, dark: dark, isUploading: isUploading),
         },
       ),
     );
@@ -485,10 +447,12 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
   // Camera capture UI (ready / frozen / uploading / error / mlKitUnavailable)
   // ---------------------------------------------------------------------------
 
-  Widget _buildCapture(BuildContext context, {required bool dark}) {
+  Widget _buildCapture(
+    BuildContext context, {
+    required bool dark,
+    required bool isUploading,
+  }) {
     final controller = _cameraController;
-    final isUploading = _state == _CaptureState.uploading ||
-        _state == _CaptureState.frozen;
 
     final captureEnabled = (_state == _CaptureState.ready &&
             _guidance == _GuidanceState.pass) ||

@@ -403,10 +403,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       // Selfie capture screen — step 2 of the intake flow.
       // Only reachable from /selfie/consent after camera permission is granted.
+      // The same Approved/Pending guard as /selfie/consent applies here: a user
+      // who already submitted (Pending) or was approved (Approved) must not
+      // land on the live-camera route.
       GoRoute(
         path: '/selfie/capture',
         name: 'selfieCapture',
         parentNavigatorKey: _rootNavigatorKey,
+        redirect: (context, routeState) {
+          final selfieState = ref.read(selfieGatingStateProvider);
+          return switch (selfieState) {
+            // Already done — redirect to verification settings.
+            SelfieGatingApproved() => '/settings/verification',
+            // Already under review — redirect to verification settings.
+            SelfieGatingPending() => '/settings/verification',
+            // Entry allowed for all other states.
+            _ => null,
+          };
+        },
         builder: (context, routeState) => const SelfieCapturePageStub(),
       ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
