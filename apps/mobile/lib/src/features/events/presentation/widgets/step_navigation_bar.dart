@@ -64,10 +64,7 @@ class StepNavigationBar extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onBack,
                   icon: const Icon(Icons.arrow_back, size: 18),
-                  label: Text(
-                    'Back',
-                    style: TribelyType.button(primary),
-                  ),
+                  label: Text('Back', style: TribelyType.button(primary)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: primary,
                     side: BorderSide(color: primary, width: 1.5),
