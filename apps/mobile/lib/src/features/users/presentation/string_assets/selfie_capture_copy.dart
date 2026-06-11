@@ -39,15 +39,11 @@ const String kConsentBodyParagraph3 =
 
 /// Affirmative-act consent sentence.
 ///
-/// PLACEHOLDER — PENDING legal re-bless. Do NOT finalize this line until
-/// team-lead confirms the approved wording.
-///
-/// TODO(TRI-23): replace with the final legal-blessed affirmative-act sentence
-/// once team-lead relays the re-blessed wording.
-// ignore: constant_identifier_names
+/// LEGAL-COMPLIANCE LOCKED — do not paraphrase, reformat line breaks, or alter
+/// punctuation without legal sign-off. Re-blessed by legal on 2026-06-11.
 const String kConsentAffirmativeActSentence =
-    '[PENDING LEGAL RE-BLESS] By tapping Take my photo, you agree to Tribely '
-    'collecting and reviewing this photo for identity verification.';
+    'By tapping Take my photo, you agree to Tribely collecting and reviewing '
+    'this photo for identity verification.';
 
 /// Privacy policy link label shown in the consent body.
 const String kConsentPolicyLinkLabel = 'Read the full policy';
