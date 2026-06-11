@@ -31,15 +31,29 @@ import 'package:tribely/src/features/auth/presentation/providers/auth_providers.
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_filter_controller.dart';
+import 'package:tribely/src/features/discover/presentation/controllers/event_detail_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_page.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_filter_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_map_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/event_detail_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
+import 'package:tribely/src/features/discover/presentation/state/event_detail_state.dart';
+import 'package:tribely/src/features/events/domain/entities/event.dart';
+import 'package:tribely/src/features/events/domain/entities/event_category.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/host_attending_list_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/host_pending_list_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/controllers/my_join_requests_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/request_to_join_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/host_attending_list_state.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/host_pending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/my_events_controller.dart';
@@ -155,6 +169,119 @@ class _FixedPendingReviewBannerController
   @override
   void onComposerNavigated() {}
 }
+
+// ---------------------------------------------------------------------------
+// EventDetailPage stubs — prevent GetIt access when /events/:id is rendered
+// in router tests (TRI-290: the page is now reachable unauthenticated).
+// ---------------------------------------------------------------------------
+
+/// Synchronously resolves to the given [UserCapabilities]. Mirrors the
+/// equivalent class in event_detail_sticky_bar_test.dart.
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
+
+/// Bypasses EventDetailController's use-case fetch (which calls sl<>) so that
+/// the /events/:id route can be rendered in router tests without GetIt.
+class _FixedEventDetailController extends EventDetailController {
+  _FixedEventDetailController(this._eventId, this._state) : super(_eventId);
+  final String _eventId;
+  final EventDetailState _state;
+
+  @override
+  EventDetailState build() => _state;
+
+  @override
+  Future<void> retry() async {}
+}
+
+/// Bypasses RequestToJoinController's use-case fetch for router tests.
+/// Keeps the existing-request state at Idle with no request (SessionUnauthenticated
+/// guard in loadExisting() handles this in prod; stub avoids any timer leak).
+class _FixedRequestToJoinRouterController extends RequestToJoinController {
+  _FixedRequestToJoinRouterController(super.eventId);
+
+  @override
+  RequestToJoinState build() => const RequestToJoinIdle();
+
+  @override
+  Future<void> loadExisting() async {}
+
+  @override
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {}
+
+  @override
+  Future<void> withdraw(String joinRequestId) async {}
+}
+
+/// Bypasses HostPendingListController's _load() for router tests.
+class _FixedHostPendingListRouterController extends HostPendingListController {
+  _FixedHostPendingListRouterController(super.eventId);
+
+  @override
+  HostPendingListState build() => const HostPendingListLoaded(items: []);
+
+  @override
+  Future<void> retry() async {}
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> approve(String joinRequestId) async {}
+
+  @override
+  Future<void> decline(String joinRequestId, {String? reason}) async {}
+
+  @override
+  void clearSectionError() {}
+
+  @override
+  void clearRaceConflict() {}
+}
+
+/// Bypasses HostAttendingListController's _load() for router tests.
+class _FixedHostAttendingListRouterController
+    extends HostAttendingListController {
+  _FixedHostAttendingListRouterController(super.eventId);
+
+  @override
+  HostAttendingListState build() => const HostAttendingListLoaded(items: []);
+
+  @override
+  Future<void> retry() async {}
+}
+
+/// Minimal event fixture for the /events/:id router test. Content is irrelevant
+/// (the test only checks the URI); the event must be future-dated + published
+/// so EventDetailPage builds without error-state branches.
+const _kRouterTestEventId = 'evt-demo-1';
+final _routerTestEvent = Event(
+  id: _kRouterTestEventId,
+  hostId: 'host-1',
+  title: 'Router Test Event',
+  description: 'A minimal event for router tests.',
+  venue: const EventVenue(
+    address: '1 Orchard Rd',
+    city: 'Singapore',
+    latitude: 1.3,
+    longitude: 103.8,
+    category: 'restaurant',
+  ),
+  startsAt: DateTime.utc(2099, 6, 1, 18, 0),
+  endsAt: DateTime.utc(2099, 6, 1, 21, 0),
+  capacity: 8,
+  category: EventCategory.drinks,
+  costSplit: 'own',
+  approvalMode: 'manual',
+  status: 'published',
+  createdAt: DateTime.utc(2026, 1, 1),
+  hostIsVerified: false,
+);
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -413,6 +540,44 @@ Future<GoRouter> pumpProductionRouter(
         myEventsControllerProvider.overrideWith(_FixedMyEventsController.new),
         pendingReviewBannerControllerProvider.overrideWith(
           _FixedPendingReviewBannerController.new,
+        ),
+        // TRI-290: /events/:id is now reachable unauthenticated; stub the
+        // providers EventDetailPage watches so GetIt is never touched.
+        // The override is keyed to _kRouterTestEventId — only the
+        // B5-Q2-7 test navigates to this id; other tests are unaffected.
+        eventDetailControllerProvider(
+          _kRouterTestEventId,
+        ).overrideWith(
+          () => _FixedEventDetailController(
+            _kRouterTestEventId,
+            EventDetailLoaded(_routerTestEvent),
+          ),
+        ),
+        requestToJoinControllerProvider(
+          _kRouterTestEventId,
+        ).overrideWith(
+          () => _FixedRequestToJoinRouterController(_kRouterTestEventId),
+        ),
+        hostPendingListControllerProvider(
+          _kRouterTestEventId,
+        ).overrideWith(
+          () => _FixedHostPendingListRouterController(_kRouterTestEventId),
+        ),
+        hostAttendingListControllerProvider(
+          _kRouterTestEventId,
+        ).overrideWith(
+          () => _FixedHostAttendingListRouterController(_kRouterTestEventId),
+        ),
+        myCapabilitiesProvider.overrideWith(
+          () => _FakeMyCapabilitiesNotifier(
+            UserCapabilities(
+              canPostPrivateVenue: false,
+              safetyReminderSeen: true,
+            ),
+          ),
+        ),
+        selfieGatingStateProvider.overrideWithValue(
+          const SelfieGatingApproved(),
         ),
       ],
       child: Consumer(
@@ -772,13 +937,13 @@ void main() {
         final router = await pumpProductionRouter(
           tester,
           sessionState: const SessionUnauthenticated(),
-          initialLocation: '/events/evt-demo-1',
+          initialLocation: '/events/$_kRouterTestEventId',
         );
 
         final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
-          isNot(equals('/welcome')),
+          equals('/events/$_kRouterTestEventId'),
           reason:
               'TRI-290: /events/:id is a public read route; unauthenticated '
               'users reach the event detail page without a bounce.',
