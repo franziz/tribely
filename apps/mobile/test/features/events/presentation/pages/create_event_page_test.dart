@@ -531,6 +531,47 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // TRI-93 regression — Step 1 Back button hidden, Next stays right-anchored
+  // ---------------------------------------------------------------------------
+  group('CreateEventPage — Step 1 Back hidden (TRI-93)', () {
+    testWidgets('Back is not rendered on step 1; Next is', (tester) async {
+      await _pumpPage(tester, _ValidDraftController.new);
+
+      // Step 1 (currentStep == 0) — Back must be absent, Next must be present.
+      expect(find.text('Back'), findsNothing);
+      expect(find.text('Next'), findsOneWidget);
+    });
+
+    testWidgets('Back is rendered on step 2 after advancing from step 1', (
+      tester,
+    ) async {
+      await _pumpPage(tester, _ValidDraftController.new);
+
+      // Advance to step 2.
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+
+      // Step 2 (currentStep == 1) — both Back and Next must be present.
+      expect(find.text('Back'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
+    });
+
+    testWidgets('Back is rendered on step 5 (Publish step)', (tester) async {
+      await _pumpPage(tester, _ValidDraftController.new);
+
+      // Advance to step 5 (currentStep == 4).
+      for (var i = 0; i < 4; i++) {
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+      }
+
+      // Step 5 (currentStep == 4) — Back present, Publish replaces Next.
+      expect(find.text('Back'), findsOneWidget);
+      expect(find.text('Publish'), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Bug 2 regression — round-trip navigation preserves Publish enabled state
   // ---------------------------------------------------------------------------
   group('CreateEventPage — round-trip navigation (Bug 2 regression)', () {
