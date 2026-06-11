@@ -1027,17 +1027,28 @@ class _StickyJoinBar extends ConsumerWidget {
     final now = DateTime.now().toUtc();
     final isEventPast = event.endsAt.toUtc().isBefore(now);
 
+    // TRI-290: read session here so we can (a) guard the myCapabilitiesProvider
+    // read and (b) branch the CTA tap handler on signed-out vs signed-in.
+    final session = ref.watch(sessionControllerProvider);
+    final isSignedOut = session is SessionUnauthenticated;
+
     // Sanctioned cross-feature import per CLAUDE.md mobile rules —
     // myCapabilitiesProvider is app-global session state in users/.
     // Default false when unreachable → show safety sheet (safer: over-show
     // a safety reminder than skip it — Brief G offline ruling).
-    final safetyReminderSeen = ref
-        .watch(myCapabilitiesProvider)
-        .when(
-          data: (caps) => caps.safetyReminderSeen,
-          loading: () => false,
-          error: (e, st) => false,
-        );
+    //
+    // TRI-290: skip reading myCapabilitiesProvider when signed out — the
+    // provider fires GET /users/me/capabilities which returns 401. Signed-out
+    // viewers never reach the safety-vs-confirm branch so false is correct.
+    final safetyReminderSeen = isSignedOut
+        ? false // signed-out: never reaches the safety-reminder branch
+        : ref
+              .watch(myCapabilitiesProvider)
+              .when(
+                data: (caps) => caps.safetyReminderSeen,
+                loading: () => false,
+                error: (e, st) => false,
+              );
 
     Widget content;
 
@@ -1098,6 +1109,9 @@ class _StickyJoinBar extends ConsumerWidget {
       content = const _DisabledCta(reason: 'Event has ended');
     } else {
       // No existing request: show the primary CTA.
+      // TRI-290 interim hand-off: signed-out tap routes to /welcome so the
+      // user can sign in before joining. No POST is fired. TRI-72 will
+      // replace this with an in-place sign-in modal.
       final isSubmitting = joinState is RequestToJoinSubmitting;
       content = PrimaryButton(
         label: 'Request to join',
@@ -1106,6 +1120,8 @@ class _StickyJoinBar extends ConsumerWidget {
             : PrimaryButtonState.idle,
         onPressed: isSubmitting
             ? null
+            : isSignedOut
+            ? () => context.go('/welcome')
             : () => _openJoinSheet(
                 context,
                 eventId: event.id,

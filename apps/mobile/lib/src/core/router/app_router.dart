@@ -457,6 +457,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, ref, _) => CheckInsOverlay(
             child: OnResumedListener(
               onResumed: () {
+                // TRI-290: only surface check-ins when signed in — avoids a
+                // doomed GET /me/post-event-check-ins 401 on foreground resume
+                // during anonymous browse. Authed behavior is unchanged.
+                final session = ref.read(sessionControllerProvider);
+                if (session is! SessionAuthenticated) return;
                 // Trigger a check-in surface on every foreground resume so the
                 // controller can transition to CheckInsShowing when pending
                 // check-ins exist. CheckInsOverlay reacts to Showing with
