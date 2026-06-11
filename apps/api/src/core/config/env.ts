@@ -183,6 +183,19 @@ export const envSchema = z
       .optional()
       .default(86_400_000),
 
+    // TRI-23 — Production safety gate for the selfie intake endpoints.
+    // Set to `true` ONLY after the retention sweep (TRI-79) has been
+    // observed emitting deletion-event rows in production run-logs — not
+    // merely "cron registered". When false (the default), POST /auth/selfie
+    // and POST /auth/selfie/submit return 503 SELFIE_INTAKE_DISABLED in
+    // NODE_ENV=production and pass through in development/test/staging.
+    //
+    // Blank-allowed:     YES — treated as false when absent.
+    // Sample/format:     true | false
+    // Prod-recommended:  false until retention sweep is confirmed running.
+    // Default:           false
+    SELFIE_DELETION_AUTOMATION_READY: z.coerce.boolean().default(false),
+
     // TRI-29 — How often the post-event check-in audit table is swept for rows
     // older than the PDPA retention window. Semantically distinct from the
     // check-in record sweep (POST_EVENT_CHECK_IN_SWEEP_INTERVAL_MS) — two

@@ -65,6 +65,7 @@ import { MarkSafetyReminderSeenUseCase } from '@/features/users/application/usec
 import { ResetSafetyReminderSeenUseCase } from '@/features/users/application/usecases/reset-safety-reminder-seen.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { RejectSelfieUseCase } from '@/features/users/application/usecases/reject-selfie.usecase.js';
+import { ApproveSelfieUseCase } from '@/features/users/application/usecases/approve-selfie.usecase.js';
 import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
 import { ListPendingReviewPromptsUseCase } from '@/features/users/application/usecases/list-pending-review-prompts.usecase.js';
 import { PromoteAdminOnBootUseCase } from '@/features/users/application/usecases/promote-admin-on-boot.usecase.js';
@@ -101,6 +102,8 @@ import { registerEventsConsumers } from '@/features/events/presentation/events/i
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 
 import { DeleteSelfieForUserUseCase } from '@/features/selfies/application/usecases/delete-selfie-for-user.usecase.js';
+import { RequestSelfieUploadUseCase } from '@/features/selfies/application/usecases/request-selfie-upload.usecase.js';
+import { SubmitSelfieUseCase } from '@/features/selfies/application/usecases/submit-selfie.usecase.js';
 import { SweepRetainedSelfiesUseCase } from '@/features/selfies/application/usecases/sweep-retained-selfies.usecase.js';
 import { PendingStorageDeletePrismaRepository } from '@/features/selfies/infrastructure/persistence/pending-storage-delete.prisma-repository.js';
 import { SelfiePrismaRepository } from '@/features/selfies/infrastructure/persistence/selfie.prisma-repository.js';
@@ -293,6 +296,7 @@ export interface Container {
   markSafetyReminderSeenUseCase: MarkSafetyReminderSeenUseCase;
   resetSafetyReminderSeenUseCase: ResetSafetyReminderSeenUseCase;
   rejectSelfieUseCase: RejectSelfieUseCase;
+  approveSelfieUseCase: ApproveSelfieUseCase;
   approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
   deleteAccountUseCase: DeleteAccountUseCase;
   listPendingReviewPromptsUseCase: ListPendingReviewPromptsUseCase;
@@ -355,6 +359,8 @@ export interface Container {
   sweepRetainedSelfiesUseCase: SweepRetainedSelfiesUseCase;
   sweepRetainedSelfiesJob: SweepRetainedSelfiesJob;
   deleteSelfieForUserUseCase: DeleteSelfieForUserUseCase;
+  requestSelfieUploadUseCase: RequestSelfieUploadUseCase;
+  submitSelfieUseCase: SubmitSelfieUseCase;
 
   // Events
   eventRepository: EventRepository;
@@ -666,6 +672,26 @@ export const buildContainer = (): Container => {
     selfieRepository,
     pendingStorageDeleteRepository,
     recordSelfieDeletionUseCase,
+    publisher,
+    clock,
+  );
+
+  // TRI-23 Brief A — selfie intake use cases (presign + submit).
+  const requestSelfieUploadUseCase = new RequestSelfieUploadUseCase(fileStorage);
+  const submitSelfieUseCase = new SubmitSelfieUseCase(
+    unitOfWork,
+    userRepository,
+    selfieRepository,
+    publisher,
+    clock,
+  );
+
+  // TRI-23 Brief B — approve pending selfie (transitions User + Selfie atomically).
+  // Placed after selfieRepository so both repositories are in scope.
+  const approveSelfieUseCase = new ApproveSelfieUseCase(
+    unitOfWork,
+    userRepository,
+    selfieRepository,
     publisher,
     clock,
   );
@@ -1070,6 +1096,7 @@ export const buildContainer = (): Container => {
     markSafetyReminderSeenUseCase,
     resetSafetyReminderSeenUseCase,
     rejectSelfieUseCase,
+    approveSelfieUseCase,
     approveSelfieAppealUseCase,
     deleteAccountUseCase,
     listPendingReviewPromptsUseCase,
@@ -1116,6 +1143,8 @@ export const buildContainer = (): Container => {
     sweepRetainedSelfiesUseCase,
     sweepRetainedSelfiesJob,
     deleteSelfieForUserUseCase,
+    requestSelfieUploadUseCase,
+    submitSelfieUseCase,
     eventRepository,
     createEventUseCase,
     listEventsUseCase,
