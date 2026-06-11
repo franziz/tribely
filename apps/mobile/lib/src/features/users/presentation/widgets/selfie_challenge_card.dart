@@ -13,10 +13,7 @@ import '../../../../core/design/typography.dart';
 /// Placement: [users/presentation/widgets/] — feature-scoped per EL's YAGNI
 /// ruling. Do NOT move to core/widgets/ without EL sign-off.
 class SelfieChallengeCard extends StatelessWidget {
-  const SelfieChallengeCard({
-    required this.onDismiss,
-    super.key,
-  });
+  const SelfieChallengeCard({required this.onDismiss, super.key});
 
   final VoidCallback onDismiss;
 
@@ -48,9 +45,9 @@ class SelfieChallengeCard extends StatelessWidget {
               children: [
                 Text(
                   'A quick tip',
-                  style: TribelyType.caption(ink).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TribelyType.caption(
+                    ink,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -64,16 +61,9 @@ class SelfieChallengeCard extends StatelessWidget {
           const SizedBox(width: 8),
           IconButton(
             onPressed: onDismiss,
-            icon: Icon(
-              Icons.close,
-              size: 18,
-              color: inkSecondary,
-            ),
+            icon: Icon(Icons.close, size: 18, color: inkSecondary),
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: 32,
-              minHeight: 32,
-            ),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             tooltip: 'Dismiss tip',
             splashRadius: 16,
           ),

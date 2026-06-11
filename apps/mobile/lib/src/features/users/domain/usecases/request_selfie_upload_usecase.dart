@@ -15,14 +15,12 @@ import '../repositories/selfie_repository.dart';
 ///   - [NetworkFailure]: device is offline.
 ///   - [ServerFailure]: unexpected backend error.
 class RequestSelfieUploadUseCase
-    implements
-        UseCase<({String uploadUrl, String storageKey}), NoParams> {
+    implements UseCase<({String uploadUrl, String storageKey}), NoParams> {
   const RequestSelfieUploadUseCase(this._repository);
   final SelfieRepository _repository;
 
   @override
   Future<Either<Failure, ({String uploadUrl, String storageKey})>> call(
     NoParams params,
-  ) =>
-      _repository.requestUploadUrl();
+  ) => _repository.requestUploadUrl();
 }

@@ -13,13 +13,13 @@ import '../datasources/selfie_remote_datasource.dart';
 /// message strings.
 class SelfieRepositoryImpl implements SelfieRepository {
   SelfieRepositoryImpl({required SelfieRemoteDatasource remote})
-      : _remote = remote;
+    : _remote = remote;
 
   final SelfieRemoteDatasource _remote;
 
   @override
   Future<Either<Failure, ({String uploadUrl, String storageKey})>>
-      requestUploadUrl() async {
+  requestUploadUrl() async {
     try {
       final model = await _remote.requestUploadUrl();
       return Right((uploadUrl: model.uploadUrl, storageKey: model.storageKey));
@@ -61,10 +61,10 @@ class SelfieRepositoryImpl implements SelfieRepository {
         403 => ServerFailure(inner.message, statusCode: 403, code: inner.code),
         503 => SelfieIntakeDisabledFailure(inner.message),
         _ => ServerFailure(
-            inner.message,
-            statusCode: inner.statusCode,
-            code: inner.code,
-          ),
+          inner.message,
+          statusCode: inner.statusCode,
+          code: inner.code,
+        ),
       };
     }
     if (inner is NetworkException) return NetworkFailure(inner.message);

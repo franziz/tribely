@@ -185,9 +185,7 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(
     () => RequestSelfieUploadUseCase(sl<SelfieRepository>()),
   );
-  sl.registerLazySingleton(
-    () => SubmitSelfieUseCase(sl<SelfieRepository>()),
-  );
+  sl.registerLazySingleton(() => SubmitSelfieUseCase(sl<SelfieRepository>()));
 
   // Users — use cases
   // GetUserProfileUseCase is registered here so core/providers/ can bridge it

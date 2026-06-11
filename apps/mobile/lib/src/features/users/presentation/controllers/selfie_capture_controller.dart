@@ -24,18 +24,13 @@ final _selfieRepositoryProvider = Provider<SelfieRepository>(
 // ---------------------------------------------------------------------------
 
 /// Provider for [RequestSelfieUploadUseCase].
-final requestSelfieUploadUseCaseProvider =
-    Provider<RequestSelfieUploadUseCase>(
-      (ref) => RequestSelfieUploadUseCase(
-        ref.read(_selfieRepositoryProvider),
-      ),
-    );
+final requestSelfieUploadUseCaseProvider = Provider<RequestSelfieUploadUseCase>(
+  (ref) => RequestSelfieUploadUseCase(ref.read(_selfieRepositoryProvider)),
+);
 
 /// Provider for [SubmitSelfieUseCase].
 final submitSelfieUseCaseProvider = Provider<SubmitSelfieUseCase>(
-  (ref) => SubmitSelfieUseCase(
-    ref.read(_selfieRepositoryProvider),
-  ),
+  (ref) => SubmitSelfieUseCase(ref.read(_selfieRepositoryProvider)),
 );
 
 // ---------------------------------------------------------------------------
@@ -108,7 +103,8 @@ class SelfieCaptureController extends Notifier<SelfieCaptureUploadState> {
     if (!ref.mounted) return;
 
     submitResult.fold(
-      (failure) => state = SelfieCaptureUploadError(message: _messageFor(failure)),
+      (failure) =>
+          state = SelfieCaptureUploadError(message: _messageFor(failure)),
       (_) => state = const SelfieCaptureUploadSuccess(),
     );
   }
@@ -121,18 +117,19 @@ class SelfieCaptureController extends Notifier<SelfieCaptureUploadState> {
   // ---------------------------------------------------------------------------
 
   static String _messageFor(Failure failure) => switch (failure) {
-        NetworkFailure() =>
-          'You appear to be offline. Check your connection and try again.',
-        SelfieIntakeDisabledFailure() =>
-          'Verification is temporarily unavailable. Please try again later.',
-        _ => 'Something went wrong uploading your photo. Please try again.',
-      };
+    NetworkFailure() =>
+      'You appear to be offline. Check your connection and try again.',
+    SelfieIntakeDisabledFailure() =>
+      'Verification is temporarily unavailable. Please try again later.',
+    _ => 'Something went wrong uploading your photo. Please try again.',
+  };
 }
 
 /// Stable provider — autoDispose so state resets when the capture page leaves
 /// the widget tree. `Notifier<T>` + `NotifierProvider.autoDispose` per project
 /// convention (CLAUDE.md gotcha: do NOT use `AutoDisposeNotifier<T>`).
-final selfieCaptureControllerProvider = NotifierProvider.autoDispose<
-    SelfieCaptureController, SelfieCaptureUploadState>(
-  SelfieCaptureController.new,
-);
+final selfieCaptureControllerProvider =
+    NotifierProvider.autoDispose<
+      SelfieCaptureController,
+      SelfieCaptureUploadState
+    >(SelfieCaptureController.new);

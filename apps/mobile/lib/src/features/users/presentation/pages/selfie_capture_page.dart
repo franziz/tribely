@@ -89,14 +89,14 @@ enum _GuidanceState {
 
 extension _GuidanceCopy on _GuidanceState {
   String get label => switch (this) {
-        _GuidanceState.centerFace => kGuidanceCenterFace,
-        _GuidanceState.onePerson => kGuidanceOnePerson,
-        _GuidanceState.betterLight => kGuidanceBetterLight,
-        _GuidanceState.holdSteady => kGuidanceHoldSteady,
-        _GuidanceState.closer => kGuidanceCloser,
-        _GuidanceState.back => kGuidanceBack,
-        _GuidanceState.pass => kGuidancePass,
-      };
+    _GuidanceState.centerFace => kGuidanceCenterFace,
+    _GuidanceState.onePerson => kGuidanceOnePerson,
+    _GuidanceState.betterLight => kGuidanceBetterLight,
+    _GuidanceState.holdSteady => kGuidanceHoldSteady,
+    _GuidanceState.closer => kGuidanceCloser,
+    _GuidanceState.back => kGuidanceBack,
+    _GuidanceState.pass => kGuidancePass,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -243,9 +243,8 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
     if (controller == null) return null;
     final camera = controller.description;
 
-    final rotation = InputImageRotationValue.fromRawValue(
-          camera.sensorOrientation,
-        ) ??
+    final rotation =
+        InputImageRotationValue.fromRawValue(camera.sensorOrientation) ??
         InputImageRotation.rotation0deg;
 
     if (image.planes.isEmpty) return null;
@@ -326,9 +325,7 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
     }
 
     // Delegate upload orchestration to the controller.
-    await ref
-        .read(selfieCaptureControllerProvider.notifier)
-        .submit(jpegBytes);
+    await ref.read(selfieCaptureControllerProvider.notifier).submit(jpegBytes);
   }
 
   Future<void> _onRetry() async {
@@ -350,21 +347,22 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
     final uploadState = ref.watch(selfieCaptureControllerProvider);
 
     // Navigate to verification settings on upload success.
-    ref.listen<SelfieCaptureUploadState>(
-      selfieCaptureControllerProvider,
-      (_, next) {
-        if (next is SelfieCaptureUploadSuccess) {
-          context.go('/settings/verification');
-        } else if (next is SelfieCaptureUploadError) {
-          setState(() {
-            _state = _CaptureState.error;
-            _errorMessage = next.message;
-          });
-        }
-      },
-    );
+    ref.listen<SelfieCaptureUploadState>(selfieCaptureControllerProvider, (
+      _,
+      next,
+    ) {
+      if (next is SelfieCaptureUploadSuccess) {
+        context.go('/settings/verification');
+      } else if (next is SelfieCaptureUploadError) {
+        setState(() {
+          _state = _CaptureState.error;
+          _errorMessage = next.message;
+        });
+      }
+    });
 
-    final isUploading = uploadState is SelfieCaptureUploadInProgress ||
+    final isUploading =
+        uploadState is SelfieCaptureUploadInProgress ||
         _state == _CaptureState.frozen;
 
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -382,16 +380,20 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
       ),
       body: SafeArea(
         child: switch (_state) {
-          _CaptureState.permissionDenied =>
-            _buildPermissionDenied(context, ink: ink),
+          _CaptureState.permissionDenied => _buildPermissionDenied(
+            context,
+            ink: ink,
+          ),
           _CaptureState.checkingPermission ||
-          _CaptureState.initialising =>
-            _buildInitialising(),
+          _CaptureState.initialising => _buildInitialising(),
           _CaptureState.ready ||
           _CaptureState.mlKitUnavailable ||
           _CaptureState.frozen ||
-          _CaptureState.error =>
-            _buildCapture(context, dark: dark, isUploading: isUploading),
+          _CaptureState.error => _buildCapture(
+            context,
+            dark: dark,
+            isUploading: isUploading,
+          ),
         },
       ),
     );
@@ -402,9 +404,7 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
   // ---------------------------------------------------------------------------
 
   Widget _buildInitialising() {
-    return const Center(
-      child: CircularProgressIndicator(color: Colors.white),
-    );
+    return const Center(child: CircularProgressIndicator(color: Colors.white));
   }
 
   // ---------------------------------------------------------------------------
@@ -454,8 +454,8 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
   }) {
     final controller = _cameraController;
 
-    final captureEnabled = (_state == _CaptureState.ready &&
-            _guidance == _GuidanceState.pass) ||
+    final captureEnabled =
+        (_state == _CaptureState.ready && _guidance == _GuidanceState.pass) ||
         _state == _CaptureState.mlKitUnavailable;
 
     final feedback = switch (_guidance) {
@@ -464,8 +464,7 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
       _GuidanceState.onePerson ||
       _GuidanceState.betterLight ||
       _GuidanceState.closer ||
-      _GuidanceState.back =>
-        OverlayFeedback.block,
+      _GuidanceState.back => OverlayFeedback.block,
       _ => OverlayFeedback.idle,
     };
 
@@ -502,10 +501,9 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
                       : _guidance.label,
                   style: TribelyType.bodyM(Colors.white).copyWith(
                     // Clamp textScaleFactor at 1.3 per a11y spec.
-                    fontSize: 15 *
-                        MediaQuery.textScalerOf(context)
-                            .scale(1)
-                            .clamp(0, 1.3),
+                    fontSize:
+                        15 *
+                        MediaQuery.textScalerOf(context).scale(1).clamp(0, 1.3),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -517,9 +515,7 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
         if (isUploading)
           ColoredBox(
             color: Colors.black.withValues(alpha: 0.5),
-            child: const Center(
-              child: LoadingDots(color: Colors.white),
-            ),
+            child: const Center(child: LoadingDots(color: Colors.white)),
           ),
 
         // Error banner — displayed above the capture controls.
@@ -530,10 +526,7 @@ class _SelfieCapturePageState extends ConsumerState<SelfieCapturePage> {
             right: 16,
             child: BannerMessage(
               message: _errorMessage!,
-              action: BannerAction(
-                label: kCaptureRetryAction,
-                onTap: _onRetry,
-              ),
+              action: BannerAction(label: kCaptureRetryAction, onTap: _onRetry),
             ),
           ),
 

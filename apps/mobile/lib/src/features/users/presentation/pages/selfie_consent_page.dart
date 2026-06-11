@@ -94,11 +94,7 @@ class SelfieConsentPage extends ConsumerWidget {
               children: [
                 // Camera icon
                 Center(
-                  child: Icon(
-                    Icons.camera_alt_outlined,
-                    size: 56,
-                    color: ink,
-                  ),
+                  child: Icon(Icons.camera_alt_outlined, size: 56, color: ink),
                 ),
                 const SizedBox(height: 24),
                 // Fraunces headline
@@ -150,9 +146,9 @@ class SelfieConsentPage extends ConsumerWidget {
                   },
                   child: Text(
                     '$kConsentPolicyLinkLabel →',
-                    style: TribelyType.bodyM(accent).copyWith(
-                      decoration: TextDecoration.underline,
-                    ),
+                    style: TribelyType.bodyM(
+                      accent,
+                    ).copyWith(decoration: TextDecoration.underline),
                   ),
                 ),
                 const SizedBox(height: 20),

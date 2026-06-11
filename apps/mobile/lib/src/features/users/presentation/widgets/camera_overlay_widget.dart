@@ -16,10 +16,7 @@ import '../../../../core/design/colors.dart';
 ///
 /// Placement is feature-scoped (YAGNI — EL ruling): do NOT move to core/widgets/.
 class CameraOverlayWidget extends StatefulWidget {
-  const CameraOverlayWidget({
-    required this.feedback,
-    super.key,
-  });
+  const CameraOverlayWidget({required this.feedback, super.key});
 
   /// Current face-guidance feedback driving the stroke colour.
   final OverlayFeedback feedback;
@@ -114,16 +111,15 @@ class _CameraOverlayWidgetState extends State<CameraOverlayWidget>
 
   static Color _strokeColor(OverlayFeedback feedback, {required bool dark}) =>
       switch (feedback) {
-        OverlayFeedback.idle => (dark
-            ? TribelyColors.nightInkPrimary
-            : TribelyColors.paperSurfaceHigh)
-            .withValues(alpha: 0.7),
-        OverlayFeedback.pass => dark
-            ? TribelyColors.nightSuccess
-            : TribelyColors.paperSuccess,
-        OverlayFeedback.block => dark
-            ? TribelyColors.nightAccent
-            : TribelyColors.paperAccent,
+        OverlayFeedback.idle =>
+          (dark
+                  ? TribelyColors.nightInkPrimary
+                  : TribelyColors.paperSurfaceHigh)
+              .withValues(alpha: 0.7),
+        OverlayFeedback.pass =>
+          dark ? TribelyColors.nightSuccess : TribelyColors.paperSuccess,
+        OverlayFeedback.block =>
+          dark ? TribelyColors.nightAccent : TribelyColors.paperAccent,
       };
 }
 

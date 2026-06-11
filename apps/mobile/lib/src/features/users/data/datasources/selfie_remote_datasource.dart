@@ -32,11 +32,9 @@ abstract class SelfieRemoteDatasource {
 }
 
 class SelfieRemoteDatasourceImpl implements SelfieRemoteDatasource {
-  SelfieRemoteDatasourceImpl({
-    required Dio apiDio,
-    required Dio storageDio,
-  })  : _apiDio = apiDio,
-        _storageDio = storageDio;
+  SelfieRemoteDatasourceImpl({required Dio apiDio, required Dio storageDio})
+    : _apiDio = apiDio,
+      _storageDio = storageDio;
 
   /// Tribely API Dio — carries the auth interceptor + error-interceptor.
   final Dio _apiDio;

@@ -26,7 +26,7 @@ abstract class SelfieRepository {
   /// Returns [SelfieIntakeDisabledFailure] when the backend is in maintenance
   /// mode (503 SELFIE_INTAKE_DISABLED).
   Future<Either<Failure, ({String uploadUrl, String storageKey})>>
-      requestUploadUrl();
+  requestUploadUrl();
 
   /// PUT jpegBytes to uploadUrl, then POST /auth/selfie/submit.
   ///
