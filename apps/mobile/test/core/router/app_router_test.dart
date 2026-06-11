@@ -704,9 +704,9 @@ void main() {
       },
     );
 
-    // B5-Q2-4: Unauthenticated user → /events is bounced to /welcome (negative pole).
+    // B5-Q2-4: TRI-290 — Unauthenticated user → /events stays on /events (positive pole).
     testWidgets(
-      'B5-Q2: unauthenticated user navigating to /events is redirected to /welcome',
+      'B5-Q2: unauthenticated user navigating to /events is NOT bounced to /welcome',
       (tester) async {
         final router = await pumpProductionRouter(
           tester,
@@ -717,9 +717,71 @@ void main() {
         final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
+          equals('/events'),
+          reason:
+              'TRI-290: /events is a public read route; unauthenticated users '
+              'browse it without a bounce.',
+        );
+      },
+    );
+
+    // B5-Q2-5: TRI-290 footgun-lock — /events/new stays auth-walled.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events/new is redirected to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events/new',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
           equals('/welcome'),
           reason:
-              'Unauthenticated user must be bounced from /events to /welcome',
+              'create-event wizard stays auth-walled '
+              '(read-route predicate must not match /events/new).',
+        );
+      },
+    );
+
+    // B5-Q2-6: TRI-290 footgun-lock — /events/new/phone-gate stays auth-walled.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events/new/phone-gate is redirected to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events/new/phone-gate',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/welcome'),
+          reason: 'phone-gate stays auth-walled.',
+        );
+      },
+    );
+
+    // B5-Q2-7: TRI-290 — Unauthenticated user → /events/:id stays on the detail route.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events/:id is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events/evt-demo-1',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          isNot(equals('/welcome')),
+          reason:
+              'TRI-290: /events/:id is a public read route; unauthenticated '
+              'users reach the event detail page without a bounce.',
         );
       },
     );

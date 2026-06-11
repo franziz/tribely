@@ -17,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/core/widgets/primary_button.dart';
 import 'package:tribely/src/core/widgets/status_pill.dart';
+import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
+import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
@@ -89,6 +91,31 @@ final _pastEvent = _testEvent.copyWith(
 
 // Cancelled event
 final _cancelledEvent = _testEvent.copyWith(status: 'cancelled');
+
+// ---------------------------------------------------------------------------
+// Authenticated session fixture — required by TRI-290 tests where CTA tap must
+// route to ConfirmJoinSheet (authed path). Mirrors the fixture in
+// event_detail_page_test.dart.
+// ---------------------------------------------------------------------------
+
+final _verifiedUser = User(
+  id: 'test-user-1',
+  email: 'test@tribely.com',
+  displayName: 'Test User',
+  createdAt: DateTime.utc(2024),
+  updatedAt: DateTime.utc(2024),
+  emailVerifiedAt: DateTime.utc(2024),
+);
+
+final _verifiedSession = AuthSession(
+  user: _verifiedUser,
+  accessToken: 'access-token',
+  accessTokenExpiresAt: DateTime.utc(2099),
+  refreshToken: 'refresh-token',
+  refreshTokenExpiresAt: DateTime.utc(2099),
+);
+
+final _authenticatedState = SessionAuthenticated(_verifiedSession);
 
 final _pendingRequest = JoinRequest(
   id: 'jr-1',
@@ -457,6 +484,9 @@ void main() {
           tester,
           event: _testEvent,
           ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+          // TRI-290: CTA tap routes to ConfirmJoinSheet when authenticated.
+          // Unauthenticated tap routes to /welcome (interim TRI-72 hand-off).
+          sessionState: _authenticatedState,
         );
 
         await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
@@ -475,6 +505,9 @@ void main() {
           tester,
           event: _testEvent,
           ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+          // TRI-290: CTA tap routes to ConfirmJoinSheet when authenticated.
+          // Unauthenticated tap routes to /welcome (interim TRI-72 hand-off).
+          sessionState: _authenticatedState,
           onSubmitCalled: () => submitCalled = true,
         );
 
