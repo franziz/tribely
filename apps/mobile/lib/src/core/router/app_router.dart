@@ -99,6 +99,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthFlow = authFlowRoutes.contains(loc);
       final isVerify = loc == '/verify-email';
 
+      // TRI-290: Public event read-routes — /events and /events/:id are
+      // readable without authentication. The predicate matches:
+      //   /events          — Discover feed
+      //   /events/<id>     — event detail (exactly one path segment after /)
+      // And explicitly excludes:
+      //   /events/new      — requires auth (the auth wall stays intact)
+      //   /events/new/...  — any sub-path under new (phone-gate, etc.)
+      // Logic: path is /events OR (/events/<segment> AND segment != 'new').
+      // The single-segment constraint keeps /events/new/phone-gate out by
+      // construction; the != 'new' check keeps /events/new itself out.
+      final isPublicEventRead = () {
+        if (loc == '/events') return true;
+        if (!loc.startsWith('/events/')) return false;
+        final remainder = loc.substring('/events/'.length);
+        // Reject multi-segment paths (/events/new/phone-gate, etc.).
+        if (remainder.contains('/')) return false;
+        // Reject the create-event entry point.
+        if (remainder == 'new') return false;
+        // Remaining single-segment paths are event detail ids.
+        return remainder.isNotEmpty;
+      }();
+
       switch (session) {
         case SessionRestoring():
           // Stay on splash until restore completes.
@@ -106,10 +128,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         case SessionUnauthenticated():
           // Splash and verify-email both redirect to welcome (the former
           // because restore is done, the latter because the user is no longer
-          // authenticated). Public routes are allowed through. Everything else
-          // (e.g. /events, /my-events, /profile, /users/:id) is auth-required
-          // and bounced back to /welcome.
-          if (isSplash || isVerify || !isPublic) return '/welcome';
+          // authenticated). Public routes and public event read-routes are
+          // allowed through. Everything else (e.g. /my-events, /profile,
+          // /users/:id, /events/new) is auth-required and bounced to /welcome.
+          if (isSplash || isVerify || (!isPublic && !isPublicEventRead)) {
+            return '/welcome';
+          }
           return null;
         case SessionAuthenticated(:final session):
           // Authenticated but unverified: route everything except /verify-email
@@ -433,6 +457,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, ref, _) => CheckInsOverlay(
             child: OnResumedListener(
               onResumed: () {
+                // TRI-290: only surface check-ins when signed in — avoids a
+                // doomed GET /me/post-event-check-ins 401 on foreground resume
+                // during anonymous browse. Authed behavior is unchanged.
+                final session = ref.read(sessionControllerProvider);
+                if (session is! SessionAuthenticated) return;
                 // Trigger a check-in surface on every foreground resume so the
                 // controller can transition to CheckInsShowing when pending
                 // check-ins exist. CheckInsOverlay reacts to Showing with
