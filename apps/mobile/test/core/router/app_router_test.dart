@@ -941,5 +941,83 @@ void main() {
         );
       },
     );
+
+    // -------------------------------------------------------------------------
+    // TRI-71: Auth-gated tab roots — signed-out users stay on /my-events and
+    // /profile (no redirect to /welcome) so they render the in-tab empty state.
+    // -------------------------------------------------------------------------
+
+    // TRI-71-1: Signed-out user at /my-events stays on /my-events.
+    testWidgets(
+      'TRI-71: unauthenticated user at /my-events is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/my-events',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/my-events'),
+          reason:
+              'TRI-71: /my-events is an auth-gated tab root; signed-out users '
+              'must remain on the tab to render the signed-out empty state '
+              'instead of being bounced to /welcome.',
+        );
+      },
+    );
+
+    // TRI-71-2: Signed-out user at /profile stays on /profile.
+    testWidgets(
+      'TRI-71: unauthenticated user at /profile is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/profile',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/profile'),
+          reason:
+              'TRI-71: /profile is an auth-gated tab root; signed-out users '
+              'must remain on the tab to render the signed-out empty state '
+              'instead of being bounced to /welcome.',
+        );
+      },
+    );
+
+    // TRI-71-3: Session flip on /profile does NOT bounce to /events.
+    // A user who signs in via the gate sheet while on /profile must stay on
+    // /profile (return-to-origin). Because /profile is NOT in `authFlowRoutes`,
+    // the SessionAuthenticated bounce-auth-flow branch never fires for it.
+    testWidgets(
+      'TRI-71: session flip SessionUnauthenticated→SessionAuthenticated on /profile does NOT redirect to /events',
+      (tester) async {
+        // Start authenticated directly on /profile — this exercises the
+        // SessionAuthenticated branch with loc == '/profile', which must return
+        // null (no redirect) because /profile is not in authFlowRoutes.
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: _authenticatedState,
+          initialLocation: '/profile',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/profile'),
+          reason:
+              'TRI-71: /profile is NOT in authFlowRoutes, so a '
+              'SessionAuthenticated session landing on /profile must NOT be '
+              'redirected to /events. Return-to-origin must be preserved after '
+              'a sign-in while on the Profile tab.',
+        );
+      },
+    );
   });
 }
