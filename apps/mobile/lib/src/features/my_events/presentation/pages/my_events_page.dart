@@ -8,6 +8,7 @@ import '../controllers/hosting_pending_count_controller.dart';
 import '../controllers/my_events_controller.dart';
 import '../state/my_events_state.dart';
 import '../widgets/pending_review_banner.dart';
+import '../widgets/signed_out_empty_state.dart';
 import 'hosting_tab.dart';
 import 'my_join_requests_tab.dart';
 
@@ -57,6 +58,26 @@ class _MyEventsPageState extends ConsumerState<MyEventsPage> {
   @override
   Widget build(BuildContext context) {
     final myEventsState = ref.watch(myEventsControllerProvider);
+
+    // When signed out, render the empty state body — keep the AppBar chrome
+    // but hide the "+" action (the empty state's "Sign in" CTA is the clear
+    // path; a hidden "+" avoids a confusing auth-redirect dead-end).
+    if (myEventsState is MyEventsSignedOut) {
+      return Scaffold(
+        backgroundColor: TribelyColors.paperSurface,
+        appBar: AppBar(
+          backgroundColor: TribelyColors.paperSurface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          title: Text(
+            'My Events',
+            style: TribelyType.headline(TribelyColors.paperInkPrimary),
+          ),
+          // "+" is hidden signed-out — empty state "Sign in" is the sole CTA.
+        ),
+        body: const SignedOutEmptyState(),
+      );
+    }
 
     // Extract hosted event IDs from the controller state. When not yet loaded
     // (initial / loading / error) the key is '' which maps to zero pending —
