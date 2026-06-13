@@ -601,7 +601,9 @@ void main() {
         // We pop directly rather than driving the form through a real network
         // call — the resume logic under test is in event_detail_page.dart, not
         // in the sheet itself.
-        final NavigatorState navigator = tester.state(find.byType(Navigator).last);
+        final NavigatorState navigator = tester.state(
+          find.byType(Navigator).last,
+        );
         navigator.pop(true);
         await tester.pumpAndSettle();
 
