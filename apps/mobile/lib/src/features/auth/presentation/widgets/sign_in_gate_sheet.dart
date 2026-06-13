@@ -59,21 +59,6 @@ class _SignInGateSheetState extends ConsumerState<_SignInGateSheet> {
   final _email = TextEditingController();
   final _password = TextEditingController();
 
-  /// When `true`, replace the form body with the expired-intent panel.
-  /// Set by the caller after auth success if the target event is gone.
-  ///
-  /// Design note: detection of an expired intent happens at the resume call
-  /// site (Briefs B/C, where the event fetch occurs). Briefs B/C trigger this
-  /// state by calling [showSignInGateSheet] and passing the resulting `true`
-  /// to their own logic — the sheet itself only needs to be able to RENDER
-  /// this panel if explicitly asked. In practice, for Brief A the sheet pops
-  /// on success; B/C will coordinate the exact trigger. Exposed here as a
-  /// local state so B/C can choose to re-enter the sheet with this flag set
-  /// if a different UX approach is preferred. For now, the expired panel is
-  /// used only within the auth flow when the sheet stays open after the
-  /// resume call fails.
-  bool _showExpiredPanel = false;
-
   @override
   void initState() {
     super.initState();
@@ -101,13 +86,6 @@ class _SignInGateSheetState extends ConsumerState<_SignInGateSheet> {
       email: _email.text.trim(),
       password: _password.text,
     );
-  }
-
-  /// Called by Briefs B/C (post-auth resume) to switch the sheet into the
-  /// expired-intent panel when the target event is gone. Not called by Brief A.
-  // ignore: unused_element
-  void showExpiredPanel() {
-    if (mounted) setState(() => _showExpiredPanel = true);
   }
 
   @override
@@ -155,20 +133,18 @@ class _SignInGateSheetState extends ConsumerState<_SignInGateSheet> {
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(context).bottom,
           ),
-          child: _showExpiredPanel
-              ? _ExpiredIntentPanel(ink: ink, inkSecondary: inkSecondary)
-              : _FormBody(
-                  intent: widget.intent,
-                  emailController: _email,
-                  passwordController: _password,
-                  submitting: submitting,
-                  success: success,
-                  error: error,
-                  ink: ink,
-                  inkSecondary: inkSecondary,
-                  accent: accent,
-                  onSubmit: _submit,
-                ),
+          child: _FormBody(
+            intent: widget.intent,
+            emailController: _email,
+            passwordController: _password,
+            submitting: submitting,
+            success: success,
+            error: error,
+            ink: ink,
+            inkSecondary: inkSecondary,
+            accent: accent,
+            onSubmit: _submit,
+          ),
         ),
       ),
     );
@@ -405,95 +381,5 @@ class _Headline extends StatelessWidget {
         style: TribelyType.displayM(ink),
       ),
     };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Expired-intent panel — rendered when the target event is gone post-auth.
-//
-// Detection happens at the resume call site (Briefs B/C). Brief A only provides
-// the panel render; B/C coordinate the trigger. The panel replaces the form body
-// within the same open sheet (no dismiss + re-open).
-// ---------------------------------------------------------------------------
-
-class _ExpiredIntentPanel extends StatelessWidget {
-  const _ExpiredIntentPanel({required this.ink, required this.inkSecondary});
-
-  final Color ink;
-  final Color inkSecondary;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: inkSecondary.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Close [X]
-          Align(
-            alignment: Alignment.centerRight,
-            child: Semantics(
-              label: 'Close sign-in sheet',
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: IconButton(
-                  constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
-                  icon: Icon(Icons.close, color: inkSecondary),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Icon
-          Icon(Icons.event_busy_outlined, size: 32, color: inkSecondary),
-          const SizedBox(height: 16),
-
-          // Headline
-          Text(
-            SignInGateCopy.expiredHeadline,
-            style: TribelyType.headline(ink),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-
-          // Body
-          Text(
-            SignInGateCopy.expiredBody,
-            style: TribelyType.bodyM(inkSecondary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-
-          // Browse other events CTA
-          PrimaryButton(
-            label: SignInGateCopy.expiredCta,
-            onPressed: () {
-              Navigator.of(context).pop(false);
-              context.go('/discover');
-            },
-          ),
-        ],
-      ),
-    );
   }
 }

@@ -45,11 +45,4 @@ abstract final class SignInGateCopy {
   /// Network-level or unknown-server error.
   static const String networkErrorBanner =
       'Something went wrong. Please try again.';
-
-  // Expired-intent panel ----------------------------------------------------
-
-  static const String expiredHeadline = 'That event is no longer available.';
-  static const String expiredBody =
-      'It may have been cancelled or filled up while you were signing in.';
-  static const String expiredCta = 'Browse other events';
 }
