@@ -605,7 +605,13 @@ void main() {
           find.byType(Navigator).last,
         );
         navigator.pop(true);
-        await tester.pumpAndSettle();
+        await tester
+            .pump(); // resolve popped future → showSignInGateSheet returns true
+        await tester
+            .pump(); // run onPressed continuation → _openJoinSheet called
+        await tester.pump(
+          const Duration(milliseconds: 350),
+        ); // ConfirmJoinSheet entrance animation
 
         // After auth success + resume, ConfirmJoinSheet must be open.
         expect(
