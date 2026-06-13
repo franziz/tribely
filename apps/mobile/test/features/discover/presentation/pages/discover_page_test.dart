@@ -374,7 +374,12 @@ void main() {
         await _pumpPage(tester, sessionState: const SessionUnauthenticated());
 
         await tester.tap(find.text('Create event'));
-        await tester.pumpAndSettle();
+        await tester.pump(); // start showModalBottomSheet
+        await tester.pump(
+          const Duration(milliseconds: 300),
+        ); // sheet slide-in completes
+        // pumpAndSettle() avoided: DiscoverMapTab (OSM TileLayer, always mounted
+        // in the IndexedStack) schedules continuous frames and never settles.
 
         // Gate sheet headline confirms the create-event intent context.
         expect(find.text('Sign in to create an event'), findsOneWidget);
@@ -388,19 +393,22 @@ void main() {
     // 7. TRI-72 Brief C: authenticated tap skips gate (direct push).
     //    Validated by test #4 above; this test makes the intent explicit.
     // -----------------------------------------------------------------------
-    testWidgets(
-      '7. Authenticated: "Create event" tap does not open gate sheet',
-      (tester) async {
-        await _pumpPage(tester, sessionState: _authenticatedState);
+    testWidgets('7. Authenticated: "Create event" tap does not open gate sheet', (
+      tester,
+    ) async {
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
-        await tester.tap(find.text('Create event'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Create event'));
+      await tester.pump(); // allow unawaited push + any microtasks
+      await tester.pump(
+        const Duration(milliseconds: 300),
+      ); // consistent with test 6 bounded-pump pattern
+      // pumpAndSettle() avoided: same map-never-settles CI flake risk as test 6.
 
-        // Sheet headline must NOT appear.
-        expect(find.text('Sign in to create an event'), findsNothing);
-        // Navigation happened directly.
-        expect(_lastPushedRoute, '/events/new');
-      },
-    );
+      // Sheet headline must NOT appear.
+      expect(find.text('Sign in to create an event'), findsNothing);
+      // Navigation happened directly.
+      expect(_lastPushedRoute, '/events/new');
+    });
   });
 }
