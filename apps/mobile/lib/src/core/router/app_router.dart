@@ -141,7 +141,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // the authenticated content; they are passed through here so the user
           // stays on the tab. Everything else (e.g. /users/:id, /events/new)
           // is auth-required and bounced to /welcome.
-          if (isSplash || isVerify || (!isPublic && !isPublicEventRead && !isAuthGatedTab)) {
+          if (isSplash ||
+              isVerify ||
+              (!isPublic && !isPublicEventRead && !isAuthGatedTab)) {
             return '/welcome';
           }
           return null;
