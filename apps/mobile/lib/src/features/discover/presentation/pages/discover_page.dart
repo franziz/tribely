@@ -52,18 +52,22 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   // gate sheet. On successful auth, push /events/new so the phone-gate redirect
   // in app_router.dart fires as normal. Auth-walled entry points (my_events,
   // hosting_tab) use context.push('/events/new') directly — no gate needed.
+  //
+  // Branch order: authenticated path first (no await) so the analyzer's
+  // async-gap check is satisfied. State.mounted (no context. prefix) guards
+  // after the await — valid here because _onCreateEvent is a ConsumerState method.
   Future<void> _onCreateEvent() async {
     final session = ref.read(sessionControllerProvider);
-    if (session is SessionUnauthenticated) {
-      final didSignIn = await showSignInGateSheet(
-        context,
-        intent: const SignInIntentCreateEvent(),
-      );
-      if (!context.mounted) return;
-      if (didSignIn) context.push('/events/new');
+    if (session is! SessionUnauthenticated) {
+      context.push('/events/new');
       return;
     }
-    context.push('/events/new');
+    final didSignIn = await showSignInGateSheet(
+      context,
+      intent: const SignInIntentCreateEvent(),
+    );
+    if (!mounted) return;
+    if (didSignIn) context.push('/events/new');
   }
 
   @override

@@ -37,7 +37,6 @@ import 'package:tribely/src/features/auth/presentation/controllers/sign_in_gate_
 import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
 import 'package:tribely/src/features/auth/presentation/state/sign_in_gate_state.dart';
-import 'package:tribely/src/features/auth/presentation/state/sign_in_intent.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_filter_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_list_tab.dart';
@@ -122,6 +121,10 @@ class _FixedSessionController extends SessionController {
 
 /// Fixed [SignInGateController] that returns [SignInGateIdle] without touching
 /// GetIt. Required whenever the sign-in gate sheet is opened in tests.
+///
+/// Used with [signInGateControllerProvider.overrideWith2] — Riverpod 3.3.x
+/// delivers the family arg through the `overrideWith2` factory lambda, so this
+/// class receives it via the normal constructor parameter.
 class _FixedSignInGateController extends SignInGateController {
   _FixedSignInGateController(super.intent);
 
@@ -129,7 +132,10 @@ class _FixedSignInGateController extends SignInGateController {
   SignInGateState build() => const SignInGateIdle();
 
   @override
-  Future<void> submit({required String email, required String password}) async {}
+  Future<void> submit({
+    required String email,
+    required String password,
+  }) async {}
 }
 
 // ---------------------------------------------------------------------------
@@ -157,8 +163,7 @@ GoRouter _buildRouter() {
       ),
       GoRoute(
         path: '/sign-up',
-        builder: (context, state) =>
-            const Scaffold(body: Text('Sign up stub')),
+        builder: (context, state) => const Scaffold(body: Text('Sign up stub')),
       ),
     ],
   );
@@ -206,7 +211,9 @@ Future<void> _pumpPage(
         ),
         // TRI-72: override the sign-in gate controller so the sheet can open
         // without triggering GetIt (no service locator in widget tests).
-        signInGateControllerProvider.overrideWith(
+        // overrideWith2 is the Riverpod 3.3.x API for whole-family NotifierProvider
+        // overrides; the factory receives the family arg (SignInIntent) directly.
+        signInGateControllerProvider.overrideWith2(
           (intent) => _FixedSignInGateController(intent),
         ),
       ],
