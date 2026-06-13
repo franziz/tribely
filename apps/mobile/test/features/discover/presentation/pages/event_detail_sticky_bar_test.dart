@@ -576,53 +576,63 @@ void main() {
     // -----------------------------------------------------------------------
     // 10. Successful auth → join sheet resumes (Tier 2)
     // -----------------------------------------------------------------------
-    testWidgets(
-      'successful auth from gate sheet resumes join (opens ConfirmJoinSheet)',
-      (tester) async {
-        await _pumpPage(
-          tester,
-          event: _testEvent,
-          ctaState: const RequestToJoinIdle(),
-          sessionState: const SessionUnauthenticated(),
-          // safetyReminderSeen: true so we go directly to ConfirmJoinSheet,
-          // not SafetyReminderSheet (matches existing authenticated-path tests).
-          safetyReminderSeen: true,
-        );
+    testWidgets('successful auth from gate sheet resumes join (opens join sheet)', (
+      tester,
+    ) async {
+      // Session remains SessionUnauthenticated in the provider — the session
+      // controller is a fixed fake. Because isSignedOut == true, the prod
+      // code at _StickyJoinBar always sets safetyReminderSeen = false (the
+      // signed-out guard bypasses myCapabilitiesProvider entirely). So
+      // _openJoinSheet calls showSafetyReminderSheet, not showConfirmJoinSheet.
+      // We assert on SafetyReminderSheet's CTA ("Got it, send my request")
+      // which is the correct first-time join sheet for this path.
+      await _pumpPage(
+        tester,
+        event: _testEvent,
+        ctaState: const RequestToJoinIdle(),
+        sessionState: const SessionUnauthenticated(),
+      );
 
-        // Open the gate sheet.
-        await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
-        await tester.pumpAndSettle();
+      // Open the gate sheet.
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+      await tester.pumpAndSettle();
 
-        // Gate sheet is open — headline is visible.
-        expect(find.text(SignInGateCopy.joinHeadlineLine1), findsOneWidget);
+      // Gate sheet is open — headline is visible.
+      expect(find.text(SignInGateCopy.joinHeadlineLine1), findsOneWidget);
 
-        // Simulate a successful auth by popping the modal with true, which is
-        // what the sheet does after SignInGateSuccess + TribelyMotion.short delay.
-        // We pop directly rather than driving the form through a real network
-        // call — the resume logic under test is in event_detail_page.dart, not
-        // in the sheet itself.
-        final NavigatorState navigator = tester.state(
-          find.byType(Navigator).last,
-        );
-        navigator.pop(true);
-        await tester
-            .pump(); // resolve popped future → showSignInGateSheet returns true
-        await tester
-            .pump(); // run onPressed continuation → _openJoinSheet called
-        await tester.pump(
-          const Duration(milliseconds: 350),
-        ); // ConfirmJoinSheet entrance animation
+      // Simulate a successful auth by popping the modal with true, which is
+      // what the sheet does after SignInGateSuccess + TribelyMotion.short delay.
+      // We pop directly rather than driving the form through a real network
+      // call — the resume logic under test is in event_detail_page.dart, not
+      // in the sheet itself.
+      final NavigatorState navigator = tester.state(
+        find.byType(Navigator).last,
+      );
+      navigator.pop(true);
+      // Walk the two sequential modal transitions deterministically:
+      //   1. gate-sheet exit (~200ms reverseTransitionDuration)
+      //   2. frame hop → _openJoinSheet → showSafetyReminderSheet schedules
+      //   3. SafetyReminderSheet entrance (~250ms transitionDuration)
+      // 10×100ms = 1000ms provides margin; each step flushes a frame so the
+      // sequence completes without risking a pumpAndSettle hang on codec frames.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
-        // After auth success + resume, ConfirmJoinSheet must be open.
-        expect(
-          find.text('Send request'),
-          findsOneWidget,
-          reason:
-              'After a successful sign-in the gate sheet should close and '
-              '_openJoinSheet should open ConfirmJoinSheet ("Send request").',
-        );
-      },
-    );
+      // After auth success + resume, SafetyReminderSheet must be open.
+      // (safetyReminderSeen is always false in the signed-out path — see
+      // _StickyJoinBar's isSignedOut guard — so the safety sheet is the
+      // correct first-time join sheet for this resume path.)
+      expect(
+        find.text('Got it, send my request'),
+        findsOneWidget,
+        reason:
+            'After a successful sign-in the gate sheet should close and '
+            '_openJoinSheet should open SafetyReminderSheet '
+            '("Got it, send my request") because safetyReminderSeen is '
+            'always false for the signed-out path.',
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
