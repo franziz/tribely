@@ -497,8 +497,8 @@ void main() {
         tester,
         eventId: _testEventId,
         initialState: EventDetailLoaded(_testEvent),
-        // TRI-290: CTA tap must route to ConfirmJoinSheet when authenticated.
-        // Unauthenticated tap routes to /welcome (interim TRI-72 hand-off).
+        // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+        // unauthenticated tap opens the sign-in gate sheet.
         sessionState: _authenticatedState,
       );
 
