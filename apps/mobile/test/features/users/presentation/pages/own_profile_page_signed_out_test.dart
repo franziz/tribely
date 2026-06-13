@@ -24,6 +24,7 @@ import 'package:tribely/src/features/users/presentation/controllers/my_profile_c
 import 'package:tribely/src/features/users/presentation/pages/own_profile_page.dart';
 import 'package:tribely/src/features/users/presentation/providers/users_providers.dart';
 import 'package:tribely/src/features/users/presentation/state/user_profile_state.dart';
+import 'package:tribely/src/features/auth/presentation/string_assets/sign_in_gate_copy.dart';
 import 'package:tribely/src/features/users/presentation/string_assets/profile_signed_out_copy.dart';
 
 // ---------------------------------------------------------------------------
@@ -224,6 +225,10 @@ void main() {
       }
 
       expect(find.byType(BottomSheet), findsOneWidget);
+      // Sheet headline must read the neutral "Sign in to continue" copy,
+      // NOT "Sign in to create an event" (wrong intent for this surface).
+      expect(find.text(SignInGateCopy.generalHeadline), findsOneWidget);
+      expect(find.text(SignInGateCopy.createHeadline), findsNothing);
     });
 
     // -----------------------------------------------------------------------

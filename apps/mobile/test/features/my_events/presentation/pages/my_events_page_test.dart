@@ -33,6 +33,7 @@ import 'package:tribely/src/features/my_events/presentation/pages/my_events_page
 import 'package:tribely/src/features/my_events/presentation/state/hosting_tab_state.dart';
 import 'package:tribely/src/features/my_events/presentation/state/my_events_state.dart';
 import 'package:tribely/src/features/my_events/presentation/state/pending_review_banner_state.dart';
+import 'package:tribely/src/features/auth/presentation/string_assets/sign_in_gate_copy.dart';
 import 'package:tribely/src/features/my_events/presentation/string_assets/my_events_signed_out_copy.dart';
 
 // ---------------------------------------------------------------------------
@@ -317,6 +318,10 @@ void main() {
 
       // The gate sheet renders a password text field (unique to the sheet).
       expect(find.byType(BottomSheet), findsOneWidget);
+      // Sheet headline must read the neutral "Sign in to continue" copy,
+      // NOT "Sign in to create an event" (wrong intent for this surface).
+      expect(find.text(SignInGateCopy.generalHeadline), findsOneWidget);
+      expect(find.text(SignInGateCopy.createHeadline), findsNothing);
     });
 
     // -----------------------------------------------------------------------

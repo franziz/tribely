@@ -61,7 +61,7 @@ class SignedOutEmptyState extends ConsumerWidget {
   Future<void> _onSignInTapped(BuildContext context) async {
     // Open the sign-in gate sheet. On success the session flip auto-rebuilds
     // this page into the authed path — no further action needed here.
-    await showSignInGateSheet(context, intent: const SignInIntentCreateEvent());
+    await showSignInGateSheet(context, intent: const SignInIntentGeneral());
     // context.mounted guard: no navigation action to take on success, but
     // guard the post-await frame in case the widget was disposed mid-flight.
     if (!context.mounted) return;

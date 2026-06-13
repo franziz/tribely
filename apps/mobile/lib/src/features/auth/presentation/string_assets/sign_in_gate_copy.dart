@@ -17,6 +17,10 @@ abstract final class SignInGateCopy {
   /// Headline for CREATE intent (single line).
   static const String createHeadline = 'Sign in to create an event';
 
+  /// Generic headline for [SignInIntentGeneral] — used by surfaces where no
+  /// single verb applies (TRI-71 tab empty states).
+  static const String generalHeadline = 'Sign in to continue';
+
   // Review headline — reserved for future use, NOT wired.
   // static const String reviewHeadline = 'Sign in to post a review';
 

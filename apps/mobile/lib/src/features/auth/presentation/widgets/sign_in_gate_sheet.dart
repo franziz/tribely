@@ -380,6 +380,10 @@ class _Headline extends StatelessWidget {
         SignInGateCopy.createHeadline,
         style: TribelyType.displayM(ink),
       ),
+      SignInIntentGeneral() => Text(
+        SignInGateCopy.generalHeadline,
+        style: TribelyType.displayM(ink),
+      ),
     };
   }
 }
