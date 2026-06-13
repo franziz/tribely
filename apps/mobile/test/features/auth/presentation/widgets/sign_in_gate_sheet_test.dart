@@ -13,7 +13,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tribely/src/features/auth/presentation/controllers/sign_in_gate_controller.dart';
-import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/sign_in_gate_state.dart';
 import 'package:tribely/src/features/auth/presentation/state/sign_in_intent.dart';
 import 'package:tribely/src/features/auth/presentation/string_assets/sign_in_gate_copy.dart';
