@@ -13,6 +13,8 @@ import '../../../../core/widgets/skeleton_loader.dart';
 import '../../../../core/widgets/status_pill.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
+import '../../../auth/presentation/state/sign_in_intent.dart';
+import '../../../auth/presentation/widgets/sign_in_gate_sheet.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/presentation/string_assets/cancel_event_copy.dart';
 import '../../../events/presentation/widgets/cancel_event_sheet.dart';
@@ -1109,9 +1111,9 @@ class _StickyJoinBar extends ConsumerWidget {
       content = const _DisabledCta(reason: 'Event has ended');
     } else {
       // No existing request: show the primary CTA.
-      // TRI-290 interim hand-off: signed-out tap routes to /welcome so the
-      // user can sign in before joining. No POST is fired. TRI-72 will
-      // replace this with an in-place sign-in modal.
+      // TRI-72: signed-out tap opens the in-place sign-in gate sheet; on
+      // successful auth the join sheet opens immediately (Tier 1 + Tier 2).
+      // No POST is fired before auth — preserved from TRI-290.
       final isSubmitting = joinState is RequestToJoinSubmitting;
       content = PrimaryButton(
         label: 'Request to join',
@@ -1121,7 +1123,30 @@ class _StickyJoinBar extends ConsumerWidget {
         onPressed: isSubmitting
             ? null
             : isSignedOut
-            ? () => context.go('/welcome')
+            ? () async {
+                final didSignIn = await showSignInGateSheet(
+                  context,
+                  intent: SignInIntentRequestJoin(
+                    eventId: event.id,
+                    eventTitle: event.title,
+                    hostName: hostName,
+                    startsAt: event.startsAt,
+                    endsAt: event.endsAt,
+                  ),
+                );
+                if (!context.mounted) return;
+                if (didSignIn) {
+                  _openJoinSheet(
+                    context,
+                    eventId: event.id,
+                    hostName: hostName,
+                    eventTitle: event.title,
+                    startsAt: event.startsAt,
+                    endsAt: event.endsAt,
+                    safetyReminderSeen: safetyReminderSeen,
+                  );
+                }
+              }
             : () => _openJoinSheet(
                 context,
                 eventId: event.id,

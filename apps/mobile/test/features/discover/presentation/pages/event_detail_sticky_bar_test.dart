@@ -9,6 +9,8 @@
 //   6. Event past (status=cancelled) → disabled CTA + "Event has ended" label
 //   7. EmailNotVerifiedFailure → BannerMessage with "Verify now" link
 //   8. Withdraw flow: tapping "Withdraw request" shows AlertDialog
+//   9. TRI-72 sign-in gate: signed-out tap opens gate sheet (not /welcome)
+//  10. TRI-72 sign-in gate: successful auth resumes join sheet
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,9 +21,10 @@ import 'package:tribely/src/core/widgets/primary_button.dart';
 import 'package:tribely/src/core/widgets/status_pill.dart';
 import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
 import 'package:tribely/src/features/auth/domain/entities/user.dart';
-import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
+import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
+import 'package:tribely/src/features/auth/presentation/string_assets/sign_in_gate_copy.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/event_detail_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/event_detail_page.dart';
 import 'package:tribely/src/features/discover/presentation/providers/event_detail_providers.dart';
@@ -484,8 +487,8 @@ void main() {
           tester,
           event: _testEvent,
           ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
-          // TRI-290: CTA tap routes to ConfirmJoinSheet when authenticated.
-          // Unauthenticated tap routes to /welcome (interim TRI-72 hand-off).
+          // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+          // unauthenticated tap opens the sign-in gate sheet.
           sessionState: _authenticatedState,
         );
 
@@ -505,8 +508,8 @@ void main() {
           tester,
           event: _testEvent,
           ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
-          // TRI-290: CTA tap routes to ConfirmJoinSheet when authenticated.
-          // Unauthenticated tap routes to /welcome (interim TRI-72 hand-off).
+          // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+          // unauthenticated tap opens the sign-in gate sheet.
           sessionState: _authenticatedState,
           onSubmitCalled: () => submitCalled = true,
         );
@@ -522,6 +525,114 @@ void main() {
         expect(submitCalled, isTrue);
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TRI-72: sign-in gate interception (Brief B)
+  //
+  // Verifies that a signed-out tap on "Request to join" opens the in-place
+  // sign-in gate sheet instead of bouncing to /welcome (TRI-290 interim).
+  //
+  //  9. Signed-out tap → gate sheet appears (not /welcome)
+  // 10. Successful auth result → join sheet resumes (ConfirmJoinSheet shown)
+  // ---------------------------------------------------------------------------
+  group('TRI-72 sign-in gate interception (Brief B)', () {
+    // -----------------------------------------------------------------------
+    // 9. Signed-out tap → gate sheet appears (Tier 1)
+    // -----------------------------------------------------------------------
+    testWidgets(
+      'signed-out tap opens sign-in gate sheet, not /welcome navigation',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          event: _testEvent,
+          ctaState: const RequestToJoinIdle(),
+          sessionState: const SessionUnauthenticated(),
+        );
+
+        // CTA is present and enabled.
+        final button = tester.widget<PrimaryButton>(
+          find.widgetWithText(PrimaryButton, 'Request to join'),
+        );
+        expect(button.onPressed, isNotNull);
+
+        await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+        await tester.pumpAndSettle();
+
+        // The sign-in gate sheet's context-aware headline for requestJoin intent
+        // must appear — confirms the sheet opened in-place rather than routing
+        // to /welcome.
+        expect(
+          find.text(SignInGateCopy.joinHeadlineLine1),
+          findsOneWidget,
+          reason:
+              'Signed-out CTA tap must open the sign-in gate sheet '
+              '(${SignInGateCopy.joinHeadlineLine1}) instead of navigating '
+              'to /welcome.',
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 10. Successful auth → join sheet resumes (Tier 2)
+    // -----------------------------------------------------------------------
+    testWidgets('successful auth from gate sheet resumes join (opens join sheet)', (
+      tester,
+    ) async {
+      // Session remains SessionUnauthenticated in the provider — the session
+      // controller is a fixed fake. Because isSignedOut == true, the prod
+      // code at _StickyJoinBar always sets safetyReminderSeen = false (the
+      // signed-out guard bypasses myCapabilitiesProvider entirely). So
+      // _openJoinSheet calls showSafetyReminderSheet, not showConfirmJoinSheet.
+      // We assert on SafetyReminderSheet's CTA ("Got it, send my request")
+      // which is the correct first-time join sheet for this path.
+      await _pumpPage(
+        tester,
+        event: _testEvent,
+        ctaState: const RequestToJoinIdle(),
+        sessionState: const SessionUnauthenticated(),
+      );
+
+      // Open the gate sheet.
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+      await tester.pumpAndSettle();
+
+      // Gate sheet is open — headline is visible.
+      expect(find.text(SignInGateCopy.joinHeadlineLine1), findsOneWidget);
+
+      // Simulate a successful auth by popping the modal with true, which is
+      // what the sheet does after SignInGateSuccess + TribelyMotion.short delay.
+      // We pop directly rather than driving the form through a real network
+      // call — the resume logic under test is in event_detail_page.dart, not
+      // in the sheet itself.
+      final NavigatorState navigator = tester.state(
+        find.byType(Navigator).last,
+      );
+      navigator.pop(true);
+      // Walk the two sequential modal transitions deterministically:
+      //   1. gate-sheet exit (~200ms reverseTransitionDuration)
+      //   2. frame hop → _openJoinSheet → showSafetyReminderSheet schedules
+      //   3. SafetyReminderSheet entrance (~250ms transitionDuration)
+      // 10×100ms = 1000ms provides margin; each step flushes a frame so the
+      // sequence completes without risking a pumpAndSettle hang on codec frames.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      // After auth success + resume, SafetyReminderSheet must be open.
+      // (safetyReminderSeen is always false in the signed-out path — see
+      // _StickyJoinBar's isSignedOut guard — so the safety sheet is the
+      // correct first-time join sheet for this resume path.)
+      expect(
+        find.text('Got it, send my request'),
+        findsOneWidget,
+        reason:
+            'After a successful sign-in the gate sheet should close and '
+            '_openJoinSheet should open SafetyReminderSheet '
+            '("Got it, send my request") because safetyReminderSeen is '
+            'always false for the signed-out path.',
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
