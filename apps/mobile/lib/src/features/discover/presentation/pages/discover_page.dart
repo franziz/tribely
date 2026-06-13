@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -59,7 +61,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   Future<void> _onCreateEvent() async {
     final session = ref.read(sessionControllerProvider);
     if (session is! SessionUnauthenticated) {
-      context.push('/events/new');
+      unawaited(context.push('/events/new'));
       return;
     }
     final didSignIn = await showSignInGateSheet(
@@ -67,7 +69,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
       intent: const SignInIntentCreateEvent(),
     );
     if (!mounted) return;
-    if (didSignIn) context.push('/events/new');
+    if (didSignIn) unawaited(context.push('/events/new'));
   }
 
   @override
