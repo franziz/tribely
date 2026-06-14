@@ -18,11 +18,16 @@ export interface ReviewRouteDeps {
 }
 
 /**
- * Mounted at /events — handles POST /events/:eventId/reviews.
+ * Mounted at /events — handles:
+ *   POST /events/:eventId/reviews            — submit a review
+ *   GET  /events/:eventId/review-eligibility — eligibility read (auth-only, no verifiedEmail)
  *
  * The Hono additive mount pattern (CLAUDE.md gotcha): app.route('/events',
  * buildEventRoutes(...)) and app.route('/events', buildEventScopedReviewRoutes(...))
  * BOTH mount under /events and merge their path trees. No overrides occur.
+ *
+ * Guard rationale: eligibility is a read, not a state-changing write, so it
+ * requires only `requireAuth` — matching the GET /users/:userId/reviews guard.
  */
 export const buildEventScopedReviewRoutes = (
   deps: ReviewRouteDeps,
@@ -31,13 +36,18 @@ export const buildEventScopedReviewRoutes = (
   const auth = requireAuth(deps.accessTokens);
   const verifiedEmail = requireVerifiedEmail(deps.userRepository);
 
-  return new Hono<{ Variables: AuthVariables }>().post(
-    '/:eventId/reviews',
-    auth,
-    verifiedEmail,
-    zValidator('json', submitReviewBodySchema),
-    (c) => controller.submitAction(c, c.get('userId'), c.req.param('eventId'), c.req.valid('json')),
-  );
+  return new Hono<{ Variables: AuthVariables }>()
+    .post(
+      '/:eventId/reviews',
+      auth,
+      verifiedEmail,
+      zValidator('json', submitReviewBodySchema),
+      (c) =>
+        controller.submitAction(c, c.get('userId'), c.req.param('eventId'), c.req.valid('json')),
+    )
+    .get('/:eventId/review-eligibility', auth, (c) =>
+      controller.eligibilityAction(c, c.get('userId'), c.req.param('eventId')),
+    );
 };
 
 /**

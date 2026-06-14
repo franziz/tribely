@@ -133,6 +133,7 @@ import { registerCheckInsConsumers } from '@/features/check-ins/presentation/eve
 import type { PostEventCheckInRepository } from '@/features/check-ins/domain/repositories/post-event-check-in.repository.js';
 
 import { ReviewPrismaRepository } from '@/features/reviews/infrastructure/persistence/review.prisma-repository.js';
+import { GetReviewEligibilityUseCase } from '@/features/reviews/application/usecases/get-review-eligibility.usecase.js';
 import { SubmitReviewUseCase } from '@/features/reviews/application/usecases/submit-review.usecase.js';
 import { EditReviewUseCase } from '@/features/reviews/application/usecases/edit-review.usecase.js';
 import { HideReviewUseCase } from '@/features/reviews/application/usecases/hide-review.usecase.js';
@@ -400,6 +401,7 @@ export interface Container {
 
   // Reviews
   reviewRepository: ReviewRepository;
+  getReviewEligibilityUseCase: GetReviewEligibilityUseCase;
   submitReviewUseCase: SubmitReviewUseCase;
   editReviewUseCase: EditReviewUseCase;
   hideReviewUseCase: HideReviewUseCase;
@@ -889,6 +891,13 @@ export const buildContainer = (): Container => {
 
   // --- Reviews ---
   // reviewRepository is already instantiated above (early init for GetUserUseCase dep).
+  const getReviewEligibilityUseCase = new GetReviewEligibilityUseCase(
+    eventRepository,
+    joinRequestRepository,
+    reviewRepository,
+    userRepository,
+    clock,
+  );
   const submitReviewUseCase = new SubmitReviewUseCase(
     unitOfWork,
     reviewRepository,
@@ -910,6 +919,7 @@ export const buildContainer = (): Container => {
     editReviewUseCase,
     listReviewsForUserUseCase,
     listReviewsWrittenByMeUseCase,
+    getReviewEligibilityUseCase,
   );
 
   // --- Pending Review Prompts (depends on eventRepo, joinRequestRepo, reviewRepo,
@@ -1195,6 +1205,7 @@ export const buildContainer = (): Container => {
     listMyBlocksUseCase,
     userBlockController,
     reviewRepository,
+    getReviewEligibilityUseCase,
     submitReviewUseCase,
     editReviewUseCase,
     hideReviewUseCase,
