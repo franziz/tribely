@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
@@ -5,6 +6,7 @@ import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/user_profile_repository.dart';
 import '../providers/users_providers.dart';
 import '../state/edit_profile_state.dart';
+import '../string_assets/avatar_copy.dart';
 
 class EditProfileController extends Notifier<EditProfileState> {
   @override
@@ -29,12 +31,15 @@ class EditProfileController extends Notifier<EditProfileState> {
     String? travelerType,
   }) async {
     final current = state;
+    // Block save while saving or while an avatar upload is in progress.
     if (current is EditProfileSaving) return;
+    if (current is EditProfileUploadingAvatar) return;
     final profile = switch (current) {
       EditProfileIdle(:final profile) => profile,
       EditProfileError(:final profile) => profile,
       EditProfileSaved(:final profile) => profile,
       EditProfileSaving() => throw StateError('unreachable'),
+      EditProfileUploadingAvatar() => throw StateError('unreachable'),
     };
 
     state = EditProfileSaving(profile);
@@ -58,6 +63,58 @@ class EditProfileController extends Notifier<EditProfileState> {
         fieldErrors: _fieldErrorsFor(failure),
       ),
       EditProfileSaved.new,
+    );
+  }
+
+  /// Uploads a new avatar from [bytes] (raw JPEG from the picker).
+  ///
+  /// Guards:
+  ///   - If [EditProfileSaving] is active, save wins — upload is a no-op.
+  ///   - If [EditProfileUploadingAvatar] is active, the upload is already in
+  ///     progress — second call is a no-op.
+  ///
+  /// On success: invalidates [myProfileControllerProvider] so the profile
+  /// header refetches silently, emits [HapticFeedback.lightImpact], and
+  /// returns to [EditProfileIdle].
+  ///
+  /// On failure: transitions to [EditProfileError] with the avatar error copy
+  /// from [avatar_copy.dart]. Previous profile is preserved unchanged.
+  Future<void> uploadAvatar(Uint8List bytes) async {
+    final current = state;
+    // Don't race a save or a concurrent upload.
+    if (current is EditProfileSaving) return;
+    if (current is EditProfileUploadingAvatar) return;
+
+    final profile = switch (current) {
+      EditProfileIdle(:final profile) => profile,
+      EditProfileError(:final profile) => profile,
+      EditProfileSaved(:final profile) => profile,
+      EditProfileSaving() => throw StateError('unreachable'),
+      EditProfileUploadingAvatar() => throw StateError('unreachable'),
+    };
+
+    state = EditProfileUploadingAvatar(profile);
+
+    final useCase = ref.read(uploadAvatarUseCaseProvider);
+    final result = await useCase(bytes);
+
+    if (!ref.mounted) return;
+    result.match(
+      (failure) {
+        state = EditProfileError(
+          profile: profile,
+          failure: failure,
+          message: kAvatarUploadErrorMessage,
+        );
+      },
+      (updatedProfile) {
+        // Propagate the updated profile (new avatarUrl) into the edit-form
+        // state so the control reflects the new avatar immediately.
+        state = EditProfileIdle(updatedProfile);
+        // Invalidate the profile cache so /profile header refetches silently.
+        ref.invalidate(myProfileControllerProvider);
+        HapticFeedback.lightImpact();
+      },
     );
   }
 

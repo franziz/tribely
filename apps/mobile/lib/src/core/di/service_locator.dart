@@ -50,6 +50,7 @@ import '../../features/join_requests/domain/usecases/list_pending_for_event_usec
 import '../../features/join_requests/domain/usecases/remove_attendee_usecase.dart';
 import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/withdraw_join_request_usecase.dart';
+import '../../features/users/data/datasources/avatar_picker_datasource.dart';
 import '../../features/users/data/datasources/avatar_remote_datasource.dart';
 import '../../features/users/data/datasources/selfie_remote_datasource.dart';
 import '../../features/users/data/datasources/user_capabilities_remote_datasource.dart';
@@ -160,6 +161,11 @@ Future<void> configureDependencies() async {
       // Isolated Dio for direct presigned-URL uploads — no Tribely JWT forwarded.
       storageDio: _buildStorageDio(),
     ),
+  );
+  // AvatarPickerDatasource bridges ImagePicker + permission_handler for avatar
+  // selection from camera or photo library.
+  sl.registerLazySingleton<AvatarPickerDatasource>(
+    () => AvatarPickerDatasourceImpl(),
   );
 
   // Users — repositories
