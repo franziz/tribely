@@ -103,17 +103,16 @@ void main() {
         () => useCase(any()),
       ).thenAnswer((_) async => const Left(NetworkFailure('no network')));
 
-      final container = _makeContainer(useCase);
-
-      // Keep the autoDispose provider alive past the loading→error transition.
-      // Without a live listener Riverpod 3 disposes the provider mid-backoff and
-      // .future never settles ("provider disposed during loading state").
-      // Per the mobile-architecture.md Riverpod-3-async-error-in-tests gotcha.
-      final sub = container.listen(
-        reviewEligibilityProvider('evt-1'),
-        (prev, next) {},
+      // Disable Riverpod 3's exponential-backoff retry so the first thrown
+      // body is terminal and .future settles immediately under fake-async.
+      // Without retry: null the provider re-queues indefinitely and .future
+      // never resolves ("provider disposed during loading state", 30s timeout).
+      // Pattern consistent with check_ins_controller_test / discover_controller_test.
+      final container = ProviderContainer(
+        retry: (retryCount, error) => null,
+        overrides: [getReviewEligibilityUseCaseProvider.overrideWithValue(useCase)],
       );
-      addTearDown(sub.close);
+      addTearDown(container.dispose);
 
       await expectLater(
         container.read(reviewEligibilityProvider('evt-1').future),
