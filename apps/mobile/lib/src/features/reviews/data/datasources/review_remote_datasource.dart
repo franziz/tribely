@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/pending_review_prompt_model.dart';
+import '../models/review_eligibility_model.dart';
 import '../models/review_list_page_model.dart';
 import '../models/review_model.dart';
 
@@ -42,6 +43,13 @@ abstract class ReviewRemoteDatasource {
   ///
   /// Returns null when the server responds with `{ "prompt": null }`.
   Future<PendingReviewPromptModel?> getPendingReviewPrompt();
+
+  /// GET /events/:eventId/review-eligibility
+  ///
+  /// Always returns 200 — ineligibility is expressed in the response body.
+  Future<ReviewEligibilityModel> getReviewEligibility({
+    required String eventId,
+  });
 }
 
 class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
@@ -115,5 +123,15 @@ class ReviewRemoteDatasourceImpl implements ReviewRemoteDatasource {
     return PendingReviewPromptModel.fromPromptJson(
       promptJson as Map<String, dynamic>,
     );
+  }
+
+  @override
+  Future<ReviewEligibilityModel> getReviewEligibility({
+    required String eventId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/events/$eventId/review-eligibility',
+    );
+    return ReviewEligibilityModel.fromJson(response.data!);
   }
 }

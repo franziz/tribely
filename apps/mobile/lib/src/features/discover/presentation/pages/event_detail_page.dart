@@ -9,6 +9,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/banner_message.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/secondary_button.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
 import '../../../../core/widgets/status_pill.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -34,6 +35,8 @@ import '../../../join_requests/presentation/widgets/pending_request_row.dart';
 import '../../../join_requests/presentation/widgets/remove_attendee_sheet.dart';
 import '../../../join_requests/presentation/widgets/safety_reminder_sheet.dart';
 import '../../../my_events/presentation/controllers/hosting_tab_controller.dart';
+import '../../../reviews/domain/entities/review_eligibility.dart';
+import '../../../reviews/presentation/providers/review_providers.dart';
 import '../../../users/presentation/providers/capability_providers.dart';
 import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../../../../core/widgets/verified_pill.dart';
@@ -1052,6 +1055,19 @@ class _StickyJoinBar extends ConsumerWidget {
                 error: (e, st) => false,
               );
 
+    // TRI-302: review eligibility — signed-out viewers never fire the GET.
+    // The provider is autoDispose + family so it is created only on demand here.
+    // loading → null (fall through to existing bar); error → null (fall through).
+    final ReviewEligibility? eligibility = isSignedOut
+        ? null
+        : ref
+              .watch(reviewEligibilityProvider(event.id))
+              .when(
+                data: (e) => e,
+                loading: () => null,
+                error: (e, st) => null,
+              );
+
     Widget content;
 
     // Removed-by-host viewers: silent suppression — no CTA, no status pill.
@@ -1072,6 +1088,12 @@ class _StickyJoinBar extends ConsumerWidget {
         controller: controller,
         failure: verificationFailure!,
       );
+    } else if (eligibility != null && eligibility.eligible) {
+      // TRI-302: eligible reviewer — replace join/ended bar with review entry.
+      // Sanctioned cross-feature import: reviews/presentation/providers (4th
+      // exception) read from discover/ event-detail (same verb-view-read shape
+      // as the sanctioned discover→join_requests import).
+      content = _ReviewEntryBar(event: event, eligibility: eligibility);
     } else if (effectiveRequest != null &&
         effectiveRequest!.status == JoinRequestStatus.withdrawn &&
         !isEventPast) {
@@ -1192,6 +1214,171 @@ class _StickyJoinBar extends ConsumerWidget {
         ),
       ),
       child: content,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Review entry bar (TRI-302) — eligible reviewer affordance
+// ---------------------------------------------------------------------------
+
+/// Sticky bar content rendered when the signed-in user is within the 24h–7d
+/// review window for this event's host.
+///
+/// States:
+///   (A) not-reviewed → [SecondaryButton] "Write a review"
+///   (B) already-reviewed → non-interactive "✓ You reviewed this host" row
+///   Transition A→B via [AnimatedSwitcher] keyed on [_hasReviewed].
+///
+/// State-B trigger: after `context.push('/reviews/write?...')` returns,
+/// [_hasReviewed] flips true (immediate visual) and
+/// `ref.invalidate(reviewEligibilityProvider)` triggers a server re-fetch
+/// (durable state-B confirmation — eligible=false from server causes the
+/// outer [_StickyJoinBar] to eventually swap away from this widget entirely).
+///
+/// Session-expired/signed-out tap → [showSignInGateSheet] with
+/// [SignInIntentWriteReview]; on success → re-check eligibility and push
+/// composer; if no longer eligible → snackbar notice.
+///
+/// Feature-local widget; NOT promoted to core/.
+class _ReviewEntryBar extends ConsumerStatefulWidget {
+  const _ReviewEntryBar({required this.event, required this.eligibility});
+
+  final Event event;
+  final ReviewEligibility eligibility;
+
+  @override
+  ConsumerState<_ReviewEntryBar> createState() => _ReviewEntryBarState();
+}
+
+class _ReviewEntryBarState extends ConsumerState<_ReviewEntryBar> {
+  bool _hasReviewed = false;
+
+  Future<void> _pushComposer(
+    String ratedUserId,
+    String hostName, {
+    bool requiresAuth = false,
+  }) async {
+    if (requiresAuth) {
+      // Session-expired / signed-out path: show gate first.
+      final didSignIn = await showSignInGateSheet(
+        context,
+        intent: SignInIntentWriteReview(
+          eventId: widget.event.id,
+          hostId: ratedUserId,
+          hostDisplayName: hostName,
+        ),
+      );
+      if (!mounted) return;
+      if (!didSignIn) return; // dismissed — no action
+
+      // Re-check eligibility after auth (the 24h–7d window may have closed).
+      ReviewEligibility? fresh;
+      try {
+        fresh = await ref.read(
+          reviewEligibilityProvider(widget.event.id).future,
+        );
+      } catch (_) {
+        fresh = null;
+      }
+      if (!mounted) return;
+      if (fresh == null || !fresh.eligible) {
+        // Window closed while the user was at the sign-in gate.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This review is no longer available.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      // Proceed with the authenticated ratedUserId from the fresh eligibility.
+      final freshRatedUserId = fresh.ratedUserId ?? ratedUserId;
+      await context.push(
+        '/reviews/write?eventId=${widget.event.id}&ratedUserId=$freshRatedUserId',
+      );
+    } else {
+      await context.push(
+        '/reviews/write?eventId=${widget.event.id}&ratedUserId=$ratedUserId',
+      );
+    }
+    if (!mounted) return;
+    // State-B immediate visual update + durable cache invalidation.
+    setState(() => _hasReviewed = true);
+    ref.invalidate(reviewEligibilityProvider(widget.event.id));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ratedUserId = widget.eligibility.ratedUserId ?? '';
+    final hostName = widget.eligibility.hostDisplayName ?? 'Host';
+    final session = ref.watch(sessionControllerProvider);
+    final isSignedOut = session is SessionUnauthenticated;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSwitcher(
+          duration: TribelyMotion.short,
+          child: _hasReviewed
+              ? const _ReviewedConfirmationRow(key: ValueKey('reviewed'))
+              : Semantics(
+                  key: const ValueKey('write-review'),
+                  label: 'Write a review for $hostName',
+                  child: SecondaryButton(
+                    label: 'Write a review',
+                    onPressed: () => _pushComposer(
+                      ratedUserId,
+                      hostName,
+                      requiresAuth: isSignedOut,
+                    ),
+                    fullWidth: true,
+                  ),
+                ),
+        ),
+        if (!_hasReviewed) ...[
+          const SizedBox(height: 6),
+          ExcludeSemantics(
+            child: Text(
+              'Share how your meetup went.',
+              textAlign: TextAlign.center,
+              style: TribelyType.caption(TribelyColors.paperInkSecondary),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Non-interactive "✓ reviewed" confirmation row shown after the user
+/// submits a review and the eligibility provider is invalidated.
+///
+/// Displayed via [AnimatedSwitcher] inside [_ReviewEntryBarState].
+class _ReviewedConfirmationRow extends StatelessWidget {
+  const _ReviewedConfirmationRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'You have already reviewed this host',
+      liveRegion: true,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.check_circle_outline,
+            size: 20,
+            color: TribelyColors.paperSuccess,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'You reviewed this host',
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+          ),
+        ],
+      ),
     );
   }
 }
