@@ -38,45 +38,41 @@ final class AvatarPickerPermissionDenied extends AvatarPickerResult {
 }
 
 // ---------------------------------------------------------------------------
-// Source enum
-// ---------------------------------------------------------------------------
-
-/// The image source the user chose on [AvatarSourceSheet].
-enum AvatarSource { camera, library }
-
-// ---------------------------------------------------------------------------
 // Datasource
 // ---------------------------------------------------------------------------
 
 /// Platform-facing primitive that bridges [ImagePicker] + [permission_handler]
 /// for avatar selection.
 ///
-/// Responsibilities:
-///   1. Check OS permission for the requested [source].
-///   2. If denied/permanentlyDenied, return [AvatarPickerPermissionDenied].
-///   3. Otherwise open the OS picker, compress the result
-///      (maxWidth/maxHeight 512px, imageQuality 85) and return the bytes.
-///   4. If the user cancels the OS picker (null return), return
-///      [AvatarPickerCancelled].
+/// Each method checks the appropriate OS permission first, then opens the
+/// native picker with inline compression (≤512×512 px, imageQuality 85).
 ///
 /// **iOS native-config reminder** (gitignored `ios/` — apply after
 /// `flutter create`):
-///   - `NSCameraUsageDescription` — required for [AvatarSource.camera].
-///   - `NSPhotoLibraryUsageDescription` — required for [AvatarSource.library].
+///   - `NSCameraUsageDescription` — required for [pickFromCamera].
+///   - `NSPhotoLibraryUsageDescription` — required for [pickFromLibrary].
 ///
 /// **Android native-config reminder** (gitignored `android/` — apply after
 /// `flutter create`):
 ///   - `<uses-permission android:name="android.permission.CAMERA"/>` — required
-///      for [AvatarSource.camera]. Photo library access is granted by the
+///      for [pickFromCamera]. Photo library access is granted by the
 ///      image_picker plugin's manifest merger automatically on API 33+.
 ///
 /// No crop/rotate UI. No `flutter_image_compress` (deferred to Q2).
 abstract class AvatarPickerDatasource {
-  /// Pick an avatar image from [source] with permission check.
+  /// Opens the device camera to capture a new photo.
   ///
+  /// Checks [Permission.camera] before invoking the native picker.
   /// Returns [AvatarPickerSuccess], [AvatarPickerCancelled], or
   /// [AvatarPickerPermissionDenied]. Never throws.
-  Future<AvatarPickerResult> pick(AvatarSource source);
+  Future<AvatarPickerResult> pickFromCamera();
+
+  /// Opens the photo library so the user can choose an existing image.
+  ///
+  /// Checks [Permission.photos] before invoking the native picker.
+  /// Returns [AvatarPickerSuccess], [AvatarPickerCancelled], or
+  /// [AvatarPickerPermissionDenied]. Never throws.
+  Future<AvatarPickerResult> pickFromLibrary();
 }
 
 class AvatarPickerDatasourceImpl implements AvatarPickerDatasource {
@@ -86,43 +82,46 @@ class AvatarPickerDatasourceImpl implements AvatarPickerDatasource {
   final ImagePicker _picker;
 
   @override
-  Future<AvatarPickerResult> pick(AvatarSource source) async {
-    // 1. Check permission first — fail-fast before opening native picker.
-    final permissionResult = await _checkPermission(source);
-    if (permissionResult != null) return permissionResult;
+  Future<AvatarPickerResult> pickFromCamera() async {
+    final denied = await _checkPermission(Permission.camera);
+    if (denied != null) return denied;
+    return _pick(ImageSource.camera);
+  }
 
-    // 2. Open native picker. Compress inline: ≤512×512 px, Q85.
-    final XFile? file = await _picker.pickImage(
-      source: source == AvatarSource.camera
-          ? ImageSource.camera
-          : ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-
-    // 3. User cancelled (picker returned null) — signal no-op to caller.
-    if (file == null) return const AvatarPickerCancelled();
-
-    // 4. Read compressed bytes and return.
-    final bytes = await file.readAsBytes();
-    return AvatarPickerSuccess(bytes: bytes);
+  @override
+  Future<AvatarPickerResult> pickFromLibrary() async {
+    final denied = await _checkPermission(Permission.photos);
+    if (denied != null) return denied;
+    return _pick(ImageSource.gallery);
   }
 
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------
 
-  /// Returns null if permission is granted (caller may proceed).
-  /// Returns [AvatarPickerPermissionDenied] otherwise.
-  Future<AvatarPickerPermissionDenied?> _checkPermission(
-    AvatarSource source,
-  ) async {
-    final permission = switch (source) {
-      AvatarSource.camera => Permission.camera,
-      AvatarSource.library => Permission.photos,
-    };
+  /// Opens the native picker for [source]. Callers must check permission first.
+  ///
+  /// Compress inline: ≤512×512 px, Q85. Returns [AvatarPickerCancelled] when
+  /// the user dismisses the picker without selecting (null XFile).
+  Future<AvatarPickerResult> _pick(ImageSource source) async {
+    final XFile? file = await _picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
 
+    if (file == null) return const AvatarPickerCancelled();
+
+    final bytes = await file.readAsBytes();
+    return AvatarPickerSuccess(bytes: bytes);
+  }
+
+  /// Returns null if [permission] is granted (caller may proceed).
+  /// Returns [AvatarPickerPermissionDenied] when denied or permanently denied.
+  Future<AvatarPickerPermissionDenied?> _checkPermission(
+    Permission permission,
+  ) async {
     final status = await permission.status;
 
     if (status.isPermanentlyDenied) {
