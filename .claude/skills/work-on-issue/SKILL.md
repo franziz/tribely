@@ -292,6 +292,7 @@ Keep updates terse. The user reads these to track a long workflow without readin
 | `/github-pr` fails (auth, network) | Surface to user with the gh error. Do not retry blindly. |
 | Teammate context lost mid-run (session/process ended) | Teammates and their accumulated context are gone. On `--resume`, recreate the team and re-spawn only the teammates the remaining steps need, rebuilding context from the issue body + branch diff (per Step 1 `--resume`). Do NOT assume a re-spawned teammate remembers prior cycles. |
 | `TeamDelete` fails ("active members") at Step 11 | A teammate is still active. `SendMessage` each remaining teammate `{type: "shutdown_request"}`, wait for termination, then retry `TeamDelete`. |
+| `TeamCreate` fails at Step 1 — "Already leading team `<prior-team>`" | A prior cycle's team was never torn down (its session ended before Step 11). Read `~/.claude/teams/<prior-team>/config.json` to confirm it's a stale prior-cycle team (NOT the current issue's). Then `SendMessage` `{type: "shutdown_request"}` to each listed member; the sub-agents terminate (the config's `members` array drops to just `team-lead`), then `TeamDelete` succeeds and you can `TeamCreate` the new team. Distinct from the Step-11 `TeamDelete` row above, which assumes the same live session — here the blocking team belongs to an already-ended session. |
 
 ## Edge cases
 
