@@ -39,7 +39,7 @@ const makeEvent = (overrides?: Partial<Parameters<typeof Event.rehydrate>[0]>): 
     startsAt: new Date('2025-06-01T18:00:00Z'),
     endsAt: ENDS_AT_IN_WINDOW,
     capacity: Capacity.create(5),
-    category: EventCategory.create('social'),
+    category: EventCategory.create('drinks'),
     venueCategory: VenueCategory.create('bar'),
     costNotes: null,
     approvalMode: 'manual',
@@ -86,8 +86,14 @@ describe('GetReviewEligibilityUseCase', () => {
   let userRepo: UserRepository;
   let clock: Clock;
   let useCase: GetReviewEligibilityUseCase;
+  // Spy references captured in beforeEach so lint's unbound-method rule is satisfied.
+  let findByEventSpy: ReturnType<typeof vi.fn>;
+  let findExistingTriplesSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    findByEventSpy = vi.fn(() => Promise.resolve([makeApprovedJoinRequest()]));
+    findExistingTriplesSpy = vi.fn(() => Promise.resolve(new Set<string>()));
+
     eventRepo = {
       findById: vi.fn(() => Promise.resolve(makeEvent())),
       findByIdForUpdate: vi.fn(() => Promise.resolve(null)),
@@ -103,7 +109,7 @@ describe('GetReviewEligibilityUseCase', () => {
       findLatestByRequesterAndEvent: vi.fn(() => Promise.resolve(null)),
       save: vi.fn(() => Promise.resolve()),
       countApproved: vi.fn(() => Promise.resolve(0)),
-      findByEvent: vi.fn(() => Promise.resolve([makeApprovedJoinRequest()])),
+      findByEvent: findByEventSpy,
       listByRequester: vi.fn(() => Promise.resolve({ joinRequests: [], nextCursor: null })),
       listApprovedByEvents: vi.fn(() => Promise.resolve([])),
       pseudonymiseAuthorForUser: vi.fn(() => Promise.resolve(0)),
@@ -112,7 +118,7 @@ describe('GetReviewEligibilityUseCase', () => {
       save: vi.fn(() => Promise.resolve()),
       findById: vi.fn(() => Promise.resolve(null)),
       findByTriple: vi.fn(() => Promise.resolve(null)),
-      findExistingTriples: vi.fn(() => Promise.resolve(new Set<string>())),
+      findExistingTriples: findExistingTriplesSpy,
       listByRatedUser: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       listWrittenBy: vi.fn(() => Promise.resolve({ rows: [], nextCursor: null })),
       aggregateForUser: vi.fn(() =>
@@ -165,15 +171,13 @@ describe('GetReviewEligibilityUseCase', () => {
   });
 
   it('ineligible: viewer has no approved join request', async () => {
-    vi.mocked(joinRequestRepo.findByEvent).mockResolvedValue([]);
+    findByEventSpy.mockResolvedValue([]);
     const result = await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
     expect(result).toEqual({ eligible: false, ratedUserId: null, hostDisplayName: null });
   });
 
   it('ineligible: viewer already reviewed the host for this event', async () => {
-    vi.mocked(reviewRepo.findExistingTriples).mockResolvedValue(
-      new Set(['evt_001:user_host']),
-    );
+    findExistingTriplesSpy.mockResolvedValue(new Set(['evt_001:user_host']));
     const result = await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
     expect(result).toEqual({ eligible: false, ratedUserId: null, hostDisplayName: null });
   });
@@ -192,7 +196,7 @@ describe('GetReviewEligibilityUseCase', () => {
 
   it('findByEvent is called with the viewer as requesterUserId and status approved', async () => {
     await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
-    expect(joinRequestRepo.findByEvent).toHaveBeenCalledWith('evt_001', {
+    expect(findByEventSpy).toHaveBeenCalledWith('evt_001', {
       requesterUserId: 'user_guest',
       status: ['approved'],
     });
@@ -200,7 +204,7 @@ describe('GetReviewEligibilityUseCase', () => {
 
   it('findExistingTriples is called with correct pair', async () => {
     await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
-    expect(reviewRepo.findExistingTriples).toHaveBeenCalledWith({
+    expect(findExistingTriplesSpy).toHaveBeenCalledWith({
       raterUserId: 'user_guest',
       pairs: [{ eventId: 'evt_001', ratedUserId: 'user_host' }],
     });
