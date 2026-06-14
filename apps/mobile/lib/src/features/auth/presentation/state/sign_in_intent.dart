@@ -15,8 +15,7 @@ import 'package:equatable/equatable.dart';
 /// - [SignInIntentCreateEvent] — user tapped "Create event".
 /// - [SignInIntentGeneral] — generic gate not tied to a specific verb
 ///   (e.g. signed-out tab empty states, TRI-71); drives a neutral headline.
-///
-/// A review variant is reserved as a future case but NOT wired here.
+/// - [SignInIntentWriteReview] — user tapped "Write a review" on a host profile.
 sealed class SignInIntent extends Equatable {
   const SignInIntent();
 
@@ -31,6 +30,12 @@ sealed class SignInIntent extends Equatable {
   const factory SignInIntent.createEvent() = SignInIntentCreateEvent;
 
   const factory SignInIntent.general() = SignInIntentGeneral;
+
+  const factory SignInIntent.writeReview({
+    required String eventId,
+    required String hostId,
+    required String hostDisplayName,
+  }) = SignInIntentWriteReview;
 }
 
 class SignInIntentRequestJoin extends SignInIntent {
@@ -66,7 +71,17 @@ class SignInIntentGeneral extends SignInIntent {
   List<Object?> get props => [];
 }
 
-// RESERVED — a "review" variant is planned but not yet wired.
-// When the review feature is scoped in, add:
-//   const factory SignInIntent.postReview({required String eventId}) = SignInIntentPostReview;
-// and add the corresponding class + exhaustive switch cases at all call sites.
+class SignInIntentWriteReview extends SignInIntent {
+  const SignInIntentWriteReview({
+    required this.eventId,
+    required this.hostId,
+    required this.hostDisplayName,
+  });
+
+  final String eventId;
+  final String hostId;
+  final String hostDisplayName;
+
+  @override
+  List<Object?> get props => [eventId, hostId, hostDisplayName];
+}

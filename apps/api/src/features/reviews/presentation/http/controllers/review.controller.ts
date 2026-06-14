@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import type { EditReviewUseCase } from '../../../application/usecases/edit-review.usecase.js';
+import type { GetReviewEligibilityUseCase } from '../../../application/usecases/get-review-eligibility.usecase.js';
 import type { ListReviewsForUserUseCase } from '../../../application/usecases/list-reviews-for-user.usecase.js';
 import type { ListReviewsWrittenByMeUseCase } from '../../../application/usecases/list-reviews-written-by-me.usecase.js';
 import type { SubmitReviewUseCase } from '../../../application/usecases/submit-review.usecase.js';
@@ -15,6 +16,7 @@ export class ReviewController {
     private readonly editReview: EditReviewUseCase,
     private readonly listReviewsForUser: ListReviewsForUserUseCase,
     private readonly listReviewsWrittenByMe: ListReviewsWrittenByMeUseCase,
+    private readonly getReviewEligibility: GetReviewEligibilityUseCase,
   ) {}
 
   /**
@@ -95,6 +97,19 @@ export class ReviewController {
       raterUserId: actorUserId,
       ...(query.cursor !== undefined && { cursor: query.cursor }),
       limit: query.limit,
+    });
+    return c.json(result, 200);
+  };
+
+  /**
+   * GET /events/:eventId/review-eligibility
+   * Returns whether the authenticated viewer may write a review for this
+   * event's host. Always 200 — eligibility is not an error condition.
+   */
+  eligibilityAction = async (c: Context, actorUserId: string, eventId: string) => {
+    const result = await this.getReviewEligibility.execute({
+      viewerId: actorUserId,
+      eventId,
     });
     return c.json(result, 200);
   };

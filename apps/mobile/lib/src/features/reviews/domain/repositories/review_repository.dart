@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 import '../../../../core/error/failures.dart';
 import '../entities/pending_review_prompt.dart';
 import '../entities/review.dart'; // used by submitReview
+import '../entities/review_eligibility.dart';
 import '../entities/review_list_page.dart';
 
 /// Abstract repository interface for the reviews domain.
@@ -60,4 +61,15 @@ abstract class ReviewRepository {
   /// `{ "prompt": null }`). All eligibility filtering (≥24h / ≤7d post-event,
   /// already-reviewed exclusion, blocked-user exclusion) is handled server-side.
   Future<Either<Failure, PendingReviewPrompt?>> getPendingReviewPrompt();
+
+  /// Check whether the current user may write a review for the host of
+  /// a specific event.
+  ///
+  /// GET /events/:eventId/review-eligibility
+  ///
+  /// Always returns 200 on the wire — ineligibility is expressed via
+  /// [ReviewEligibility.eligible] == false, never via an error response.
+  Future<Either<Failure, ReviewEligibility>> getReviewEligibility({
+    required String eventId,
+  });
 }

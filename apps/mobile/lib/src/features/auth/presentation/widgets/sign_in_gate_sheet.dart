@@ -384,6 +384,10 @@ class _Headline extends StatelessWidget {
         SignInGateCopy.generalHeadline,
         style: TribelyType.displayM(ink),
       ),
+      SignInIntentWriteReview() => Text(
+        SignInGateCopy.reviewHeadline,
+        style: TribelyType.displayM(ink),
+      ),
     };
   }
 }
