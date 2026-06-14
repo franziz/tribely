@@ -105,9 +105,8 @@ final myReviewsWrittenControllerProvider =
 final reviewEligibilityProvider = FutureProvider.autoDispose
     .family<ReviewEligibility, String /*eventId*/>((ref, eventId) async {
       final useCase = ref.watch(getReviewEligibilityUseCaseProvider);
-      final result = await useCase(
-        GetReviewEligibilityParams(eventId: eventId),
-      );
+      final params = GetReviewEligibilityParams(eventId: eventId);
+      final result = await useCase(params);
       return result.fold(
         (failure) => throw failure,
         (eligibility) => eligibility,

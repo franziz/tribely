@@ -105,8 +105,18 @@ void main() {
 
       final container = _makeContainer(useCase);
 
-      expect(
-        () => container.read(reviewEligibilityProvider('evt-1').future),
+      // Keep the autoDispose provider alive past the loading→error transition.
+      // Without a live listener Riverpod 3 disposes the provider mid-backoff and
+      // .future never settles ("provider disposed during loading state").
+      // Per the mobile-architecture.md Riverpod-3-async-error-in-tests gotcha.
+      final sub = container.listen(
+        reviewEligibilityProvider('evt-1'),
+        (prev, next) {},
+      );
+      addTearDown(sub.close);
+
+      await expectLater(
+        container.read(reviewEligibilityProvider('evt-1').future),
         throwsA(isA<NetworkFailure>()),
       );
     });
