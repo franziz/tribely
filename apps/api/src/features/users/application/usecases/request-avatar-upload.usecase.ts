@@ -1,14 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import type {
+  RequestAvatarUploadInput,
+  RequestAvatarUploadResult,
+} from '../dto/request-avatar-upload.dto.js';
 
-export interface RequestAvatarUploadInput {
-  userId: string;
-}
-
-export interface RequestAvatarUploadResult {
-  uploadUrl: string;
-  storageKey: string;
-}
+export type { RequestAvatarUploadInput, RequestAvatarUploadResult };
 
 /**
  * Generates a presigned S3 PUT URL so the mobile client can upload an avatar

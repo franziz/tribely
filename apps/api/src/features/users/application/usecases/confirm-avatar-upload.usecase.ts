@@ -4,16 +4,12 @@ import type { EventPublisher } from '@/core/events/event-publisher.port.js';
 import type { FileStorage } from '@/core/storage/file-storage.port.js';
 import type { Logger } from '@/core/observability/logger.port.js';
 import type { UserRepository } from '../../domain/repositories/user.repository.js';
-import type { User } from '../../domain/entities/user.js';
+import type {
+  ConfirmAvatarUploadInput,
+  ConfirmAvatarUploadResult,
+} from '../dto/confirm-avatar-upload.dto.js';
 
-export interface ConfirmAvatarUploadInput {
-  userId: string;
-  storageKey: string;
-}
-
-export interface ConfirmAvatarUploadResult {
-  user: User;
-}
+export type { ConfirmAvatarUploadInput, ConfirmAvatarUploadResult };
 
 /**
  * Records a confirmed avatar upload against the authenticated user.
@@ -68,8 +64,8 @@ export class ConfirmAvatarUploadUseCase {
       return { user: found, priorKey: prior };
     });
 
-    // Best-effort prior-key cleanup — runs OUTSIDE the transaction.
-    // Never throws: an orphaned object is tolerable; a broken response is not.
+    // Best-effort prior-key cleanup; orphan-tolerant. Pattern mirrors selfie storage handling (TRI-23).
+    // Runs OUTSIDE the transaction — never throws: an orphaned object is tolerable; a broken response is not.
     if (priorKey !== null && priorKey !== input.storageKey) {
       try {
         await this.fileStorage.deleteObject({ key: priorKey });
