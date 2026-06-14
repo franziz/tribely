@@ -1258,6 +1258,71 @@ void main() {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // TRI-51: costNotes field — optional, never gates canSubmit / blockingFields
+  // ---------------------------------------------------------------------------
+  group('costNotes field — optional (TRI-51)', () {
+    late ProviderContainer container;
+    late _MockSaveEventDraftUseCase save;
+
+    setUp(() async {
+      final result = _makeContainer();
+      container = result.container;
+      save = result.save;
+      when(() => result.load(any())).thenAnswer((_) async => const Right(null));
+      when(() => save(any())).thenAnswer((_) async => const Right(null));
+
+      container.read(createEventControllerProvider);
+      await Future<void>.value();
+    });
+
+    tearDown(() => container.dispose());
+
+    test(
+      'updateField costNotes writes draft.costNotes and does NOT add to blockingFields',
+      () {
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        controller.updateField(field: 'costNotes', value: 'Pay your own way');
+
+        final state =
+            container.read(createEventControllerProvider) as CreateEventEditing;
+        expect(state.formData.costNotes, 'Pay your own way');
+        // costNotes must never appear in blockingFields across any step.
+        for (final stepFields in state.blockingFields.values) {
+          expect(stepFields, isNot(contains('costNotes')));
+        }
+      },
+    );
+
+    test(
+      'canSubmit is true with all required fields valid and costNotes null',
+      () {
+        final controller = container.read(
+          createEventControllerProvider.notifier,
+        );
+        final draft = _validDraft();
+        controller.updateField(field: 'title', value: draft.title!);
+        controller.updateField(field: 'category', value: draft.category!);
+        controller.updateField(field: 'venueName', value: draft.venueName!);
+        controller.updateField(field: 'latitude', value: draft.latitude!);
+        controller.updateField(field: 'longitude', value: draft.longitude!);
+        controller.updateField(field: 'startsAt', value: draft.startsAt!);
+        controller.updateField(field: 'endsAt', value: draft.endsAt!);
+        controller.updateField(field: 'capacity', value: draft.capacity!);
+        controller.updateField(
+          field: 'approvalMode',
+          value: draft.approvalMode!,
+        );
+        controller.updateField(field: 'description', value: draft.description!);
+        // costNotes intentionally NOT set — must still be submittable.
+
+        expect(controller.canSubmit(), isTrue);
+      },
+    );
+  });
+
   group('onPublishRejectionAcknowledged — cancel (Brief 11)', () {
     test(
       'cancel: stays on Step 5, clears publishRejection, venue fields intact',

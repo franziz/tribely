@@ -125,10 +125,36 @@ class CreateEventStep4LogisticsPage extends ConsumerWidget {
             ),
           ],
 
-          // TODO(TRI-26 §7.1 follow-up): cost-notes field omitted in v1 because the
-          // current backend POST /events expects a structured costSplit enum, not a
-          // free-text costNotes string. Add this field once the backend ticket lands
-          // (see EL spec §7 follow-ups in PR description).
+          const SizedBox(height: 24),
+
+          // Cost notes — optional free-text field (CEO guardrail: plain String
+          // only, never numeric/structured cost input). Empty value never gates
+          // canAdvance or canSubmit — costNotes is intentionally absent from
+          // _stepFields. Counter hidden below 150 chars; shows N/200 from 150+.
+          EventFormField(
+            key: const ValueKey('costNotes'),
+            label: 'Cost notes',
+            value: draft.costNotes,
+            errorText: errors['costNotes'],
+            maxLength: costNotesMaxLen,
+            keyboardType: TextInputType.multiline,
+            maxLines: 3,
+            minLines: 1,
+            hint:
+                'Optional — e.g. "Pay your own way" or "I\'ll cover snacks, you grab drinks"',
+            buildCounter:
+                (_, {required currentLength, required isFocused, maxLength}) =>
+                    currentLength < 150
+                    ? null
+                    : Text(
+                        '$currentLength/$costNotesMaxLen',
+                        style: TribelyType.caption(inkSecondary),
+                      ),
+            onChanged: (v) => controller.updateField(
+              field: 'costNotes',
+              value: v.isEmpty ? null : v,
+            ),
+          ),
         ],
       ),
     );
