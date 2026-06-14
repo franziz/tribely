@@ -47,16 +47,16 @@ final class AvatarPickerPermissionDenied extends AvatarPickerResult {
 /// Each method checks the appropriate OS permission first, then opens the
 /// native picker with inline compression (≤512×512 px, imageQuality 85).
 ///
-/// **iOS native-config reminder** (gitignored `ios/` — apply after
-/// `flutter create`):
-///   - `NSCameraUsageDescription` — required for [pickFromCamera].
-///   - `NSPhotoLibraryUsageDescription` — required for [pickFromLibrary].
-///
-/// **Android native-config reminder** (gitignored `android/` — apply after
-/// `flutter create`):
-///   - `<uses-permission android:name="android.permission.CAMERA"/>` — required
-///      for [pickFromCamera]. Photo library access is granted by the
-///      image_picker plugin's manifest merger automatically on API 33+.
+/// **Native permissions** (the `ios/` and `android/` folders ARE committed —
+/// these entries live in-repo; see
+/// `docs/runbooks/image-picker-native-permissions.md`, TRI-298):
+///   - iOS `ios/Runner/Info.plist`:
+///       `NSCameraUsageDescription` — required for [pickFromCamera];
+///       `NSPhotoLibraryUsageDescription` — required for [pickFromLibrary].
+///   - Android `android/app/src/main/AndroidManifest.xml`:
+///       `<uses-permission android:name="android.permission.CAMERA"/>` —
+///       required for [pickFromCamera]. Photo library access is granted by the
+///       image_picker plugin's manifest merger automatically on API 33+.
 ///
 /// No crop/rotate UI. No `flutter_image_compress` (deferred to Q2).
 abstract class AvatarPickerDatasource {

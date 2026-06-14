@@ -47,7 +47,7 @@ The mobile package is a single Flutter app at `apps/mobile/`. There is **no Melo
 
 ```bash
 cd apps/mobile && flutter pub get                                              # fetch deps
-cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # REQUIRED on first run — repo ships without ios/android folders
+cd apps/mobile && flutter create --org com.tribely --platforms=ios,android .   # ONLY to regenerate native scaffolding — ios/ and android/ ARE committed (incl. Info.plist usage strings + AndroidManifest permissions); see docs/runbooks/image-picker-native-permissions.md
 npm run mobile:run                                                              # reads apps/mobile/.env.json (use http://10.0.2.2:<port> on Android emulator)
 npm run mobile:analyze                                                          # flutter analyze
 npm run mobile:test                                                             # flutter test
