@@ -160,6 +160,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       'capacity' => draft.copyWith(capacity: value as int?),
       'approvalMode' => draft.copyWith(approvalMode: value as String?),
       'description' => draft.copyWith(description: value as String?),
+      'costNotes' => draft.copyWith(costNotes: value as String?),
       _ => draft,
     };
   }
@@ -178,6 +179,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       'capacity' => validateCapacity(draft.capacity),
       'approvalMode' => validateApprovalMode(draft.approvalMode),
       'description' => validateDescription(draft.description),
+      'costNotes' => validateCostNotes(draft.costNotes),
       _ => null,
     };
   }
@@ -610,6 +612,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       capacity: draft.capacity!,
       approvalMode: draft.approvalMode!,
       description: draft.description!,
+      costNotes: draft.costNotes,
     );
 
     if (!ref.mounted) return;

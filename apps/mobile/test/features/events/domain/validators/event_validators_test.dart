@@ -295,6 +295,36 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // validateCostNotes
+  // ---------------------------------------------------------------------------
+  group('validateCostNotes', () {
+    test('null → valid (optional field)', () {
+      expect(validateCostNotes(null), isNull);
+    });
+
+    test('empty string → valid (optional field)', () {
+      expect(validateCostNotes(''), isNull);
+    });
+
+    test('whitespace-only → valid (treated as empty)', () {
+      expect(validateCostNotes('   '), isNull);
+    });
+
+    test('exactly $costNotesMaxLen chars → valid', () {
+      expect(validateCostNotes('a' * costNotesMaxLen), isNull);
+    });
+
+    test('${costNotesMaxLen + 1} chars (above max) → error', () {
+      expect(validateCostNotes('a' * (costNotesMaxLen + 1)), isNotNull);
+    });
+
+    test('error message contains character count hint', () {
+      final msg = validateCostNotes('a' * (costNotesMaxLen + 1));
+      expect(msg, contains('$costNotesMaxLen'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // validateCategory
   // ---------------------------------------------------------------------------
   group('validateCategory', () {

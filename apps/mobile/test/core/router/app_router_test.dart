@@ -301,7 +301,7 @@ final _routerTestEvent = Event(
   endsAt: DateTime.utc(2099, 6, 1, 21, 0),
   capacity: 8,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 1, 1),
