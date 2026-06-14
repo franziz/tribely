@@ -75,15 +75,39 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
     await showAvatarSourceSheet(
       context,
-      onCamera: () => _pickAndUpload(AvatarSource.camera),
-      onLibrary: () => _pickAndUpload(AvatarSource.library),
+      onCamera: _pickFromCameraAndUpload,
+      onLibrary: _pickFromLibraryAndUpload,
     );
   }
 
-  Future<void> _pickAndUpload(AvatarSource source) async {
+  Future<void> _pickFromCameraAndUpload() async {
     final picker = ref.read(avatarPickerDatasourceProvider);
-    final result = await picker.pick(source);
+    final result = await picker.pickFromCamera();
+    await _handlePickerResult(
+      result,
+      permissionMessage: kAvatarCameraPermissionDeniedMessage,
+    );
+  }
 
+  Future<void> _pickFromLibraryAndUpload() async {
+    final picker = ref.read(avatarPickerDatasourceProvider);
+    final result = await picker.pickFromLibrary();
+    await _handlePickerResult(
+      result,
+      permissionMessage: kAvatarLibraryPermissionDeniedMessage,
+    );
+  }
+
+  /// Handles the [AvatarPickerResult] from either picker method.
+  ///
+  /// On success: delegates to [EditProfileController.uploadAvatar].
+  /// On cancelled: no-op.
+  /// On permanent permission-denied: shows [permissionMessage] in the banner.
+  ///   Soft (first-time) denials are transient — no banner is shown.
+  Future<void> _handlePickerResult(
+    AvatarPickerResult result, {
+    required String permissionMessage,
+  }) async {
     switch (result) {
       case AvatarPickerSuccess(:final bytes):
         // Upload; controller handles all state transitions.
@@ -100,10 +124,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         // actionable). Soft first-time denials are transient — no banner shown.
         if (!mounted) return;
         if (isPermanent) {
-          final message = source == AvatarSource.camera
-              ? kAvatarCameraPermissionDeniedMessage
-              : kAvatarLibraryPermissionDeniedMessage;
-          setState(() => _permissionBannerMessage = message);
+          setState(() => _permissionBannerMessage = permissionMessage);
         }
     }
   }

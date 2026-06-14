@@ -8,6 +8,22 @@ import '../providers/users_providers.dart';
 import '../state/edit_profile_state.dart';
 import '../string_assets/avatar_copy.dart';
 
+/// Controller for the Edit Profile page.
+///
+/// Owns two async flows — profile field save ([save]) and avatar upload
+/// ([uploadAvatar]) — **in a single state machine** to enforce a hard
+/// mutual-exclusion invariant: neither flow may start while the other is
+/// running, and the AppBar Save button is disabled during both.
+///
+/// **Why one controller, not two?**
+/// Splitting [uploadAvatar] into a dedicated `avatarUploadControllerProvider`
+/// would require the page to read two providers and OR their in-progress states
+/// for the Save-disabled check — a fragile contract that future contributors
+/// can easily break by checking only one. Keeping both flows here makes the
+/// invariant impossible to violate: the early-return guards in [save] and
+/// [uploadAvatar] share the same [state] reference, so they are atomically
+/// consistent. Do not extract [uploadAvatar] without re-establishing this
+/// invariant in the new controller.
 class EditProfileController extends Notifier<EditProfileState> {
   @override
   EditProfileState build() {
