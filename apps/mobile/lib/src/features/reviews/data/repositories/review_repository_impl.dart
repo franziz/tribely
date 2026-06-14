@@ -5,6 +5,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/pending_review_prompt.dart';
 import '../../domain/entities/review.dart';
+import '../../domain/entities/review_eligibility.dart';
 import '../../domain/entities/review_list_page.dart';
 import '../../domain/repositories/review_repository.dart';
 import '../datasources/review_remote_datasource.dart';
@@ -100,6 +101,20 @@ class ReviewRepositoryImpl implements ReviewRepository {
     try {
       final model = await _remote.getPendingReviewPrompt();
       return Right(model?.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ReviewEligibility>> getReviewEligibility({
+    required String eventId,
+  }) async {
+    try {
+      final model = await _remote.getReviewEligibility(eventId: eventId);
+      return Right(model.toEntity());
     } on DioException catch (e) {
       return Left(_mapDioError(e));
     } catch (e) {

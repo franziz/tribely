@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/review_remote_datasource.dart';
+import '../../domain/entities/review_eligibility.dart';
 import '../../domain/repositories/review_repository.dart';
 import '../../domain/usecases/edit_review_usecase.dart';
 import '../../domain/usecases/get_pending_review_prompt_usecase.dart';
+import '../../domain/usecases/get_review_eligibility_usecase.dart';
 import '../../domain/usecases/list_reviews_for_user_usecase.dart';
 import '../../domain/usecases/list_reviews_written_by_me_usecase.dart';
 import '../../domain/usecases/submit_review_usecase.dart';
@@ -54,6 +56,11 @@ final getPendingReviewPromptUseCaseProvider =
       (_) => sl<GetPendingReviewPromptUseCase>(),
     );
 
+final getReviewEligibilityUseCaseProvider =
+    Provider<GetReviewEligibilityUseCase>(
+      (_) => sl<GetReviewEligibilityUseCase>(),
+    );
+
 // ---------------------------------------------------------------------------
 // Controllers
 //
@@ -82,3 +89,27 @@ final myReviewsWrittenControllerProvider =
       MyReviewsWrittenController,
       MyReviewsWrittenState
     >(MyReviewsWrittenController.new);
+
+// ---------------------------------------------------------------------------
+// Eligibility — autoDispose + family(eventId: String)
+//
+// Fetches review eligibility for a specific event. Scoped to the event-detail
+// page lifetime via autoDispose; invalidated on composer return so the
+// "✓ reviewed" state updates without requiring a full page reload.
+//
+// Sanctioned cross-feature read from discover/ event-detail page per
+// CLAUDE.md "reviews/presentation/{providers,...} is the fourth sanctioned
+// cross-feature import".
+// ---------------------------------------------------------------------------
+
+final reviewEligibilityProvider = FutureProvider.autoDispose
+    .family<ReviewEligibility, String /*eventId*/>((ref, eventId) async {
+      final useCase = ref.watch(getReviewEligibilityUseCaseProvider);
+      final result = await useCase(
+        GetReviewEligibilityParams(eventId: eventId),
+      );
+      return result.fold(
+        (failure) => throw failure,
+        (eligibility) => eligibility,
+      );
+    });

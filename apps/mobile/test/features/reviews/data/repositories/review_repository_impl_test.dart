@@ -5,10 +5,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:tribely/src/core/error/exceptions.dart';
 import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/features/reviews/data/datasources/review_remote_datasource.dart';
+import 'package:tribely/src/features/reviews/data/models/review_eligibility_model.dart';
 import 'package:tribely/src/features/reviews/data/models/review_list_page_model.dart';
 import 'package:tribely/src/features/reviews/data/models/review_model.dart';
 import 'package:tribely/src/features/reviews/data/repositories/review_repository_impl.dart';
 import 'package:tribely/src/features/reviews/domain/entities/review.dart';
+import 'package:tribely/src/features/reviews/domain/entities/review_eligibility.dart';
 import 'package:tribely/src/features/reviews/domain/entities/review_list_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -311,6 +313,74 @@ void main() {
       ).thenThrow(_serverDioException(statusCode: 401, code: 'UNAUTHORIZED'));
 
       final result = await repo.listReviewsWrittenByMe();
+
+      expect(result.isLeft(), isTrue);
+      expect(result.getLeft().toNullable(), isA<AuthFailure>());
+    });
+  });
+
+  // ---- getReviewEligibility ----
+
+  group('getReviewEligibility', () {
+    test('returns Right(eligible: true) on success', () async {
+      final model = ReviewEligibilityModel.fromJson(const <String, dynamic>{
+        'eligible': true,
+        'ratedUserId': 'host-1',
+        'hostDisplayName': 'Alice',
+      });
+
+      when(
+        () => remote.getReviewEligibility(eventId: any(named: 'eventId')),
+      ).thenAnswer((_) async => model);
+
+      final result = await repo.getReviewEligibility(eventId: 'evt-1');
+
+      expect(result.isRight(), isTrue);
+      final eligibility = (result as Right<Failure, ReviewEligibility>).value;
+      expect(eligibility.eligible, isTrue);
+      expect(eligibility.ratedUserId, 'host-1');
+      expect(eligibility.hostDisplayName, 'Alice');
+    });
+
+    test(
+      'returns Right(eligible: false) when server returns ineligible',
+      () async {
+        final model = ReviewEligibilityModel.fromJson(const <String, dynamic>{
+          'eligible': false,
+          'ratedUserId': null,
+          'hostDisplayName': null,
+        });
+
+        when(
+          () => remote.getReviewEligibility(eventId: any(named: 'eventId')),
+        ).thenAnswer((_) async => model);
+
+        final result = await repo.getReviewEligibility(eventId: 'evt-1');
+
+        expect(result.isRight(), isTrue);
+        final eligibility = (result as Right<Failure, ReviewEligibility>).value;
+        expect(eligibility.eligible, isFalse);
+        expect(eligibility.ratedUserId, isNull);
+      },
+    );
+
+    test('returns Left(NetworkFailure) on network error', () async {
+      when(
+        () => remote.getReviewEligibility(eventId: any(named: 'eventId')),
+      ).thenThrow(_networkDioException());
+
+      final result = await repo.getReviewEligibility(eventId: 'evt-1');
+
+      expect(result.isLeft(), isTrue);
+      expect(result.getLeft().toNullable(), isA<NetworkFailure>());
+    });
+
+    test('returns Left(AuthFailure) on 401', () async {
+      when(
+        () => remote.getReviewEligibility(eventId: any(named: 'eventId')),
+      ).thenThrow(_serverDioException(statusCode: 401, code: 'UNAUTHORIZED'));
+
+      final result = await repo.getReviewEligibility(eventId: 'evt-1');
 
       expect(result.isLeft(), isTrue);
       expect(result.getLeft().toNullable(), isA<AuthFailure>());
