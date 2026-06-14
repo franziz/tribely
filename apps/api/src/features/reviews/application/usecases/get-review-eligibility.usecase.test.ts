@@ -86,16 +86,19 @@ describe('GetReviewEligibilityUseCase', () => {
   let userRepo: UserRepository;
   let clock: Clock;
   let useCase: GetReviewEligibilityUseCase;
-  // Spy references captured in beforeEach so lint's unbound-method rule is satisfied.
+  // Spy references captured in beforeEach so lint's unbound-method rule is satisfied
+  // for all methods that appear in expect(...).toHaveBeenCalledWith(...) assertions.
+  let eventFindByIdSpy: ReturnType<typeof vi.fn>;
   let findByEventSpy: ReturnType<typeof vi.fn>;
   let findExistingTriplesSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    eventFindByIdSpy = vi.fn(() => Promise.resolve(makeEvent()));
     findByEventSpy = vi.fn(() => Promise.resolve([makeApprovedJoinRequest()]));
     findExistingTriplesSpy = vi.fn(() => Promise.resolve(new Set<string>()));
 
     eventRepo = {
-      findById: vi.fn(() => Promise.resolve(makeEvent())),
+      findById: eventFindByIdSpy,
       findByIdForUpdate: vi.fn(() => Promise.resolve(null)),
       save: vi.fn(() => Promise.resolve()),
       findManyForListing: vi.fn(() => Promise.resolve({ events: [], nextCursor: null })),
@@ -124,8 +127,8 @@ describe('GetReviewEligibilityUseCase', () => {
       aggregateForUser: vi.fn(() =>
         Promise.resolve({ averageRating: null, reviewCount: 0, recentVisibleComments: [] }),
       ),
-      deleteAllForUser: vi.fn((_userId: string, _ctx: unknown): Promise<number> =>
-        Promise.resolve(0),
+      deleteAllForUser: vi.fn(
+        (_userId: string, _ctx: unknown): Promise<number> => Promise.resolve(0),
       ),
     };
     userRepo = {
@@ -154,13 +157,13 @@ describe('GetReviewEligibilityUseCase', () => {
   });
 
   it('ineligible: event not found', async () => {
-    vi.mocked(eventRepo.findById).mockResolvedValue(null);
+    eventFindByIdSpy.mockResolvedValue(null);
     const result = await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
     expect(result).toEqual({ eligible: false, ratedUserId: null, hostDisplayName: null });
   });
 
   it('ineligible: event not completed', async () => {
-    vi.mocked(eventRepo.findById).mockResolvedValue(makeEvent({ status: 'published' }));
+    eventFindByIdSpy.mockResolvedValue(makeEvent({ status: 'published' }));
     const result = await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
     expect(result).toEqual({ eligible: false, ratedUserId: null, hostDisplayName: null });
   });
@@ -183,13 +186,13 @@ describe('GetReviewEligibilityUseCase', () => {
   });
 
   it('ineligible: event ended less than 24h ago (too recent)', async () => {
-    vi.mocked(eventRepo.findById).mockResolvedValue(makeEvent({ endsAt: ENDS_AT_TOO_RECENT }));
+    eventFindByIdSpy.mockResolvedValue(makeEvent({ endsAt: ENDS_AT_TOO_RECENT }));
     const result = await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
     expect(result).toEqual({ eligible: false, ratedUserId: null, hostDisplayName: null });
   });
 
   it('ineligible: event ended more than 7 days ago (window closed)', async () => {
-    vi.mocked(eventRepo.findById).mockResolvedValue(makeEvent({ endsAt: ENDS_AT_TOO_OLD }));
+    eventFindByIdSpy.mockResolvedValue(makeEvent({ endsAt: ENDS_AT_TOO_OLD }));
     const result = await useCase.execute({ viewerId: 'user_guest', eventId: 'evt_001' });
     expect(result).toEqual({ eligible: false, ratedUserId: null, hostDisplayName: null });
   });
