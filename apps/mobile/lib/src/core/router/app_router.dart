@@ -121,6 +121,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return remainder.isNotEmpty;
       }();
 
+      // TRI-71: Auth-gated tab roots — /my-events and /profile are reachable
+      // while signed out so they can render an in-tab signed-out empty state.
+      // These are deliberately NOT in `authFlowRoutes` so that a post-sign-in
+      // session flip (SessionUnauthenticated → SessionAuthenticated) leaves the
+      // user on the same tab rather than bouncing them to /events.
+      final isAuthGatedTab = loc == '/my-events' || loc == '/profile';
+
       switch (session) {
         case SessionRestoring():
           // Stay on splash until restore completes.
@@ -128,10 +135,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         case SessionUnauthenticated():
           // Splash and verify-email both redirect to welcome (the former
           // because restore is done, the latter because the user is no longer
-          // authenticated). Public routes and public event read-routes are
-          // allowed through. Everything else (e.g. /my-events, /profile,
-          // /users/:id, /events/new) is auth-required and bounced to /welcome.
-          if (isSplash || isVerify || (!isPublic && !isPublicEventRead)) {
+          // authenticated). Public routes, public event read-routes, and the
+          // auth-gated tab roots (/my-events, /profile) are allowed through.
+          // Auth-gated tab roots render a signed-out empty state rather than
+          // the authenticated content; they are passed through here so the user
+          // stays on the tab. Everything else (e.g. /users/:id, /events/new)
+          // is auth-required and bounced to /welcome.
+          if (isSplash ||
+              isVerify ||
+              (!isPublic && !isPublicEventRead && !isAuthGatedTab)) {
             return '/welcome';
           }
           return null;

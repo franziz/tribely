@@ -52,8 +52,12 @@ import 'package:tribely/src/features/join_requests/presentation/state/host_pendi
 import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
 import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
+import 'package:tribely/src/features/users/domain/entities/user_profile.dart';
+import 'package:tribely/src/features/users/presentation/controllers/my_profile_controller.dart';
 import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/providers/users_providers.dart';
 import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
+import 'package:tribely/src/features/users/presentation/state/user_profile_state.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/my_events_controller.dart';
@@ -168,6 +172,28 @@ class _FixedPendingReviewBannerController
 
   @override
   void onComposerNavigated() {}
+}
+
+/// Bypasses MyProfileController's async _load() which reads
+/// getUserProfileUseCaseProvider → `sl<UserProfileRepository>()`. Returns a
+/// terminal loaded state immediately so OwnProfilePage can render in
+/// production-router tests (pumpProductionRouter) without initialising GetIt.
+///
+/// The test only asserts the URI — content is irrelevant; UserProfile fields
+/// below are minimal stubs.
+class _FixedMyProfileController extends MyProfileController {
+  static final _now = DateTime.utc(2024);
+
+  @override
+  UserProfileState build() => UserProfileLoaded(
+    UserProfile(
+      id: 'test-user-1',
+      email: 'test@tribely.com',
+      displayName: 'Test User',
+      createdAt: _now,
+      updatedAt: _now,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -540,6 +566,12 @@ Future<GoRouter> pumpProductionRouter(
         pendingReviewBannerControllerProvider.overrideWith(
           _FixedPendingReviewBannerController.new,
         ),
+        // OwnProfilePage (mounted when pumpProductionRouter navigates to
+        // /profile with SessionAuthenticated) watches myProfileControllerProvider
+        // → getUserProfileUseCaseProvider → sl<UserProfileRepository>().
+        // No GetIt registration exists in tests; override with a terminal loaded
+        // state so the page renders without crashing. (TRI-71-3.)
+        myProfileControllerProvider.overrideWith(_FixedMyProfileController.new),
         // TRI-290: /events/:id is now reachable unauthenticated; stub the
         // providers EventDetailPage watches so GetIt is never touched.
         // The override is keyed to _kRouterTestEventId — only the
@@ -938,6 +970,84 @@ void main() {
           reason:
               'TRI-290: /events/:id is a public read route; unauthenticated '
               'users reach the event detail page without a bounce.',
+        );
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // TRI-71: Auth-gated tab roots — signed-out users stay on /my-events and
+    // /profile (no redirect to /welcome) so they render the in-tab empty state.
+    // -------------------------------------------------------------------------
+
+    // TRI-71-1: Signed-out user at /my-events stays on /my-events.
+    testWidgets(
+      'TRI-71: unauthenticated user at /my-events is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/my-events',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/my-events'),
+          reason:
+              'TRI-71: /my-events is an auth-gated tab root; signed-out users '
+              'must remain on the tab to render the signed-out empty state '
+              'instead of being bounced to /welcome.',
+        );
+      },
+    );
+
+    // TRI-71-2: Signed-out user at /profile stays on /profile.
+    testWidgets(
+      'TRI-71: unauthenticated user at /profile is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/profile',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/profile'),
+          reason:
+              'TRI-71: /profile is an auth-gated tab root; signed-out users '
+              'must remain on the tab to render the signed-out empty state '
+              'instead of being bounced to /welcome.',
+        );
+      },
+    );
+
+    // TRI-71-3: Session flip on /profile does NOT bounce to /events.
+    // A user who signs in via the gate sheet while on /profile must stay on
+    // /profile (return-to-origin). Because /profile is NOT in `authFlowRoutes`,
+    // the SessionAuthenticated bounce-auth-flow branch never fires for it.
+    testWidgets(
+      'TRI-71: session flip SessionUnauthenticated→SessionAuthenticated on /profile does NOT redirect to /events',
+      (tester) async {
+        // Start authenticated directly on /profile — this exercises the
+        // SessionAuthenticated branch with loc == '/profile', which must return
+        // null (no redirect) because /profile is not in authFlowRoutes.
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: _authenticatedState,
+          initialLocation: '/profile',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/profile'),
+          reason:
+              'TRI-71: /profile is NOT in authFlowRoutes, so a '
+              'SessionAuthenticated session landing on /profile must NOT be '
+              'redirected to /events. Return-to-origin must be preserved after '
+              'a sign-in while on the Profile tab.',
         );
       },
     );

@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/providers/list_my_hosted_events_usecase_provider.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
 import '../../../discover/domain/usecases/list_my_hosted_events_usecase.dart';
 import '../state/my_events_state.dart';
 
@@ -18,9 +20,13 @@ final myEventsControllerProvider =
 
 /// Owns the hosted-event-IDs load for [MyEventsPage].
 ///
-/// Fetches the current user's hosted event IDs on build so the page's
-/// [HostingPendingCountController] family key is populated immediately.
-/// Exposes [load] for explicit (re-)fetch and [refresh] for pull-to-refresh.
+/// Session-gated: [build] watches [sessionControllerProvider] so the
+/// controller auto-rebuilds whenever the session flips. The watch drives
+/// these transitions automatically:
+///
+/// - [SessionAuthenticated]   → schedules [load()], returns [MyEventsLoading].
+/// - [SessionUnauthenticated] → returns [MyEventsSignedOut], fires NO fetch.
+/// - [SessionRestoring]       → returns [MyEventsLoading] (silent hold), fires NO fetch.
 ///
 /// The controller maps [List<Event>] → [List<String>] of IDs because the page
 /// only needs IDs to derive the pending-count badge key — carrying full entity
@@ -28,6 +34,17 @@ final myEventsControllerProvider =
 class MyEventsController extends Notifier<MyEventsState> {
   @override
   MyEventsState build() {
+    final session = ref.watch(sessionControllerProvider);
+    return switch (session) {
+      SessionAuthenticated() => _scheduleLoad(),
+      SessionUnauthenticated() => const MyEventsSignedOut(),
+      // SessionRestoring — silent hold; do NOT schedule a load.
+      _ => const MyEventsLoading(),
+    };
+  }
+
+  /// Schedules [load()] via a post-build microtask and returns [MyEventsLoading].
+  MyEventsState _scheduleLoad() {
     Future(() => load());
     return const MyEventsLoading();
   }
