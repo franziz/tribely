@@ -69,6 +69,8 @@ import { ApproveSelfieUseCase } from '@/features/users/application/usecases/appr
 import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
 import { ListPendingReviewPromptsUseCase } from '@/features/users/application/usecases/list-pending-review-prompts.usecase.js';
 import { PromoteAdminOnBootUseCase } from '@/features/users/application/usecases/promote-admin-on-boot.usecase.js';
+import { RequestAvatarUploadUseCase } from '@/features/users/application/usecases/request-avatar-upload.usecase.js';
+import { ConfirmAvatarUploadUseCase } from '@/features/users/application/usecases/confirm-avatar-upload.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
 import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapters/stub-host-ratings-read-model.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
@@ -301,6 +303,8 @@ export interface Container {
   deleteAccountUseCase: DeleteAccountUseCase;
   listPendingReviewPromptsUseCase: ListPendingReviewPromptsUseCase;
   promoteAdminOnBoot: PromoteAdminOnBootUseCase;
+  requestAvatarUploadUseCase: RequestAvatarUploadUseCase;
+  confirmAvatarUploadUseCase: ConfirmAvatarUploadUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -676,6 +680,16 @@ export const buildContainer = (): Container => {
     clock,
   );
 
+  // TRI-24 Brief A — avatar upload use cases (presign + confirm).
+  const requestAvatarUploadUseCase = new RequestAvatarUploadUseCase(fileStorage);
+  const confirmAvatarUploadUseCase = new ConfirmAvatarUploadUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+    fileStorage,
+    logger,
+  );
+
   // TRI-23 Brief A — selfie intake use cases (presign + submit).
   const requestSelfieUploadUseCase = new RequestSelfieUploadUseCase(fileStorage);
   const submitSelfieUseCase = new SubmitSelfieUseCase(
@@ -907,6 +921,7 @@ export const buildContainer = (): Container => {
     checkBlockedPort,
     userRepository,
     clock,
+    fileStorage,
   );
 
   // --- Moderation action audit repository ---
@@ -1101,6 +1116,8 @@ export const buildContainer = (): Container => {
     deleteAccountUseCase,
     listPendingReviewPromptsUseCase,
     promoteAdminOnBoot,
+    requestAvatarUploadUseCase,
+    confirmAvatarUploadUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,
