@@ -21,8 +21,8 @@ abstract final class SignInGateCopy {
   /// single verb applies (TRI-71 tab empty states).
   static const String generalHeadline = 'Sign in to continue';
 
-  // Review headline — reserved for future use, NOT wired.
-  // static const String reviewHeadline = 'Sign in to post a review';
+  /// Headline for WRITE_REVIEW intent (single line).
+  static const String reviewHeadline = 'Sign in to post a review';
 
   // Fields ------------------------------------------------------------------
 
