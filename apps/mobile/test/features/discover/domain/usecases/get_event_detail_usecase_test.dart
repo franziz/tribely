@@ -33,7 +33,7 @@ final _stubEvent = Event(
   endsAt: DateTime(2030, 8, 10, 9),
   capacity: 15,
   category: EventCategory.sports,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime(2030, 7, 1),

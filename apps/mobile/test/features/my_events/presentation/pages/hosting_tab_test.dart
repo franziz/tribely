@@ -64,7 +64,7 @@ Event _event({
     endsAt: DateTime.utc(2026, 6, 14, 13),
     capacity: capacity,
     category: EventCategory.drinks,
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'manual',
     status: status,
     createdAt: DateTime.utc(2026, 5, 1),
