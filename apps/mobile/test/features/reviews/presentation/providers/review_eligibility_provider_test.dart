@@ -110,7 +110,9 @@ void main() {
       // Pattern consistent with check_ins_controller_test / discover_controller_test.
       final container = ProviderContainer(
         retry: (retryCount, error) => null,
-        overrides: [getReviewEligibilityUseCaseProvider.overrideWithValue(useCase)],
+        overrides: [
+          getReviewEligibilityUseCaseProvider.overrideWithValue(useCase),
+        ],
       );
       addTearDown(container.dispose);
 
