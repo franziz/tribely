@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Tribely uses your camera to take a verification selfie.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Tribely uses your photo library so you can choose a profile photo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Tribely uses your location to show events near you. You can decline and still browse all of Singapore.</string>
 	<key>UIApplicationSceneManifest</key>
