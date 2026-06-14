@@ -3,6 +3,8 @@ import type { EventRepository } from '@/features/events/domain/repositories/even
 import type { JoinRequestRepository } from '@/features/join-requests/domain/repositories/join-request.repository.js';
 import type { ReviewRepository } from '@/features/reviews/domain/repositories/review.repository.js';
 import type { CheckBlockedPort } from '@/features/user-blocks/application/ports/check-blocked.port.js';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import { resolveAvatarReadUrl } from '@/core/storage/resolve-avatar-read-url.js';
 import type { UserRepository } from '../../domain/repositories/user.repository.js';
 import type { ListPendingReviewPromptsResult } from '../dto/list-pending-review-prompts.dto.js';
 
@@ -39,6 +41,7 @@ export class ListPendingReviewPromptsUseCase {
     private readonly checkBlocked: CheckBlockedPort,
     private readonly userRepo: UserRepository,
     private readonly clock: Clock,
+    private readonly fileStorage: FileStorage,
   ) {}
 
   async execute(input: ListPendingReviewPromptsInput): Promise<ListPendingReviewPromptsResult> {
@@ -144,7 +147,10 @@ export class ListPendingReviewPromptsUseCase {
         eventEndedAt: endsAt.toISOString(),
         ratedUserId: counterpartId,
         ratedUserDisplayName: counterpart.displayName.value,
-        ratedUserAvatarUrl: counterpart.avatarUrl?.value ?? null,
+        ratedUserAvatarUrl: await resolveAvatarReadUrl(
+          this.fileStorage,
+          counterpart.avatarUrl?.value ?? null,
+        ),
       },
     };
   }

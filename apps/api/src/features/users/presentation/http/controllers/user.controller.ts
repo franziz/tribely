@@ -1,22 +1,29 @@
 import type { Context } from 'hono';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import { resolveAvatarReadUrl } from '@/core/storage/resolve-avatar-read-url.js';
 import type { GetUserResult } from '../../../application/dto/get-user-result.dto.js';
 import type { GetUserUseCase } from '../../../application/usecases/get-user.usecase.js';
 import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
 import type { UpdateUserProfileInput } from '../../../application/usecases/update-user-profile.usecase.js';
 import type { UpdateUserProfileUseCase } from '../../../application/usecases/update-user-profile.usecase.js';
 import type { DeleteAccountUseCase } from '../../../application/usecases/delete-account.usecase.js';
+import type { RequestAvatarUploadUseCase } from '../../../application/usecases/request-avatar-upload.usecase.js';
+import type { ConfirmAvatarUploadUseCase } from '../../../application/usecases/confirm-avatar-upload.usecase.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { AuthVariables } from '@/core/middleware/require-auth.js';
 import type { UpdateUserProfileBody, UserResponse } from '../schemas/user.schemas.js';
 
-const toResponse = (result: GetUserResult): UserResponse => ({
+const toResponse = async (
+  fileStorage: FileStorage,
+  result: GetUserResult,
+): Promise<UserResponse> => ({
   id: result.user.id,
   email: result.user.email.value,
   displayName: result.user.displayName.value,
   emailVerifiedAt: result.user.emailVerifiedAt?.toISOString() ?? null,
   isVerified: result.isVerified,
   bio: result.user.bio?.value ?? null,
-  avatarUrl: result.user.avatarUrl?.value ?? null,
+  avatarUrl: await resolveAvatarReadUrl(fileStorage, result.user.avatarUrl?.value ?? null),
   languages: result.user.languages.map((l) => l.value),
   interests: result.user.interests.map((i) => i.value),
   currentCity: result.user.currentCity?.value ?? null,
@@ -40,6 +47,10 @@ const toResponse = (result: GetUserResult): UserResponse => ({
  * the Zod-parsed body would inject `undefined` for absent optional keys, which
  * the use case interface doesn't accept. Building explicitly preserves the
  * "absent key = don't touch" contract.
+ *
+ * Note: `avatarUrl` is intentionally absent here — avatar updates go through
+ * the dedicated POST /users/me/avatar + POST /users/me/avatar/confirm pipeline
+ * (TRI-24). Accepting an arbitrary URL on the PATCH endpoint is closed.
  */
 const buildUpdateInput = (
   userId: string,
@@ -49,7 +60,6 @@ const buildUpdateInput = (
   const input: UpdateUserProfileInput = { userId, now };
 
   if ('bio' in body) input.bio = body.bio ?? null;
-  if ('avatarUrl' in body) input.avatarUrl = body.avatarUrl ?? null;
   if ('languages' in body && body.languages !== undefined) input.languages = body.languages;
   if ('interests' in body && body.interests !== undefined) input.interests = body.interests;
   if ('currentCity' in body) input.currentCity = body.currentCity ?? null;
@@ -65,11 +75,14 @@ export class UserController {
     private readonly clock: Clock,
     private readonly getUserCapabilities: GetUserCapabilitiesUseCase,
     private readonly deleteAccount: DeleteAccountUseCase,
+    private readonly fileStorage: FileStorage,
+    private readonly requestAvatarUpload: RequestAvatarUploadUseCase,
+    private readonly confirmAvatarUpload: ConfirmAvatarUploadUseCase,
   ) {}
 
   get = async (c: Context, id: string, viewerId?: string) => {
     const result = await this.getUser.execute(viewerId !== undefined ? { id, viewerId } : { id });
-    return c.json(toResponse(result), 200);
+    return c.json(await toResponse(this.fileStorage, result), 200);
   };
 
   getMyCapabilities = async (c: Context<{ Variables: AuthVariables }>) => {
@@ -85,7 +98,25 @@ export class UserController {
     await this.updateProfile.execute(input);
 
     const result = await this.getUser.execute({ id: userId, viewerId: userId });
-    return c.json(toResponse(result), 200);
+    return c.json(await toResponse(this.fileStorage, result), 200);
+  };
+
+  requestAvatarUploadAction = async (c: Context<{ Variables: AuthVariables }>) => {
+    const userId = c.var.userId;
+    const result = await this.requestAvatarUpload.execute({ userId });
+    return c.json(result, 200);
+  };
+
+  confirmAvatarUploadAction = async (
+    c: Context<{ Variables: AuthVariables }>,
+    storageKey: string,
+  ) => {
+    const userId = c.var.userId;
+    const { user } = await this.confirmAvatarUpload.execute({ userId, storageKey });
+
+    // Re-fetch via GetUserUseCase to get the full result shape (isVerified, ratings, etc.).
+    const result = await this.getUser.execute({ id: user.id, viewerId: userId });
+    return c.json(await toResponse(this.fileStorage, result), 200);
   };
 
   /**
