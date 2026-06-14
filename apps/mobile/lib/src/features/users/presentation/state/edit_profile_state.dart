@@ -26,6 +26,14 @@ class EditProfileSaving extends EditProfileState {
   List<Object?> get props => [profile];
 }
 
+class EditProfileUploadingAvatar extends EditProfileState {
+  const EditProfileUploadingAvatar(this.profile);
+  final UserProfile profile;
+
+  @override
+  List<Object?> get props => [profile];
+}
+
 class EditProfileSaved extends EditProfileState {
   const EditProfileSaved(this.profile);
   final UserProfile profile;

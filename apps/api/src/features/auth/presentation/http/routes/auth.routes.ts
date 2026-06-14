@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { rateLimit } from '@/core/middleware/rate-limit.js';
 import { rateLimitByPhone } from '@/core/middleware/rate-limit-by-phone.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import type { RefreshTokensUseCase } from '../../../application/usecases/refresh-tokens.usecase.js';
@@ -45,6 +46,7 @@ export interface AuthRouteDeps {
   verifyPhone: VerifyPhoneUseCase;
   accessTokens: AccessTokenIssuer;
   rateLimiter: RateLimiter;
+  fileStorage: FileStorage;
 }
 
 export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVariables }> => {
@@ -61,6 +63,7 @@ export const buildAuthRoutes = (deps: AuthRouteDeps): Hono<{ Variables: AuthVari
     deps.resetPassword,
     deps.startPhoneVerification,
     deps.verifyPhone,
+    deps.fileStorage,
   );
   const auth = requireAuth(deps.accessTokens);
 
