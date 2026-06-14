@@ -87,7 +87,7 @@ Event _stubEvent({String id = 'evt-1'}) {
     endsAt: DateTime(2030, 1, 1, 21),
     capacity: 10,
     category: EventCategory.drinks,
-    costSplit: 'own',
+    costNotes: null,
     approvalMode: 'auto',
     status: 'published',
     createdAt: DateTime(2030, 1, 1),

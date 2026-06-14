@@ -612,6 +612,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       capacity: draft.capacity!,
       approvalMode: draft.approvalMode!,
       description: draft.description!,
+      costNotes: draft.costNotes,
     );
 
     if (!ref.mounted) return;

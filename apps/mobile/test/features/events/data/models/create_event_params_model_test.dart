@@ -125,4 +125,50 @@ void main() {
       },
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // costNotes serialisation + costSplit removal (TRI-51 C)
+  // ---------------------------------------------------------------------------
+  group('CreateEventParamsModel.toJson — costNotes / costSplit (TRI-51 C)', () {
+    CreateEventParamsModel modelWithCostNotes(String? costNotes) {
+      final params = CreateEventParams(
+        title: 'Sunday Morning Hike',
+        category: EventCategory.hike,
+        venueName: '1 Marina Blvd, Marina Bay',
+        venueCategory: 'park',
+        latitude: 1.28,
+        longitude: 103.85,
+        startsAt: DateTime.utc(2030, 6, 1, 8),
+        endsAt: DateTime.utc(2030, 6, 1, 11),
+        capacity: 10,
+        approvalMode: 'auto',
+        description: 'A lovely hike.',
+        costNotes: costNotes,
+      );
+      return CreateEventParamsModel.fromDomain(params);
+    }
+
+    test('costNotes is present in toJson when non-null and non-empty', () {
+      final json = modelWithCostNotes('split it').toJson();
+      expect(json.containsKey('costNotes'), isTrue);
+      expect(json['costNotes'], 'split it');
+    });
+
+    test('costNotes is absent from toJson when null', () {
+      final json = modelWithCostNotes(null).toJson();
+      expect(json.containsKey('costNotes'), isFalse);
+    });
+
+    test('costNotes is absent from toJson when empty string', () {
+      final json = modelWithCostNotes('').toJson();
+      expect(json.containsKey('costNotes'), isFalse);
+    });
+
+    test('costSplit is absent from toJson in all cases', () {
+      final jsonWithNotes = modelWithCostNotes('split it').toJson();
+      final jsonWithoutNotes = modelWithCostNotes(null).toJson();
+      expect(jsonWithNotes.containsKey('costSplit'), isFalse);
+      expect(jsonWithoutNotes.containsKey('costSplit'), isFalse);
+    });
+  });
 }

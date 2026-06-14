@@ -96,7 +96,7 @@ final _testEvent = Event(
   endsAt: DateTime.now().toUtc().add(const Duration(days: 365, hours: 3)),
   capacity: 12,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
