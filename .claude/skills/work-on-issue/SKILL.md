@@ -99,12 +99,12 @@ Designer's job:
 
 - Research competitor patterns where useful (Meetup, Timeleft, Bumble For Friends, Partiful, etc.).
 - Produce a design specification: screen layouts (ASCII or described), user flow, component hierarchy, primary/secondary CTAs, states (loading/empty/error), accessibility notes, design-system alignment.
-- Flag any new design-system additions that need CPO consultation.
+- Flag any new design-system additions that need CPO consultation, classifying each as **shared / design-system-promoted** (a component meant for the shared library, or a novel interaction paradigm the app doesn't yet have — genuinely needs sign-off) vs. **feature-local** (a scoped, reusable widget in the feature's own `presentation/widgets/` it already blesses — proceed-with-note). This classification drives whether step 4's CPO flag is a hard stop or a one-line note (see below).
 - NO code. NO Flutter widgets. Specifications and rationale only.
 
 Designer returns a design spec. Orchestrator relays the spec to the user, then proceeds to step 5 with the spec attached.
 
-If the designer flags a new design-system pattern requiring CPO consultation → orchestrator stops, surfaces the open question to the user, waits for direction before proceeding to EL.
+If the designer flags a new design-system pattern requiring CPO consultation, triage by reach before stopping. **Hard stop** (surface to the user, wait before EL) only for a genuinely **shared / design-system-promoted** pattern — a component meant for the shared library, or a novel interaction paradigm the app doesn't yet have. For a **feature-local** widget the designer already blesses as scoped/reusable (it lives in the feature's own `presentation/widgets/`, no shared-library promotion), do NOT hard-stop — relay the designer's recommendation to the user as a one-line note and proceed to EL; the user can still redirect. Blocking the workflow on a thin gate for a designer-approved feature-local widget is over-eager. (TRI-24 precedent: two feature-local avatar widgets were hard-stopped for a sign-off the owner judged "a thin gate.")
 ### 5. Technical specification (spawn `engineering-lead`)
 
 Spawn `engineering-lead` into the team as `el` with:
@@ -278,7 +278,7 @@ Keep updates terse. The user reads these to track a long workflow without readin
 | Branch already exists | Ask user: reuse via `--resume`, or pick a different slug. |
 | PM proposes split (issue too large) | Stop. Relay split to user. Do not proceed. |
 | CEO misaligned-redirect | Stop. Relay verdict + alternative. Wait for direction. |
-| Designer flags new design-system pattern needing CPO consultation | Stop. Surface to user. Wait for direction before EL. |
+| Designer flags new design-system pattern needing CPO consultation | Triage by reach. Hard-stop + surface to user only for a *shared / design-system-promoted* pattern or novel paradigm. A designer-blessed *feature-local* widget proceeds with a one-line note (no hard stop); user can still redirect. |
 | EL technical constraint breaks designer spec | Stop. Relay both views. May re-spawn `ui-ux-designer` with the constraint. |
 | PM↔EL feasibility/scope conflict | Stop. Relay both views. Do not pick a side. |
 | SWE clarifying question | Pause SWE. Route to PM (product-side) or EL (technical-side). Resume with the answer. |
