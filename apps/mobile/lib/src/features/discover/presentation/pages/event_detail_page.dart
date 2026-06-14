@@ -1136,6 +1136,30 @@ class _StickyJoinBar extends ConsumerWidget {
                 );
                 if (!context.mounted) return;
                 if (didSignIn) {
+                  // TRI-294: re-read capabilities now that the user is
+                  // authenticated — the top-of-build safetyReminderSeen was
+                  // computed while signed-out (hardcoded false). A returning
+                  // user who already acknowledged the reminder would otherwise
+                  // be shown it again.
+                  //
+                  // .future is required: myCapabilitiesProvider.build() has not
+                  // run yet (signed-out guard skipped ref.watch above), so a
+                  // bare ref.read() returns AsyncLoading — not data. .future
+                  // awaits build() and yields the real UserCapabilities.
+                  //
+                  // Fail-safe: ANY outcome other than a confirmed
+                  // safetyReminderSeen == true resolves to false → show the
+                  // reminder. Never silently skip on error or loading.
+                  bool resumeSafetyReminderSeen;
+                  try {
+                    final caps = await ref.read(myCapabilitiesProvider.future);
+                    resumeSafetyReminderSeen = caps.safetyReminderSeen;
+                  } catch (_) {
+                    resumeSafetyReminderSeen = false;
+                  }
+                  // Second mounted guard — the await above is a new suspension
+                  // point; the widget may have been disposed since the first.
+                  if (!context.mounted) return;
                   _openJoinSheet(
                     context,
                     eventId: event.id,
@@ -1143,7 +1167,7 @@ class _StickyJoinBar extends ConsumerWidget {
                     eventTitle: event.title,
                     startsAt: event.startsAt,
                     endsAt: event.endsAt,
-                    safetyReminderSeen: safetyReminderSeen,
+                    safetyReminderSeen: resumeSafetyReminderSeen,
                   );
                 }
               }
