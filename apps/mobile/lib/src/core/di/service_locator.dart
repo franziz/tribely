@@ -50,6 +50,7 @@ import '../../features/join_requests/domain/usecases/list_pending_for_event_usec
 import '../../features/join_requests/domain/usecases/remove_attendee_usecase.dart';
 import '../../features/join_requests/domain/usecases/request_to_join_event_usecase.dart';
 import '../../features/join_requests/domain/usecases/withdraw_join_request_usecase.dart';
+import '../../features/users/data/datasources/avatar_remote_datasource.dart';
 import '../../features/users/data/datasources/selfie_remote_datasource.dart';
 import '../../features/users/data/datasources/user_capabilities_remote_datasource.dart';
 import '../../features/users/data/datasources/user_profile_remote_datasource.dart';
@@ -62,6 +63,7 @@ import '../../features/users/domain/repositories/user_capabilities_repository.da
 import '../../features/users/domain/repositories/user_profile_repository.dart';
 import '../../features/users/domain/usecases/request_selfie_upload_usecase.dart';
 import '../../features/users/domain/usecases/submit_selfie_usecase.dart';
+import '../../features/users/domain/usecases/upload_avatar_usecase.dart';
 import '../../features/check_ins/data/datasources/check_ins_remote_datasource.dart';
 import '../../features/check_ins/data/repositories/check_ins_repository_impl.dart';
 import '../../features/check_ins/domain/repositories/check_ins_repository.dart';
@@ -152,10 +154,20 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton<UserCapabilitiesRemoteDatasource>(
     () => UserCapabilitiesRemoteDatasourceImpl(sl<ApiClient>().dio),
   );
+  sl.registerLazySingleton<AvatarRemoteDatasource>(
+    () => AvatarRemoteDatasourceImpl(
+      apiDio: sl<ApiClient>().dio,
+      // Isolated Dio for direct presigned-URL uploads — no Tribely JWT forwarded.
+      storageDio: _buildStorageDio(),
+    ),
+  );
 
   // Users — repositories
   sl.registerLazySingleton<UserProfileRepositoryImpl>(
-    () => UserProfileRepositoryImpl(remote: sl<UserProfileRemoteDatasource>()),
+    () => UserProfileRepositoryImpl(
+      remote: sl<UserProfileRemoteDatasource>(),
+      avatarRemote: sl<AvatarRemoteDatasource>(),
+    ),
   );
   sl.registerLazySingleton<UserProfileRepository>(
     () => sl<UserProfileRepositoryImpl>(),
@@ -194,6 +206,9 @@ Future<void> configureDependencies() async {
   // still constructed inline in users_providers.dart.
   sl.registerLazySingleton<GetUserProfileUseCase>(
     () => GetUserProfileUseCase(sl<UserProfileRepository>()),
+  );
+  sl.registerLazySingleton<UploadAvatarUseCase>(
+    () => UploadAvatarUseCase(sl<UserProfileRepository>()),
   );
 
   // Events — SharedPreferences (async init, resolved once at boot)
