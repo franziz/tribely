@@ -1,6 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
 import { AppError } from '@/core/errors/app-error.js';
 import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import type {
+  RequestCoverPhotoUploadInput,
+  RequestCoverPhotoUploadResult,
+} from '../dto/request-cover-photo-upload.dto.js';
+
+export type { RequestCoverPhotoUploadInput, RequestCoverPhotoUploadResult };
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type AllowedContentType = (typeof ALLOWED_CONTENT_TYPES)[number];
@@ -13,16 +19,6 @@ const EXT_MAP: Record<AllowedContentType, string> = {
 
 const isAllowedContentType = (ct: string): ct is AllowedContentType =>
   (ALLOWED_CONTENT_TYPES as readonly string[]).includes(ct);
-
-export interface RequestCoverPhotoUploadInput {
-  hostUserId: string;
-  contentType: string;
-}
-
-export interface RequestCoverPhotoUploadResult {
-  uploadUrl: string;
-  storageKey: string;
-}
 
 /**
  * Generates a presigned S3 PUT URL so the mobile client can upload an event
