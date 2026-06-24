@@ -24,6 +24,7 @@ export interface CreateEventInput {
   category: string;
   venueCategory: string;
   costNotes: string | null;
+  coverPhotoStorageKey: string | null;
   approvalMode: ApprovalMode;
 }
 
@@ -96,6 +97,19 @@ export class CreateEventUseCase {
       }
     }
 
+    // Ownership guard (security-critical): if a cover photo key was supplied,
+    // it MUST be scoped to this host's prefix — rejects cross-host key injection,
+    // mirrors ConfirmAvatarUploadUseCase (TRI-24).
+    if (input.coverPhotoStorageKey !== null) {
+      const expectedPrefix = `events/${input.hostUserId}/`;
+      if (!input.coverPhotoStorageKey.startsWith(expectedPrefix)) {
+        throw AppError.forbidden('coverPhotoStorageKey does not belong to this host', {
+          hostUserId: input.hostUserId,
+          coverPhotoStorageKey: input.coverPhotoStorageKey,
+        });
+      }
+    }
+
     const now = this.clock.now();
     const event = Event.create({
       id: createId(),
@@ -109,6 +123,7 @@ export class CreateEventUseCase {
       category,
       venueCategory,
       costNotes: input.costNotes,
+      coverPhotoStorageKey: input.coverPhotoStorageKey,
       approvalMode: input.approvalMode,
       now,
     });
