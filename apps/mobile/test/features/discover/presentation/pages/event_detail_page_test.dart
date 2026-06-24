@@ -725,24 +725,23 @@ void main() {
     // 9. _HeroImage cover-photo render (TRI-49 Brief 4)
     // -----------------------------------------------------------------------
 
-    testWidgets(
-      'coverPhotoUrl present → CachedNetworkImage rendered in hero',
-      (tester) async {
-        final eventWithPhoto = _testEvent.copyWith(
-          coverPhotoUrl: 'https://cdn.tribely.com/events/photo.jpg',
-        );
+    testWidgets('coverPhotoUrl present → CachedNetworkImage rendered in hero', (
+      tester,
+    ) async {
+      final eventWithPhoto = _testEvent.copyWith(
+        coverPhotoUrl: 'https://cdn.tribely.com/events/photo.jpg',
+      );
 
-        await _pumpPage(
-          tester,
-          eventId: _testEventId,
-          initialState: EventDetailLoaded(eventWithPhoto),
-        );
-        // bounded pump — detail page has map-bearing tree, never use pumpAndSettle.
-        await tester.pump(const Duration(milliseconds: 100));
+      await _pumpPage(
+        tester,
+        eventId: _testEventId,
+        initialState: EventDetailLoaded(eventWithPhoto),
+      );
+      // bounded pump — detail page has map-bearing tree, never use pumpAndSettle.
+      await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.byType(CachedNetworkImage), findsOneWidget);
-      },
-    );
+      expect(find.byType(CachedNetworkImage), findsOneWidget);
+    });
 
     testWidgets(
       'coverPhotoUrl null → CategoryImagePlaceholder rendered in hero',

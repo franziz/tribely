@@ -25,7 +25,7 @@ abstract class EventRemoteDatasource {
 
   /// Requests a pre-signed upload URL from the backend for a cover photo.
   ///
-  /// Calls POST /events/cover-photo?contentType=<contentType>. Returns a
+  /// Calls POST /events/cover-photo?contentType=`<contentType>`. Returns a
   /// [CoverPhotoUploadTicketModel] containing the upload URL and storage key.
   ///
   /// The creation endpoint fuses the storage key record — there is no separate
@@ -99,10 +99,7 @@ class EventRemoteDatasourceImpl implements EventRemoteDatasource {
       data: Stream.fromIterable([bytes]),
       onSendProgress: onSendProgress,
       options: Options(
-        headers: {
-          'Content-Type': contentType,
-          'Content-Length': bytes.length,
-        },
+        headers: {'Content-Type': contentType, 'Content-Length': bytes.length},
         // Tell Dio not to parse body as JSON — the storage endpoint returns
         // an empty 200 body on success.
         responseType: ResponseType.bytes,

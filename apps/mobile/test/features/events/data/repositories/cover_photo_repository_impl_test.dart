@@ -15,7 +15,8 @@ import 'package:tribely/src/features/events/data/utils/cover_photo_compressor.da
 // Mocks
 // ---------------------------------------------------------------------------
 
-class _MockEventRemoteDatasource extends Mock implements EventRemoteDatasource {}
+class _MockEventRemoteDatasource extends Mock
+    implements EventRemoteDatasource {}
 
 class _MockCoverPhotoCompressor extends Mock implements CoverPhotoCompressor {}
 
@@ -56,8 +57,9 @@ void main() {
   group('CoverPhotoRepositoryImpl.uploadCoverPhoto', () {
     group('happy path', () {
       setUp(() {
-        when(() => mockCompressor.compress(tCroppedBytes))
-            .thenAnswer((_) async => tCompressedBytes);
+        when(
+          () => mockCompressor.compress(tCroppedBytes),
+        ).thenAnswer((_) async => tCompressedBytes);
         when(
           () => mockRemote.requestCoverPhotoUpload(
             CoverPhotoCompressor.outputMimeType,
@@ -108,9 +110,9 @@ void main() {
           callLog.add('compress');
           return tCompressedBytes;
         });
-        when(
-          () => mockRemote.requestCoverPhotoUpload(any()),
-        ).thenAnswer((_) async {
+        when(() => mockRemote.requestCoverPhotoUpload(any())).thenAnswer((
+          _,
+        ) async {
           callLog.add('presign');
           return tTicket;
         });
@@ -148,8 +150,9 @@ void main() {
 
     group('compress failure', () {
       test('returns UnknownFailure when compressor throws', () async {
-        when(() => mockCompressor.compress(tCroppedBytes))
-            .thenThrow(Exception('Codec error'));
+        when(
+          () => mockCompressor.compress(tCroppedBytes),
+        ).thenThrow(Exception('Codec error'));
 
         final result = await repository.uploadCoverPhoto(tCroppedBytes);
         expect(result.isLeft(), isTrue);
@@ -159,37 +162,38 @@ void main() {
 
     group('presign failure', () {
       setUp(() {
-        when(() => mockCompressor.compress(tCroppedBytes))
-            .thenAnswer((_) async => tCompressedBytes);
+        when(
+          () => mockCompressor.compress(tCroppedBytes),
+        ).thenAnswer((_) async => tCompressedBytes);
       });
 
       test('returns AuthFailure on 401', () async {
         when(() => mockRemote.requestCoverPhotoUpload(any())).thenThrow(
-          _dioWith(const ServerException(message: 'Unauthorized', statusCode: 401)),
+          _dioWith(const ServerException('Unauthorized', statusCode: 401)),
         );
 
         final result = await repository.uploadCoverPhoto(tCroppedBytes);
         expect(result.fold((l) => l, (_) => null), isA<AuthFailure>());
       });
 
-      test('returns ValidationFailure on 413 (entity too large from server)',
-          () async {
-        when(() => mockRemote.requestCoverPhotoUpload(any())).thenThrow(
-          _dioWith(
-            const ServerException(message: 'Too large', statusCode: 413),
-          ),
-        );
+      test(
+        'returns ValidationFailure on 413 (entity too large from server)',
+        () async {
+          when(() => mockRemote.requestCoverPhotoUpload(any())).thenThrow(
+            _dioWith(const ServerException('Too large', statusCode: 413)),
+          );
 
-        final result = await repository.uploadCoverPhoto(tCroppedBytes);
-        final failure = result.fold((l) => l, (_) => null);
-        expect(failure, isA<ValidationFailure>());
-        expect((failure as ValidationFailure).code, 'COVER_PHOTO_TOO_LARGE');
-      });
+          final result = await repository.uploadCoverPhoto(tCroppedBytes);
+          final failure = result.fold((l) => l, (_) => null);
+          expect(failure, isA<ValidationFailure>());
+          expect((failure as ValidationFailure).code, 'COVER_PHOTO_TOO_LARGE');
+        },
+      );
 
       test('returns NetworkFailure when presign has network error', () async {
-        when(() => mockRemote.requestCoverPhotoUpload(any())).thenThrow(
-          _dioWith(const NetworkException('No connection')),
-        );
+        when(
+          () => mockRemote.requestCoverPhotoUpload(any()),
+        ).thenThrow(_dioWith(const NetworkException('No connection')));
 
         final result = await repository.uploadCoverPhoto(tCroppedBytes);
         expect(result.fold((l) => l, (_) => null), isA<NetworkFailure>());
@@ -198,10 +202,12 @@ void main() {
 
     group('PUT failure', () {
       setUp(() {
-        when(() => mockCompressor.compress(tCroppedBytes))
-            .thenAnswer((_) async => tCompressedBytes);
-        when(() => mockRemote.requestCoverPhotoUpload(any()))
-            .thenAnswer((_) async => tTicket);
+        when(
+          () => mockCompressor.compress(tCroppedBytes),
+        ).thenAnswer((_) async => tCompressedBytes);
+        when(
+          () => mockRemote.requestCoverPhotoUpload(any()),
+        ).thenAnswer((_) async => tTicket);
       });
 
       test('returns NetworkFailure when PUT has network error', () async {
@@ -217,26 +223,28 @@ void main() {
         expect(result.fold((l) => l, (_) => null), isA<NetworkFailure>());
       });
 
-      test('returns ServerFailure with COVER_PHOTO_PUT_FAILED on storage error',
-          () async {
-        when(
-          () => mockRemote.putCoverBytes(
-            uploadUrl: any(named: 'uploadUrl'),
-            bytes: any(named: 'bytes'),
-            contentType: any(named: 'contentType'),
-          ),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(),
-            message: 'Storage rejected',
-          ),
-        );
+      test(
+        'returns ServerFailure with COVER_PHOTO_PUT_FAILED on storage error',
+        () async {
+          when(
+            () => mockRemote.putCoverBytes(
+              uploadUrl: any(named: 'uploadUrl'),
+              bytes: any(named: 'bytes'),
+              contentType: any(named: 'contentType'),
+            ),
+          ).thenThrow(
+            DioException(
+              requestOptions: RequestOptions(),
+              message: 'Storage rejected',
+            ),
+          );
 
-        final result = await repository.uploadCoverPhoto(tCroppedBytes);
-        final failure = result.fold((l) => l, (_) => null);
-        expect(failure, isA<ServerFailure>());
-        expect(failure!.code, 'COVER_PHOTO_PUT_FAILED');
-      });
+          final result = await repository.uploadCoverPhoto(tCroppedBytes);
+          final failure = result.fold((l) => l, (_) => null);
+          expect(failure, isA<ServerFailure>());
+          expect(failure!.code, 'COVER_PHOTO_PUT_FAILED');
+        },
+      );
     });
   });
 }

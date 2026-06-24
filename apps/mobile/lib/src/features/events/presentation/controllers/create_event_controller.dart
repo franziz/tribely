@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +9,6 @@ import '../../../../core/usecase/usecase.dart';
 import '../../../users/presentation/providers/capability_providers.dart';
 import '../../domain/entities/event_category.dart';
 import '../../domain/entities/event_draft.dart';
-import '../../domain/repositories/cover_photo_repository.dart';
 import '../../domain/repositories/event_repository.dart';
 import '../../domain/services/private_venue_policy.dart';
 import '../../domain/validators/event_validators.dart';
@@ -157,8 +155,9 @@ class CreateEventController extends Notifier<CreateEventState> {
 
   EventDraft _applyFieldToDraft(EventDraft draft, String field, Object? value) {
     return switch (field) {
-      'coverPhotoStorageKey' =>
-        draft.copyWith(coverPhotoStorageKey: value as String?),
+      'coverPhotoStorageKey' => draft.copyWith(
+        coverPhotoStorageKey: value as String?,
+      ),
       'title' => draft.copyWith(title: value as String?),
       'category' => draft.copyWith(category: value as EventCategory?),
       'venueName' => draft.copyWith(venueName: value as String?),
@@ -178,8 +177,9 @@ class CreateEventController extends Notifier<CreateEventState> {
   /// error message on invalid.
   String? _validateField(String field, EventDraft draft) {
     return switch (field) {
-      'coverPhotoStorageKey' =>
-        validateCoverPhotoStorageKey(draft.coverPhotoStorageKey),
+      'coverPhotoStorageKey' => validateCoverPhotoStorageKey(
+        draft.coverPhotoStorageKey,
+      ),
       'title' => validateTitle(draft.title),
       'category' => validateCategory(draft.category),
       'venueName' => validateVenueName(draft.venueName),

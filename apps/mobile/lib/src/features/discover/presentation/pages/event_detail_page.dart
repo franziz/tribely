@@ -364,9 +364,8 @@ class _HeroImage extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: event.coverPhotoUrl!,
               fit: BoxFit.cover,
-              placeholder: (context, url) => CategoryImagePlaceholder(
-                category: event.category,
-              ),
+              placeholder: (context, url) =>
+                  CategoryImagePlaceholder(category: event.category),
               errorWidget: (context, url, error) =>
                   CategoryImagePlaceholder(category: event.category),
               fadeInDuration: const Duration(milliseconds: 200),

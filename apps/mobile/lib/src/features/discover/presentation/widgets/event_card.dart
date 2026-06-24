@@ -95,9 +95,8 @@ class _ThumbnailSection extends StatelessWidget {
               imageUrl: event.coverPhotoUrl!,
               fit: BoxFit.cover,
               // Category-color skeleton shimmer while the image loads.
-              placeholder: (context, url) => ColoredBox(
-                color: categoryColor(event.category),
-              ),
+              placeholder: (context, url) =>
+                  ColoredBox(color: categoryColor(event.category)),
               // Shared placeholder on network / decode failure.
               errorWidget: (context, url, error) =>
                   CategoryImagePlaceholder(category: event.category),
