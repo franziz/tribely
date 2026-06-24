@@ -8,9 +8,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tribely/src/core/widgets/category_image_placeholder.dart';
+import 'package:tribely/src/core/widgets/category_visuals.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
-import 'package:tribely/src/features/events/presentation/category_visuals.dart';
-import 'package:tribely/src/features/events/presentation/widgets/category_image_placeholder.dart';
 
 // ---------------------------------------------------------------------------
 // Pump helper

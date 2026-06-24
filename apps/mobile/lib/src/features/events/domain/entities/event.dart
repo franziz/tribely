@@ -21,6 +21,7 @@ class Event extends Equatable {
     required this.hostIsVerified,
     this.costNotes,
     this.hostDisplayName,
+    this.coverPhotoUrl,
   });
 
   final String id;
@@ -37,6 +38,10 @@ class Event extends Equatable {
   /// wrapper by the data layer. Nullable — graceful fallback to 'Host' in the
   /// UI when absent. Avatar + profile nav deferred to TRI-19.
   final String? hostDisplayName;
+
+  /// URL of the event's cover photo, as returned by the server (TRI-49).
+  /// Nullable — absent when the host has not uploaded a cover photo.
+  final String? coverPhotoUrl;
 
   /// Venue is kept as a nested value. The data layer maps the server's venue
   /// object into this [EventVenue] struct.
@@ -77,6 +82,7 @@ class Event extends Equatable {
     DateTime? createdAt,
     bool? hostIsVerified,
     String? hostDisplayName,
+    String? coverPhotoUrl,
   }) => Event(
     id: id ?? this.id,
     hostId: hostId ?? this.hostId,
@@ -93,6 +99,7 @@ class Event extends Equatable {
     createdAt: createdAt ?? this.createdAt,
     hostIsVerified: hostIsVerified ?? this.hostIsVerified,
     hostDisplayName: hostDisplayName ?? this.hostDisplayName,
+    coverPhotoUrl: coverPhotoUrl ?? this.coverPhotoUrl,
   );
 
   @override
@@ -112,6 +119,7 @@ class Event extends Equatable {
     createdAt,
     hostIsVerified,
     hostDisplayName,
+    coverPhotoUrl,
   ];
 }
 

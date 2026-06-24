@@ -400,6 +400,8 @@ class CreateEventController extends Notifier<CreateEventState> {
       rawProviderCategory: null,
       // venueDisplayNameOverride preserved — user typed this manually.
       venueDisplayNameOverride: existing.venueDisplayNameOverride,
+      // coverPhotoStorageKey preserved — clearing venue does not remove the photo.
+      coverPhotoStorageKey: existing.coverPhotoStorageKey,
     );
 
     final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
@@ -449,6 +451,7 @@ class CreateEventController extends Notifier<CreateEventState> {
         venueAddress: existing.venueAddress,
         rawProviderCategory: existing.rawProviderCategory,
         venueDisplayNameOverride: null,
+        coverPhotoStorageKey: existing.coverPhotoStorageKey,
       );
     } else {
       updatedDraft = current.formData.copyWith(venueDisplayNameOverride: value);
@@ -702,6 +705,8 @@ class CreateEventController extends Notifier<CreateEventState> {
           description: current.formData.description,
           currentStep: 1,
           lastUpdatedAt: current.formData.lastUpdatedAt,
+          // coverPhotoStorageKey preserved — clearing venue does not remove the photo.
+          coverPhotoStorageKey: current.formData.coverPhotoStorageKey,
         );
         final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
           clearedDraft,

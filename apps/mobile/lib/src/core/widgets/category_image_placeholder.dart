@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/entities/event_category.dart';
-import '../category_visuals.dart';
+import '../../features/events/domain/entities/event_category.dart';
+import 'category_visuals.dart';
 
 /// Category-branded image placeholder.
 ///
@@ -14,6 +14,10 @@ import '../category_visuals.dart';
 /// Both render sites use this single widget so the placeholder appearance
 /// stays consistent. The icon is sized relative to the widget's constraints
 /// via [LayoutBuilder] — no hardcoded icon size.
+///
+/// Relocated from `events/presentation/widgets/` to `core/widgets/` in
+/// TRI-49 Brief 4. The `core/widgets/ → events/domain` import is sanctioned —
+/// precedent is `requester_profile_sheet.dart → users/domain/entities/`.
 class CategoryImagePlaceholder extends StatelessWidget {
   const CategoryImagePlaceholder({required this.category, super.key});
 

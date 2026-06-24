@@ -23,6 +23,7 @@ class EventDraftModel {
     this.description,
     required this.currentStep,
     required this.lastUpdatedAt,
+    this.coverPhotoStorageKey,
   });
 
   factory EventDraftModel.fromEntity(EventDraft entity) {
@@ -42,6 +43,7 @@ class EventDraftModel {
       description: entity.description,
       currentStep: entity.currentStep,
       lastUpdatedAt: (entity.lastUpdatedAt ?? DateTime.now()).toIso8601String(),
+      coverPhotoStorageKey: entity.coverPhotoStorageKey,
     );
   }
 
@@ -77,6 +79,9 @@ class EventDraftModel {
       description: json['description'] as String?,
       currentStep: currentStep,
       lastUpdatedAt: lastUpdatedAt,
+      // coverPhotoStorageKey added in TRI-49 Brief 4; absent in drafts saved
+      // before the update — reads as null, which the domain handles gracefully.
+      coverPhotoStorageKey: json['coverPhotoStorageKey'] as String?,
     );
   }
 
@@ -98,6 +103,11 @@ class EventDraftModel {
   final int currentStep;
   final String lastUpdatedAt;
 
+  /// Storage key (object path, not a URL) for the uploaded cover photo.
+  /// Null until the user selects and uploads a photo in the wizard.
+  /// Added in TRI-49 Brief 4; absent in drafts saved before this update.
+  final String? coverPhotoStorageKey;
+
   EventDraft toEntity() {
     return EventDraft(
       title: title,
@@ -114,6 +124,7 @@ class EventDraftModel {
       description: description,
       currentStep: currentStep,
       lastUpdatedAt: DateTime.tryParse(lastUpdatedAt),
+      coverPhotoStorageKey: coverPhotoStorageKey,
     );
   }
 
@@ -134,6 +145,8 @@ class EventDraftModel {
       if (description != null) 'description': description,
       'currentStep': currentStep,
       'lastUpdatedAt': lastUpdatedAt,
+      if (coverPhotoStorageKey != null)
+        'coverPhotoStorageKey': coverPhotoStorageKey,
     };
   }
 }
