@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,7 @@ import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/state/auth_state.dart';
 import '../../features/discover/presentation/pages/discover_page.dart';
 import '../../features/discover/presentation/pages/event_detail_page.dart';
+import '../../features/events/presentation/pages/cover_photo_crop_page.dart';
 import '../../features/events/presentation/pages/create_event_page.dart';
 import '../../features/events/presentation/pages/phone_gate_page.dart';
 import '../../features/my_events/presentation/pages/my_events_page.dart';
@@ -331,6 +334,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'createEvent',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const CreateEventPage(),
+      ),
+      // Full-screen 16:9 crop screen for the event cover photo wizard step.
+      // Receives raw image bytes via `state.extra as Uint8List` (caller uses
+      // context.push('/events/create/crop-photo', extra: bytes)).
+      // Pops with the cropped Uint8List on success (Brief 5 integration).
+      GoRoute(
+        path: '/events/create/crop-photo',
+        name: 'coverPhotoCrop',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final bytes = state.extra! as Uint8List;
+          return CoverPhotoCropPage(imageBytes: bytes);
+        },
       ),
       // Full-screen read-only event detail. Declared outside the shell so
       // the bottom nav bar is hidden (§E). Uses context.push from the
