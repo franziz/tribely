@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
+import '../models/cover_photo_upload_ticket_model.dart';
 import '../models/create_event_params_model.dart';
 import '../models/event_model.dart';
 
@@ -15,16 +18,49 @@ abstract class EventRemoteDatasource {
   /// Cancel a published event. The server returns 204 No Content on success.
   /// Throws [DioException] on network or server errors.
   Future<void> cancelEvent(String eventId);
+
+  // ---------------------------------------------------------------------------
+  // Cover photo upload (presign → direct PUT, no confirm step)
+  // ---------------------------------------------------------------------------
+
+  /// Requests a pre-signed upload URL from the backend for a cover photo.
+  ///
+  /// Calls POST /events/cover-photo?contentType=<contentType>. Returns a
+  /// [CoverPhotoUploadTicketModel] containing the upload URL and storage key.
+  ///
+  /// The creation endpoint fuses the storage key record — there is no separate
+  /// confirm call; the key is supplied directly to the create-event body.
+  Future<CoverPhotoUploadTicketModel> requestCoverPhotoUpload(
+    String contentType,
+  );
+
+  /// Uploads raw bytes directly to the presigned storage URL.
+  ///
+  /// Uses an isolated Dio without auth interceptors — the presigned URL itself
+  /// carries authorization. [contentType] must match what was used in
+  /// [requestCoverPhotoUpload] (always `image/jpeg` after downscaling).
+  Future<void> putCoverBytes({
+    required String uploadUrl,
+    required Uint8List bytes,
+    required String contentType,
+  });
 }
 
 class EventRemoteDatasourceImpl implements EventRemoteDatasource {
-  EventRemoteDatasourceImpl(this._dio);
+  EventRemoteDatasourceImpl({required Dio apiDio, required Dio storageDio})
+    : _apiDio = apiDio,
+      _storageDio = storageDio;
 
-  final Dio _dio;
+  /// Tribely API Dio — carries the auth interceptor + error-interceptor.
+  final Dio _apiDio;
+
+  /// Isolated Dio for direct S3 / presigned-URL uploads.
+  /// No auth headers — the presigned URL itself carries the credentials.
+  final Dio _storageDio;
 
   @override
   Future<EventModel> createEvent(CreateEventParamsModel params) async {
-    final response = await _dio.post<Map<String, dynamic>>(
+    final response = await _apiDio.post<Map<String, dynamic>>(
       '/events',
       data: params.toJson(),
     );
@@ -33,6 +69,38 @@ class EventRemoteDatasourceImpl implements EventRemoteDatasource {
 
   @override
   Future<void> cancelEvent(String eventId) async {
-    await _dio.delete<void>('/events/$eventId');
+    await _apiDio.delete<void>('/events/$eventId');
+  }
+
+  @override
+  Future<CoverPhotoUploadTicketModel> requestCoverPhotoUpload(
+    String contentType,
+  ) async {
+    final response = await _apiDio.post<Map<String, dynamic>>(
+      '/events/cover-photo',
+      queryParameters: {'contentType': contentType},
+    );
+    return CoverPhotoUploadTicketModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<void> putCoverBytes({
+    required String uploadUrl,
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    await _storageDio.put<void>(
+      uploadUrl,
+      data: Stream.fromIterable([bytes]),
+      options: Options(
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': bytes.length,
+        },
+        // Tell Dio not to parse body as JSON — the storage endpoint returns
+        // an empty 200 body on success.
+        responseType: ResponseType.bytes,
+      ),
+    );
   }
 }
