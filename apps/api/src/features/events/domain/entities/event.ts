@@ -53,6 +53,7 @@ export class Event extends AggregateRoot {
     private _category: EventCategory,
     private _venueCategory: VenueCategory,
     private _costNotes: string | null,
+    private _coverPhotoStorageKey: string | null,
     private _approvalMode: ApprovalMode,
     private _status: EventStatus,
     private _cancellationReason: string | null,
@@ -74,6 +75,7 @@ export class Event extends AggregateRoot {
     category: EventCategory;
     venueCategory: VenueCategory;
     costNotes?: string | null;
+    coverPhotoStorageKey?: string | null;
     approvalMode: ApprovalMode;
     now: Date;
   }): Event {
@@ -102,6 +104,8 @@ export class Event extends AggregateRoot {
       throw AppError.validation('Event startsAt must be in the future');
     }
 
+    const coverPhotoStorageKey = input.coverPhotoStorageKey ?? null;
+
     const event = new Event(
       input.id,
       input.hostUserId,
@@ -114,6 +118,7 @@ export class Event extends AggregateRoot {
       input.category,
       input.venueCategory,
       costNotes,
+      coverPhotoStorageKey,
       input.approvalMode,
       'draft',
       null,
@@ -138,6 +143,7 @@ export class Event extends AggregateRoot {
         category: input.category.value,
         venueCategory: input.venueCategory.value,
         costNotes,
+        coverPhotoStorageKey,
         approvalMode: input.approvalMode,
         createdAt: input.now.toISOString(),
       }),
@@ -157,6 +163,7 @@ export class Event extends AggregateRoot {
     category: EventCategory;
     venueCategory: VenueCategory;
     costNotes: string | null;
+    coverPhotoStorageKey: string | null;
     approvalMode: ApprovalMode;
     status: EventStatus;
     cancellationReason: string | null;
@@ -175,6 +182,7 @@ export class Event extends AggregateRoot {
       state.category,
       state.venueCategory,
       state.costNotes,
+      state.coverPhotoStorageKey,
       state.approvalMode,
       state.status,
       state.cancellationReason,
@@ -209,6 +217,9 @@ export class Event extends AggregateRoot {
   }
   get costNotes(): string | null {
     return this._costNotes;
+  }
+  get coverPhotoStorageKey(): string | null {
+    return this._coverPhotoStorageKey;
   }
   get approvalMode(): ApprovalMode {
     return this._approvalMode;
