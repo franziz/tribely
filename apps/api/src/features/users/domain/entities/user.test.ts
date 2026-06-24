@@ -527,6 +527,23 @@ describe('User aggregate', () => {
         clearedAt: now.toISOString(),
       });
     });
+
+    it('is idempotent — second call is a no-op (event emitted exactly once)', () => {
+      const user = buildLockedUser();
+      const first = new Date('2026-05-10T09:00:00Z');
+      const second = new Date('2026-05-11T09:00:00Z');
+
+      user.recordSelfieAppealApproved({ now: first });
+      user.pullEvents();
+      user.recordSelfieAppealApproved({ now: second });
+
+      // selfieStatus and updatedAt stay at first-call values
+      expect(user.selfieStatus).toBe('pending');
+      expect(user.selfieAppealLockedAt).toBeNull();
+      expect(user.updatedAt).toEqual(first);
+      // no event on the second call
+      expect(user.pullEvents()).toHaveLength(0);
+    });
   });
 
   describe('promote', () => {
