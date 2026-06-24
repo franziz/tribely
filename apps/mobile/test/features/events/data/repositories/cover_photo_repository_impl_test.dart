@@ -36,6 +36,12 @@ void main() {
   late _MockCoverPhotoCompressor mockCompressor;
   late CoverPhotoRepositoryImpl repository;
 
+  setUpAll(() {
+    // any(named: 'bytes') matches a Uint8List param — mocktail requires a
+    // registered fallback value for non-primitive types.
+    registerFallbackValue(Uint8List(0));
+  });
+
   setUp(() {
     mockRemote = _MockEventRemoteDatasource();
     mockCompressor = _MockCoverPhotoCompressor();
@@ -43,6 +49,13 @@ void main() {
       remote: mockRemote,
       compressor: mockCompressor,
     );
+  });
+
+  tearDown(() {
+    // Clear mocktail's matcher/interaction state between every test to prevent
+    // named-matcher contamination across groups.
+    reset(mockRemote);
+    reset(mockCompressor);
   });
 
   final tCroppedBytes = Uint8List.fromList(List.generate(100, (i) => i));
@@ -67,9 +80,9 @@ void main() {
         ).thenAnswer((_) async => tTicket);
         when(
           () => mockRemote.putCoverBytes(
-            uploadUrl: tUploadUrl,
-            bytes: tCompressedBytes,
-            contentType: CoverPhotoCompressor.outputMimeType,
+            uploadUrl: any(named: 'uploadUrl'),
+            bytes: any(named: 'bytes'),
+            contentType: any(named: 'contentType'),
           ),
         ).thenAnswer((_) async {});
       });
