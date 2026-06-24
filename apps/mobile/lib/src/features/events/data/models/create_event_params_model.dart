@@ -19,6 +19,7 @@ class CreateEventParamsModel {
     required this.category,
     required this.approvalMode,
     this.costNotes,
+    this.coverPhotoStorageKey,
   });
 
   factory CreateEventParamsModel.fromDomain(CreateEventParams params) {
@@ -35,6 +36,7 @@ class CreateEventParamsModel {
       category: params.category,
       approvalMode: params.approvalMode,
       costNotes: params.costNotes,
+      coverPhotoStorageKey: params.coverPhotoStorageKey,
     );
   }
 
@@ -59,6 +61,10 @@ class CreateEventParamsModel {
   /// is the correct forward-compatible form. CEO guardrail: plain String only.
   final String? costNotes;
 
+  /// Storage key (object path) for the uploaded cover photo. Omitted from the
+  /// POST body when null — the server schema is `.optional()`.
+  final String? coverPhotoStorageKey;
+
   Map<String, dynamic> toJson() {
     // Hardcoded for Singapore-first launch (per CLAUDE.md). When TRI-23 ships
     // the map picker, derive city via reverse geocode from lat/lng.
@@ -80,6 +86,8 @@ class CreateEventParamsModel {
       'category': category.wireValue,
       'approvalMode': approvalMode,
       if (costNotes != null && costNotes!.isNotEmpty) 'costNotes': costNotes,
+      if (coverPhotoStorageKey != null)
+        'coverPhotoStorageKey': coverPhotoStorageKey,
     };
   }
 }

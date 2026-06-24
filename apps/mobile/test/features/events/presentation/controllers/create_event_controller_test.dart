@@ -99,6 +99,8 @@ Event _stubEvent({String id = 'evt-1'}) {
 /// and can be submitted after all required fields are filled.
 EventDraft _validDraft() {
   return EventDraft(
+    // Step 0: cover photo storage key required.
+    coverPhotoStorageKey: 'events/covers/test-key.jpg',
     title: 'Sunday Morning Hike',
     category: EventCategory.hike,
     venueName: '1 Marina Blvd, Marina Bay',
@@ -301,20 +303,37 @@ void main() {
 
     tearDown(() => container.dispose());
 
-    test('step 0: valid title + category → canAdvance(0) is true', () {
+    test('step 0: coverPhotoStorageKey set → canAdvance(0) is true', () {
       final controller = container.read(createEventControllerProvider.notifier);
-      controller.updateField(field: 'title', value: 'Sunday Morning Hike');
-      controller.updateField(field: 'category', value: EventCategory.hike);
+      controller.updateField(
+        field: 'coverPhotoStorageKey',
+        value: 'events/covers/test-key.jpg',
+      );
 
       expect(controller.canAdvance(0), isTrue);
     });
 
-    test('step 0: invalid title → canAdvance(0) is false', () {
+    test('step 0: coverPhotoStorageKey null → canAdvance(0) is false', () {
+      final controller = container.read(createEventControllerProvider.notifier);
+      // No coverPhotoStorageKey set — fresh draft has null.
+
+      expect(controller.canAdvance(0), isFalse);
+    });
+
+    test('step 1: valid title + category → canAdvance(1) is true', () {
+      final controller = container.read(createEventControllerProvider.notifier);
+      controller.updateField(field: 'title', value: 'Sunday Morning Hike');
+      controller.updateField(field: 'category', value: EventCategory.hike);
+
+      expect(controller.canAdvance(1), isTrue);
+    });
+
+    test('step 1: invalid title → canAdvance(1) is false', () {
       final controller = container.read(createEventControllerProvider.notifier);
       controller.updateField(field: 'title', value: 'hi'); // too short
       controller.updateField(field: 'category', value: EventCategory.hike);
 
-      expect(controller.canAdvance(0), isFalse);
+      expect(controller.canAdvance(1), isFalse);
     });
   });
 
@@ -346,6 +365,10 @@ void main() {
         // async-only, so manually seed state by calling updateField for each
         // required field.
         final draft = _validDraft();
+        controller.updateField(
+          field: 'coverPhotoStorageKey',
+          value: draft.coverPhotoStorageKey!,
+        );
         controller.updateField(field: 'title', value: draft.title!);
         controller.updateField(field: 'category', value: draft.category!);
         controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -395,6 +418,10 @@ void main() {
       // Seed all required fields so submit() can proceed.
       final controller = container.read(createEventControllerProvider.notifier);
       final draft = _validDraft();
+      controller.updateField(
+        field: 'coverPhotoStorageKey',
+        value: draft.coverPhotoStorageKey!,
+      );
       controller.updateField(field: 'title', value: draft.title!);
       controller.updateField(field: 'category', value: draft.category!);
       controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -429,8 +456,8 @@ void main() {
         final state = container.read(createEventControllerProvider);
         expect(state, isA<CreateEventSubmissionError>());
         final error = state as CreateEventSubmissionError;
-        // 'title' is in step 0; returnToStep must be 0.
-        expect(error.returnToStep, 0);
+        // 'title' is in step 1 (after index shift); returnToStep must be 1.
+        expect(error.returnToStep, 1);
         // The field error is mapped into fieldErrors.
         expect(error.fieldErrors['title'], isNotNull);
       },
@@ -560,27 +587,31 @@ void main() {
     tearDown(() => container.dispose());
 
     test(
-      'canSubmit returns false when only step-4 fields are valid but steps 1–3 have nulls',
+      'canSubmit returns false when only step-5 fields are valid but steps 0–4 have nulls',
       () {
         final controller = container.read(
           createEventControllerProvider.notifier,
         );
-        // Only seed description (step 4's field) — all prior steps remain null.
+        // Only seed description (step 5's field) — all prior steps remain null.
         controller.updateField(
           field: 'description',
           value: 'A lovely hike for solo travellers exploring Singapore.',
         );
 
-        // canAdvance(4) is true — step 4's own field passes.
-        expect(controller.canAdvance(4), isTrue);
+        // canAdvance(5) is true — step 5's own field passes.
+        expect(controller.canAdvance(5), isTrue);
         // canSubmit must be false — prior steps have null required fields.
         expect(controller.canSubmit(), isFalse);
       },
     );
 
-    test('canSubmit returns true when all 10 fields are valid', () {
+    test('canSubmit returns true when all 11 fields are valid', () {
       final controller = container.read(createEventControllerProvider.notifier);
       final draft = _validDraft();
+      controller.updateField(
+        field: 'coverPhotoStorageKey',
+        value: draft.coverPhotoStorageKey!,
+      );
       controller.updateField(field: 'title', value: draft.title!);
       controller.updateField(field: 'category', value: draft.category!);
       controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -617,8 +648,12 @@ void main() {
           createEventControllerProvider.notifier,
         );
 
-        // Seed all required fields EXCEPT capacity (step 3).
+        // Seed all required fields EXCEPT capacity (step 4 after index shift).
         final draft = _validDraft();
+        controller.updateField(
+          field: 'coverPhotoStorageKey',
+          value: draft.coverPhotoStorageKey!,
+        );
         controller.updateField(field: 'title', value: draft.title!);
         controller.updateField(field: 'category', value: draft.category!);
         controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -641,8 +676,8 @@ void main() {
         final state = container.read(createEventControllerProvider);
         expect(state, isA<CreateEventSubmissionError>());
         final error = state as CreateEventSubmissionError;
-        // capacity lives on step 3.
-        expect(error.returnToStep, 3);
+        // capacity lives on step 4 (after index shift).
+        expect(error.returnToStep, 4);
         expect(error.fieldErrors['_banner'], isNotNull);
       },
     );
@@ -667,7 +702,7 @@ void main() {
     tearDown(() => container.dispose());
 
     test(
-      'blockingFields contains step 2 with startsAt when startsAt is past the '
+      'blockingFields contains step 3 with startsAt when startsAt is past the '
       '5-minute buffer and all other fields are valid',
       () {
         final controller = container.read(
@@ -681,6 +716,10 @@ void main() {
         // on later steps.
         final decayedStartsAt = DateTime.now().add(const Duration(minutes: 3));
 
+        controller.updateField(
+          field: 'coverPhotoStorageKey',
+          value: baseDraft.coverPhotoStorageKey!,
+        );
         controller.updateField(field: 'title', value: baseDraft.title!);
         controller.updateField(field: 'category', value: baseDraft.category!);
         controller.updateField(field: 'venueName', value: baseDraft.venueName!);
@@ -704,9 +743,9 @@ void main() {
         final state =
             container.read(createEventControllerProvider) as CreateEventEditing;
 
-        // Step 2 owns startsAt — must appear in blockingFields.
-        expect(state.blockingFields.containsKey(2), isTrue);
-        expect(state.blockingFields[2], contains('startsAt'));
+        // Step 3 owns startsAt (after index shift) — must appear in blockingFields.
+        expect(state.blockingFields.containsKey(3), isTrue);
+        expect(state.blockingFields[3], contains('startsAt'));
         // canSubmit must be false — startsAt is invalid.
         expect(controller.canSubmit(), isFalse);
       },
@@ -720,6 +759,10 @@ void main() {
         );
         final draft = _validDraft(); // uses DateTime(2030, ...) — always valid
 
+        controller.updateField(
+          field: 'coverPhotoStorageKey',
+          value: draft.coverPhotoStorageKey!,
+        );
         controller.updateField(field: 'title', value: draft.title!);
         controller.updateField(field: 'category', value: draft.category!);
         controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -751,6 +794,10 @@ void main() {
       // validator fails on first evaluation (simulates decay).
       final decayedStartsAt = DateTime.now().add(const Duration(minutes: 3));
 
+      controller.updateField(
+        field: 'coverPhotoStorageKey',
+        value: baseDraft.coverPhotoStorageKey!,
+      );
       controller.updateField(field: 'title', value: baseDraft.title!);
       controller.updateField(field: 'category', value: baseDraft.category!);
       controller.updateField(field: 'venueName', value: baseDraft.venueName!);
@@ -771,15 +818,15 @@ void main() {
         value: baseDraft.description!,
       );
 
-      // Navigate to step 4 (Step 5) — goToStep must re-derive blockingFields.
-      controller.goToStep(4);
+      // Navigate to step 5 (Step 6 / Describe+Review) — goToStep must re-derive blockingFields.
+      controller.goToStep(5);
 
       final state =
           container.read(createEventControllerProvider) as CreateEventEditing;
 
-      // Step 2 owns startsAt — must appear in blockingFields after transition.
-      expect(state.blockingFields.containsKey(2), isTrue);
-      expect(state.blockingFields[2], contains('startsAt'));
+      // Step 3 owns startsAt (after index shift) — must appear in blockingFields.
+      expect(state.blockingFields.containsKey(3), isTrue);
+      expect(state.blockingFields[3], contains('startsAt'));
       // canSubmit must be false.
       expect(controller.canSubmit(), isFalse);
     });
@@ -1106,6 +1153,7 @@ void main() {
   /// triggers [FirstEventMustBePublicFailure] on the server side.
   EventDraft validDraftWithPrivateVenue() {
     return EventDraft(
+      coverPhotoStorageKey: 'events/covers/test-key.jpg',
       title: 'Sunday Morning Hike',
       category: EventCategory.hike,
       venueName: 'My Apartment Block',
@@ -1117,17 +1165,23 @@ void main() {
       capacity: 10,
       approvalMode: 'auto',
       description: 'A lovely hike for solo travellers exploring Singapore.',
-      currentStep: 4,
+      currentStep: 5,
     );
   }
 
   /// Seeds the controller with all fields from [draft] via [updateField] and
-  /// [selectVenueCategory], then navigates to step 4 (Step 5).
+  /// [selectVenueCategory], then navigates to step 5 (Step 6 / Describe+Review).
   Future<void> seedControllerWithDraft(
     ProviderContainer container,
     EventDraft draft,
   ) async {
     final controller = container.read(createEventControllerProvider.notifier);
+    if (draft.coverPhotoStorageKey != null) {
+      controller.updateField(
+        field: 'coverPhotoStorageKey',
+        value: draft.coverPhotoStorageKey!,
+      );
+    }
     controller.updateField(field: 'title', value: draft.title!);
     controller.updateField(field: 'category', value: draft.category!);
     controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -1141,7 +1195,7 @@ void main() {
     controller.updateField(field: 'capacity', value: draft.capacity!);
     controller.updateField(field: 'approvalMode', value: draft.approvalMode!);
     controller.updateField(field: 'description', value: draft.description!);
-    controller.goToStep(4);
+    controller.goToStep(5);
   }
 
   group('submit — FirstEventMustBePublicFailure (Brief 11)', () {
@@ -1186,8 +1240,8 @@ void main() {
           editing.publishRejection,
           isA<PublishRejectionFirstEventMustBePublic>(),
         );
-        // Must remain on Step 5.
-        expect(editing.currentStep, 4);
+        // Must remain on Step 6 (index 5 after cover-photo shift).
+        expect(editing.currentStep, 5);
       },
     );
   });
@@ -1237,8 +1291,8 @@ void main() {
       // publishRejection must be cleared.
       expect(afterState.publishRejection, isNull);
 
-      // Step must be 2 (venue step, index 1).
-      expect(afterState.currentStep, 1);
+      // Step must be 3 (venue step, index 2 after cover-photo shift).
+      expect(afterState.currentStep, 2);
 
       // Venue fields must be cleared.
       expect(afterState.formData.venueName, isNull);
@@ -1303,6 +1357,10 @@ void main() {
           createEventControllerProvider.notifier,
         );
         final draft = _validDraft();
+        controller.updateField(
+          field: 'coverPhotoStorageKey',
+          value: draft.coverPhotoStorageKey!,
+        );
         controller.updateField(field: 'title', value: draft.title!);
         controller.updateField(field: 'category', value: draft.category!);
         controller.updateField(field: 'venueName', value: draft.venueName!);
@@ -1367,8 +1425,8 @@ void main() {
         // publishRejection must be cleared.
         expect(afterState.publishRejection, isNull);
 
-        // Must still be on Step 5.
-        expect(afterState.currentStep, 4);
+        // Must still be on Step 6 (index 5 after cover-photo shift).
+        expect(afterState.currentStep, 5);
 
         // Venue fields must be intact — host can retry or edit manually.
         expect(afterState.formData.venueName, draft.venueName);

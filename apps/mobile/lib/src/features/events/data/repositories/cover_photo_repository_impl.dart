@@ -5,7 +5,8 @@ import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
-import '../../domain/repositories/cover_photo_repository.dart';
+import '../../domain/repositories/cover_photo_repository.dart'
+    show CoverPhotoProgressCallback, CoverPhotoRepository;
 import '../datasources/event_remote_datasource.dart';
 import '../utils/cover_photo_compressor.dart';
 
@@ -34,8 +35,9 @@ class CoverPhotoRepositoryImpl implements CoverPhotoRepository {
   /// fuses the key into the event body — there is no separate confirm call.
   @override
   Future<Either<Failure, String>> uploadCoverPhoto(
-    Uint8List croppedBytes,
-  ) async {
+    Uint8List croppedBytes, {
+    CoverPhotoProgressCallback? onProgress,
+  }) async {
     // Step 1 — size cap guard
     if (croppedBytes.length > _kMaxInputBytes) {
       return const Left(
@@ -75,6 +77,9 @@ class CoverPhotoRepositoryImpl implements CoverPhotoRepository {
         uploadUrl: uploadUrl,
         bytes: compressed,
         contentType: CoverPhotoCompressor.outputMimeType,
+        onSendProgress: onProgress != null
+            ? (sent, total) => onProgress(sent, total)
+            : null,
       );
     } on DioException catch (e) {
       // Storage PUT errors are network/provider errors, not Tribely API errors.

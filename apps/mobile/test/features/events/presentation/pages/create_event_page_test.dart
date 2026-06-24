@@ -82,17 +82,22 @@ class _FakeNoParams extends Fake implements NoParams {}
 // ---------------------------------------------------------------------------
 
 const _testStepFields = {
-  0: ['title', 'category'],
-  // Brief F: Step 2 canAdvance is gated on lat/lng only (venue picker selection).
+  // Step 0 — Cover photo (TRI-49 Brief 5).
+  0: ['coverPhotoStorageKey'],
+  1: ['title', 'category'],
+  // Brief F: Step 3 canAdvance is gated on lat/lng only (venue picker selection).
   // venueName is auto-populated by the picker, not a separate blocking field.
-  1: ['latitude', 'longitude'],
-  2: ['startsAt', 'endsAt'],
-  3: ['capacity', 'approvalMode'],
-  4: ['description'],
+  2: ['latitude', 'longitude'],
+  3: ['startsAt', 'endsAt'],
+  4: ['capacity', 'approvalMode'],
+  5: ['description'],
 };
 
 String? _testValidateField(String field, EventDraft draft) {
   return switch (field) {
+    'coverPhotoStorageKey' => validateCoverPhotoStorageKey(
+      draft.coverPhotoStorageKey,
+    ),
     'title' => validateTitle(draft.title),
     'category' => validateCategory(draft.category),
     'venueName' => validateVenueName(draft.venueName),
@@ -152,14 +157,16 @@ class _FixedEditingController extends CreateEventController {
   }
 }
 
-/// Step-4 controller with all step-4 fields valid but capacity == null.
+/// Step-5 controller with all step-5 (Describe) fields valid but capacity == null.
 /// Proves that canSubmit() is false (and the Publish button is disabled)
-/// even though canAdvance(4) would be true.
+/// even though canAdvance(5) would be true.
 class _Step4MissingCapacityController extends CreateEventController {
   @override
   CreateEventState build() {
     const draft = EventDraft(
-      // All step-4 fields valid.
+      // Cover photo present so step 0 does not block.
+      coverPhotoStorageKey: 'events/covers/test-key.jpg',
+      // All step-5 (Describe) fields valid.
       description: 'A lovely hike for solo travellers exploring Singapore.',
       // All other steps have at least one null field (capacity is absent).
       title: 'Sunday Morning Hike',
@@ -173,7 +180,7 @@ class _Step4MissingCapacityController extends CreateEventController {
     final (:blockingFields, :blockingFieldErrors) = _testDeriveBlocking(draft);
     return CreateEventEditing(
       formData: draft,
-      currentStep: 4,
+      currentStep: 5,
       fieldErrors: const {},
       isResuming: false,
       blockingFields: blockingFields,
@@ -187,6 +194,8 @@ class _Step4MissingCapacityController extends CreateEventController {
 /// the draft-load microtask. Used by the round-trip test (test 8).
 class _ValidDraftController extends CreateEventController {
   static const _draft = EventDraft(
+    // Cover photo must be present so step 0 (Cover Photo) does not block Next.
+    coverPhotoStorageKey: 'events/covers/test-key.jpg',
     title: 'Sunday Morning Hike',
     category: EventCategory.hike,
     venueName: '1 Marina Blvd, Marina Bay',
@@ -234,6 +243,12 @@ GoRouter _buildTestRouter() {
       GoRoute(
         path: '/events/create',
         builder: (context, state) => const CreateEventPage(),
+      ),
+      GoRoute(
+        // Stub for the crop-photo route pushed by CreateEventStep0CoverPhotoPage.
+        path: '/events/create/crop-photo',
+        builder: (context, state) =>
+            const Scaffold(body: Text('crop-photo-stub')),
       ),
       GoRoute(
         path: '/my-events',
@@ -298,13 +313,14 @@ void main() {
       expect(find.byType(StepProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('step 1 renders a text field labelled "Title"', (tester) async {
+    testWidgets('step 1 (Cover Photo) renders at currentStep=0', (
+      tester,
+    ) async {
       await _pumpPage(tester, _FixedEditingController.new);
 
-      // Step 1 (Basics) is the active page at currentStep=0.
-      // EventFormField renders a TextFormField with an InputDecoration whose
-      // labelText is 'Title'. Find by the label text.
-      expect(find.text('Title'), findsOneWidget);
+      // Step 1 (index 0) is now the Cover Photo step — no Title text field.
+      // Confirm Title is absent (it lives on step 2, index 1).
+      expect(find.text('Title'), findsNothing);
     });
   });
 
@@ -452,8 +468,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Navigate to step 4 so the Publish button appears.
-        for (var i = 0; i < 4; i++) {
+        // Navigate to step 5 so the Publish button appears.
+        for (var i = 0; i < 5; i++) {
           await tester.tap(find.text('Next'));
           await tester.pumpAndSettle();
         }
@@ -505,8 +521,8 @@ void main() {
         // _ValidDraftController seeds a fully-valid draft. Advance to step 4.
         await _pumpPage(tester, _ValidDraftController.new);
 
-        // Advance to step 4 (all steps valid, Publish is enabled).
-        for (var i = 0; i < 4; i++) {
+        // Advance to step 5 (all steps valid, Publish is enabled).
+        for (var i = 0; i < 5; i++) {
           await tester.tap(find.text('Next'));
           await tester.pumpAndSettle();
         }
@@ -556,16 +572,16 @@ void main() {
       expect(find.text('Next'), findsOneWidget);
     });
 
-    testWidgets('Back is rendered on step 5 (Publish step)', (tester) async {
+    testWidgets('Back is rendered on step 6 (Publish step)', (tester) async {
       await _pumpPage(tester, _ValidDraftController.new);
 
-      // Advance to step 5 (currentStep == 4).
-      for (var i = 0; i < 4; i++) {
+      // Advance to step 6 (currentStep == 5).
+      for (var i = 0; i < 5; i++) {
         await tester.tap(find.text('Next'));
         await tester.pumpAndSettle();
       }
 
-      // Step 5 (currentStep == 4) — Back present, Publish replaces Next.
+      // Step 6 (currentStep == 5) — Back present, Publish replaces Next.
       expect(find.text('Back'), findsOneWidget);
       expect(find.text('Publish'), findsOneWidget);
     });
@@ -576,7 +592,7 @@ void main() {
   // ---------------------------------------------------------------------------
   group('CreateEventPage — round-trip navigation (Bug 2 regression)', () {
     testWidgets(
-      'step 0 → 4 → 3 → 4 keeps Publish enabled when all fields valid',
+      'step 0 → 5 → 4 → 5 keeps Publish enabled when all fields valid',
       (tester) async {
         // _ValidDraftController seeds a fully-valid draft at step 0.
         await _pumpPage(tester, _ValidDraftController.new);
@@ -591,17 +607,18 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        // Advance step 0 → 1 → 2 → 3 → 4.
+        // Advance step 0 → 1 → 2 → 3 → 4 → 5.
         await tapNext(); // → step 1
         await tapNext(); // → step 2
         await tapNext(); // → step 3
         await tapNext(); // → step 4
+        await tapNext(); // → step 5
 
-        // Navigate back step 4 → 3, then forward step 3 → 4.
-        await tapBack(); // → step 3
-        await tapNext(); // → step 4
+        // Navigate back step 5 → 4, then forward step 4 → 5.
+        await tapBack(); // → step 4
+        await tapNext(); // → step 5
 
-        // On step 4 with all fields valid, canAdvance passed to StepNavigationBar
+        // On step 5 with all fields valid, canAdvance passed to StepNavigationBar
         // must be true (canSubmit() returns true).
         final navBar = tester.widget<StepNavigationBar>(
           find.byType(StepNavigationBar),

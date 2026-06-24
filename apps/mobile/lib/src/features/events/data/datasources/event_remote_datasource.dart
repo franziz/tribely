@@ -39,10 +39,14 @@ abstract class EventRemoteDatasource {
   /// Uses an isolated Dio without auth interceptors — the presigned URL itself
   /// carries authorization. [contentType] must match what was used in
   /// [requestCoverPhotoUpload] (always `image/jpeg` after downscaling).
+  ///
+  /// [onSendProgress] is an optional Dio [ProgressCallback] — receives
+  /// (sent, total) so callers can drive a determinate [LinearProgressIndicator].
   Future<void> putCoverBytes({
     required String uploadUrl,
     required Uint8List bytes,
     required String contentType,
+    ProgressCallback? onSendProgress,
   });
 }
 
@@ -88,10 +92,12 @@ class EventRemoteDatasourceImpl implements EventRemoteDatasource {
     required String uploadUrl,
     required Uint8List bytes,
     required String contentType,
+    ProgressCallback? onSendProgress,
   }) async {
     await _storageDio.put<void>(
       uploadUrl,
       data: Stream.fromIterable([bytes]),
+      onSendProgress: onSendProgress,
       options: Options(
         headers: {
           'Content-Type': contentType,
