@@ -100,9 +100,8 @@ class _CoverPhotoCropPageState extends ConsumerState<CoverPhotoCropPage> {
               interactive: true,
               baseColor: TribelyColors.paperInkPrimary,
               maskColor: TribelyColors.paperInkPrimary.withValues(alpha: 0.6),
-              cornerDotBuilder: (size, edgeAlignment) => const DotControl(
-                color: TribelyColors.paperPrimary,
-              ),
+              cornerDotBuilder: (size, edgeAlignment) =>
+                  const DotControl(color: TribelyColors.paperPrimary),
               progressIndicator: const CircularProgressIndicator(
                 color: TribelyColors.paperSurfaceHigh,
               ),
@@ -160,7 +159,9 @@ class _BottomControls extends StatelessWidget {
           ],
           PrimaryButton(
             label: 'Crop',
-            state: isCropping ? PrimaryButtonState.loading : PrimaryButtonState.idle,
+            state: isCropping
+                ? PrimaryButtonState.loading
+                : PrimaryButtonState.idle,
             onPressed: isCropping ? null : onCropPressed,
           ),
         ],

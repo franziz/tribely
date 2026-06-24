@@ -27,6 +27,5 @@ class UploadCoverPhotoUseCase implements UseCase<String, Uint8List> {
   Future<Either<Failure, String>> call(
     Uint8List params, {
     CoverPhotoProgressCallback? onProgress,
-  }) =>
-      _repository.uploadCoverPhoto(params, onProgress: onProgress);
+  }) => _repository.uploadCoverPhoto(params, onProgress: onProgress);
 }

@@ -106,10 +106,7 @@ class CoverPhotoRepositoryImpl implements CoverPhotoRepository {
       return switch (inner.statusCode) {
         400 => ValidationFailure(inner.message, code: inner.code),
         401 => AuthFailure(inner.message, code: inner.code),
-        413 => ValidationFailure(
-          inner.message,
-          code: 'COVER_PHOTO_TOO_LARGE',
-        ),
+        413 => ValidationFailure(inner.message, code: 'COVER_PHOTO_TOO_LARGE'),
         _ => ServerFailure(
           inner.message,
           statusCode: inner.statusCode,

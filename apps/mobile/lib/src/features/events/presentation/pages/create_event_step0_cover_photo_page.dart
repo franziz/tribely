@@ -40,14 +40,18 @@ class CreateEventStep0CoverPhotoPage extends ConsumerWidget {
     final draft = state.formData;
 
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final ink = dark ? TribelyColors.nightInkPrimary : TribelyColors.paperInkPrimary;
+    final ink = dark
+        ? TribelyColors.nightInkPrimary
+        : TribelyColors.paperInkPrimary;
     final inkSecondary = dark
         ? TribelyColors.nightInkSecondary
         : TribelyColors.paperInkSecondary;
     final borderSubtle = dark
         ? TribelyColors.nightBorderSubtle
         : TribelyColors.paperBorderSubtle;
-    final primary = dark ? TribelyColors.nightPrimary : TribelyColors.paperPrimary;
+    final primary = dark
+        ? TribelyColors.nightPrimary
+        : TribelyColors.paperPrimary;
 
     final hasKey = draft.coverPhotoStorageKey != null;
     final isUploading = state.coverPhotoUploading;
@@ -288,10 +292,7 @@ class _AddPhotoCta extends StatelessWidget {
           children: [
             Icon(Icons.add_photo_alternate_outlined, size: 40, color: primary),
             const SizedBox(height: 8),
-            Text(
-              'Add cover photo',
-              style: TribelyType.bodyM(primary),
-            ),
+            Text('Add cover photo', style: TribelyType.bodyM(primary)),
           ],
         ),
       ),
@@ -323,14 +324,18 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final accentColor = dark ? TribelyColors.nightAccent : TribelyColors.paperAccent;
+    final accentColor = dark
+        ? TribelyColors.nightAccent
+        : TribelyColors.paperAccent;
     final bgColor = dark
         ? TribelyColors.nightAccentSoft
         : TribelyColors.paperAccentSoft;
 
     final message = isValidationError
         ? 'Photo is too large or format not supported. Please pick a different image.'
-        : (error.message.isNotEmpty ? error.message : 'Upload failed. Please try again.');
+        : (error.message.isNotEmpty
+              ? error.message
+              : 'Upload failed. Please try again.');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

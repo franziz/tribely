@@ -701,55 +701,50 @@ void main() {
 
     tearDown(() => container.dispose());
 
-    test(
-      'blockingFields contains step 3 with startsAt when startsAt is past the '
-      '5-minute buffer and all other fields are valid',
-      () {
-        final controller = container.read(
-          createEventControllerProvider.notifier,
-        );
-        final baseDraft = _validDraft();
+    test('blockingFields contains step 3 with startsAt when startsAt is past the '
+        '5-minute buffer and all other fields are valid', () {
+      final controller = container.read(createEventControllerProvider.notifier);
+      final baseDraft = _validDraft();
 
-        // Seed all fields but use a startsAt that is too close to now (under
-        // the 5-minute buffer). This simulates the time-decay race condition
-        // where a previously-valid startsAt has decayed while the user lingers
-        // on later steps.
-        final decayedStartsAt = DateTime.now().add(const Duration(minutes: 3));
+      // Seed all fields but use a startsAt that is too close to now (under
+      // the 5-minute buffer). This simulates the time-decay race condition
+      // where a previously-valid startsAt has decayed while the user lingers
+      // on later steps.
+      final decayedStartsAt = DateTime.now().add(const Duration(minutes: 3));
 
-        controller.updateField(
-          field: 'coverPhotoStorageKey',
-          value: baseDraft.coverPhotoStorageKey!,
-        );
-        controller.updateField(field: 'title', value: baseDraft.title!);
-        controller.updateField(field: 'category', value: baseDraft.category!);
-        controller.updateField(field: 'venueName', value: baseDraft.venueName!);
-        controller.updateField(field: 'latitude', value: baseDraft.latitude!);
-        controller.updateField(field: 'longitude', value: baseDraft.longitude!);
-        controller.updateField(field: 'startsAt', value: decayedStartsAt);
-        controller.updateField(
-          field: 'endsAt',
-          value: decayedStartsAt.add(const Duration(hours: 2)),
-        );
-        controller.updateField(field: 'capacity', value: baseDraft.capacity!);
-        controller.updateField(
-          field: 'approvalMode',
-          value: baseDraft.approvalMode!,
-        );
-        controller.updateField(
-          field: 'description',
-          value: baseDraft.description!,
-        );
+      controller.updateField(
+        field: 'coverPhotoStorageKey',
+        value: baseDraft.coverPhotoStorageKey!,
+      );
+      controller.updateField(field: 'title', value: baseDraft.title!);
+      controller.updateField(field: 'category', value: baseDraft.category!);
+      controller.updateField(field: 'venueName', value: baseDraft.venueName!);
+      controller.updateField(field: 'latitude', value: baseDraft.latitude!);
+      controller.updateField(field: 'longitude', value: baseDraft.longitude!);
+      controller.updateField(field: 'startsAt', value: decayedStartsAt);
+      controller.updateField(
+        field: 'endsAt',
+        value: decayedStartsAt.add(const Duration(hours: 2)),
+      );
+      controller.updateField(field: 'capacity', value: baseDraft.capacity!);
+      controller.updateField(
+        field: 'approvalMode',
+        value: baseDraft.approvalMode!,
+      );
+      controller.updateField(
+        field: 'description',
+        value: baseDraft.description!,
+      );
 
-        final state =
-            container.read(createEventControllerProvider) as CreateEventEditing;
+      final state =
+          container.read(createEventControllerProvider) as CreateEventEditing;
 
-        // Step 3 owns startsAt (after index shift) — must appear in blockingFields.
-        expect(state.blockingFields.containsKey(3), isTrue);
-        expect(state.blockingFields[3], contains('startsAt'));
-        // canSubmit must be false — startsAt is invalid.
-        expect(controller.canSubmit(), isFalse);
-      },
-    );
+      // Step 3 owns startsAt (after index shift) — must appear in blockingFields.
+      expect(state.blockingFields.containsKey(3), isTrue);
+      expect(state.blockingFields[3], contains('startsAt'));
+      // canSubmit must be false — startsAt is invalid.
+      expect(controller.canSubmit(), isFalse);
+    });
 
     test(
       'blockingFields is empty when all fields are valid with far-future startsAt',
