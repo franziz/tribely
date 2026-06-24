@@ -352,7 +352,14 @@ void main() {
     testWidgets('tapping page body outside any input clears primary focus', (
       tester,
     ) async {
-      await _pumpPage(tester, _FixedEditingController.new);
+      // Use _ValidDraftController so Next is enabled and we can advance to
+      // step 1 (Basics), which has a TextFormField. Step 0 (Cover Photo) has
+      // no text input fields, so we must navigate first.
+      await _pumpPage(tester, _ValidDraftController.new);
+
+      // Advance to step 1 (Basics) where the Title TextFormField lives.
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
 
       // Focus the Title text field.
       final titleField = find.byType(TextFormField).first;
@@ -379,10 +386,15 @@ void main() {
     });
 
     testWidgets(
-      'pressing Next on step 0 with valid data clears primary focus',
+      'pressing Next on step 1 with valid data clears primary focus',
       (tester) async {
         // Use a valid-draft controller so the Next button is enabled.
         await _pumpPage(tester, _ValidDraftController.new);
+
+        // Navigate from step 0 (Cover Photo) to step 1 (Basics) so the
+        // Title TextFormField is in the widget tree.
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
 
         // Focus the Title field.
         final titleField = find.byType(TextFormField).first;

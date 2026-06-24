@@ -49,8 +49,15 @@ void main() {
       ) async {
         await _pumpPlaceholder(tester, category);
 
-        // Find the ColoredBox and verify its color.
-        final coloredBox = tester.widget<ColoredBox>(find.byType(ColoredBox));
+        // Find the ColoredBox that is a direct descendant of
+        // CategoryImagePlaceholder (scoped to avoid matching ColoredBox nodes
+        // introduced by Scaffold or MaterialApp backgrounds).
+        final coloredBox = tester.widget<ColoredBox>(
+          find.descendant(
+            of: find.byType(CategoryImagePlaceholder),
+            matching: find.byType(ColoredBox),
+          ),
+        );
         expect(coloredBox.color, equals(categoryColor(category)));
       });
     }
