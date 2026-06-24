@@ -43,6 +43,15 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
   });
 
   return new Hono<{ Variables: AuthVariables }>()
+    // POST /events/cover-photo — presign a cover photo upload URL.
+    // Registered before /:id so Hono's literal-segment `/cover-photo` is not
+    // shadowed by the `:id` wildcard (literal segments always win in Hono, but
+    // explicit ordering makes the intent clear).
+    // No zValidator('json') — empty-body POST trap (see CLAUDE.md gotcha).
+    // contentType is passed as a query param: ?contentType=image/jpeg.
+    .post('/cover-photo', auth, (c) =>
+      controller.requestCoverPhotoUploadAction(c, c.get('userId')),
+    )
     .post(
       '/',
       auth,
