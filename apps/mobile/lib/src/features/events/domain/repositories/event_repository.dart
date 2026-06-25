@@ -27,6 +27,7 @@ class CreateEventParams extends Equatable {
     required this.approvalMode,
     required this.description,
     this.costNotes,
+    this.coverPhotoStorageKey,
   });
 
   final String title;
@@ -55,6 +56,12 @@ class CreateEventParams extends Equatable {
   /// CEO guardrail: plain String only, no numeric/split-type primitives.
   final String? costNotes;
 
+  /// Storage key (object path) for the uploaded cover photo. Set by the
+  /// cover-photo wizard step (Step 0) after a successful upload. Null until
+  /// the user selects and uploads a photo; optional on the wire (omitted when
+  /// null — server schema is `.optional()`).
+  final String? coverPhotoStorageKey;
+
   @override
   List<Object?> get props => [
     title,
@@ -69,6 +76,7 @@ class CreateEventParams extends Equatable {
     approvalMode,
     description,
     costNotes,
+    coverPhotoStorageKey,
   ];
 }
 

@@ -171,4 +171,41 @@ void main() {
       expect(jsonWithoutNotes.containsKey('costSplit'), isFalse);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // coverPhotoStorageKey serialisation (TRI-49 Brief 5)
+  // ---------------------------------------------------------------------------
+  group(
+    'CreateEventParamsModel.toJson — coverPhotoStorageKey (TRI-49 Brief 5)',
+    () {
+      CreateEventParamsModel modelWithKey(String? key) {
+        final params = CreateEventParams(
+          title: 'Sunday Morning Hike',
+          category: EventCategory.hike,
+          venueName: '1 Marina Blvd, Marina Bay',
+          venueCategory: 'park',
+          latitude: 1.28,
+          longitude: 103.85,
+          startsAt: DateTime.utc(2030, 6, 1, 8),
+          endsAt: DateTime.utc(2030, 6, 1, 11),
+          capacity: 10,
+          approvalMode: 'auto',
+          description: 'A lovely hike.',
+          coverPhotoStorageKey: key,
+        );
+        return CreateEventParamsModel.fromDomain(params);
+      }
+
+      test('coverPhotoStorageKey is present in toJson when non-null', () {
+        final json = modelWithKey('events/covers/test-key.jpg').toJson();
+        expect(json.containsKey('coverPhotoStorageKey'), isTrue);
+        expect(json['coverPhotoStorageKey'], 'events/covers/test-key.jpg');
+      });
+
+      test('coverPhotoStorageKey is absent from toJson when null', () {
+        final json = modelWithKey(null).toJson();
+        expect(json.containsKey('coverPhotoStorageKey'), isFalse);
+      });
+    },
+  );
 }

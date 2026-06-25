@@ -15,6 +15,7 @@ import '../widgets/keyboard_dismiss_bar.dart';
 import '../widgets/resume_draft_dialog.dart';
 import '../widgets/step_navigation_bar.dart';
 import '../widgets/step_progress_indicator.dart';
+import 'create_event_step0_cover_photo_page.dart';
 import 'create_event_step1_basics_page.dart';
 import 'create_event_step2_venue_page.dart';
 import 'create_event_step3_when_page.dart';
@@ -27,12 +28,13 @@ import 'create_event_step5_describe_page.dart';
 /// in [CreateEventController]). Uses [ref.listen] for all imperative side
 /// effects (dialog, snackbar, navigation) to keep [build] free of side effects.
 ///
-/// Step pages are indexed 0–4:
-///   0 = Basics (title, category)
-///   1 = Venue (name, lat, lng)
-///   2 = When (startsAt, endsAt)
-///   3 = Logistics (capacity, approvalMode)
-///   4 = Describe + Review (description, read-only summary)
+/// Step pages are indexed 0–5:
+///   0 = Cover photo (TRI-49)
+///   1 = Basics (title, category)
+///   2 = Venue (name, lat, lng)
+///   3 = When (startsAt, endsAt)
+///   4 = Logistics (capacity, approvalMode)
+///   5 = Describe + Review (description, read-only summary)
 class CreateEventPage extends ConsumerStatefulWidget {
   const CreateEventPage({super.key});
 
@@ -48,18 +50,18 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
   /// dialog resolves.
   bool _resumeDialogShown = false;
 
-  /// Tracks the last rendered step so we can detect when Step 5 (index 4)
+  /// Tracks the last rendered step so we can detect when Step 6 (index 5)
   /// becomes visible and trigger a [refreshBlockingFields] call to catch
   /// time-decayed validators.
   int _lastRenderedStep = 0;
 
-  static const int _totalSteps = 5;
+  static const int _totalSteps = 6;
   static const int _lastStepIndex = _totalSteps - 1;
 
   /// Steps where the keyboard-dismiss accessory bar is shown.
-  /// Index 3 = Logistics (Capacity — numeric pad, no native dismiss key).
-  /// Index 4 = Describe (Description — multiline, Return inserts newline).
-  static const Set<int> _stepsWithKeyboardAccessory = {3, 4};
+  /// Index 4 = Logistics (Capacity — numeric pad, no native dismiss key).
+  /// Index 5 = Describe (Description — multiline, Return inserts newline).
+  static const Set<int> _stepsWithKeyboardAccessory = {4, 5};
 
   @override
   void initState() {
@@ -115,6 +117,7 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
           builder: (_) => ResumeDraftDialog(
             onResume: controller.acknowledgeResume,
             onDiscard: controller.discardDraft,
+            hasCoverPhoto: next.formData.coverPhotoStorageKey != null,
           ),
         );
       }
@@ -155,7 +158,7 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
       CreateEventSubmissionSuccess() => _lastStepIndex,
     };
 
-    // When Step 5 first becomes visible, force a blockingFields recompute so
+    // When Step 6 first becomes visible, force a blockingFields recompute so
     // time-decayed validators (validateStartsAt) are surfaced before the user
     // taps Publish. Use addPostFrameCallback to stay outside build() mutation.
     if (currentStep == _lastStepIndex && _lastRenderedStep != _lastStepIndex) {
@@ -242,6 +245,7 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
               children: const [
+                CreateEventStep0CoverPhotoPage(),
                 CreateEventStep1BasicsPage(),
                 CreateEventStep2VenuePage(),
                 CreateEventStep3WhenPage(),
@@ -485,11 +489,11 @@ class _BlockingHint extends StatelessWidget {
     final (fieldName, rawErrorMessage) = stepErrors.first;
     final stepLabel = 'Step ${currentStep + 1}';
 
-    // Step 2 (index 1): map technical lat/lng field errors to the venue-picker
+    // Step 3 (index 2): map technical lat/lng field errors to the venue-picker
     // user-facing copy. "Latitude is required" / "Longitude is required" are
     // too technical — the user sees a venue search UI, not lat/lng inputs.
     final errorMessage =
-        (currentStep == 1 &&
+        (currentStep == 2 &&
             (fieldName == 'latitude' || fieldName == 'longitude'))
         ? 'Pick a venue from the search results to continue'
         : rawErrorMessage;
