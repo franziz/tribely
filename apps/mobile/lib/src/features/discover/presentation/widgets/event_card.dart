@@ -1,9 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/widgets/category_image_placeholder.dart';
+import '../../../../core/widgets/category_visuals.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/domain/entities/event_category.dart';
 
@@ -18,29 +21,6 @@ const List<BoxShadow> _kCardShadow = [
     offset: Offset(0, 2),
   ),
 ];
-
-/// Returns the category-color fallback background color for the thumbnail area.
-/// Used when no image URL is available.
-Color _categoryColor(EventCategory category) => switch (category) {
-  EventCategory.drinks => const Color(0xFFD85730), // ember coral
-  EventCategory.food => const Color(0xFF4A7C59), // moss green
-  EventCategory.hike => const Color(0xFF1B3D3A), // teak teal
-  EventCategory.museum => const Color(0xFF5C544A), // warm slate
-  EventCategory.sports => const Color(0xFF2E6B8A), // ocean blue
-  EventCategory.nightlife => const Color(0xFF3D1F4A), // deep plum
-  EventCategory.other => const Color(0xFF7A6E60), // neutral warm
-};
-
-/// Returns the display icon for a given [EventCategory].
-IconData _categoryIcon(EventCategory category) => switch (category) {
-  EventCategory.drinks => Icons.local_bar_outlined,
-  EventCategory.food => Icons.restaurant_outlined,
-  EventCategory.hike => Icons.terrain_outlined,
-  EventCategory.museum => Icons.museum_outlined,
-  EventCategory.sports => Icons.sports_soccer_outlined,
-  EventCategory.nightlife => Icons.nightlife_outlined,
-  EventCategory.other => Icons.star_outline,
-};
 
 /// Full-width event card for the Discover list feed.
 ///
@@ -108,8 +88,22 @@ class _ThumbnailSection extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background: category-color fallback (no remote images in v1).
-          Container(color: _categoryColor(event.category)),
+          // Background: real cover photo with category-color placeholder on
+          // load failure or when no URL is present (TRI-49 Brief 4).
+          if (event.coverPhotoUrl != null)
+            CachedNetworkImage(
+              imageUrl: event.coverPhotoUrl!,
+              fit: BoxFit.cover,
+              // Category-color skeleton shimmer while the image loads.
+              placeholder: (context, url) =>
+                  ColoredBox(color: categoryColor(event.category)),
+              // Shared placeholder on network / decode failure.
+              errorWidget: (context, url, error) =>
+                  CategoryImagePlaceholder(category: event.category),
+              fadeInDuration: const Duration(milliseconds: 200),
+            )
+          else
+            CategoryImagePlaceholder(category: event.category),
           // Category badge — bottom-left of image per §C.
           Positioned(
             left: 12,
@@ -141,7 +135,7 @@ class _CategoryBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _categoryIcon(category),
+            categoryIcon(category),
             size: 20,
             color: TribelyColors.paperInkPrimary,
           ),

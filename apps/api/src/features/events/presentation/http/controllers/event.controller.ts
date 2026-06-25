@@ -1,11 +1,14 @@
 import type { Context } from 'hono';
 import { AppError } from '@/core/errors/app-error.js';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import { resolveCoverReadUrl } from '@/core/storage/resolve-cover-read-url.js';
 import type { Event } from '../../../domain/entities/event.js';
 import type { ListEventsCursor } from '../../../domain/repositories/event.repository.js';
 import type { CancelEventUseCase } from '../../../application/usecases/cancel-event.usecase.js';
 import type { CreateEventUseCase } from '../../../application/usecases/create-event.usecase.js';
 import type { GetEventUseCase } from '../../../application/usecases/get-event.usecase.js';
 import type { ListEventsUseCase } from '../../../application/usecases/list-events.usecase.js';
+import type { RequestCoverPhotoUploadUseCase } from '../../../application/usecases/request-cover-photo-upload.usecase.js';
 import type { UpdateEventUseCase } from '../../../application/usecases/update-event.usecase.js';
 import type {
   CancelEventBody,
@@ -17,7 +20,7 @@ import type {
   UpdateEventBody,
 } from '../schemas/event.schemas.js';
 
-const toEventResponse = (event: Event): EventResponse => ({
+const toEventResponse = async (event: Event, fileStorage: FileStorage): Promise<EventResponse> => ({
   id: event.id,
   hostUserId: event.hostUserId,
   title: event.title,
@@ -34,6 +37,7 @@ const toEventResponse = (event: Event): EventResponse => ({
   capacity: event.capacity.value,
   category: event.category.value,
   costNotes: event.costNotes,
+  coverPhotoUrl: await resolveCoverReadUrl(fileStorage, event.coverPhotoStorageKey),
   approvalMode: event.approvalMode,
   status: event.status,
   cancellationReason: event.cancellationReason,
@@ -89,6 +93,8 @@ export class EventController {
     private readonly getEvent: GetEventUseCase,
     private readonly updateEvent: UpdateEventUseCase,
     private readonly cancelEvent: CancelEventUseCase,
+    private readonly requestCoverPhotoUpload: RequestCoverPhotoUploadUseCase,
+    private readonly fileStorage: FileStorage,
   ) {}
 
   createAction = async (c: Context, hostUserId: string, body: CreateEventBody) => {
@@ -104,9 +110,10 @@ export class EventController {
       category: body.category,
       venueCategory,
       costNotes: body.costNotes ?? null,
+      coverPhotoStorageKey: body.coverPhotoStorageKey ?? null,
       approvalMode: body.approvalMode,
     });
-    return c.json(toEventResponse(event), 201);
+    return c.json(await toEventResponse(event, this.fileStorage), 201);
   };
 
   /**
@@ -126,7 +133,7 @@ export class EventController {
       limit: query.limit,
     });
     const response: EventListingResponse = {
-      events: result.events.map(toEventResponse),
+      events: await Promise.all(result.events.map((e) => toEventResponse(e, this.fileStorage))),
       nextCursor: result.nextCursor ? encodeCursor(result.nextCursor) : null,
     };
     return c.json(response, 200);
@@ -145,7 +152,7 @@ export class EventController {
       limit: 50,
     });
     const response: EventListingResponse = {
-      events: result.events.map(toEventResponse),
+      events: await Promise.all(result.events.map((e) => toEventResponse(e, this.fileStorage))),
       nextCursor: result.nextCursor ? encodeCursor(result.nextCursor) : null,
     };
     return c.json(response, 200);
@@ -154,7 +161,7 @@ export class EventController {
   getAction = async (c: Context, id: string) => {
     const result = await this.getEvent.execute({ id });
     const response: EventWithHostResponse = {
-      event: toEventResponse(result.event),
+      event: await toEventResponse(result.event, this.fileStorage),
       host: result.host,
     };
     return c.json(response, 200);
@@ -190,7 +197,7 @@ export class EventController {
         ...(body.approvalMode !== undefined && { approvalMode: body.approvalMode }),
       },
     });
-    return c.json(toEventResponse(event), 200);
+    return c.json(await toEventResponse(event, this.fileStorage), 200);
   };
 
   cancelAction = async (c: Context, id: string, actorUserId: string, body: CancelEventBody) => {
@@ -200,5 +207,20 @@ export class EventController {
       reason: body.reason ?? null,
     });
     return c.body(null, 204);
+  };
+
+  /**
+   * Presign a cover photo upload URL for a new event.
+   *
+   * POST /events/cover-photo?contentType=image/jpeg
+   *
+   * `contentType` is a query param to avoid the Hono empty-body trap — no
+   * zValidator('json') on a no-body POST (see CLAUDE.md gotcha and avatar
+   * route precedent).
+   */
+  requestCoverPhotoUploadAction = async (c: Context, hostUserId: string) => {
+    const contentType = c.req.query('contentType') ?? '';
+    const result = await this.requestCoverPhotoUpload.execute({ hostUserId, contentType });
+    return c.json(result, 200);
   };
 }

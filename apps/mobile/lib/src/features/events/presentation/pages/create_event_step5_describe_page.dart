@@ -127,7 +127,7 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                // Step 1 — Title + Category
+                // Step 2 — Title + Category (index 1 after cover-photo shift)
                 _ReviewRow(
                   icon: Icons.event_note_outlined,
                   label: 'Basics',
@@ -135,11 +135,11 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
                     draft.title ?? '—',
                     draft.category?.displayName ?? '—',
                   ].join(' · '),
-                  onEdit: () => controller.goToStep(0),
+                  onEdit: () => controller.goToStep(1),
                   showDivider: true,
                 ),
 
-                // Step 2 — Venue
+                // Step 3 — Venue (index 2)
                 _ReviewRow(
                   icon: Icons.place_outlined,
                   label: 'Venue',
@@ -148,25 +148,25 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
                     draft.latitude,
                     draft.longitude,
                   ),
-                  onEdit: () => controller.goToStep(1),
-                  showDivider: true,
-                ),
-
-                // Step 3 — When
-                _ReviewRow(
-                  icon: Icons.access_time_outlined,
-                  label: 'When',
-                  value: _whenReview(draft.startsAt, draft.endsAt),
                   onEdit: () => controller.goToStep(2),
                   showDivider: true,
                 ),
 
-                // Step 4 — Logistics. Divider depends on whether Cost notes follows.
+                // Step 4 — When (index 3)
+                _ReviewRow(
+                  icon: Icons.access_time_outlined,
+                  label: 'When',
+                  value: _whenReview(draft.startsAt, draft.endsAt),
+                  onEdit: () => controller.goToStep(3),
+                  showDivider: true,
+                ),
+
+                // Step 5 — Logistics (index 4). Divider depends on whether Cost notes follows.
                 _ReviewRow(
                   icon: Icons.people_outline,
                   label: 'Logistics',
                   value: _logisticsReview(draft.capacity, draft.approvalMode),
-                  onEdit: () => controller.goToStep(3),
+                  onEdit: () => controller.goToStep(4),
                   showDivider: hasCostNotes,
                 ),
 
@@ -176,7 +176,7 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
                     icon: Icons.payments_outlined,
                     label: 'Cost notes',
                     value: draft.costNotes!,
-                    onEdit: () => controller.goToStep(3),
+                    onEdit: () => controller.goToStep(4),
                     showDivider: false,
                   ),
               ],
