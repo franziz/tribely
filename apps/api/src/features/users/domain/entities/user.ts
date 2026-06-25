@@ -528,11 +528,15 @@ export class User extends AggregateRoot {
    *   - `selfieAttemptCount` is NOT reset (historical record of prior failures).
    *   - `selfieLastFailureCategory` is NOT cleared (preserved for audit).
    *
+   * Idempotent — if the appeal is already approved (status `pending` with lock
+   * cleared), this is a no-op (no event emitted), mirroring `approveSelfie`.
+   *
    * Emits `users.selfieAppealApproved`.
    *
    * @param now  Wall-clock time of approval.
    */
   recordSelfieAppealApproved(input: { now: Date }): void {
+    if (this._selfieStatus === 'pending' && this._selfieAppealLockedAt === null) return;
     this._selfieAppealLockedAt = null;
     this._selfieStatus = 'pending';
     this._updatedAt = input.now;
