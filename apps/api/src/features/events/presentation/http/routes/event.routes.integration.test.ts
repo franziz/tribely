@@ -80,7 +80,7 @@ describe.skipIf(!dbUrl)('Event routes — venue.category integration (TRI-33)', 
     userId = createId();
     const email = `event-routes-${userId}@test.local`;
 
-    // POST /events now requires both email and phone verified (TRI-16 SWE-FIX-C).
+    // POST /events now requires email, phone, and selfie verified (TRI-16, TRI-23).
     // Phone column has UNIQUE constraint + E.164 validation on mapper read-back;
     // use last-8-digits of a timestamp for a unique Singapore (+65) number.
     await db.user.create({
@@ -91,6 +91,7 @@ describe.skipIf(!dbUrl)('Event routes — venue.category integration (TRI-33)', 
         emailVerifiedAt: new Date(),
         phone: `+65${String(Date.now()).slice(-8)}`,
         phoneVerifiedAt: new Date(),
+        selfieStatus: 'approved',
       },
     });
 

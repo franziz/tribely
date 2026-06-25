@@ -31,7 +31,7 @@ Map<String, dynamic> _innerEventJson({String id = 'evt-42'}) => {
   'endsAt': '2030-06-15T13:00:00.000Z',
   'capacity': 8,
   'category': 'drinks',
-  'costSplit': 'own',
+  'costNotes': null,
   'approvalMode': 'auto',
   'status': 'published',
   'createdAt': '2030-06-01T00:00:00.000Z',

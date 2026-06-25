@@ -1,6 +1,8 @@
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { describe, expect, it } from 'vitest';
+import { SAFETY_REMINDER_RESET } from '../events/safety-reminder-reset.event.js';
 import { SELFIE_APPEAL_APPROVED } from '../events/selfie-appeal-approved.event.js';
+import { SELFIE_APPROVED } from '../events/selfie-approved.event.js';
 import { SELFIE_REJECTED } from '../events/selfie-rejected.event.js';
 import { USER_ACCOUNT_DELETED } from '../events/user-account-deleted.event.js';
 import { USER_PHONE_VERIFICATION_REVOKED } from '../events/user-phone-verification-revoked.event.js';
@@ -427,6 +429,43 @@ describe('User aggregate', () => {
     });
   });
 
+  describe('approveSelfie', () => {
+    it('sets selfieStatus=approved + bumps updatedAt + records event', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const now = new Date('2026-06-01T10:00:00Z');
+
+      user.approveSelfie({ now });
+
+      expect(user.selfieStatus).toBe('approved');
+      expect(user.updatedAt).toEqual(now);
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(SELFIE_APPROVED);
+      expect(events[0]?.payload).toMatchObject({
+        userId: 'user_1',
+        approvedAt: now.toISOString(),
+      });
+    });
+
+    it('is idempotent — second call is a no-op (event emitted exactly once)', () => {
+      const user = buildUser();
+      user.pullEvents();
+      const first = new Date('2026-06-01T10:00:00Z');
+      const second = new Date('2026-06-02T10:00:00Z');
+
+      user.approveSelfie({ now: first });
+      user.pullEvents();
+      user.approveSelfie({ now: second });
+
+      // selfieStatus and updatedAt stay at first-call values
+      expect(user.selfieStatus).toBe('approved');
+      expect(user.updatedAt).toEqual(first);
+      // no event on the second call
+      expect(user.pullEvents()).toHaveLength(0);
+    });
+  });
+
   describe('recordSelfieAppealApproved', () => {
     const buildLockedUser = (): User => {
       const user = buildUser();
@@ -487,6 +526,23 @@ describe('User aggregate', () => {
         userId: 'user_1',
         clearedAt: now.toISOString(),
       });
+    });
+
+    it('is idempotent — second call is a no-op (event emitted exactly once)', () => {
+      const user = buildLockedUser();
+      const first = new Date('2026-05-10T09:00:00Z');
+      const second = new Date('2026-05-11T09:00:00Z');
+
+      user.recordSelfieAppealApproved({ now: first });
+      user.pullEvents();
+      user.recordSelfieAppealApproved({ now: second });
+
+      // selfieStatus and updatedAt stay at first-call values
+      expect(user.selfieStatus).toBe('pending');
+      expect(user.selfieAppealLockedAt).toBeNull();
+      expect(user.updatedAt).toEqual(first);
+      // no event on the second call
+      expect(user.pullEvents()).toHaveLength(0);
     });
   });
 
@@ -655,6 +711,94 @@ describe('User aggregate', () => {
 
       expect(user.id).toBe('user_1');
       expect(user.createdAt).toEqual(createdAt);
+    });
+  });
+
+  describe('clearSafetyReminderSeen', () => {
+    const NOW = new Date('2026-06-10T10:00:00Z');
+    const SEEN_AT = new Date('2026-05-01T08:00:00Z');
+
+    /** Builds a user whose safetyReminderSeenAt is already set. */
+    const buildSeenUser = (): User =>
+      User.rehydrate({
+        id: 'user_1',
+        email: Email.create('alice@example.com'),
+        displayName: DisplayName.create('Alice'),
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: SEEN_AT,
+        emailVerifiedAt: null,
+        bio: null,
+        avatarUrl: null,
+        languages: [],
+        interests: [],
+        currentCity: null,
+        travelerType: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        selfieStatus: null,
+        selfieAttemptCount: 0,
+        selfieLastFailureCategory: null,
+        selfieAppealLockedAt: null,
+        deletedAt: null,
+        isAdmin: false,
+        safetyReminderSeenAt: SEEN_AT,
+      });
+
+    /** Builds a user whose safetyReminderSeenAt is already null (never seen). */
+    const buildUnseenUser = (): User =>
+      User.rehydrate({
+        id: 'user_1',
+        email: Email.create('alice@example.com'),
+        displayName: DisplayName.create('Alice'),
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+        emailVerifiedAt: null,
+        bio: null,
+        avatarUrl: null,
+        languages: [],
+        interests: [],
+        currentCity: null,
+        travelerType: null,
+        phone: null,
+        phoneVerifiedAt: null,
+        selfieStatus: null,
+        selfieAttemptCount: 0,
+        selfieLastFailureCategory: null,
+        selfieAppealLockedAt: null,
+        deletedAt: null,
+        isAdmin: false,
+        safetyReminderSeenAt: null,
+      });
+
+    it('clears a set flag, bumps updatedAt, and records one users.safetyReminderReset event', () => {
+      const user = buildSeenUser();
+      user.pullEvents(); // flush any rehydration events
+
+      user.clearSafetyReminderSeen('checkInFlagged', NOW);
+
+      expect(user.safetyReminderSeenAt).toBeNull();
+      expect(user.updatedAt).toEqual(NOW);
+
+      const events = user.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(SAFETY_REMINDER_RESET);
+      expect(events[0]?.payload).toMatchObject({
+        userId: 'user_1',
+        resetReason: 'checkInFlagged',
+        resetAt: NOW.toISOString(),
+      });
+    });
+
+    it('is a no-op when the flag is already null — no state change, no event (AC-6, AC-4)', () => {
+      const user = buildUnseenUser();
+      const updatedAtBefore = user.updatedAt;
+      user.pullEvents(); // flush
+
+      user.clearSafetyReminderSeen('checkInFlagged', NOW);
+
+      expect(user.safetyReminderSeenAt).toBeNull();
+      expect(user.updatedAt).toEqual(updatedAtBefore); // unchanged
+      expect(user.pullEvents()).toHaveLength(0); // no event emitted
     });
   });
 });

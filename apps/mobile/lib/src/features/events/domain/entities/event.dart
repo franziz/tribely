@@ -15,11 +15,11 @@ class Event extends Equatable {
     required this.endsAt,
     required this.capacity,
     required this.category,
-    required this.costSplit,
     required this.approvalMode,
     required this.status,
     required this.createdAt,
     required this.hostIsVerified,
+    this.costNotes,
     this.hostDisplayName,
   });
 
@@ -47,9 +47,11 @@ class Event extends Equatable {
   final int capacity;
   final EventCategory category;
 
-  /// Wire value: 'own' | 'host_paid' | 'split'. Not surfaced to the create-
-  /// event UI in v1 — the data layer hardcodes 'own' on create.
-  final String costSplit;
+  /// Optional host-authored free-text cost note (e.g. "Pay your own way").
+  /// Nullable — absent when the host left the field blank. Wire value:
+  /// `z.string().nullable()` per the server schema. CEO guardrail: plain
+  /// String only, never a structured/numeric cost primitive.
+  final String? costNotes;
 
   /// Wire value: 'auto' | 'manual'.
   final String approvalMode;
@@ -69,7 +71,7 @@ class Event extends Equatable {
     DateTime? endsAt,
     int? capacity,
     EventCategory? category,
-    String? costSplit,
+    String? costNotes,
     String? approvalMode,
     String? status,
     DateTime? createdAt,
@@ -85,7 +87,7 @@ class Event extends Equatable {
     endsAt: endsAt ?? this.endsAt,
     capacity: capacity ?? this.capacity,
     category: category ?? this.category,
-    costSplit: costSplit ?? this.costSplit,
+    costNotes: costNotes ?? this.costNotes,
     approvalMode: approvalMode ?? this.approvalMode,
     status: status ?? this.status,
     createdAt: createdAt ?? this.createdAt,
@@ -104,7 +106,7 @@ class Event extends Equatable {
     endsAt,
     capacity,
     category,
-    costSplit,
+    costNotes,
     approvalMode,
     status,
     createdAt,

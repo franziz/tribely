@@ -31,15 +31,33 @@ import 'package:tribely/src/features/auth/presentation/providers/auth_providers.
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_filter_controller.dart';
+import 'package:tribely/src/features/discover/presentation/controllers/event_detail_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_page.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_filter_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_map_providers.dart';
 import 'package:tribely/src/features/discover/presentation/providers/discover_providers.dart';
+import 'package:tribely/src/features/discover/presentation/providers/event_detail_providers.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_filter_state.dart';
 import 'package:tribely/src/features/discover/presentation/state/discover_state.dart';
+import 'package:tribely/src/features/discover/presentation/state/event_detail_state.dart';
+import 'package:tribely/src/features/events/domain/entities/event.dart';
+import 'package:tribely/src/features/events/domain/entities/event_category.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/host_attending_list_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/host_pending_list_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/controllers/my_join_requests_controller.dart';
+import 'package:tribely/src/features/join_requests/presentation/controllers/request_to_join_controller.dart';
 import 'package:tribely/src/features/join_requests/presentation/providers/join_requests_providers.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/host_attending_list_state.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/host_pending_list_state.dart';
 import 'package:tribely/src/features/join_requests/presentation/state/my_join_requests_state.dart';
+import 'package:tribely/src/features/join_requests/presentation/state/request_to_join_state.dart';
+import 'package:tribely/src/features/users/domain/entities/user_capabilities.dart';
+import 'package:tribely/src/features/users/domain/entities/user_profile.dart';
+import 'package:tribely/src/features/users/presentation/controllers/my_profile_controller.dart';
+import 'package:tribely/src/features/users/presentation/providers/capability_providers.dart';
+import 'package:tribely/src/features/users/presentation/providers/users_providers.dart';
+import 'package:tribely/src/features/users/presentation/state/selfie_gating_state.dart';
+import 'package:tribely/src/features/users/presentation/state/user_profile_state.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_pending_count_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/hosting_tab_controller.dart';
 import 'package:tribely/src/features/my_events/presentation/controllers/my_events_controller.dart';
@@ -155,6 +173,140 @@ class _FixedPendingReviewBannerController
   @override
   void onComposerNavigated() {}
 }
+
+/// Bypasses MyProfileController's async _load() which reads
+/// getUserProfileUseCaseProvider → `sl<UserProfileRepository>()`. Returns a
+/// terminal loaded state immediately so OwnProfilePage can render in
+/// production-router tests (pumpProductionRouter) without initialising GetIt.
+///
+/// The test only asserts the URI — content is irrelevant; UserProfile fields
+/// below are minimal stubs.
+class _FixedMyProfileController extends MyProfileController {
+  static final _now = DateTime.utc(2024);
+
+  @override
+  UserProfileState build() => UserProfileLoaded(
+    UserProfile(
+      id: 'test-user-1',
+      email: 'test@tribely.com',
+      displayName: 'Test User',
+      createdAt: _now,
+      updatedAt: _now,
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EventDetailPage stubs — prevent GetIt access when /events/:id is rendered
+// in router tests (TRI-290: the page is now reachable unauthenticated).
+// ---------------------------------------------------------------------------
+
+/// Synchronously resolves to the given [UserCapabilities]. Mirrors the
+/// equivalent class in event_detail_sticky_bar_test.dart.
+class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  _FakeMyCapabilitiesNotifier(this._caps);
+  final UserCapabilities _caps;
+
+  @override
+  Future<UserCapabilities> build() async => _caps;
+}
+
+/// Bypasses EventDetailController's use-case fetch (which calls sl<>) so that
+/// the /events/:id route can be rendered in router tests without GetIt.
+class _FixedEventDetailController extends EventDetailController {
+  _FixedEventDetailController(super.eventId, this._state);
+  final EventDetailState _state;
+
+  @override
+  EventDetailState build() => _state;
+
+  @override
+  Future<void> retry() async {}
+}
+
+/// Bypasses RequestToJoinController's use-case fetch for router tests.
+/// Keeps the existing-request state at Idle with no request (SessionUnauthenticated
+/// guard in loadExisting() handles this in prod; stub avoids any timer leak).
+class _FixedRequestToJoinRouterController extends RequestToJoinController {
+  _FixedRequestToJoinRouterController(super.eventId);
+
+  @override
+  RequestToJoinState build() => const RequestToJoinIdle();
+
+  @override
+  Future<void> loadExisting() async {}
+
+  @override
+  Future<void> submit({bool acknowledgedSafetyReminder = false}) async {}
+
+  @override
+  Future<void> withdraw(String joinRequestId) async {}
+}
+
+/// Bypasses HostPendingListController's _load() for router tests.
+class _FixedHostPendingListRouterController extends HostPendingListController {
+  _FixedHostPendingListRouterController(super.eventId);
+
+  @override
+  HostPendingListState build() => const HostPendingListLoaded(items: []);
+
+  @override
+  Future<void> retry() async {}
+
+  @override
+  Future<void> load() async {}
+
+  @override
+  Future<void> approve(String joinRequestId) async {}
+
+  @override
+  Future<void> decline(String joinRequestId, {String? reason}) async {}
+
+  @override
+  void clearSectionError() {}
+
+  @override
+  void clearRaceConflict() {}
+}
+
+/// Bypasses HostAttendingListController's _load() for router tests.
+class _FixedHostAttendingListRouterController
+    extends HostAttendingListController {
+  _FixedHostAttendingListRouterController(super.eventId);
+
+  @override
+  HostAttendingListState build() => const HostAttendingListLoaded(items: []);
+
+  @override
+  Future<void> retry() async {}
+}
+
+/// Minimal event fixture for the /events/:id router test. Content is irrelevant
+/// (the test only checks the URI); the event must be future-dated + published
+/// so EventDetailPage builds without error-state branches.
+const _kRouterTestEventId = 'evt-demo-1';
+final _routerTestEvent = Event(
+  id: _kRouterTestEventId,
+  hostId: 'host-1',
+  title: 'Router Test Event',
+  description: 'A minimal event for router tests.',
+  venue: const EventVenue(
+    address: '1 Orchard Rd',
+    city: 'Singapore',
+    latitude: 1.3,
+    longitude: 103.8,
+    category: 'restaurant',
+  ),
+  startsAt: DateTime.utc(2099, 6, 1, 18, 0),
+  endsAt: DateTime.utc(2099, 6, 1, 21, 0),
+  capacity: 8,
+  category: EventCategory.drinks,
+  costNotes: null,
+  approvalMode: 'manual',
+  status: 'published',
+  createdAt: DateTime.utc(2026, 1, 1),
+  hostIsVerified: false,
+);
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -413,6 +565,42 @@ Future<GoRouter> pumpProductionRouter(
         myEventsControllerProvider.overrideWith(_FixedMyEventsController.new),
         pendingReviewBannerControllerProvider.overrideWith(
           _FixedPendingReviewBannerController.new,
+        ),
+        // OwnProfilePage (mounted when pumpProductionRouter navigates to
+        // /profile with SessionAuthenticated) watches myProfileControllerProvider
+        // → getUserProfileUseCaseProvider → sl<UserProfileRepository>().
+        // No GetIt registration exists in tests; override with a terminal loaded
+        // state so the page renders without crashing. (TRI-71-3.)
+        myProfileControllerProvider.overrideWith(_FixedMyProfileController.new),
+        // TRI-290: /events/:id is now reachable unauthenticated; stub the
+        // providers EventDetailPage watches so GetIt is never touched.
+        // The override is keyed to _kRouterTestEventId — only the
+        // B5-Q2-7 test navigates to this id; other tests are unaffected.
+        eventDetailControllerProvider(_kRouterTestEventId).overrideWith(
+          () => _FixedEventDetailController(
+            _kRouterTestEventId,
+            EventDetailLoaded(_routerTestEvent),
+          ),
+        ),
+        requestToJoinControllerProvider(_kRouterTestEventId).overrideWith(
+          () => _FixedRequestToJoinRouterController(_kRouterTestEventId),
+        ),
+        hostPendingListControllerProvider(_kRouterTestEventId).overrideWith(
+          () => _FixedHostPendingListRouterController(_kRouterTestEventId),
+        ),
+        hostAttendingListControllerProvider(_kRouterTestEventId).overrideWith(
+          () => _FixedHostAttendingListRouterController(_kRouterTestEventId),
+        ),
+        myCapabilitiesProvider.overrideWith(
+          () => _FakeMyCapabilitiesNotifier(
+            const UserCapabilities(
+              canPostPrivateVenue: false,
+              safetyReminderSeen: true,
+            ),
+          ),
+        ),
+        selfieGatingStateProvider.overrideWithValue(
+          const SelfieGatingApproved(),
         ),
       ],
       child: Consumer(
@@ -704,9 +892,9 @@ void main() {
       },
     );
 
-    // B5-Q2-4: Unauthenticated user → /events is bounced to /welcome (negative pole).
+    // B5-Q2-4: TRI-290 — Unauthenticated user → /events stays on /events (positive pole).
     testWidgets(
-      'B5-Q2: unauthenticated user navigating to /events is redirected to /welcome',
+      'B5-Q2: unauthenticated user navigating to /events is NOT bounced to /welcome',
       (tester) async {
         final router = await pumpProductionRouter(
           tester,
@@ -717,9 +905,149 @@ void main() {
         final uri = router.routerDelegate.currentConfiguration.uri.toString();
         expect(
           uri,
+          equals('/events'),
+          reason:
+              'TRI-290: /events is a public read route; unauthenticated users '
+              'browse it without a bounce.',
+        );
+      },
+    );
+
+    // B5-Q2-5: TRI-290 footgun-lock — /events/new stays auth-walled.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events/new is redirected to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events/new',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
           equals('/welcome'),
           reason:
-              'Unauthenticated user must be bounced from /events to /welcome',
+              'create-event wizard stays auth-walled '
+              '(read-route predicate must not match /events/new).',
+        );
+      },
+    );
+
+    // B5-Q2-6: TRI-290 footgun-lock — /events/new/phone-gate stays auth-walled.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events/new/phone-gate is redirected to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events/new/phone-gate',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/welcome'),
+          reason: 'phone-gate stays auth-walled.',
+        );
+      },
+    );
+
+    // B5-Q2-7: TRI-290 — Unauthenticated user → /events/:id stays on the detail route.
+    testWidgets(
+      'B5-Q2: unauthenticated user navigating to /events/:id is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/events/$_kRouterTestEventId',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/events/$_kRouterTestEventId'),
+          reason:
+              'TRI-290: /events/:id is a public read route; unauthenticated '
+              'users reach the event detail page without a bounce.',
+        );
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // TRI-71: Auth-gated tab roots — signed-out users stay on /my-events and
+    // /profile (no redirect to /welcome) so they render the in-tab empty state.
+    // -------------------------------------------------------------------------
+
+    // TRI-71-1: Signed-out user at /my-events stays on /my-events.
+    testWidgets(
+      'TRI-71: unauthenticated user at /my-events is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/my-events',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/my-events'),
+          reason:
+              'TRI-71: /my-events is an auth-gated tab root; signed-out users '
+              'must remain on the tab to render the signed-out empty state '
+              'instead of being bounced to /welcome.',
+        );
+      },
+    );
+
+    // TRI-71-2: Signed-out user at /profile stays on /profile.
+    testWidgets(
+      'TRI-71: unauthenticated user at /profile is NOT bounced to /welcome',
+      (tester) async {
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: const SessionUnauthenticated(),
+          initialLocation: '/profile',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/profile'),
+          reason:
+              'TRI-71: /profile is an auth-gated tab root; signed-out users '
+              'must remain on the tab to render the signed-out empty state '
+              'instead of being bounced to /welcome.',
+        );
+      },
+    );
+
+    // TRI-71-3: Session flip on /profile does NOT bounce to /events.
+    // A user who signs in via the gate sheet while on /profile must stay on
+    // /profile (return-to-origin). Because /profile is NOT in `authFlowRoutes`,
+    // the SessionAuthenticated bounce-auth-flow branch never fires for it.
+    testWidgets(
+      'TRI-71: session flip SessionUnauthenticated→SessionAuthenticated on /profile does NOT redirect to /events',
+      (tester) async {
+        // Start authenticated directly on /profile — this exercises the
+        // SessionAuthenticated branch with loc == '/profile', which must return
+        // null (no redirect) because /profile is not in authFlowRoutes.
+        final router = await pumpProductionRouter(
+          tester,
+          sessionState: _authenticatedState,
+          initialLocation: '/profile',
+        );
+
+        final uri = router.routerDelegate.currentConfiguration.uri.toString();
+        expect(
+          uri,
+          equals('/profile'),
+          reason:
+              'TRI-71: /profile is NOT in authFlowRoutes, so a '
+              'SessionAuthenticated session landing on /profile must NOT be '
+              'redirected to /events. Return-to-origin must be preserved after '
+              'a sign-in while on the Profile tab.',
         );
       },
     );

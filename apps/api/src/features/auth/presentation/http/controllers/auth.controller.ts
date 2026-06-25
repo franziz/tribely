@@ -1,4 +1,6 @@
 import type { Context } from 'hono';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
+import { resolveAvatarReadUrl } from '@/core/storage/resolve-avatar-read-url.js';
 import type { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import type { User } from '@/features/users/domain/entities/user.js';
 import type { RefreshTokensUseCase } from '../../../application/usecases/refresh-tokens.usecase.js';
@@ -28,13 +30,13 @@ import type {
   VerifyEmailBody,
 } from '../schemas/auth.schemas.js';
 
-const toAuthUserDto = (user: User): AuthUserDto => ({
+const toAuthUserDto = async (fileStorage: FileStorage, user: User): Promise<AuthUserDto> => ({
   id: user.id,
   email: user.email.value,
   displayName: user.displayName.value,
   emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
   bio: user.bio?.value ?? null,
-  avatarUrl: user.avatarUrl?.value ?? null,
+  avatarUrl: await resolveAvatarReadUrl(fileStorage, user.avatarUrl?.value ?? null),
   languages: user.languages.map((l) => l.value),
   interests: user.interests.map((i) => i.value),
   currentCity: user.currentCity?.value ?? null,
@@ -43,8 +45,11 @@ const toAuthUserDto = (user: User): AuthUserDto => ({
   updatedAt: user.updatedAt.toISOString(),
 });
 
-const toAuthResponse = (session: IssuedAuthSession): AuthResponse => ({
-  user: toAuthUserDto(session.user),
+const toAuthResponse = async (
+  fileStorage: FileStorage,
+  session: IssuedAuthSession,
+): Promise<AuthResponse> => ({
+  user: await toAuthUserDto(fileStorage, session.user),
   accessToken: {
     value: session.accessToken.value,
     expiresAt: session.accessToken.expiresAt.toISOString(),
@@ -69,6 +74,7 @@ export class AuthController {
     private readonly resetPassword: ResetPasswordUseCase,
     private readonly startPhoneVerification: StartPhoneVerificationUseCase,
     private readonly verifyPhone: VerifyPhoneUseCase,
+    private readonly fileStorage: FileStorage,
   ) {}
 
   signUpAction = async (c: Context, body: SignUpBody) => {
@@ -76,7 +82,7 @@ export class AuthController {
       ...body,
       deviceLabel: body.deviceLabel ?? null,
     });
-    return c.json(toAuthResponse(result), 201);
+    return c.json(await toAuthResponse(this.fileStorage, result), 201);
   };
 
   signInAction = async (c: Context, body: SignInBody) => {
@@ -84,7 +90,7 @@ export class AuthController {
       ...body,
       deviceLabel: body.deviceLabel ?? null,
     });
-    return c.json(toAuthResponse(result), 200);
+    return c.json(await toAuthResponse(this.fileStorage, result), 200);
   };
 
   refreshAction = async (c: Context, body: RefreshBody) => {
@@ -92,7 +98,7 @@ export class AuthController {
       refreshTokenPlaintext: body.refreshToken,
       deviceLabel: body.deviceLabel ?? null,
     });
-    return c.json(toAuthResponse(result), 200);
+    return c.json(await toAuthResponse(this.fileStorage, result), 200);
   };
 
   signOutAction = async (c: Context, body: SignOutBody) => {
@@ -107,12 +113,12 @@ export class AuthController {
 
   meAction = async (c: Context, userId: string) => {
     const { user } = await this.getUser.execute({ id: userId });
-    return c.json(toAuthUserDto(user), 200);
+    return c.json(await toAuthUserDto(this.fileStorage, user), 200);
   };
 
   verifyEmailAction = async (c: Context, userId: string, body: VerifyEmailBody) => {
     const result = await this.verifyEmail.execute({ userId, code: body.code });
-    return c.json(toAuthUserDto(result.user), 200);
+    return c.json(await toAuthUserDto(this.fileStorage, result.user), 200);
   };
 
   resendVerificationAction = async (c: Context, userId: string) => {
@@ -153,6 +159,6 @@ export class AuthController {
       rawPhone: body.phone,
       code: body.code,
     });
-    return c.json(toAuthUserDto(user), 200);
+    return c.json(await toAuthUserDto(this.fileStorage, user), 200);
   };
 }

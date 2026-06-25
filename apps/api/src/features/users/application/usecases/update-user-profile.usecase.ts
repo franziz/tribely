@@ -8,7 +8,10 @@ export interface UpdateUserProfileInput {
   userId: string;
   /** All fields are optional patch semantics: absent → unchanged; null → clear. */
   bio?: string | null;
-  avatarUrl?: string | null;
+  // avatarUrl is intentionally absent: avatar updates go through the dedicated
+  // presign + confirm pipeline (TRI-24). The aggregate's updateProfile method
+  // still handles avatarUrl internally — it is only excluded from this use case's
+  // input, not from the domain.
   languages?: string[];
   interests?: string[];
   currentCity?: string | null;

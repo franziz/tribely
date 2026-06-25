@@ -24,10 +24,14 @@ import '../../features/account/presentation/pages/delete_account_page.dart';
 import '../../features/user_blocks/presentation/pages/blocked_users_page.dart';
 import '../../features/users/presentation/pages/edit_profile_page.dart';
 import '../../features/users/presentation/pages/own_profile_page.dart';
+import '../../features/users/presentation/pages/selfie_capture_page.dart';
+import '../../features/users/presentation/pages/selfie_consent_page.dart';
 import '../../features/users/presentation/pages/settings_page.dart';
 import '../../features/users/presentation/pages/user_profile_page.dart';
 import '../../features/users/presentation/pages/verification_failure_page.dart';
 import '../../features/users/presentation/pages/verification_settings_page.dart';
+import '../../features/users/presentation/providers/capability_providers.dart';
+import '../../features/users/presentation/state/selfie_gating_state.dart';
 import '../../features/check_ins/presentation/pages/safety_report_page.dart';
 import '../../features/check_ins/presentation/pages/safety_report_submitted_page.dart';
 import '../../features/check_ins/presentation/providers/check_ins_providers.dart';
@@ -95,6 +99,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthFlow = authFlowRoutes.contains(loc);
       final isVerify = loc == '/verify-email';
 
+      // TRI-290: Public event read-routes — /events and /events/:id are
+      // readable without authentication. The predicate matches:
+      //   /events          — Discover feed
+      //   /events/<id>     — event detail (exactly one path segment after /)
+      // And explicitly excludes:
+      //   /events/new      — requires auth (the auth wall stays intact)
+      //   /events/new/...  — any sub-path under new (phone-gate, etc.)
+      // Logic: path is /events OR (/events/<segment> AND segment != 'new').
+      // The single-segment constraint keeps /events/new/phone-gate out by
+      // construction; the != 'new' check keeps /events/new itself out.
+      final isPublicEventRead = () {
+        if (loc == '/events') return true;
+        if (!loc.startsWith('/events/')) return false;
+        final remainder = loc.substring('/events/'.length);
+        // Reject multi-segment paths (/events/new/phone-gate, etc.).
+        if (remainder.contains('/')) return false;
+        // Reject the create-event entry point.
+        if (remainder == 'new') return false;
+        // Remaining single-segment paths are event detail ids.
+        return remainder.isNotEmpty;
+      }();
+
+      // TRI-71: Auth-gated tab roots — /my-events and /profile are reachable
+      // while signed out so they can render an in-tab signed-out empty state.
+      // These are deliberately NOT in `authFlowRoutes` so that a post-sign-in
+      // session flip (SessionUnauthenticated → SessionAuthenticated) leaves the
+      // user on the same tab rather than bouncing them to /events.
+      final isAuthGatedTab = loc == '/my-events' || loc == '/profile';
+
       switch (session) {
         case SessionRestoring():
           // Stay on splash until restore completes.
@@ -102,10 +135,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         case SessionUnauthenticated():
           // Splash and verify-email both redirect to welcome (the former
           // because restore is done, the latter because the user is no longer
-          // authenticated). Public routes are allowed through. Everything else
-          // (e.g. /events, /my-events, /profile, /users/:id) is auth-required
-          // and bounced back to /welcome.
-          if (isSplash || isVerify || !isPublic) return '/welcome';
+          // authenticated). Public routes, public event read-routes, and the
+          // auth-gated tab roots (/my-events, /profile) are allowed through.
+          // Auth-gated tab roots render a signed-out empty state rather than
+          // the authenticated content; they are passed through here so the user
+          // stays on the tab. Everything else (e.g. /users/:id, /events/new)
+          // is auth-required and bounced to /welcome.
+          if (isSplash ||
+              isVerify ||
+              (!isPublic && !isPublicEventRead && !isAuthGatedTab)) {
+            return '/welcome';
+          }
           return null;
         case SessionAuthenticated(:final session):
           // Authenticated but unverified: route everything except /verify-email
@@ -369,6 +409,56 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const SupportContactSuccessPage(),
       ),
+      // Selfie consent screen — entry point for the selfie verification flow.
+      // The router guard reads SelfieGatingState from the Riverpod graph:
+      //   NotStarted / Failed / Locked → allow entry
+      //   Approved → redirect to /settings/verification (already done)
+      //   Pending  → redirect to /settings/verification (already under review)
+      // The intake-disabled variant is driven by the `intakeDisabled` query param
+      // set by the calling entry point (Verify now CTA or gated-action banner).
+      GoRoute(
+        path: '/selfie/consent',
+        name: 'selfieConsent',
+        parentNavigatorKey: _rootNavigatorKey,
+        redirect: (context, routeState) {
+          final selfieState = ref.read(selfieGatingStateProvider);
+          return switch (selfieState) {
+            // Already done — no need to re-enter the flow.
+            SelfieGatingApproved() => '/settings/verification',
+            // Already under review — send to settings where pending state renders.
+            SelfieGatingPending() => '/settings/verification',
+            // Entry allowed for all other states.
+            _ => null,
+          };
+        },
+        builder: (context, routeState) {
+          final intakeDisabled =
+              routeState.uri.queryParameters['intakeDisabled'] == 'true';
+          return SelfieConsentPage(intakeDisabled: intakeDisabled);
+        },
+      ),
+      // Selfie capture screen — step 2 of the intake flow.
+      // Only reachable from /selfie/consent after camera permission is granted.
+      // The same Approved/Pending guard as /selfie/consent applies here: a user
+      // who already submitted (Pending) or was approved (Approved) must not
+      // land on the live-camera route.
+      GoRoute(
+        path: '/selfie/capture',
+        name: 'selfieCapture',
+        parentNavigatorKey: _rootNavigatorKey,
+        redirect: (context, routeState) {
+          final selfieState = ref.read(selfieGatingStateProvider);
+          return switch (selfieState) {
+            // Already done — redirect to verification settings.
+            SelfieGatingApproved() => '/settings/verification',
+            // Already under review — redirect to verification settings.
+            SelfieGatingPending() => '/settings/verification',
+            // Entry allowed for all other states.
+            _ => null,
+          };
+        },
+        builder: (context, routeState) => const SelfieCapturePageStub(),
+      ),
       // Shell with three branches sharing the persistent bottom NavigationBar.
       // OnResumedListener is mounted HERE — above the indexedStack — so a
       // single observer covers all three branches.  Mounting inside a branch
@@ -379,6 +469,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, ref, _) => CheckInsOverlay(
             child: OnResumedListener(
               onResumed: () {
+                // TRI-290: only surface check-ins when signed in — avoids a
+                // doomed GET /me/post-event-check-ins 401 on foreground resume
+                // during anonymous browse. Authed behavior is unchanged.
+                final session = ref.read(sessionControllerProvider);
+                if (session is! SessionAuthenticated) return;
                 // Trigger a check-in surface on every foreground resume so the
                 // controller can transition to CheckInsShowing when pending
                 // check-ins exist. CheckInsOverlay reacts to Showing with

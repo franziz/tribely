@@ -64,6 +64,10 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
     final draft = state.formData;
     final errors = state.fieldErrors;
 
+    // Drives both Cost notes row visibility and the Logistics row divider.
+    final hasCostNotes =
+        draft.costNotes != null && draft.costNotes!.trim().isNotEmpty;
+
     final dark = Theme.of(context).brightness == Brightness.dark;
     final ink = dark
         ? TribelyColors.nightInkPrimary
@@ -157,14 +161,24 @@ class CreateEventStep5DescribePage extends ConsumerWidget {
                   showDivider: true,
                 ),
 
-                // Step 4 — Logistics
+                // Step 4 — Logistics. Divider depends on whether Cost notes follows.
                 _ReviewRow(
                   icon: Icons.people_outline,
                   label: 'Logistics',
                   value: _logisticsReview(draft.capacity, draft.approvalMode),
                   onEdit: () => controller.goToStep(3),
-                  showDivider: false,
+                  showDivider: hasCostNotes,
                 ),
+
+                // Cost notes — only rendered when the host entered a value.
+                if (hasCostNotes)
+                  _ReviewRow(
+                    icon: Icons.payments_outlined,
+                    label: 'Cost notes',
+                    value: draft.costNotes!,
+                    onEdit: () => controller.goToStep(3),
+                    showDivider: false,
+                  ),
               ],
             ),
           ),

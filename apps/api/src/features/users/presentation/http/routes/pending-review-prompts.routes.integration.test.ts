@@ -78,7 +78,9 @@ describe.skipIf(!dbUrl)('GET /me/pending-review-prompts (integration)', () => {
           id: hostId,
           email: `prp-host-${hostId}@test.local`,
           displayName: 'TheHost',
-          avatarUrl: 'https://example.com/host.jpg',
+          // Storage key format (TRI-24): resolved to a signed URL via LoggingFileStorage
+          // in tests → `https://storage.local/avatars/<hostId>/<imageId>.jpg?expires=3600`.
+          avatarUrl: `avatars/${hostId}/testavatarimage123.jpg`,
         },
         {
           id: guestAId,
@@ -597,8 +599,11 @@ describe.skipIf(!dbUrl)('GET /me/pending-review-prompts (integration)', () => {
     expect(typeof p.eventEndedAt).toBe('string');
     expect(typeof p.ratedUserId).toBe('string');
     expect(typeof p.ratedUserDisplayName).toBe('string');
-    // avatarUrl is nullable — hostId has one set in seed
+    // avatarUrl is nullable — hostId has one set in seed as a storage key.
+    // LoggingFileStorage (used in dev/test) resolves it to a fake signed URL.
     expect(p.ratedUserId).toBe(hostId);
-    expect(p.ratedUserAvatarUrl).toBe('https://example.com/host.jpg');
+    expect(p.ratedUserAvatarUrl).toBe(
+      `https://storage.local/avatars/${hostId}/testavatarimage123.jpg?expires=3600`,
+    );
   });
 });

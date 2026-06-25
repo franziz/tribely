@@ -3,6 +3,7 @@ import { AppError } from '@/core/errors/app-error.js';
 import { AggregateRoot } from '@/core/domain/aggregate-root.js';
 import { PhoneNumber } from '@/core/sms/phone-number.js';
 import { selfieAppealApproved } from '../events/selfie-appeal-approved.event.js';
+import { selfieApproved } from '../events/selfie-approved.event.js';
 import { selfieRejected } from '../events/selfie-rejected.event.js';
 import { userAccountDeleted } from '../events/user-account-deleted.event.js';
 import { userPhoneVerificationRevoked } from '../events/user-phone-verification-revoked.event.js';
@@ -11,6 +12,7 @@ import { userEmailVerified } from '../events/user-email-verified.event.js';
 import { userUpdated } from '../events/user-updated.event.js';
 import { userRegistered } from '../events/user-registered.event.js';
 import { safetyReminderShown } from '../events/safety-reminder-shown.event.js';
+import { safetyReminderReset } from '../events/safety-reminder-reset.event.js';
 import { AvatarUrl } from '../value-objects/avatar-url.js';
 import { Bio } from '../value-objects/bio.js';
 import { CurrentCity } from '../value-objects/current-city.js';
@@ -382,6 +384,31 @@ export class User extends AggregateRoot {
   }
 
   /**
+   * Clears the safety-reminder seen flag so the pre-event safety sheet
+   * re-shows on the user's next request-to-join (TRI-270).
+   *
+   * Idempotent — if the flag is already null (not seen), this is a no-op:
+   * no state change and no event recorded (AC-6, AC-4).
+   *
+   * @param reason  The trigger reason for the reset (e.g. `'checkInFlagged'`).
+   *                A plain string, not an enum, to allow future triggers
+   *                (e.g. `'negativeReview'`) additively without a schema change.
+   * @param now     Wall-clock time of the reset.
+   */
+  clearSafetyReminderSeen(reason: string, now: Date): void {
+    if (this._safetyReminderSeenAt === null) return; // idempotent no-op (AC-6, AC-4)
+    this._safetyReminderSeenAt = null;
+    this._updatedAt = now;
+    this.record(
+      safetyReminderReset({
+        userId: this.id,
+        resetReason: reason,
+        resetAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
    * Marks the user's phone number as verified. Idempotent — if the same phone
    * is already verified, this is a no-op (no events emitted). On a real change
    * (first verification or re-verification with a different number), mutates
@@ -501,11 +528,15 @@ export class User extends AggregateRoot {
    *   - `selfieAttemptCount` is NOT reset (historical record of prior failures).
    *   - `selfieLastFailureCategory` is NOT cleared (preserved for audit).
    *
+   * Idempotent — if the appeal is already approved (status `pending` with lock
+   * cleared), this is a no-op (no event emitted), mirroring `approveSelfie`.
+   *
    * Emits `users.selfieAppealApproved`.
    *
    * @param now  Wall-clock time of approval.
    */
   recordSelfieAppealApproved(input: { now: Date }): void {
+    if (this._selfieStatus === 'pending' && this._selfieAppealLockedAt === null) return;
     this._selfieAppealLockedAt = null;
     this._selfieStatus = 'pending';
     this._updatedAt = input.now;
@@ -514,6 +545,34 @@ export class User extends AggregateRoot {
       selfieAppealApproved({
         userId: this.id,
         clearedAt: input.now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Records a selfie approval. Sets `selfieStatus` to `approved` and emits
+   * `users.selfieApproved` with the approval timestamp.
+   *
+   * Attempt count is preserved (historical record of any prior failures).
+   * `selfieAppealLockedAt` is NOT touched here — the selfie-approval path is
+   * for the normal first-submission flow. Appeal approval goes through
+   * `recordSelfieAppealApproved` (which sets status to `pending` for a fresh
+   * re-submission) then `approveSelfie` on the new submission.
+   *
+   * Idempotent: a no-op if already approved (no event emitted), mirroring
+   * `verifyEmail`.
+   *
+   * @param now  Wall-clock time of approval (injected for testability).
+   */
+  approveSelfie({ now }: { now: Date }): void {
+    if (this._selfieStatus === 'approved') return;
+    this._selfieStatus = 'approved';
+    this._updatedAt = now;
+
+    this.record(
+      selfieApproved({
+        userId: this.id,
+        approvedAt: now.toISOString(),
       }),
     );
   }

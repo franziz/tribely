@@ -7,6 +7,7 @@
 //   4. Selfie failed → "Retry" CTA; tap → navigates to /verification/failure.
 //   5. Phone not verified → tap "Verify now" on phone row → navigates to /auth/phone/entry.
 //   6. Email not verified → tap "Verify now" on email row → navigates to /verify-email.
+//   7. Selfie not started → tap "Verify now" on selfie row → navigates to /selfie/consent.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,6 +100,11 @@ Future<void> _pumpPage(
         builder: (context, state) =>
             const Scaffold(body: Text('verification failure page')),
       ),
+      GoRoute(
+        path: '/selfie/consent',
+        builder: (context, state) =>
+            const Scaffold(body: Text('selfie consent page')),
+      ),
     ],
   );
 
@@ -166,9 +172,10 @@ void main() {
         // Banner shows the locked / partial copy.
         expect(find.text(kVerificationBannerPartial), findsOneWidget);
 
-        // Only one "Verify now" CTA — phone row.
-        // Selfie row hides the chip on NotStarted (route not yet registered; Brief C wires it).
-        expect(find.text(kVerificationCtaVerifyNow), findsOneWidget);
+        // Two "Verify now" CTAs — phone row + selfie row. The selfie row now
+        // renders its entry CTA on NotStarted (/selfie/consent registered in TRI-23);
+        // the prior suppression (route-not-yet-registered) no longer applies.
+        expect(find.text(kVerificationCtaVerifyNow), findsNWidgets(2));
 
         // Email row shows "Verified" (no CTA for email).
         expect(find.text(kVerificationStateVerified), findsOneWidget);
@@ -312,6 +319,31 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('verify-email page'), findsOneWidget);
+      },
+    );
+  });
+
+  group('VerificationSettingsPage — selfie navigation', () {
+    testWidgets(
+      '7. Selfie not started → tap "Verify now" on selfie row → navigates to /selfie/consent',
+      (tester) async {
+        // Email + phone verified so only ONE "Verify now" CTA is visible
+        // (selfie row), making the tap target unambiguous.
+        final user = _user(emailVerified: true, phoneVerified: true);
+
+        await _pumpPage(
+          tester,
+          sessionState: SessionAuthenticated(_session(user)),
+          selfieState: const SelfieGatingNotStarted(),
+        );
+
+        // Only the selfie row has "Verify now".
+        expect(find.text(kVerificationCtaVerifyNow), findsOneWidget);
+
+        await tester.tap(find.text(kVerificationCtaVerifyNow));
+        await tester.pumpAndSettle();
+
+        expect(find.text('selfie consent page'), findsOneWidget);
       },
     );
   });

@@ -62,11 +62,15 @@ import { DeleteAccountUseCase } from '@/features/users/application/usecases/dele
 import { GetUserUseCase } from '@/features/users/application/usecases/get-user.usecase.js';
 import { GetUserCapabilitiesUseCase } from '@/features/users/application/usecases/get-user-capabilities.usecase.js';
 import { MarkSafetyReminderSeenUseCase } from '@/features/users/application/usecases/mark-safety-reminder-seen.usecase.js';
+import { ResetSafetyReminderSeenUseCase } from '@/features/users/application/usecases/reset-safety-reminder-seen.usecase.js';
 import { UpdateUserProfileUseCase } from '@/features/users/application/usecases/update-user-profile.usecase.js';
 import { RejectSelfieUseCase } from '@/features/users/application/usecases/reject-selfie.usecase.js';
+import { ApproveSelfieUseCase } from '@/features/users/application/usecases/approve-selfie.usecase.js';
 import { ApproveSelfieAppealUseCase } from '@/features/users/application/usecases/approve-selfie-appeal.usecase.js';
 import { ListPendingReviewPromptsUseCase } from '@/features/users/application/usecases/list-pending-review-prompts.usecase.js';
 import { PromoteAdminOnBootUseCase } from '@/features/users/application/usecases/promote-admin-on-boot.usecase.js';
+import { RequestAvatarUploadUseCase } from '@/features/users/application/usecases/request-avatar-upload.usecase.js';
+import { ConfirmAvatarUploadUseCase } from '@/features/users/application/usecases/confirm-avatar-upload.usecase.js';
 import { UserPrismaRepository } from '@/features/users/infrastructure/persistence/user.prisma-repository.js';
 import { StubHostRatingsReadModel } from '@/features/users/infrastructure/adapters/stub-host-ratings-read-model.js';
 import { registerUsersConsumers } from '@/features/users/presentation/events/index.js';
@@ -100,6 +104,8 @@ import { registerEventsConsumers } from '@/features/events/presentation/events/i
 import type { EventRepository } from '@/features/events/domain/repositories/event.repository.js';
 
 import { DeleteSelfieForUserUseCase } from '@/features/selfies/application/usecases/delete-selfie-for-user.usecase.js';
+import { RequestSelfieUploadUseCase } from '@/features/selfies/application/usecases/request-selfie-upload.usecase.js';
+import { SubmitSelfieUseCase } from '@/features/selfies/application/usecases/submit-selfie.usecase.js';
 import { SweepRetainedSelfiesUseCase } from '@/features/selfies/application/usecases/sweep-retained-selfies.usecase.js';
 import { PendingStorageDeletePrismaRepository } from '@/features/selfies/infrastructure/persistence/pending-storage-delete.prisma-repository.js';
 import { SelfiePrismaRepository } from '@/features/selfies/infrastructure/persistence/selfie.prisma-repository.js';
@@ -127,6 +133,7 @@ import { registerCheckInsConsumers } from '@/features/check-ins/presentation/eve
 import type { PostEventCheckInRepository } from '@/features/check-ins/domain/repositories/post-event-check-in.repository.js';
 
 import { ReviewPrismaRepository } from '@/features/reviews/infrastructure/persistence/review.prisma-repository.js';
+import { GetReviewEligibilityUseCase } from '@/features/reviews/application/usecases/get-review-eligibility.usecase.js';
 import { SubmitReviewUseCase } from '@/features/reviews/application/usecases/submit-review.usecase.js';
 import { EditReviewUseCase } from '@/features/reviews/application/usecases/edit-review.usecase.js';
 import { HideReviewUseCase } from '@/features/reviews/application/usecases/hide-review.usecase.js';
@@ -290,11 +297,15 @@ export interface Container {
   updateUserProfileUseCase: UpdateUserProfileUseCase;
   getUserCapabilitiesUseCase: GetUserCapabilitiesUseCase;
   markSafetyReminderSeenUseCase: MarkSafetyReminderSeenUseCase;
+  resetSafetyReminderSeenUseCase: ResetSafetyReminderSeenUseCase;
   rejectSelfieUseCase: RejectSelfieUseCase;
+  approveSelfieUseCase: ApproveSelfieUseCase;
   approveSelfieAppealUseCase: ApproveSelfieAppealUseCase;
   deleteAccountUseCase: DeleteAccountUseCase;
   listPendingReviewPromptsUseCase: ListPendingReviewPromptsUseCase;
   promoteAdminOnBoot: PromoteAdminOnBootUseCase;
+  requestAvatarUploadUseCase: RequestAvatarUploadUseCase;
+  confirmAvatarUploadUseCase: ConfirmAvatarUploadUseCase;
 
   // Auth
   credentialRepository: CredentialRepository;
@@ -353,6 +364,8 @@ export interface Container {
   sweepRetainedSelfiesUseCase: SweepRetainedSelfiesUseCase;
   sweepRetainedSelfiesJob: SweepRetainedSelfiesJob;
   deleteSelfieForUserUseCase: DeleteSelfieForUserUseCase;
+  requestSelfieUploadUseCase: RequestSelfieUploadUseCase;
+  submitSelfieUseCase: SubmitSelfieUseCase;
 
   // Events
   eventRepository: EventRepository;
@@ -388,6 +401,7 @@ export interface Container {
 
   // Reviews
   reviewRepository: ReviewRepository;
+  getReviewEligibilityUseCase: GetReviewEligibilityUseCase;
   submitReviewUseCase: SubmitReviewUseCase;
   editReviewUseCase: EditReviewUseCase;
   hideReviewUseCase: HideReviewUseCase;
@@ -590,6 +604,12 @@ export const buildContainer = (): Container => {
     publisher,
     clock,
   );
+  const resetSafetyReminderSeenUseCase = new ResetSafetyReminderSeenUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+    clock,
+  );
 
   // --- Audit ---
   const httpAuditLogRepository = new HttpAuditLogPrismaRepository(db);
@@ -658,6 +678,36 @@ export const buildContainer = (): Container => {
     selfieRepository,
     pendingStorageDeleteRepository,
     recordSelfieDeletionUseCase,
+    publisher,
+    clock,
+  );
+
+  // TRI-24 Brief A — avatar upload use cases (presign + confirm).
+  const requestAvatarUploadUseCase = new RequestAvatarUploadUseCase(fileStorage);
+  const confirmAvatarUploadUseCase = new ConfirmAvatarUploadUseCase(
+    unitOfWork,
+    userRepository,
+    publisher,
+    fileStorage,
+    logger,
+  );
+
+  // TRI-23 Brief A — selfie intake use cases (presign + submit).
+  const requestSelfieUploadUseCase = new RequestSelfieUploadUseCase(fileStorage);
+  const submitSelfieUseCase = new SubmitSelfieUseCase(
+    unitOfWork,
+    userRepository,
+    selfieRepository,
+    publisher,
+    clock,
+  );
+
+  // TRI-23 Brief B — approve pending selfie (transitions User + Selfie atomically).
+  // Placed after selfieRepository so both repositories are in scope.
+  const approveSelfieUseCase = new ApproveSelfieUseCase(
+    unitOfWork,
+    userRepository,
+    selfieRepository,
     publisher,
     clock,
   );
@@ -841,6 +891,13 @@ export const buildContainer = (): Container => {
 
   // --- Reviews ---
   // reviewRepository is already instantiated above (early init for GetUserUseCase dep).
+  const getReviewEligibilityUseCase = new GetReviewEligibilityUseCase(
+    eventRepository,
+    joinRequestRepository,
+    reviewRepository,
+    userRepository,
+    clock,
+  );
   const submitReviewUseCase = new SubmitReviewUseCase(
     unitOfWork,
     reviewRepository,
@@ -862,6 +919,7 @@ export const buildContainer = (): Container => {
     editReviewUseCase,
     listReviewsForUserUseCase,
     listReviewsWrittenByMeUseCase,
+    getReviewEligibilityUseCase,
   );
 
   // --- Pending Review Prompts (depends on eventRepo, joinRequestRepo, reviewRepo,
@@ -873,6 +931,7 @@ export const buildContainer = (): Container => {
     checkBlockedPort,
     userRepository,
     clock,
+    fileStorage,
   );
 
   // --- Moderation action audit repository ---
@@ -1019,7 +1078,9 @@ export const buildContainer = (): Container => {
   );
 
   // --- Consumers (per-consumer offsets registry) ---
-  registerUsersConsumers(consumerRegistry);
+  registerUsersConsumers(consumerRegistry, {
+    resetSafetyReminderSeen: resetSafetyReminderSeenUseCase,
+  });
   registerUserBlocksConsumers(consumerRegistry);
   registerReviewsConsumers(consumerRegistry);
   registerReportsConsumers(consumerRegistry);
@@ -1058,11 +1119,15 @@ export const buildContainer = (): Container => {
     updateUserProfileUseCase,
     getUserCapabilitiesUseCase,
     markSafetyReminderSeenUseCase,
+    resetSafetyReminderSeenUseCase,
     rejectSelfieUseCase,
+    approveSelfieUseCase,
     approveSelfieAppealUseCase,
     deleteAccountUseCase,
     listPendingReviewPromptsUseCase,
     promoteAdminOnBoot,
+    requestAvatarUploadUseCase,
+    confirmAvatarUploadUseCase,
     credentialRepository,
     refreshTokenRepository,
     emailVerificationTokenRepository,
@@ -1105,6 +1170,8 @@ export const buildContainer = (): Container => {
     sweepRetainedSelfiesUseCase,
     sweepRetainedSelfiesJob,
     deleteSelfieForUserUseCase,
+    requestSelfieUploadUseCase,
+    submitSelfieUseCase,
     eventRepository,
     createEventUseCase,
     listEventsUseCase,
@@ -1138,6 +1205,7 @@ export const buildContainer = (): Container => {
     listMyBlocksUseCase,
     userBlockController,
     reviewRepository,
+    getReviewEligibilityUseCase,
     submitReviewUseCase,
     editReviewUseCase,
     hideReviewUseCase,

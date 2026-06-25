@@ -5,7 +5,7 @@ import '../../../../core/design/typography.dart';
 
 /// Footer navigation bar for the multi-step create-event flow.
 ///
-/// - Back button is disabled when [current] is 0 (first step).
+/// - Back button is hidden (not rendered) on the first step ([current] == 0).
 /// - Next/Publish button label is "Next" for steps 0–3, "Publish" for step 4.
 /// - Next/Publish button is disabled when [canAdvance] is false.
 ///
@@ -58,29 +58,24 @@ class StepNavigationBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Back button
-              OutlinedButton.icon(
-                onPressed: isFirstStep ? null : onBack,
-                icon: const Icon(Icons.arrow_back, size: 18),
-                label: Text(
-                  'Back',
-                  style: TribelyType.button(
-                    isFirstStep ? inkSecondary : primary,
+              // Back button — hidden on the first step so Next stays
+              // right-anchored at the same position as Steps 2-5.
+              if (!isFirstStep)
+                OutlinedButton.icon(
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: Text('Back', style: TribelyType.button(primary)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primary,
+                    side: BorderSide(color: primary, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(100, 48),
                   ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: primary,
-                  disabledForegroundColor: inkSecondary,
-                  side: BorderSide(
-                    color: isFirstStep ? border : primary,
-                    width: 1.5,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  minimumSize: const Size(100, 48),
-                ),
-              ),
+                )
+              else
+                const Spacer(),
               // Next / Publish button
               FilledButton(
                 onPressed: canAdvance ? onNextOrPublish : null,

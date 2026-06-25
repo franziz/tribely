@@ -5,6 +5,7 @@ import { rateLimit } from '@/core/middleware/rate-limit.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
 import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
+import { requireVerifiedSelfie } from '@/core/middleware/require-verified-selfie.js';
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
@@ -53,6 +54,7 @@ export const buildEventScopedJoinRequestRoutes = (
   const auth = requireAuth(deps.accessTokens);
   const verifiedEmail = requireVerifiedEmail(deps.userRepository);
   const verifiedPhone = requireVerifiedPhone(deps.userRepository);
+  const verifiedSelfie = requireVerifiedSelfie(deps.userRepository);
 
   // `keyFor` runs after `requireAuth` populates `userId`. Casting the Context
   // lets us read the typed variable without a `string` assertion.
@@ -71,6 +73,7 @@ export const buildEventScopedJoinRequestRoutes = (
       auth,
       verifiedEmail,
       verifiedPhone,
+      verifiedSelfie,
       limitCreate,
       optionalJsonValidator(requestToJoinEventBodySchema),
       (c) =>
@@ -99,6 +102,7 @@ export const buildEventScopedJoinRequestRoutes = (
       auth,
       verifiedEmail,
       verifiedPhone,
+      verifiedSelfie,
       zValidator('json', removeAttendeeBodySchema),
       (c) =>
         deps.controller.removeAttendeeAction(

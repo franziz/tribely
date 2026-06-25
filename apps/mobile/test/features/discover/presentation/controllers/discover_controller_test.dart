@@ -69,7 +69,7 @@ Event _makeEvent(String id) => Event(
   endsAt: DateTime(2026, 6, 1, 21),
   capacity: 10,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'auto',
   status: 'published',
   createdAt: DateTime(2026, 5, 1),

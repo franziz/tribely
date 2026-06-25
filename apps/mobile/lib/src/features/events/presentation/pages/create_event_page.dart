@@ -11,6 +11,7 @@ import '../../../users/presentation/string_assets/verification_failure_copy.dart
 import '../controllers/create_event_controller.dart';
 import '../providers/events_providers.dart';
 import '../state/create_event_state.dart';
+import '../widgets/keyboard_dismiss_bar.dart';
 import '../widgets/resume_draft_dialog.dart';
 import '../widgets/step_navigation_bar.dart';
 import '../widgets/step_progress_indicator.dart';
@@ -54,6 +55,11 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
 
   static const int _totalSteps = 5;
   static const int _lastStepIndex = _totalSteps - 1;
+
+  /// Steps where the keyboard-dismiss accessory bar is shown.
+  /// Index 3 = Logistics (Capacity — numeric pad, no native dismiss key).
+  /// Index 4 = Describe (Description — multiline, Return inserts newline).
+  static const Set<int> _stepsWithKeyboardAccessory = {3, 4};
 
   @override
   void initState() {
@@ -184,6 +190,12 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
       _ => const <int, List<(String, String)>>{},
     };
 
+    // Keyboard-dismiss accessory bar — shown on steps with numeric or multiline
+    // fields where the IME action key does not offer a native dismiss path.
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final showAccessory =
+        keyboardVisible && _stepsWithKeyboardAccessory.contains(currentStep);
+
     final dark = Theme.of(context).brightness == Brightness.dark;
     final surface = dark
         ? TribelyColors.nightSurface
@@ -253,6 +265,14 @@ class _CreateEventPageState extends ConsumerState<CreateEventPage> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Keyboard-dismiss accessory bar — floats above all other bottom-bar
+          // widgets so it sits closest to the keyboard. Only rendered on steps
+          // with numeric or multiline fields when the keyboard is open.
+          if (showAccessory)
+            KeyboardDismissBar(
+              onDismiss: () => FocusManager.instance.primaryFocus?.unfocus(),
+            ),
+
           // Selfie-gating hint — shown above the nav bar on the Publish step
           // when the user's selfie is not approved. Takes precedence over the
           // form-validity _BlockingHint per TRI-57 (selfie-gating's hint copy

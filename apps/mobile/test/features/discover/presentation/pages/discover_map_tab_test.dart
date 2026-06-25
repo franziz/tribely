@@ -126,7 +126,7 @@ Event _makeEvent(String id, {double lat = 1.2789, double lng = 103.8536}) =>
       endsAt: DateTime.utc(2026, 6, 1, 21, 0),
       capacity: 10,
       category: EventCategory.drinks,
-      costSplit: 'own',
+      costNotes: null,
       approvalMode: 'manual',
       status: 'published',
       createdAt: DateTime.utc(2026, 5, 1),

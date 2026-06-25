@@ -4,12 +4,7 @@ import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.
 import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
 import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
-import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
-import type { GetUserUseCase } from '../../../application/usecases/get-user.usecase.js';
-import type { GetUserCapabilitiesUseCase } from '../../../application/usecases/get-user-capabilities.usecase.js';
-import type { UpdateUserProfileUseCase } from '../../../application/usecases/update-user-profile.usecase.js';
-import type { DeleteAccountUseCase } from '../../../application/usecases/delete-account.usecase.js';
 import { UserController } from '../controllers/user.controller.js';
 import { updateUserProfileSchema } from '../schemas/user.schemas.js';
 
@@ -33,23 +28,13 @@ const tryExtractViewerId = async (
 };
 
 export interface UserRouteDeps {
-  getUser: GetUserUseCase;
-  updateUserProfile: UpdateUserProfileUseCase;
-  getUserCapabilities: GetUserCapabilitiesUseCase;
-  deleteAccount: DeleteAccountUseCase;
+  controller: UserController;
   accessTokens: AccessTokenIssuer;
-  clock: Clock;
   userRepository: UserRepository;
 }
 
 export const buildUserRoutes = (deps: UserRouteDeps): Hono<{ Variables: AuthVariables }> => {
-  const controller = new UserController(
-    deps.getUser,
-    deps.updateUserProfile,
-    deps.clock,
-    deps.getUserCapabilities,
-    deps.deleteAccount,
-  );
+  const { controller } = deps;
   const auth = requireAuth(deps.accessTokens);
   const verifiedEmail = requireVerifiedEmail(deps.userRepository);
   const verifiedPhone = requireVerifiedPhone(deps.userRepository);

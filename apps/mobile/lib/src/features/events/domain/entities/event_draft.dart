@@ -51,9 +51,9 @@ class EventDraft extends Equatable {
   final DateTime? endsAt;
   final int? capacity;
 
-  /// Forward-compat: stored in draft but NOT submitted in v1 create flow.
-  /// The data layer hardcodes costSplit='own'; this field is reserved for the
-  /// future cost-split UI (see Brief 6 TODO).
+  /// Optional host-authored free-text cost note. Submitted via the POST body
+  /// when non-null/non-empty; omitted otherwise (server schema is `.optional()`).
+  /// CEO guardrail: plain String only — never a structured/numeric cost primitive.
   final String? costNotes;
 
   /// 'auto' | 'manual'

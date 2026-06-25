@@ -96,7 +96,7 @@ final _testEvent = Event(
   endsAt: DateTime.now().toUtc().add(const Duration(days: 365, hours: 3)),
   capacity: 12,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
@@ -497,6 +497,9 @@ void main() {
         tester,
         eventId: _testEventId,
         initialState: EventDetailLoaded(_testEvent),
+        // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+        // unauthenticated tap opens the sign-in gate sheet.
+        sessionState: _authenticatedState,
       );
 
       await tester.tap(find.byType(PrimaryButton));

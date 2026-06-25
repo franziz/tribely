@@ -1,6 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
+// Sanctioned cross-feature import (exception-1): session identity is app-global
+// state. Required here to short-circuit the GET /me/join-requests call when
+// the viewer is unauthenticated (TRI-290).
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
 import '../../../users/presentation/providers/capability_providers.dart';
 import '../../domain/entities/join_request.dart';
 import '../../domain/usecases/list_my_join_requests_usecase.dart';
@@ -38,8 +43,21 @@ class RequestToJoinController extends Notifier<RequestToJoinState> {
   ///
   /// Called automatically on [build]. Page code can call this again after a
   /// state transition to re-sync with the server.
+  ///
+  /// Short-circuits to [RequestToJoinIdle] (no existing request) when the
+  /// viewer is unauthenticated — avoids a doomed GET /me/join-requests 401
+  /// on the TRI-290 anonymous event-detail view. The terminal state is
+  /// identical to what [_classifyLoadFailure] already produces for
+  /// [AuthFailure], so the UI sees no difference.
   Future<void> loadExisting() async {
     if (!ref.mounted) return;
+
+    // TRI-290: skip the network call entirely when signed out.
+    final session = ref.read(sessionControllerProvider);
+    if (session is SessionUnauthenticated) {
+      state = const RequestToJoinIdle(existingRequest: null);
+      return;
+    }
 
     final useCase = ref.read(listMyJoinRequestsUseCaseProvider);
     final params = ListMyJoinRequestsParams(eventId: eventId);

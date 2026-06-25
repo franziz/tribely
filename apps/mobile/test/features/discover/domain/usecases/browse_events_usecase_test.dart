@@ -37,7 +37,7 @@ Event _makeEvent(String id) => Event(
   endsAt: DateTime(2030, 6, 15, 21),
   capacity: 8,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'auto',
   status: 'published',
   createdAt: DateTime(2030, 6, 1),

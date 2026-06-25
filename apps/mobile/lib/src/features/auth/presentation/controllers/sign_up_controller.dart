@@ -69,6 +69,8 @@ String _bannerFor(Failure failure) {
     TargetTypeNotImplementedFailure() => failure.message,
     SelfBlockFailure() => failure.message,
     RateLimitedFailure() => 'Too many attempts. Please try again later.',
+    SelfieIntakeDisabledFailure() => failure.message,
+    SelfieNotVerifiedFailure() => failure.message,
     QuotaExhaustedFailure() => failure.message,
     ProviderFailure() => failure.message,
     UnknownFailure() => failure.message,

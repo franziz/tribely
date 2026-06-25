@@ -49,7 +49,7 @@ Event _makeEvent({
   endsAt: DateTime.utc(2026, 6, 14, 22, 0),
   capacity: capacity,
   category: category,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),

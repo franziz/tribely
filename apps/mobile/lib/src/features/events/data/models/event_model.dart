@@ -36,11 +36,11 @@ class EventModel extends Equatable {
     required this.endsAt,
     required this.capacity,
     required this.category,
-    required this.costSplit,
     required this.approvalMode,
     required this.status,
     required this.createdAt,
     required this.hostIsVerified,
+    this.costNotes,
     this.hostDisplayName,
   });
 
@@ -60,7 +60,9 @@ class EventModel extends Equatable {
       endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
       capacity: (json['capacity'] as num).toInt(),
       category: EventCategory.fromWire(json['category'] as String),
-      costSplit: json['costSplit'] as String,
+      // costNotes is nullable on the wire (z.string().nullable()). Crash-safe
+      // nullable cast — absent or null both map to null on the entity.
+      costNotes: json['costNotes'] as String?,
       approvalMode: json['approvalMode'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
@@ -82,7 +84,9 @@ class EventModel extends Equatable {
   final DateTime endsAt;
   final int capacity;
   final EventCategory category;
-  final String costSplit;
+
+  /// Nullable on the wire — absent when host left the field blank.
+  final String? costNotes;
   final String approvalMode;
   final String status;
   final DateTime createdAt;
@@ -112,7 +116,7 @@ class EventModel extends Equatable {
     endsAt: endsAt,
     capacity: capacity,
     category: category,
-    costSplit: costSplit,
+    costNotes: costNotes,
     approvalMode: approvalMode,
     status: status,
     createdAt: createdAt,
@@ -131,7 +135,7 @@ class EventModel extends Equatable {
     endsAt,
     capacity,
     category,
-    costSplit,
+    costNotes,
     approvalMode,
     status,
     createdAt,

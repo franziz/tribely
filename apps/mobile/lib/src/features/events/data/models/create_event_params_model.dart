@@ -18,6 +18,7 @@ class CreateEventParamsModel {
     required this.capacity,
     required this.category,
     required this.approvalMode,
+    this.costNotes,
   });
 
   factory CreateEventParamsModel.fromDomain(CreateEventParams params) {
@@ -33,6 +34,7 @@ class CreateEventParamsModel {
       capacity: params.capacity,
       category: params.category,
       approvalMode: params.approvalMode,
+      costNotes: params.costNotes,
     );
   }
 
@@ -52,16 +54,15 @@ class CreateEventParamsModel {
   final EventCategory category;
   final String approvalMode;
 
+  /// Optional host-authored free-text cost note. Omitted from the POST body
+  /// when null or empty — the server schema is `.optional()`, so key-absence
+  /// is the correct forward-compatible form. CEO guardrail: plain String only.
+  final String? costNotes;
+
   Map<String, dynamic> toJson() {
     // Hardcoded for Singapore-first launch (per CLAUDE.md). When TRI-23 ships
     // the map picker, derive city via reverse geocode from lat/lng.
     const venueCity = 'Singapore';
-
-    // Hardcoded — server requires costSplit enum but CEO ruled v1 has no
-    // structured cost field. PM follow-up filed to add costNotes string? on the
-    // wire and relax/drop costSplit (see TRI-26 EL spec §7.1). Until then, all
-    // v1 events ship as costSplit='own'.
-    const costSplit = 'own';
 
     return {
       'title': title,
@@ -77,8 +78,8 @@ class CreateEventParamsModel {
       'endsAt': endsAt.toUtc().toIso8601String(),
       'capacity': capacity,
       'category': category.wireValue,
-      'costSplit': costSplit,
       'approvalMode': approvalMode,
+      if (costNotes != null && costNotes!.isNotEmpty) 'costNotes': costNotes,
     };
   }
 }
