@@ -35,6 +35,7 @@ import '../../features/events/domain/usecases/cancel_event_usecase.dart';
 import '../../features/events/domain/usecases/clear_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/create_event_usecase.dart';
 import '../../features/events/domain/usecases/load_event_draft_usecase.dart';
+import '../../features/events/domain/usecases/replace_cover_photo_usecase.dart';
 import '../../features/events/domain/usecases/save_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/upload_cover_photo_usecase.dart';
 import '../../features/discover/data/datasources/discover_remote_datasource.dart';
@@ -268,6 +269,9 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => CancelEventUseCase(sl<EventRepository>()));
   sl.registerLazySingleton(
     () => UploadCoverPhotoUseCase(sl<CoverPhotoRepository>()),
+  );
+  sl.registerLazySingleton(
+    () => ReplaceCoverPhotoUseCase(sl<CoverPhotoRepository>()),
   );
 
   // Discover — datasources

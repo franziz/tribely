@@ -48,6 +48,17 @@ abstract class EventRemoteDatasource {
     required String contentType,
     ProgressCallback? onSendProgress,
   });
+
+  /// Replaces the cover photo key on an existing event.
+  ///
+  /// Calls PUT /events/:id/cover-photo with body `{coverPhotoStorageKey}`.
+  /// Returns the updated [EventModel] (bare event shape — same as [createEvent]).
+  /// Throws [DioException] on network or server errors — the repository maps
+  /// to domain [Failure] types.
+  Future<EventModel> replaceCoverPhoto({
+    required String eventId,
+    required String storageKey,
+  });
 }
 
 class EventRemoteDatasourceImpl implements EventRemoteDatasource {
@@ -85,6 +96,18 @@ class EventRemoteDatasourceImpl implements EventRemoteDatasource {
       queryParameters: {'contentType': contentType},
     );
     return CoverPhotoUploadTicketModel.fromJson(response.data!);
+  }
+
+  @override
+  Future<EventModel> replaceCoverPhoto({
+    required String eventId,
+    required String storageKey,
+  }) async {
+    final response = await _apiDio.put<Map<String, dynamic>>(
+      '/events/$eventId/cover-photo',
+      data: {'coverPhotoStorageKey': storageKey},
+    );
+    return EventModel.fromJson(response.data!);
   }
 
   @override

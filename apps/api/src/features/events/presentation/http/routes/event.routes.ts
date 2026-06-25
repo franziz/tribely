@@ -13,6 +13,7 @@ import {
   cancelEventBodySchema,
   createEventBodySchema,
   listEventsQuerySchema,
+  replaceCoverPhotoBodySchema,
   updateEventBodySchema,
 } from '../schemas/event.schemas.js';
 
@@ -84,6 +85,26 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
         verifiedSelfie,
         zValidator('json', cancelEventBodySchema),
         (c) => controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+      )
+      // PUT /events/:id/cover-photo — replace cover photo on an existing event.
+      // Registered after /:id (PATCH/DELETE) so the literal `/cover-photo` suffix
+      // on a PUT does not collide with any existing routes — Hono distinguishes
+      // by both method AND path. No collision with POST /events/cover-photo (different
+      // method + no /:id prefix) or PATCH /events/:id (different method).
+      .put(
+        '/:id/cover-photo',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        zValidator('json', replaceCoverPhotoBodySchema),
+        (c) =>
+          controller.replaceCoverPhotoAction(
+            c,
+            c.req.param('id'),
+            c.get('userId'),
+            c.req.valid('json'),
+          ),
       )
   );
 };

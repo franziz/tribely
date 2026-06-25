@@ -21,6 +21,9 @@ import '../../../auth/presentation/widgets/sign_in_gate_sheet.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/presentation/string_assets/cancel_event_copy.dart';
 import '../../../events/presentation/widgets/cancel_event_sheet.dart';
+import '../controllers/replace_cover_photo_controller.dart';
+import '../state/replace_cover_photo_state.dart';
+import '../widgets/cover_photo_replace_button.dart';
 import '../../../join_requests/domain/entities/join_request.dart';
 import '../../../join_requests/domain/entities/join_request_with_requester.dart';
 import '../../../join_requests/presentation/controllers/host_pending_list_controller.dart';
@@ -273,7 +276,7 @@ class _LoadingSkeleton extends StatelessWidget {
 // Loaded body
 // ---------------------------------------------------------------------------
 
-class _LoadedBody extends StatelessWidget {
+class _LoadedBody extends ConsumerWidget {
   const _LoadedBody({
     required this.event,
     required this.isHostViewer,
@@ -288,7 +291,19 @@ class _LoadedBody extends StatelessWidget {
   final String eventId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Listen for successful cover-photo replacement and invalidate providers.
+    // ref.listen must be called inside build() — this is the correct place for
+    // a side-effect listener in a ConsumerWidget.
+    ref.listen<ReplaceCoverPhotoState>(
+      replaceCoverPhotoControllerProvider(eventId),
+      (previous, next) {
+        if (next is ReplaceCoverPhotoSuccess) {
+          handleReplaceCoverPhotoSuccess(ref, eventId: eventId);
+        }
+      },
+    );
+
     // Scrollable content only — the sticky CTA is now Scaffold.bottomNavigationBar
     // on the outer Scaffold, which auto-insets the body by its exact rendered
     // height. No Stack, no Positioned, no manual height estimation.
@@ -297,7 +312,11 @@ class _LoadedBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _HeroImage(event: event),
+          _HeroImage(
+            event: event,
+            isHostViewer: isHostViewer,
+            eventId: eventId,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
             child: Column(
@@ -341,10 +360,22 @@ class _LoadedBody extends StatelessWidget {
 
 /// Full-width hero image with a 16:9 aspect ratio (designer-confirmed TRI-49).
 /// Category badge sits bottom-left overlaid on the image.
+/// When [isHostViewer] is true, a camera-icon replace button sits bottom-right
+/// (TRI-306, fifth sanctioned cross-feature exception).
 class _HeroImage extends StatelessWidget {
-  const _HeroImage({required this.event});
+  const _HeroImage({
+    required this.event,
+    required this.isHostViewer,
+    required this.eventId,
+  });
 
   final Event event;
+
+  /// True when the authenticated user is the event's host — gates the
+  /// camera overlay button (AC1: host sees it, non-host sees nothing).
+  final bool isHostViewer;
+
+  final String eventId;
 
   @override
   Widget build(BuildContext context) {
@@ -358,20 +389,22 @@ class _HeroImage extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Cover photo: real image with fade-in when URL is present;
-          // shared category placeholder on failure or when absent.
-          if (event.coverPhotoUrl != null)
-            CachedNetworkImage(
-              imageUrl: event.coverPhotoUrl!,
-              fit: BoxFit.cover,
-              placeholder: (context, url) =>
-                  CategoryImagePlaceholder(category: event.category),
-              errorWidget: (context, url, error) =>
-                  CategoryImagePlaceholder(category: event.category),
-              fadeInDuration: const Duration(milliseconds: 200),
-            )
-          else
-            CategoryImagePlaceholder(category: event.category),
+          // Cover photo: cross-fade wrapper drives the 250ms transition when
+          // the URL changes after a successful replace (TRI-306).
+          CoverPhotoCrossFade(
+            imageKey: ValueKey(event.coverPhotoUrl),
+            child: event.coverPhotoUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: event.coverPhotoUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) =>
+                        CategoryImagePlaceholder(category: event.category),
+                    errorWidget: (context, url, error) =>
+                        CategoryImagePlaceholder(category: event.category),
+                    fadeInDuration: const Duration(milliseconds: 200),
+                  )
+                : CategoryImagePlaceholder(category: event.category),
+          ),
           // Gradient scrim so the AppBar back button stays legible.
           Positioned(
             top: 0,
@@ -397,6 +430,11 @@ class _HeroImage extends StatelessWidget {
             left: 12,
             child: _CategoryBadge(category: event.category.displayName),
           ),
+          // Host-only cover-photo replace button — bottom-right (TRI-306, AC1).
+          // Gated on isHostViewer: non-host viewers see nothing here.
+          // The widget itself renders as uploading overlay / failure overlay /
+          // camera button depending on ReplaceCoverPhotoController state.
+          if (isHostViewer) CoverPhotoReplaceButton(eventId: eventId),
         ],
       ),
     );
