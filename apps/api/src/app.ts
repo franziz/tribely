@@ -120,6 +120,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
     container.updateEventUseCase,
     container.cancelEventUseCase,
     container.requestCoverPhotoUploadUseCase,
+    container.replaceCoverPhotoUseCase,
     container.fileStorage,
   );
   app.route(

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/failures.dart';
+import '../entities/event.dart';
 
 /// Callback for tracking upload byte progress.
 ///
@@ -30,5 +31,21 @@ abstract class CoverPhotoRepository {
   Future<Either<Failure, String>> uploadCoverPhoto(
     Uint8List croppedBytes, {
     CoverPhotoProgressCallback? onProgress,
+  });
+
+  /// Commits a previously uploaded cover photo key to an existing event.
+  ///
+  /// Calls PUT /events/:id/cover-photo via the datasource. Returns the
+  /// updated [Event] (post-mutation server state) on success.
+  ///
+  /// Failure paths:
+  ///   - [AuthFailure]: 401 — session expired.
+  ///   - [NotFoundFailure]: 404 — event not found or not owned by the user.
+  ///   - [ConflictFailure]: 409 — event state conflict (e.g. cancelled).
+  ///   - [ServerFailure]: other 4xx/5xx Tribely API errors.
+  ///   - [NetworkFailure]: device offline.
+  Future<Either<Failure, Event>> replaceCoverPhoto({
+    required String eventId,
+    required String storageKey,
   });
 }

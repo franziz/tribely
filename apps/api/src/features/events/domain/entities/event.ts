@@ -4,6 +4,7 @@ import { eventCancelled } from '../events/event-cancelled.event.js';
 import { eventCompleted } from '../events/event-completed.event.js';
 import { eventCreated } from '../events/event-created.event.js';
 import { eventPublished } from '../events/event-published.event.js';
+import { eventCoverPhotoReplaced } from '../events/event-cover-photo-replaced.event.js';
 import { eventUpdated } from '../events/event-updated.event.js';
 import type { Capacity } from '../value-objects/capacity.js';
 import type { EventCategory } from '../value-objects/event-category.js';
@@ -401,6 +402,34 @@ export class Event extends AggregateRoot {
         eventId: this.id,
         hostUserId: this.hostUserId,
         completedAt: now.toISOString(),
+      }),
+    );
+  }
+
+  /**
+   * Replace the event's cover photo. Allowed only while the event is `draft`
+   * or `published` — cancelled / completed events are terminal (mirrors `edit`).
+   *
+   * No-op if `storageKey` matches the current key (no event recorded, no
+   * `updatedAt` bump — mirrors `publish`/`cancel` idempotency).
+   *
+   * Prefix validation (ownership guard) is the use case's responsibility, not
+   * the aggregate's — mirrors the `create-event` / `coverPhotoStorageKey` pattern.
+   */
+  setCoverPhoto(storageKey: string, now: Date): void {
+    if (this._status !== 'draft' && this._status !== 'published') {
+      throw AppError.conflict(`Cannot replace cover photo in status: ${this._status}`);
+    }
+    if (storageKey === this._coverPhotoStorageKey) return;
+
+    this._coverPhotoStorageKey = storageKey;
+    this._updatedAt = now;
+    this.record(
+      eventCoverPhotoReplaced({
+        eventId: this.id,
+        hostUserId: this.hostUserId,
+        coverPhotoStorageKey: storageKey,
+        replacedAt: now.toISOString(),
       }),
     );
   }
