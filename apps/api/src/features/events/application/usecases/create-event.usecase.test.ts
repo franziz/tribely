@@ -33,6 +33,7 @@ const baseInput: CreateEventInput = {
   category: 'food',
   venueCategory: 'cafe',
   costNotes: null,
+  coverPhotoStorageKey: null,
   approvalMode: 'manual',
 };
 
@@ -174,5 +175,53 @@ describe('CreateEventUseCase', () => {
     expect(appErr.status).toBe(400);
     expect(appErr.code).toBe('VALIDATION_ERROR');
     expect(publisher.published.map((e) => e.type)).not.toContain(PRIVATE_VENUE_ATTEMPTED);
+  });
+
+  // --- TRI-49: coverPhotoStorageKey ownership guard ---
+
+  it('null coverPhotoStorageKey → no guard, event created successfully', async () => {
+    const { repo, useCase } = buildSut(true);
+    const event = await useCase.execute({ ...baseInput, coverPhotoStorageKey: null });
+
+    expect(event.coverPhotoStorageKey).toBeNull();
+    expect(repo.all()).toHaveLength(1);
+  });
+
+  it('own-prefixed coverPhotoStorageKey → passes guard, stored on event', async () => {
+    const { repo, useCase } = buildSut(true);
+    const ownKey = `events/${baseInput.hostUserId}/someimage.jpg`;
+    const event = await useCase.execute({ ...baseInput, coverPhotoStorageKey: ownKey });
+
+    expect(event.coverPhotoStorageKey).toBe(ownKey);
+    expect(repo.all()).toHaveLength(1);
+  });
+
+  it('foreign-prefix coverPhotoStorageKey → 403 FORBIDDEN, nothing persisted', async () => {
+    const { repo, publisher, useCase } = buildSut(true);
+    const foreignKey = 'events/other_user/photo.jpg';
+
+    const err = await useCase
+      .execute({ ...baseInput, coverPhotoStorageKey: foreignKey })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AppError);
+    const appErr = err as AppError;
+    expect(appErr.status).toBe(403);
+    expect(appErr.code).toBe('FORBIDDEN');
+    // Nothing must be persisted — guard fires before Event.create
+    expect(repo.all()).toHaveLength(0);
+    expect(publisher.published).toHaveLength(0);
+  });
+
+  it('avatars/-prefix coverPhotoStorageKey (wrong path family) → 403 FORBIDDEN', async () => {
+    const { useCase } = buildSut(true);
+    const wrongPrefixKey = `avatars/${baseInput.hostUserId}/photo.jpg`;
+
+    const err = await useCase
+      .execute({ ...baseInput, coverPhotoStorageKey: wrongPrefixKey })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AppError);
+    expect((err as AppError).status).toBe(403);
   });
 });

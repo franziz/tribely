@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import '../../../../core/design/motion.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/banner_message.dart';
+import '../../../../core/widgets/category_image_placeholder.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/secondary_button.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
@@ -199,8 +201,8 @@ class _LoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    // Hero: full-width 3:2 aspect ratio.
-    final heroHeight = screenWidth * (2 / 3);
+    // Hero: full-width 16:9 aspect ratio (designer-confirmed TRI-49 Brief 4).
+    final heroHeight = screenWidth * 9 / 16;
 
     // SingleChildScrollView prevents RenderFlex overflow when the skeleton
     // content (hero + metadata) exceeds the available Scaffold body height.
@@ -337,7 +339,7 @@ class _LoadedBody extends StatelessWidget {
   }
 }
 
-/// Full-width hero image with a 3:2 aspect ratio (§E).
+/// Full-width hero image with a 16:9 aspect ratio (designer-confirmed TRI-49).
 /// Category badge sits bottom-left overlaid on the image.
 class _HeroImage extends StatelessWidget {
   const _HeroImage({required this.event});
@@ -346,21 +348,30 @@ class _HeroImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 3 / 2,
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    // 16:9 matches the feed card thumbnail ratio (designer-confirmed).
+    final heroHeight = screenWidth * 9 / 16;
+
+    return SizedBox(
+      width: double.infinity,
+      height: heroHeight,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Placeholder backdrop — v1 has no imageUrl on the Event entity.
-          // When the API ships imageUrl, swap in Image.network(...) here.
-          Container(
-            color: TribelyColors.paperBorderSubtle,
-            child: Icon(
-              Icons.image_outlined,
-              size: 64,
-              color: TribelyColors.paperInkSecondary.withValues(alpha: 0.4),
-            ),
-          ),
+          // Cover photo: real image with fade-in when URL is present;
+          // shared category placeholder on failure or when absent.
+          if (event.coverPhotoUrl != null)
+            CachedNetworkImage(
+              imageUrl: event.coverPhotoUrl!,
+              fit: BoxFit.cover,
+              placeholder: (context, url) =>
+                  CategoryImagePlaceholder(category: event.category),
+              errorWidget: (context, url, error) =>
+                  CategoryImagePlaceholder(category: event.category),
+              fadeInDuration: const Duration(milliseconds: 200),
+            )
+          else
+            CategoryImagePlaceholder(category: event.category),
           // Gradient scrim so the AppBar back button stays legible.
           Positioned(
             top: 0,
@@ -380,7 +391,7 @@ class _HeroImage extends StatelessWidget {
               ),
             ),
           ),
-          // Category badge — bottom-left (§E).
+          // Category badge — bottom-left (§E). No text overlay on hero per AC.
           Positioned(
             bottom: 12,
             left: 12,
