@@ -57,6 +57,11 @@ export const cancelEventBodySchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+// Non-nullable, non-optional: structurally guarantees no coverless state (AC3/AC5).
+export const replaceCoverPhotoBodySchema = z.object({
+  coverPhotoStorageKey: z.string().min(1),
+});
+
 // ---- Query ----
 
 export const listEventsQuerySchema = z.object({
@@ -112,6 +117,7 @@ export const eventListingResponseSchema = z.object({
 export type CreateEventBody = z.infer<typeof createEventBodySchema>;
 export type UpdateEventBody = z.infer<typeof updateEventBodySchema>;
 export type CancelEventBody = z.infer<typeof cancelEventBodySchema>;
+export type ReplaceCoverPhotoBody = z.infer<typeof replaceCoverPhotoBodySchema>;
 export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;
 export type EventResponse = z.infer<typeof eventResponseSchema>;
 export type EventWithHostResponse = z.infer<typeof eventWithHostResponseSchema>;

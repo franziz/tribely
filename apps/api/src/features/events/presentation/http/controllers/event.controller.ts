@@ -8,6 +8,7 @@ import type { CancelEventUseCase } from '../../../application/usecases/cancel-ev
 import type { CreateEventUseCase } from '../../../application/usecases/create-event.usecase.js';
 import type { GetEventUseCase } from '../../../application/usecases/get-event.usecase.js';
 import type { ListEventsUseCase } from '../../../application/usecases/list-events.usecase.js';
+import type { ReplaceCoverPhotoUseCase } from '../../../application/usecases/replace-cover-photo.usecase.js';
 import type { RequestCoverPhotoUploadUseCase } from '../../../application/usecases/request-cover-photo-upload.usecase.js';
 import type { UpdateEventUseCase } from '../../../application/usecases/update-event.usecase.js';
 import type {
@@ -17,6 +18,7 @@ import type {
   EventResponse,
   EventWithHostResponse,
   ListEventsQuery,
+  ReplaceCoverPhotoBody,
   UpdateEventBody,
 } from '../schemas/event.schemas.js';
 
@@ -94,6 +96,7 @@ export class EventController {
     private readonly updateEvent: UpdateEventUseCase,
     private readonly cancelEvent: CancelEventUseCase,
     private readonly requestCoverPhotoUpload: RequestCoverPhotoUploadUseCase,
+    private readonly replaceCoverPhoto: ReplaceCoverPhotoUseCase,
     private readonly fileStorage: FileStorage,
   ) {}
 
@@ -222,5 +225,27 @@ export class EventController {
     const contentType = c.req.query('contentType') ?? '';
     const result = await this.requestCoverPhotoUpload.execute({ hostUserId, contentType });
     return c.json(result, 200);
+  };
+
+  /**
+   * Replace the cover photo on an existing event.
+   *
+   * PUT /events/:id/cover-photo
+   *
+   * Host-only; non-host callers receive 403 (enforced server-side, AC6).
+   * Body requires a non-null key (AC3/AC5 — no "remove cover" path here).
+   */
+  replaceCoverPhotoAction = async (
+    c: Context,
+    id: string,
+    actorUserId: string,
+    body: ReplaceCoverPhotoBody,
+  ) => {
+    const event = await this.replaceCoverPhoto.execute({
+      eventId: id,
+      actorUserId,
+      coverPhotoStorageKey: body.coverPhotoStorageKey,
+    });
+    return c.json(await toEventResponse(event, this.fileStorage), 200);
   };
 }
