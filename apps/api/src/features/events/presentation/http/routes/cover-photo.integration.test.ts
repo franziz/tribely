@@ -26,10 +26,6 @@ describe.skipIf(!dbUrl)('POST /events/cover-photo (integration)', () => {
   let hostUserId: string;
   let hostToken: string;
 
-  const now = new Date();
-  const futureStart = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const futureEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000);
-
   beforeAll(async () => {
     if (!dbUrl) return;
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
@@ -81,7 +77,7 @@ describe.skipIf(!dbUrl)('POST /events/cover-photo (integration)', () => {
 
     // Key MUST be scoped to this host's prefix (security-critical).
     expect((body.storageKey as string).startsWith(`events/${hostUserId}/`)).toBe(true);
-    expect((body.storageKey as string)).toMatch(/\.(jpg|png|webp)$/);
+    expect(body.storageKey as string).toMatch(/\.(jpg|png|webp)$/);
   });
 
   it('returns 400 when contentType is missing', async () => {
@@ -109,7 +105,6 @@ describe.skipIf(!dbUrl)('Event response includes coverPhotoUrl (integration)', (
   let db: PrismaClient;
   let tokens: JwtAccessTokenIssuer;
   let hostUserId: string;
-  let hostToken: string;
   let eventWithoutPhotoId: string;
   let eventWithPhotoId: string;
 
@@ -134,8 +129,7 @@ describe.skipIf(!dbUrl)('Event response includes coverPhotoUrl (integration)', (
         selfieStatus: 'approved',
       },
     });
-    const issued = await tokens.issue({ userId: hostUserId, email: hostEmail });
-    hostToken = issued.value;
+    await tokens.issue({ userId: hostUserId, email: hostEmail });
 
     // Seed event without cover photo
     eventWithoutPhotoId = createId();

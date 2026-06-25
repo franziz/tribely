@@ -42,46 +42,48 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
     keyFor: userKey,
   });
 
-  return new Hono<{ Variables: AuthVariables }>()
-    // POST /events/cover-photo — presign a cover photo upload URL.
-    // Registered before /:id so Hono's literal-segment `/cover-photo` is not
-    // shadowed by the `:id` wildcard (literal segments always win in Hono, but
-    // explicit ordering makes the intent clear).
-    // No zValidator('json') — empty-body POST trap (see CLAUDE.md gotcha).
-    // contentType is passed as a query param: ?contentType=image/jpeg.
-    .post('/cover-photo', auth, (c) =>
-      controller.requestCoverPhotoUploadAction(c, c.get('userId')),
-    )
-    .post(
-      '/',
-      auth,
-      verifiedEmail,
-      verifiedPhone,
-      verifiedSelfie,
-      limitCreate,
-      zValidator('json', createEventBodySchema),
-      (c) => controller.createAction(c, c.get('userId'), c.req.valid('json')),
-    )
-    .get('/', zValidator('query', listEventsQuerySchema), (c) =>
-      controller.listAction(c, c.req.valid('query')),
-    )
-    .get('/:id', (c) => controller.getAction(c, c.req.param('id')))
-    .patch(
-      '/:id',
-      auth,
-      verifiedEmail,
-      verifiedPhone,
-      verifiedSelfie,
-      zValidator('json', updateEventBodySchema),
-      (c) => controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
-    )
-    .delete(
-      '/:id',
-      auth,
-      verifiedEmail,
-      verifiedPhone,
-      verifiedSelfie,
-      zValidator('json', cancelEventBodySchema),
-      (c) => controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
-    );
+  return (
+    new Hono<{ Variables: AuthVariables }>()
+      // POST /events/cover-photo — presign a cover photo upload URL.
+      // Registered before /:id so Hono's literal-segment `/cover-photo` is not
+      // shadowed by the `:id` wildcard (literal segments always win in Hono, but
+      // explicit ordering makes the intent clear).
+      // No zValidator('json') — empty-body POST trap (see CLAUDE.md gotcha).
+      // contentType is passed as a query param: ?contentType=image/jpeg.
+      .post('/cover-photo', auth, (c) =>
+        controller.requestCoverPhotoUploadAction(c, c.get('userId')),
+      )
+      .post(
+        '/',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        limitCreate,
+        zValidator('json', createEventBodySchema),
+        (c) => controller.createAction(c, c.get('userId'), c.req.valid('json')),
+      )
+      .get('/', zValidator('query', listEventsQuerySchema), (c) =>
+        controller.listAction(c, c.req.valid('query')),
+      )
+      .get('/:id', (c) => controller.getAction(c, c.req.param('id')))
+      .patch(
+        '/:id',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        zValidator('json', updateEventBodySchema),
+        (c) => controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+      )
+      .delete(
+        '/:id',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        zValidator('json', cancelEventBodySchema),
+        (c) => controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+      )
+  );
 };

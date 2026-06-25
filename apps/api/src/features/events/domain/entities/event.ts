@@ -163,7 +163,7 @@ export class Event extends AggregateRoot {
     category: EventCategory;
     venueCategory: VenueCategory;
     costNotes: string | null;
-    coverPhotoStorageKey: string | null;
+    coverPhotoStorageKey?: string | null;
     approvalMode: ApprovalMode;
     status: EventStatus;
     cancellationReason: string | null;
@@ -182,7 +182,7 @@ export class Event extends AggregateRoot {
       state.category,
       state.venueCategory,
       state.costNotes,
-      state.coverPhotoStorageKey,
+      state.coverPhotoStorageKey ?? null,
       state.approvalMode,
       state.status,
       state.cancellationReason,

@@ -40,14 +40,11 @@ const isAllowedContentType = (ct: string): ct is AllowedContentType =>
 export class RequestCoverPhotoUploadUseCase {
   constructor(private readonly fileStorage: FileStorage) {}
 
-  async execute(
-    input: RequestCoverPhotoUploadInput,
-  ): Promise<RequestCoverPhotoUploadResult> {
+  async execute(input: RequestCoverPhotoUploadInput): Promise<RequestCoverPhotoUploadResult> {
     if (!isAllowedContentType(input.contentType)) {
-      throw AppError.validation(
-        `contentType must be one of: ${ALLOWED_CONTENT_TYPES.join(', ')}`,
-        { contentType: input.contentType },
-      );
+      throw AppError.validation(`contentType must be one of: ${ALLOWED_CONTENT_TYPES.join(', ')}`, {
+        contentType: input.contentType,
+      });
     }
 
     const ext = EXT_MAP[input.contentType];
