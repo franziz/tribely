@@ -24,15 +24,19 @@ import '../../features/auth/domain/usecases/verify_phone_usecase.dart';
 import '../../features/events/data/datasources/event_draft_local_datasource.dart';
 import '../../features/events/data/datasources/event_remote_datasource.dart';
 import '../../features/events/data/datasources/mapbox_place_search_remote_datasource.dart';
+import '../../features/events/data/repositories/cover_photo_repository_impl.dart';
 import '../../features/events/data/repositories/event_repository_impl.dart';
 import '../../features/events/data/repositories/place_search_repository_impl.dart';
+import '../../features/events/data/utils/cover_photo_compressor.dart';
 import '../../features/events/domain/ports/place_search_port.dart';
+import '../../features/events/domain/repositories/cover_photo_repository.dart';
 import '../../features/events/domain/repositories/event_repository.dart';
 import '../../features/events/domain/usecases/cancel_event_usecase.dart';
 import '../../features/events/domain/usecases/clear_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/create_event_usecase.dart';
 import '../../features/events/domain/usecases/load_event_draft_usecase.dart';
 import '../../features/events/domain/usecases/save_event_draft_usecase.dart';
+import '../../features/events/domain/usecases/upload_cover_photo_usecase.dart';
 import '../../features/discover/data/datasources/discover_remote_datasource.dart';
 import '../../features/discover/data/repositories/discover_repository_impl.dart';
 import '../../features/discover/domain/repositories/discover_repository.dart';
@@ -223,7 +227,11 @@ Future<void> configureDependencies() async {
 
   // Events — datasources
   sl.registerLazySingleton<EventRemoteDatasource>(
-    () => EventRemoteDatasourceImpl(sl<ApiClient>().dio),
+    () => EventRemoteDatasourceImpl(
+      apiDio: sl<ApiClient>().dio,
+      // Isolated Dio for direct presigned-URL uploads — no Tribely JWT forwarded.
+      storageDio: _buildStorageDio(),
+    ),
   );
   sl.registerLazySingleton<EventDraftLocalDatasource>(
     () => EventDraftLocalDatasourceImpl(prefs),
@@ -245,6 +253,12 @@ Future<void> configureDependencies() async {
       datasource: sl<MapboxPlaceSearchRemoteDatasource>(),
     ),
   );
+  sl.registerLazySingleton<CoverPhotoRepository>(
+    () => CoverPhotoRepositoryImpl(
+      remote: sl<EventRemoteDatasource>(),
+      compressor: const CoverPhotoCompressor(),
+    ),
+  );
 
   // Events — use cases
   sl.registerLazySingleton(() => CreateEventUseCase(sl<EventRepository>()));
@@ -252,6 +266,9 @@ Future<void> configureDependencies() async {
   sl.registerLazySingleton(() => LoadEventDraftUseCase(sl<EventRepository>()));
   sl.registerLazySingleton(() => ClearEventDraftUseCase(sl<EventRepository>()));
   sl.registerLazySingleton(() => CancelEventUseCase(sl<EventRepository>()));
+  sl.registerLazySingleton(
+    () => UploadCoverPhotoUseCase(sl<CoverPhotoRepository>()),
+  );
 
   // Discover — datasources
   sl.registerLazySingleton<DiscoverRemoteDatasource>(

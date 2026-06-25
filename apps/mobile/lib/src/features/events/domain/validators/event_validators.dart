@@ -215,3 +215,12 @@ String? validateDescription(String? value) {
   }
   return null;
 }
+
+/// Cover photo is required by the wizard (Step 0). The user must upload a
+/// cover photo before advancing. Null storage key → not yet uploaded.
+String? validateCoverPhotoStorageKey(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Add a cover photo to continue';
+  }
+  return null;
+}

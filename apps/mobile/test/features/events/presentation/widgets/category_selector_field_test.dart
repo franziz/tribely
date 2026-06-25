@@ -39,15 +39,20 @@ import 'package:tribely/src/features/users/presentation/state/selfie_gating_stat
 // ---------------------------------------------------------------------------
 
 const _testStepFields = {
-  0: ['title', 'category'],
-  1: ['venueName', 'latitude', 'longitude'],
-  2: ['startsAt', 'endsAt'],
-  3: ['capacity', 'approvalMode'],
-  4: ['description'],
+  // Step 0 — Cover photo (TRI-49 Brief 5).
+  0: ['coverPhotoStorageKey'],
+  1: ['title', 'category'],
+  2: ['venueName', 'latitude', 'longitude'],
+  3: ['startsAt', 'endsAt'],
+  4: ['capacity', 'approvalMode'],
+  5: ['description'],
 };
 
 String? _testValidateField(String field, EventDraft draft) {
   return switch (field) {
+    'coverPhotoStorageKey' => validateCoverPhotoStorageKey(
+      draft.coverPhotoStorageKey,
+    ),
     'title' => validateTitle(draft.title),
     'category' => validateCategory(draft.category),
     'venueName' => validateVenueName(draft.venueName),
@@ -91,11 +96,16 @@ _testDeriveBlocking(EventDraft draft) {
 // Fixed controllers
 // ---------------------------------------------------------------------------
 
-/// Step 0 with an empty draft — category is null, no field errors shown.
+/// Step 0 with a cover photo pre-set so Next is enabled, but category is null
+/// — used to navigate to step 1 (Basics) where [CategorySelectorField] lives.
 class _EmptyDraftController extends CreateEventController {
   @override
   CreateEventState build() {
-    const draft = EventDraft();
+    // coverPhotoStorageKey is set so step 0 (Cover Photo) is unblocked,
+    // allowing the test to tap Next and land on step 1 (Basics).
+    const draft = EventDraft(
+      coverPhotoStorageKey: 'events/covers/test-key.jpg',
+    );
     final (:blockingFields, :blockingFieldErrors) = _testDeriveBlocking(draft);
     return CreateEventEditing(
       formData: draft,
@@ -108,11 +118,13 @@ class _EmptyDraftController extends CreateEventController {
   }
 }
 
-/// Step 0 with category = museum pre-selected.
+/// Step 0 with cover photo + category = museum pre-selected, so both step 0
+/// and step 1 are unblocked.
 class _PreselectedMuseumController extends CreateEventController {
   @override
   CreateEventState build() {
     const draft = EventDraft(
+      coverPhotoStorageKey: 'events/covers/test-key.jpg',
       title: 'Museum Visit',
       category: EventCategory.museum,
     );
@@ -128,11 +140,14 @@ class _PreselectedMuseumController extends CreateEventController {
   }
 }
 
-/// Step 0 with an explicit category validation error surfaced.
+/// Step 0 with a cover photo pre-set so Next is enabled, and an explicit
+/// category validation error surfaced for step 1.
 class _CategoryErrorController extends CreateEventController {
   @override
   CreateEventState build() {
-    const draft = EventDraft();
+    const draft = EventDraft(
+      coverPhotoStorageKey: 'events/covers/test-key.jpg',
+    );
     final (:blockingFields, :blockingFieldErrors) = _testDeriveBlocking(draft);
     return CreateEventEditing(
       formData: draft,
@@ -199,6 +214,12 @@ Future<void> _pumpPage(
       child: MaterialApp.router(routerConfig: _buildTestRouter()),
     ),
   );
+  await tester.pumpAndSettle();
+
+  // All controllers start at step 0 (Cover Photo). Advance to step 1 (Basics)
+  // so that CategorySelectorField is in the widget tree. All controllers set
+  // coverPhotoStorageKey so that step 0 is unblocked and Next is enabled.
+  await tester.tap(find.text('Next'));
   await tester.pumpAndSettle();
 }
 
@@ -331,8 +352,8 @@ void main() {
       (tester) async {
         await _pumpPage(tester, _EmptyDraftController.new);
 
-        // Step 0 with category == null → blockingFields[0] contains 'category'.
-        // StepNavigationBar receives canAdvance: false.
+        // Step 1 (Basics) with category == null → blockingFields[1] contains
+        // 'title' and 'category'. StepNavigationBar receives canAdvance: false.
         final navBar = tester.widget<StepNavigationBar>(
           find.byType(StepNavigationBar),
         );
@@ -345,9 +366,10 @@ void main() {
       (tester) async {
         await _pumpPage(tester, _PreselectedMuseumController.new);
 
-        // Museum + title both set → step 0 unblocked.
-        // _PreselectedMuseumController seeds title + category so step 0 is
-        // valid. Verify canAdvance is true.
+        // Step 1 (Basics) with title + category both set → step 1 unblocked.
+        // _PreselectedMuseumController seeds coverPhotoStorageKey + title +
+        // category so both step 0 and step 1 are valid. Verify canAdvance
+        // is true on step 1.
         final navBar = tester.widget<StepNavigationBar>(
           find.byType(StepNavigationBar),
         );
