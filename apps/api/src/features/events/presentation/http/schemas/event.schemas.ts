@@ -29,6 +29,7 @@ export const createEventBodySchema = z
     capacity: z.number().int().min(2).max(1000),
     category: categorySchema,
     costNotes: z.string().max(200).nullable().optional(),
+    coverPhotoStorageKey: z.string().min(1).nullable().optional(),
     approvalMode: approvalModeSchema,
   })
   .refine((v) => new Date(v.endsAt).getTime() > new Date(v.startsAt).getTime(), {
@@ -88,6 +89,7 @@ const eventResponseSchema = z.object({
   capacity: z.number(),
   category: categorySchema,
   costNotes: z.string().nullable(),
+  coverPhotoUrl: z.string().url().nullable(),
   approvalMode: approvalModeSchema,
   status: z.enum(['draft', 'published', 'cancelled', 'completed']),
   cancellationReason: z.string().nullable(),

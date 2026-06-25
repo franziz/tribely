@@ -42,6 +42,7 @@ class EventModel extends Equatable {
     required this.hostIsVerified,
     this.costNotes,
     this.hostDisplayName,
+    this.coverPhotoUrl,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
@@ -72,6 +73,8 @@ class EventModel extends Equatable {
       // detail only (TRI-66 scope is /events/:id).
       hostIsVerified: (json['hostIsVerified'] as bool?) ?? false,
       hostDisplayName: json['hostDisplayName'] as String?,
+      // Nullable — absent when the host has not uploaded a cover photo.
+      coverPhotoUrl: json['coverPhotoUrl'] as String?,
     );
   }
 
@@ -104,6 +107,10 @@ class EventModel extends Equatable {
   /// deferred to TRI-19.
   final String? hostDisplayName;
 
+  /// URL of the event's cover photo (TRI-49). Nullable — absent when the host
+  /// has not uploaded a cover photo.
+  final String? coverPhotoUrl;
+
   /// Map to the domain [Event] entity. The domain field is named [hostId];
   /// the server wire field is [hostUserId] — translation lives here.
   Event toEntity() => Event(
@@ -122,6 +129,7 @@ class EventModel extends Equatable {
     createdAt: createdAt,
     hostIsVerified: hostIsVerified,
     hostDisplayName: hostDisplayName,
+    coverPhotoUrl: coverPhotoUrl,
   );
 
   @override
@@ -141,6 +149,7 @@ class EventModel extends Equatable {
     createdAt,
     hostIsVerified,
     hostDisplayName,
+    coverPhotoUrl,
   ];
 }
 

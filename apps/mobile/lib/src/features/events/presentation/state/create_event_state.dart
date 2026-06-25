@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/error/failures.dart';
@@ -100,6 +102,10 @@ final class CreateEventEditing extends CreateEventState {
     this.privateVenueWarning = const PrivateVenueWarningNone(),
     this.venueCategoryNudge = false,
     this.publishRejection,
+    this.coverPhotoUploading = false,
+    this.coverPhotoProgress,
+    this.coverPhotoError,
+    this.coverPhotoLocalBytes,
   });
 
   /// The current form values. All fields start null and are filled as the
@@ -166,6 +172,30 @@ final class CreateEventEditing extends CreateEventState {
   /// [CreateEventController.onPublishRejectionAcknowledged] to clear it.
   final PublishRejection? publishRejection;
 
+  // ---------------------------------------------------------------------------
+  // Cover-photo upload state (Step 0)
+  // ---------------------------------------------------------------------------
+
+  /// True while the cover photo PUT is in-flight. Drives the
+  /// [LinearProgressIndicator] and hides the "Change photo" affordance.
+  final bool coverPhotoUploading;
+
+  /// Upload progress as a fraction 0.0–1.0. Non-null and determinate while
+  /// [coverPhotoUploading] is true and the storage PUT has reported progress.
+  /// Null if no progress has been received yet (indeterminate phase).
+  final double? coverPhotoProgress;
+
+  /// Non-null when the most recent cover-photo upload attempt failed. Carries
+  /// the [Failure] so Step 0 can branch on validation vs. network errors.
+  ///   - [ValidationFailure]: size/MIME error — re-pick required (no Retry).
+  ///   - Other failures: Retry path (re-uses [coverPhotoLocalBytes]).
+  final Failure? coverPhotoError;
+
+  /// The cropped bytes from the most recent successful crop, kept in state so
+  /// upload can be retried without re-cropping on transient failures. Cleared
+  /// when the upload succeeds (key is written to [EventDraft.coverPhotoStorageKey]).
+  final Uint8List? coverPhotoLocalBytes;
+
   // Sentinel token for the nullable [selectedVenueCategory] copyWith param.
   // Using a private static const avoids the "const Object()" problem — the
   // bool is a primitive constant that doesn't conflict with any valid value.
@@ -174,6 +204,12 @@ final class CreateEventEditing extends CreateEventState {
   // Sentinel token for the nullable [publishRejection] copyWith param.
   // A static const avoids allocating a new object on every copyWith call.
   static const Object _unsetPublishRejection = Object();
+
+  // Sentinel tokens for the nullable cover-photo upload fields. Each requires
+  // its own typed sentinel so copyWith callers can pass explicit null to clear.
+  static const Object _unsetCoverPhotoProgress = Object();
+  static const Object _unsetCoverPhotoError = Object();
+  static const Object _unsetCoverPhotoLocalBytes = Object();
 
   CreateEventEditing copyWith({
     EventDraft? formData,
@@ -190,6 +226,10 @@ final class CreateEventEditing extends CreateEventState {
     // Use a sentinel Object so callers can explicitly pass null to clear
     // the rejection. Passing nothing → preserve current value.
     Object? publishRejection = _unsetPublishRejection,
+    bool? coverPhotoUploading,
+    Object? coverPhotoProgress = _unsetCoverPhotoProgress,
+    Object? coverPhotoError = _unsetCoverPhotoError,
+    Object? coverPhotoLocalBytes = _unsetCoverPhotoLocalBytes,
   }) => CreateEventEditing(
     formData: formData ?? this.formData,
     currentStep: currentStep ?? this.currentStep,
@@ -205,6 +245,16 @@ final class CreateEventEditing extends CreateEventState {
     publishRejection: publishRejection == _unsetPublishRejection
         ? this.publishRejection
         : publishRejection as PublishRejection?,
+    coverPhotoUploading: coverPhotoUploading ?? this.coverPhotoUploading,
+    coverPhotoProgress: coverPhotoProgress == _unsetCoverPhotoProgress
+        ? this.coverPhotoProgress
+        : coverPhotoProgress as double?,
+    coverPhotoError: coverPhotoError == _unsetCoverPhotoError
+        ? this.coverPhotoError
+        : coverPhotoError as Failure?,
+    coverPhotoLocalBytes: coverPhotoLocalBytes == _unsetCoverPhotoLocalBytes
+        ? this.coverPhotoLocalBytes
+        : coverPhotoLocalBytes as Uint8List?,
   );
 
   @override
@@ -219,6 +269,10 @@ final class CreateEventEditing extends CreateEventState {
     privateVenueWarning,
     venueCategoryNudge,
     publishRejection,
+    coverPhotoUploading,
+    coverPhotoProgress,
+    coverPhotoError,
+    coverPhotoLocalBytes,
   ];
 }
 
