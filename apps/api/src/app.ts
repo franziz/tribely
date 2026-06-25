@@ -14,6 +14,8 @@ import { buildEventScopedJoinRequestRoutes } from './features/join-requests/pres
 import { buildJoinRequestRoutes } from './features/join-requests/presentation/http/routes/join-request.routes.js';
 import { buildMyJoinRequestsRoutes } from './features/join-requests/presentation/http/routes/my-join-request.routes.js';
 import { buildUserRoutes } from './features/users/presentation/http/routes/user.routes.js';
+import { buildAvatarRoutes } from './features/users/presentation/http/routes/avatar.routes.js';
+import { UserController } from './features/users/presentation/http/controllers/user.controller.js';
 import { buildPendingReviewPromptsRoutes } from './features/users/presentation/http/routes/pending-review-prompts.routes.js';
 import { buildAdminSelfieRoutes } from './features/users/presentation/http/routes/admin-selfie.routes.js';
 import { requireAuth } from './core/middleware/require-auth.js';
@@ -27,6 +29,7 @@ import {
 } from './features/reviews/presentation/http/routes/review.routes.js';
 import { buildReportRoutes } from './features/reports/presentation/http/routes/report.routes.js';
 import { buildUserBlockRoutes } from './features/user-blocks/presentation/http/routes/user-block.routes.js';
+import { buildSelfieIntakeRoutes } from './features/selfies/presentation/http/routes/selfie-intake.routes.js';
 import { buildSupportRoutes } from './features/support/presentation/http/routes/support.routes.js';
 
 export const buildApp = (): { app: Hono; container: Container } => {
@@ -63,18 +66,51 @@ export const buildApp = (): { app: Hono; container: Container } => {
       verifyPhone: container.verifyPhoneUseCase,
       accessTokens: container.accessTokens,
       rateLimiter: container.rateLimiter,
+      fileStorage: container.fileStorage,
     }),
+  );
+  // TRI-23 Brief A — selfie intake routes (presign + submit), additive under /auth.
+  // POST /auth/selfie        — presign a selfie upload URL
+  // POST /auth/selfie/submit — record a submitted selfie as pending
+  app.route(
+    '/auth',
+    buildSelfieIntakeRoutes({
+      requestSelfieUpload: container.requestSelfieUploadUseCase,
+      submitSelfie: container.submitSelfieUseCase,
+      accessTokens: container.accessTokens,
+      logger: container.logger,
+    }),
+  );
+  // UserController is constructed once here and shared between the base user
+  // routes (GET/PATCH/DELETE /users/me, GET /users/:id) and the avatar routes
+  // (POST /users/me/avatar, POST /users/me/avatar/confirm), matching the same
+  // pattern used for EventController and JoinRequestController in this file.
+  const userController = new UserController(
+    container.getUserUseCase,
+    container.updateUserProfileUseCase,
+    container.clock,
+    container.getUserCapabilitiesUseCase,
+    container.deleteAccountUseCase,
+    container.fileStorage,
+    container.requestAvatarUploadUseCase,
+    container.confirmAvatarUploadUseCase,
   );
   app.route(
     '/users',
     buildUserRoutes({
-      getUser: container.getUserUseCase,
-      updateUserProfile: container.updateUserProfileUseCase,
-      getUserCapabilities: container.getUserCapabilitiesUseCase,
-      deleteAccount: container.deleteAccountUseCase,
+      controller: userController,
       accessTokens: container.accessTokens,
-      clock: container.clock,
       userRepository: container.userRepository,
+    }),
+  );
+  // TRI-24 — avatar upload routes, additive under /users.
+  // POST /users/me/avatar         — presign: returns { uploadUrl, storageKey }
+  // POST /users/me/avatar/confirm — confirm: updates user avatar, returns UserResponse
+  app.route(
+    '/users',
+    buildAvatarRoutes({
+      controller: userController,
+      accessTokens: container.accessTokens,
     }),
   );
   const eventController = new EventController(
@@ -83,6 +119,9 @@ export const buildApp = (): { app: Hono; container: Container } => {
     container.getEventUseCase,
     container.updateEventUseCase,
     container.cancelEventUseCase,
+    container.requestCoverPhotoUploadUseCase,
+    container.replaceCoverPhotoUseCase,
+    container.fileStorage,
   );
   app.route(
     '/events',
@@ -215,6 +254,7 @@ export const buildApp = (): { app: Hono; container: Container } => {
     '/users',
     buildAdminSelfieRoutes({
       rejectSelfie: container.rejectSelfieUseCase,
+      approveSelfie: container.approveSelfieUseCase,
       approveSelfieAppeal: container.approveSelfieAppealUseCase,
     }),
   );

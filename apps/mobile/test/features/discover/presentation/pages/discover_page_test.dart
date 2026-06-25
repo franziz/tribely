@@ -5,12 +5,17 @@
 //   2. Switching selectedTab to map updates the IndexedStack index (tab switcher
 //      is wired through the scaffold state).
 //   3. Sticky CTA "Create event" button is visible regardless of selected tab.
-//   4. Tapping the CTA navigates to '/events/new' (mocked GoRouter).
+//   4. Tapping the CTA (authenticated) navigates to '/events/new' (mocked GoRouter).
 //   5. FilterChipRow is rendered above the tab content on both tabs.
+//   6. TRI-72 Brief C: signed-out tap opens sign-in gate sheet (not /events/new).
+//   7. TRI-72 Brief C: authenticated tap pushes /events/new directly.
 //
 // Mocking strategy:
 //   - [discoverControllerProvider] overridden with a fixed DiscoverLoading stub.
 //   - [discoverFilterControllerProvider] overridden with a fixed filter stub.
+//   - [sessionControllerProvider] overridden via _FixedSessionController.
+//   - [signInGateControllerProvider] overridden with a stub that returns
+//     SignInGateIdle to prevent GetIt access when the sheet opens.
 //   - [locationServiceProvider] overridden with a MockLocationService that
 //     returns null position (avoids real OS dialog; camera init is manual-smoke
 //     territory per §Step 8.5).
@@ -25,6 +30,13 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:tribely/src/core/services/location_service.dart';
 import 'package:tribely/src/core/services/location_service_providers.dart';
+import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
+import 'package:tribely/src/features/auth/domain/entities/user.dart';
+import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
+import 'package:tribely/src/features/auth/presentation/controllers/sign_in_gate_controller.dart';
+import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
+import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
+import 'package:tribely/src/features/auth/presentation/state/sign_in_gate_state.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_controller.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/discover_filter_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/discover_list_tab.dart';
@@ -43,6 +55,29 @@ import 'package:tribely/src/features/discover/presentation/widgets/filter_chip_r
 // ---------------------------------------------------------------------------
 
 class MockLocationService extends Mock implements LocationService {}
+
+// ---------------------------------------------------------------------------
+// Session fixtures
+// ---------------------------------------------------------------------------
+
+final _verifiedUser = User(
+  id: 'test-user-1',
+  email: 'test@tribely.com',
+  displayName: 'Test User',
+  createdAt: DateTime.utc(2024),
+  updatedAt: DateTime.utc(2024),
+  emailVerifiedAt: DateTime.utc(2024),
+);
+
+final _verifiedSession = AuthSession(
+  user: _verifiedUser,
+  accessToken: 'access-token',
+  accessTokenExpiresAt: DateTime.utc(2099),
+  refreshToken: 'refresh-token',
+  refreshTokenExpiresAt: DateTime.utc(2099),
+);
+
+final _authenticatedState = SessionAuthenticated(_verifiedSession);
 
 // ---------------------------------------------------------------------------
 // Fixed-state controllers
@@ -72,6 +107,37 @@ class _PromptAlreadyShownNotifier extends LocationPromptShownNotifier {
   bool build() => true;
 }
 
+/// Fixed [SessionController] that avoids GetIt access in tests.
+///
+/// Must extend [SessionController] (not `Notifier<SessionState>`) because
+/// [sessionControllerProvider]'s `overrideWith` expects the exact notifier type.
+class _FixedSessionController extends SessionController {
+  _FixedSessionController(this._fixed);
+  final SessionState _fixed;
+
+  @override
+  SessionState build() => _fixed;
+}
+
+/// Fixed [SignInGateController] that returns [SignInGateIdle] without touching
+/// GetIt. Required whenever the sign-in gate sheet is opened in tests.
+///
+/// Used with [signInGateControllerProvider.overrideWith2] — Riverpod 3.3.x
+/// delivers the family arg through the `overrideWith2` factory lambda, so this
+/// class receives it via the normal constructor parameter.
+class _FixedSignInGateController extends SignInGateController {
+  _FixedSignInGateController(super.intent);
+
+  @override
+  SignInGateState build() => const SignInGateIdle();
+
+  @override
+  Future<void> submit({
+    required String email,
+    required String password,
+  }) async {}
+}
+
 // ---------------------------------------------------------------------------
 // Router + pump helper
 // ---------------------------------------------------------------------------
@@ -95,6 +161,10 @@ GoRouter _buildRouter() {
           return const Scaffold(body: Text('Create event page'));
         },
       ),
+      GoRoute(
+        path: '/sign-up',
+        builder: (context, state) => const Scaffold(body: Text('Sign up stub')),
+      ),
     ],
   );
 }
@@ -102,6 +172,7 @@ GoRouter _buildRouter() {
 Future<void> _pumpPage(
   WidgetTester tester, {
   MockLocationService? locationService,
+  SessionState sessionState = const SessionUnauthenticated(),
 }) async {
   tester.view.physicalSize = const Size(375, 812);
   tester.view.devicePixelRatio = 1.0;
@@ -133,6 +204,18 @@ Future<void> _pumpPage(
         locationPromptShownProvider.overrideWith(
           _PromptAlreadyShownNotifier.new,
         ),
+        // TRI-72: session state drives the gate-vs-push decision in
+        // _DiscoverPageState._onCreateEvent.
+        sessionControllerProvider.overrideWith(
+          () => _FixedSessionController(sessionState),
+        ),
+        // TRI-72: override the sign-in gate controller so the sheet can open
+        // without triggering GetIt (no service locator in widget tests).
+        // overrideWith2 is the Riverpod 3.3.x API for whole-family NotifierProvider
+        // overrides; the factory receives the family arg (SignInIntent) directly.
+        signInGateControllerProvider.overrideWith2(
+          (intent) => _FixedSignInGateController(intent),
+        ),
       ],
       child: MaterialApp.router(routerConfig: _buildRouter()),
     ),
@@ -154,7 +237,7 @@ void main() {
     testWidgets(
       '1. IndexedStack has both DiscoverListTab and DiscoverMapTab mounted',
       (tester) async {
-        await _pumpPage(tester);
+        await _pumpPage(tester, sessionState: _authenticatedState);
 
         // Both children should be in the widget tree (IndexedStack keeps all
         // children mounted regardless of which is visible).
@@ -180,7 +263,7 @@ void main() {
     testWidgets('2. Tapping Map segment changes IndexedStack index to 1', (
       tester,
     ) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       // Initial state: List tab active → index 0.
       IndexedStack stack = tester.widget<IndexedStack>(
@@ -199,7 +282,7 @@ void main() {
     testWidgets(
       '2b. Tapping List segment after Map changes IndexedStack index back to 0',
       (tester) async {
-        await _pumpPage(tester);
+        await _pumpPage(tester, sessionState: _authenticatedState);
 
         // Switch to map first.
         await tester.tap(find.text('Map'));
@@ -218,14 +301,14 @@ void main() {
     // 3. Sticky CTA visible on both tabs.
     // -----------------------------------------------------------------------
     testWidgets('3a. "Create event" CTA visible on List tab', (tester) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       // Default is List tab.
       expect(find.text('Create event'), findsOneWidget);
     });
 
     testWidgets('3b. "Create event" CTA visible on Map tab', (tester) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       await tester.tap(find.text('Map'));
       await tester.pump();
@@ -234,31 +317,32 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 4. Tapping the CTA routes to /events/new.
+    // 4. Authenticated tap: CTA routes directly to /events/new (no gate).
     // -----------------------------------------------------------------------
-    testWidgets('4. Tapping "Create event" navigates to /events/new', (
-      tester,
-    ) async {
-      await _pumpPage(tester);
+    testWidgets(
+      '4. Authenticated: tapping "Create event" navigates directly to /events/new',
+      (tester) async {
+        await _pumpPage(tester, sessionState: _authenticatedState);
 
-      await tester.tap(find.text('Create event'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Create event'));
+        await tester.pumpAndSettle();
 
-      expect(_lastPushedRoute, '/events/new');
-      expect(find.text('Create event page'), findsOneWidget);
-    });
+        expect(_lastPushedRoute, '/events/new');
+        expect(find.text('Create event page'), findsOneWidget);
+      },
+    );
 
     // -----------------------------------------------------------------------
     // 5. FilterChipRow visible on both tabs.
     // -----------------------------------------------------------------------
     testWidgets('5a. FilterChipRow rendered on List tab', (tester) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       expect(find.byType(FilterChipRow), findsOneWidget);
     });
 
     testWidgets('5b. FilterChipRow rendered on Map tab', (tester) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       await tester.tap(find.text('Map'));
       await tester.pump();
@@ -270,15 +354,61 @@ void main() {
     // Bonus: Screen title and tab switcher are present.
     // -----------------------------------------------------------------------
     testWidgets('Screen title "Discover" is rendered', (tester) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       expect(find.text('Discover'), findsOneWidget);
     });
 
     testWidgets('DiscoverTabSwitcher is rendered', (tester) async {
-      await _pumpPage(tester);
+      await _pumpPage(tester, sessionState: _authenticatedState);
 
       expect(find.byType(DiscoverTabSwitcher), findsOneWidget);
+    });
+
+    // -----------------------------------------------------------------------
+    // 6. TRI-72 Brief C: signed-out tap opens sign-in gate sheet (Tier 1).
+    // -----------------------------------------------------------------------
+    testWidgets(
+      '6. Signed-out: tapping "Create event" opens sign-in gate sheet',
+      (tester) async {
+        await _pumpPage(tester, sessionState: const SessionUnauthenticated());
+
+        await tester.tap(find.text('Create event'));
+        await tester.pump(); // start showModalBottomSheet
+        await tester.pump(
+          const Duration(milliseconds: 300),
+        ); // sheet slide-in completes
+        // pumpAndSettle() avoided: DiscoverMapTab (OSM TileLayer, always mounted
+        // in the IndexedStack) schedules continuous frames and never settles.
+
+        // Gate sheet headline confirms the create-event intent context.
+        expect(find.text('Sign in to create an event'), findsOneWidget);
+        // Navigation to /events/new must NOT have occurred.
+        expect(_lastPushedRoute, isNull);
+        expect(find.text('Create event page'), findsNothing);
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 7. TRI-72 Brief C: authenticated tap skips gate (direct push).
+    //    Validated by test #4 above; this test makes the intent explicit.
+    // -----------------------------------------------------------------------
+    testWidgets('7. Authenticated: "Create event" tap does not open gate sheet', (
+      tester,
+    ) async {
+      await _pumpPage(tester, sessionState: _authenticatedState);
+
+      await tester.tap(find.text('Create event'));
+      await tester.pump(); // allow unawaited push + any microtasks
+      await tester.pump(
+        const Duration(milliseconds: 300),
+      ); // consistent with test 6 bounded-pump pattern
+      // pumpAndSettle() avoided: same map-never-settles CI flake risk as test 6.
+
+      // Sheet headline must NOT appear.
+      expect(find.text('Sign in to create an event'), findsNothing);
+      // Navigation happened directly.
+      expect(_lastPushedRoute, '/events/new');
     });
   });
 }

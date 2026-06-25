@@ -56,6 +56,7 @@ describe.skipIf(!dbUrl)('POST /events/:id/join-requests (integration)', () => {
           emailVerifiedAt: new Date(),
           phone: requesterPhone,
           phoneVerifiedAt: new Date(),
+          selfieStatus: 'approved', // TRI-23: requireVerifiedSelfie gate
         },
         {
           id: hostUserId,
@@ -249,6 +250,7 @@ describe.skipIf(!dbUrl)(
             emailVerifiedAt: new Date(),
             phone: `+6591${ts8.slice(0, 6)}`,
             phoneVerifiedAt: new Date(),
+            selfieStatus: 'approved', // TRI-23: requireVerifiedSelfie gate on remove
           },
           {
             id: requesterUserId,

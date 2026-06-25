@@ -12,6 +12,7 @@ import '../../../auth/presentation/state/auth_state.dart';
 import '../providers/users_providers.dart';
 import '../state/user_profile_state.dart';
 import '../widgets/profile_body.dart';
+import '../widgets/signed_out_empty_state.dart';
 
 // Settings is the user's own account surface — lives in this feature per
 // the brief spec. OwnProfilePage exposes the entry point as a gear-icon
@@ -35,8 +36,41 @@ class OwnProfilePage extends ConsumerWidget {
         ? TribelyColors.nightInkSecondary
         : TribelyColors.paperInkSecondary;
 
-    final state = ref.watch(myProfileControllerProvider);
     final session = ref.watch(sessionControllerProvider);
+
+    // Signed-out: render empty state. Keep AppBar chrome; hide gear action
+    // (Settings routes to /settings which is auth-required — hiding avoids
+    // a confusing dead-end). Banners gate on authed fields — suppress them.
+    if (session is SessionUnauthenticated) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Profile', style: TribelyType.headline(ink)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          // Gear action hidden signed-out — no settings surface for anon users.
+        ),
+        body: const SignedOutEmptyState(),
+      );
+    }
+
+    // Restoring: silent hold — blank body, no spinner flash for a near-instant
+    // transient, AppBar chrome shared across all branches.
+    if (session is SessionRestoring) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Profile', style: TribelyType.headline(ink)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        body: const SizedBox.shrink(),
+      );
+    }
+
+    // Authenticated path — render the full profile body with banners and
+    // the settings gear action.
+    final state = ref.watch(myProfileControllerProvider);
     final phoneRevoked =
         session is SessionAuthenticated && session.phoneRevokedSinceLastSeen;
 

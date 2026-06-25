@@ -84,6 +84,7 @@ class _PlaceSearchFieldState extends State<PlaceSearchField> {
           controller: widget.controller,
           enabled: widget.enabled,
           onChanged: widget.onChanged,
+          textInputAction: TextInputAction.search,
           style: TribelyType.bodyM(ink),
           decoration: InputDecoration(
             hintText: 'Search venues in Singapore',

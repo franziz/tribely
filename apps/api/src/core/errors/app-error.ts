@@ -4,6 +4,8 @@ export type AppErrorCode =
   | 'FORBIDDEN'
   | 'EMAIL_NOT_VERIFIED'
   | 'PHONE_NOT_VERIFIED'
+  | 'SELFIE_NOT_VERIFIED'
+  | 'SELFIE_INTAKE_DISABLED'
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'UNPROCESSABLE'
@@ -40,6 +42,14 @@ export class AppError extends Error {
 
   static phoneNotVerified(message = 'Phone not verified'): AppError {
     return new AppError('PHONE_NOT_VERIFIED', message, 403);
+  }
+
+  static selfieNotVerified(message = 'Selfie not verified'): AppError {
+    return new AppError('SELFIE_NOT_VERIFIED', message, 403);
+  }
+
+  static selfieIntakeDisabled(message = 'Selfie intake is temporarily unavailable'): AppError {
+    return new AppError('SELFIE_INTAKE_DISABLED', message, 503);
   }
 
   static notFound(message = 'Not found', details?: unknown): AppError {

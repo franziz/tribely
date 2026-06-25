@@ -86,6 +86,7 @@ const buildPhoneAuthApp = (db: PrismaClient, phoneVerifier: PhoneVerifier) => {
       verifyPhone,
       accessTokens,
       rateLimiter,
+      fileStorage: null as never,
     }),
   );
   app.onError(errorHandler);

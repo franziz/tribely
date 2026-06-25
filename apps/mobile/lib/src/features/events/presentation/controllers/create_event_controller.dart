@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
@@ -36,16 +37,20 @@ class CreateEventController extends Notifier<CreateEventState> {
   // ---------------------------------------------------------------------------
 
   static const Map<int, List<String>> _stepFields = {
-    0: ['title', 'category'],
-    // Brief F: Step 2 canAdvance is gated on lat/lng only — picker selection
+    // Step 0 — Cover photo (new, TRI-49 Brief 5). Must be uploaded before
+    // the user can advance. The storage key is written to the draft by
+    // [setCoverPhotoKey] after a successful upload.
+    0: ['coverPhotoStorageKey'],
+    1: ['title', 'category'],
+    // Brief F: Step 3 canAdvance is gated on lat/lng only — picker selection
     // is the required action. venueName is auto-populated by the picker (or
     // derived from venueDisplayNameOverride at render), so it is not in the
     // blocking set. The server still validates venueName at submit time via
     // the CreateEventParams builder which pulls from the draft.
-    1: ['latitude', 'longitude'],
-    2: ['startsAt', 'endsAt'],
-    3: ['capacity', 'approvalMode'],
-    4: ['description'],
+    2: ['latitude', 'longitude'],
+    3: ['startsAt', 'endsAt'],
+    4: ['capacity', 'approvalMode'],
+    5: ['description'],
   };
 
   // ---------------------------------------------------------------------------
@@ -150,6 +155,9 @@ class CreateEventController extends Notifier<CreateEventState> {
 
   EventDraft _applyFieldToDraft(EventDraft draft, String field, Object? value) {
     return switch (field) {
+      'coverPhotoStorageKey' => draft.copyWith(
+        coverPhotoStorageKey: value as String?,
+      ),
       'title' => draft.copyWith(title: value as String?),
       'category' => draft.copyWith(category: value as EventCategory?),
       'venueName' => draft.copyWith(venueName: value as String?),
@@ -160,6 +168,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       'capacity' => draft.copyWith(capacity: value as int?),
       'approvalMode' => draft.copyWith(approvalMode: value as String?),
       'description' => draft.copyWith(description: value as String?),
+      'costNotes' => draft.copyWith(costNotes: value as String?),
       _ => draft,
     };
   }
@@ -168,6 +177,9 @@ class CreateEventController extends Notifier<CreateEventState> {
   /// error message on invalid.
   String? _validateField(String field, EventDraft draft) {
     return switch (field) {
+      'coverPhotoStorageKey' => validateCoverPhotoStorageKey(
+        draft.coverPhotoStorageKey,
+      ),
       'title' => validateTitle(draft.title),
       'category' => validateCategory(draft.category),
       'venueName' => validateVenueName(draft.venueName),
@@ -178,6 +190,7 @@ class CreateEventController extends Notifier<CreateEventState> {
       'capacity' => validateCapacity(draft.capacity),
       'approvalMode' => validateApprovalMode(draft.approvalMode),
       'description' => validateDescription(draft.description),
+      'costNotes' => validateCostNotes(draft.costNotes),
       _ => null,
     };
   }
@@ -227,6 +240,7 @@ class CreateEventController extends Notifier<CreateEventState> {
   /// defense-in-depth guard in [submit] to detect bypassed gating.
   bool _draftFieldIsNull(String field, EventDraft draft) {
     return switch (field) {
+      'coverPhotoStorageKey' => draft.coverPhotoStorageKey == null,
       'title' => draft.title == null,
       'category' => draft.category == null,
       'venueName' => draft.venueName == null,
@@ -245,7 +259,7 @@ class CreateEventController extends Notifier<CreateEventState> {
   // Venue category selection + private-venue warning (Brief 9)
   // ---------------------------------------------------------------------------
 
-  /// Select a venue category chip on Step 2.
+  /// Select a venue category chip on Step 3.
   ///
   /// Updates [CreateEventEditing.selectedVenueCategory] + [EventDraft.venueCategory]
   /// in a single state emission, then recomputes the private-venue warning.
@@ -311,8 +325,109 @@ class CreateEventController extends Notifier<CreateEventState> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Cover-photo upload (Step 0)
+  // ---------------------------------------------------------------------------
+
+  /// Stores the cropped bytes in state and kicks off the upload pipeline.
+  ///
+  /// Called by [CreateEventStep0CoverPhotoPage] after the crop screen returns.
+  /// Drives the upload-state fields on [CreateEventEditing]:
+  ///   - [coverPhotoUploading] = true; [coverPhotoProgress] resets to null.
+  ///   - Progress updates arrive via [onSendProgress] → [coverPhotoProgress].
+  ///   - On success: key written to draft, haptic fired, uploading cleared.
+  ///   - On failure: [coverPhotoError] set; [coverPhotoLocalBytes] kept for retry.
+  Future<void> uploadCoverPhoto(Uint8List croppedBytes) async {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+
+    // Store bytes for retry, clear any previous error, mark uploading.
+    state = current.copyWith(
+      coverPhotoUploading: true,
+      coverPhotoLocalBytes: croppedBytes,
+      coverPhotoProgress: null,
+      coverPhotoError: null,
+    );
+
+    final useCase = ref.read(uploadCoverPhotoUseCaseProvider);
+    final result = await useCase.call(
+      croppedBytes,
+      onProgress: (sent, total) {
+        if (!ref.mounted) return;
+        final s = state;
+        if (s is! CreateEventEditing || !s.coverPhotoUploading) return;
+        final progress = total > 0 ? sent / total : null;
+        state = s.copyWith(coverPhotoProgress: progress);
+      },
+    );
+
+    if (!ref.mounted) return;
+
+    await result.fold(
+      (failure) async {
+        if (!ref.mounted) return;
+        final s = state;
+        if (s is! CreateEventEditing) return;
+        state = s.copyWith(
+          coverPhotoUploading: false,
+          coverPhotoProgress: null,
+          coverPhotoError: failure,
+        );
+      },
+      (storageKey) async {
+        if (!ref.mounted) return;
+        final s = state;
+        if (s is! CreateEventEditing) return;
+
+        // Haptic on success.
+        await HapticFeedback.mediumImpact();
+
+        final updatedDraft = s.formData.copyWith(
+          coverPhotoStorageKey: storageKey,
+        );
+        final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+          updatedDraft,
+        );
+        state = s.copyWith(
+          formData: updatedDraft,
+          blockingFields: blockingFields,
+          blockingFieldErrors: blockingFieldErrors,
+          coverPhotoUploading: false,
+          coverPhotoProgress: null,
+          coverPhotoError: null,
+          // Clear the local bytes — key is now the source of truth.
+          coverPhotoLocalBytes: null,
+        );
+        _scheduleAutosave(updatedDraft);
+      },
+    );
+  }
+
+  /// Writes [key] directly to the draft's [coverPhotoStorageKey] field and
+  /// re-derives blocking. Useful when a key is already known (e.g., restored
+  /// from a persisted draft). Called by [CreateEventStep0CoverPhotoPage] on
+  /// direct re-assignment paths.
+  void setCoverPhotoKey(String key) {
+    final current = state;
+    if (current is! CreateEventEditing) return;
+    final updatedDraft = current.formData.copyWith(coverPhotoStorageKey: key);
+    final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
+      updatedDraft,
+    );
+    state = current.copyWith(
+      formData: updatedDraft,
+      blockingFields: blockingFields,
+      blockingFieldErrors: blockingFieldErrors,
+    );
+    _scheduleAutosave(updatedDraft);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Venue category selection + private-venue warning (Brief 9)
+  // ---------------------------------------------------------------------------
+
   /// Surfaces the venue-category nudge when the user hits Next without
-  /// having selected a chip. Called by the Step 2 page on next-tap.
+  /// having selected a chip. Called by the Step 3 page on next-tap.
   /// Does NOT block navigation.
   void showVenueCategoryNudge() {
     final current = state;
@@ -398,6 +513,8 @@ class CreateEventController extends Notifier<CreateEventState> {
       rawProviderCategory: null,
       // venueDisplayNameOverride preserved — user typed this manually.
       venueDisplayNameOverride: existing.venueDisplayNameOverride,
+      // coverPhotoStorageKey preserved — clearing venue does not remove the photo.
+      coverPhotoStorageKey: existing.coverPhotoStorageKey,
     );
 
     final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
@@ -447,6 +564,7 @@ class CreateEventController extends Notifier<CreateEventState> {
         venueAddress: existing.venueAddress,
         rawProviderCategory: existing.rawProviderCategory,
         venueDisplayNameOverride: null,
+        coverPhotoStorageKey: existing.coverPhotoStorageKey,
       );
     } else {
       updatedDraft = current.formData.copyWith(venueDisplayNameOverride: value);
@@ -521,7 +639,7 @@ class CreateEventController extends Notifier<CreateEventState> {
   void goToStep(int step) {
     final current = state;
     if (current is! CreateEventEditing) return;
-    assert(step >= 0 && step <= 4, 'step must be in range 0–4');
+    assert(step >= 0 && step <= 5, 'step must be in range 0–5');
     // Recompute blockingFields on every step transition so time-dependent
     // validators (currently only validateStartsAt) re-evaluate against current
     // wall-clock time. This catches the case where the user advances through
@@ -540,10 +658,10 @@ class CreateEventController extends Notifier<CreateEventState> {
   void nextStep() {
     final current = state;
     if (current is! CreateEventEditing) return;
-    if (current.currentStep < 4) {
-      // On Step 2 (venue, index 1), surface the chip nudge if no category was
+    if (current.currentStep < 5) {
+      // On Step 3 (venue, index 2), surface the chip nudge if no category was
       // chosen. Non-blocking — navigation proceeds regardless.
-      if (current.currentStep == 1) showVenueCategoryNudge();
+      if (current.currentStep == 2) showVenueCategoryNudge();
       goToStep(current.currentStep + 1);
     }
   }
@@ -610,6 +728,10 @@ class CreateEventController extends Notifier<CreateEventState> {
       capacity: draft.capacity!,
       approvalMode: draft.approvalMode!,
       description: draft.description!,
+      costNotes: draft.costNotes,
+      // coverPhotoStorageKey is required by step 0 gate, but keep the
+      // defense-in-depth null check: null is passed through as optional.
+      coverPhotoStorageKey: draft.coverPhotoStorageKey,
     );
 
     if (!ref.mounted) return;
@@ -683,6 +805,7 @@ class CreateEventController extends Notifier<CreateEventState> {
         // Clear venue fields only — preserve all other wizard fields.
         // EventDraft.copyWith uses ?? so it cannot null out fields;
         // construct a fresh draft explicitly propagating every non-venue field.
+        // Navigate to Step 3 (venue, now at index 2 after the index shift).
         final clearedDraft = EventDraft(
           title: current.formData.title,
           category: current.formData.category,
@@ -697,15 +820,17 @@ class CreateEventController extends Notifier<CreateEventState> {
           costNotes: current.formData.costNotes,
           approvalMode: current.formData.approvalMode,
           description: current.formData.description,
-          currentStep: 1,
+          currentStep: 2,
           lastUpdatedAt: current.formData.lastUpdatedAt,
+          // coverPhotoStorageKey preserved — clearing venue does not remove the photo.
+          coverPhotoStorageKey: current.formData.coverPhotoStorageKey,
         );
         final (:blockingFields, :blockingFieldErrors) = _deriveBlocking(
           clearedDraft,
         );
         state = CreateEventEditing(
           formData: clearedDraft,
-          currentStep: 1,
+          currentStep: 2,
           fieldErrors: const {},
           isResuming: false,
           blockingFields: blockingFields,

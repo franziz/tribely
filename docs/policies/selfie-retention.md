@@ -114,7 +114,7 @@ Retention is the minimum window required to serve the disclosed purpose plus a d
 
 **Why 30 days for approved selfies:** the verification decision is the recorded outcome; the underlying image is retained only for the dispute tail (user disputes decision, reviewer-quality audit, late-stage fraud signal). 30 days is the internal-judgment window covering those scenarios without indefinite retention. External counsel sign-off on s25 defensibility of this window is a launch-blocking item (see Section 11).
 
-**Why 7 days for rejected selfies:** users may retry; we keep the rejected image briefly for reviewer consistency and to detect repeated submission patterns. After 7 days, only the rejection event and reason code remain.
+**Why 30 days for rejected selfies:** harmonised with the approved-selfie window (TRI-82). Users may retry; we keep the rejected image for reviewer consistency and late-stage fraud signal. After 30 days, only the rejection event and reason code remain.
 
 **What persists past the retention window in all cases:** the decision metadata (status, decision timestamp, reviewer ID, rejection reason code). Only the image object and any image-derived data are deleted. Metadata is part of the account record and follows account-lifecycle retention.
 

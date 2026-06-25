@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/secondary_button.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
+import '../../../auth/presentation/state/sign_in_intent.dart';
+import '../../../auth/presentation/widgets/sign_in_gate_sheet.dart';
 import '../controllers/discover_filter_controller.dart';
 import '../state/discover_state.dart';
 
@@ -19,7 +24,12 @@ import '../state/discover_state.dart';
 ///
 /// [filterNotifier] is required only for the reset-filters flavor; pass null
 /// for [DiscoverEmptyReason.noEventsInArea].
-class EmptyState extends StatelessWidget {
+///
+/// TRI-72 Brief C: the "Create an event" CTA for [DiscoverEmptyReason.noEventsInArea]
+/// is signed-out-reachable (Discover feed is public). Signed-out taps open the
+/// sign-in gate sheet; on successful auth the app pushes `/events/new` so the
+/// phone-gate redirect fires as normal.
+class EmptyState extends ConsumerWidget {
   const EmptyState({required this.reason, this.filterNotifier, super.key});
 
   final DiscoverEmptyReason reason;
@@ -28,7 +38,7 @@ class EmptyState extends StatelessWidget {
   final DiscoverFilterController? filterNotifier;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -53,7 +63,7 @@ class EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            _buildCta(context),
+            _buildCta(context, ref),
           ],
         ),
       ),
@@ -71,14 +81,31 @@ class EmptyState extends StatelessWidget {
     DiscoverEmptyReason.noEventsInArea => 'Be the first to host something.',
   };
 
-  Widget _buildCta(BuildContext context) => switch (reason) {
+  Widget _buildCta(BuildContext context, WidgetRef ref) => switch (reason) {
     DiscoverEmptyReason.noEventsMatchFilters => SecondaryButton(
       label: 'Reset filters',
       onPressed: () => filterNotifier?.reset(),
     ),
     DiscoverEmptyReason.noEventsInArea => PrimaryButton(
       label: 'Create an event',
-      onPressed: () => context.go('/events/new'),
+      onPressed: () => _onCreateEventTapped(context, ref),
     ),
   };
+
+  // TRI-72 Brief C: intercept signed-out taps on the empty-state "Create an
+  // event" CTA. Discover feed is public (signed-out reachable), so this CTA
+  // needs the same gate as the sticky bottom container CTA.
+  Future<void> _onCreateEventTapped(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(sessionControllerProvider);
+    if (session is SessionUnauthenticated) {
+      final didSignIn = await showSignInGateSheet(
+        context,
+        intent: const SignInIntentCreateEvent(),
+      );
+      if (!context.mounted) return;
+      if (didSignIn) context.go('/events/new');
+      return;
+    }
+    context.go('/events/new');
+  }
 }

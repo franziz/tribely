@@ -9,13 +9,18 @@
 //   6. Omits capacity line when capacity == 0 (v1 trim guard).
 //   7. Tap routes to /events/:id via context.push().
 //   8. Golden at 375dp width (iPhone 12 mini-ish).
+//   9. Renders CachedNetworkImage when coverPhotoUrl is present.
+//  10. Renders CategoryImagePlaceholder when coverPhotoUrl is null.
+//  11. Category badge uses categoryIcon/categoryColor from core/widgets/category_visuals.
 
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tribely/src/core/widgets/category_image_placeholder.dart';
 import 'package:tribely/src/features/discover/presentation/widgets/event_card.dart';
 import 'package:tribely/src/features/events/domain/entities/event.dart';
 import 'package:tribely/src/features/events/domain/entities/event_category.dart';
@@ -38,6 +43,7 @@ Event _makeEvent({
   EventCategory category = EventCategory.drinks,
   int capacity = 12,
   DateTime? startsAt,
+  String? coverPhotoUrl,
 }) => Event(
   id: id,
   hostId: 'host-1',
@@ -49,11 +55,12 @@ Event _makeEvent({
   endsAt: DateTime.utc(2026, 6, 14, 22, 0),
   capacity: capacity,
   category: category,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
   hostIsVerified: false,
+  coverPhotoUrl: coverPhotoUrl,
 );
 
 // ---------------------------------------------------------------------------
@@ -178,6 +185,55 @@ void main() {
           find.byType(EventCard),
           matchesGoldenFile('goldens/event_card_375.png'),
         );
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // TRI-49 Brief 4 — cover photo render site tests
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      '9. coverPhotoUrl present → CachedNetworkImage is in widget tree',
+      (tester) async {
+        // Supply a real-looking URL; CachedNetworkImage will enter loading state
+        // (no actual HTTP in widget tests) but the widget is present in the tree.
+        final event = _makeEvent(
+          coverPhotoUrl: 'https://cdn.tribely.com/events/photo.jpg',
+        );
+        await _pumpCard(tester, event);
+
+        expect(find.byType(CachedNetworkImage), findsOneWidget);
+        // The shared placeholder is NOT rendered as top-level background
+        // when a URL is present (it only appears inside errorWidget).
+        // We verify CachedNetworkImage is used; CategoryImagePlaceholder may
+        // appear inside the errorWidget slot but is not the primary layer.
+        expect(find.byType(CachedNetworkImage), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      '10. coverPhotoUrl null → CategoryImagePlaceholder renders as thumbnail background',
+      (tester) async {
+        final event = _makeEvent(); // no coverPhotoUrl
+        await _pumpCard(tester, event);
+
+        // No network image widget in the tree when URL is absent.
+        expect(find.byType(CachedNetworkImage), findsNothing);
+        // Shared placeholder is rendered directly as the thumbnail background.
+        expect(find.byType(CategoryImagePlaceholder), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      '11. category badge renders correct icon for each category (spot-check drinks + hike)',
+      (tester) async {
+        // Drinks — category badge must show the display name from core/widgets/category_visuals.
+        await _pumpCard(tester, _makeEvent(category: EventCategory.drinks));
+        expect(find.text('Drinks'), findsOneWidget);
+
+        // Hike — badge label switches per category.
+        await _pumpCard(tester, _makeEvent(category: EventCategory.hike));
+        expect(find.text('Hike'), findsOneWidget);
       },
     );
   });
