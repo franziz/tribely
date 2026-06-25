@@ -66,7 +66,7 @@ cp apps/api/.env.example apps/api/.env
 # 4. Apply database migrations (Prisma 7.x; prompts for a name on first run)
 npm run api:db:migrate
 
-# 5. Generate Flutter platform code (REQUIRED — repo ships without ios/android folders)
+# 5. Generate Flutter platform code (regenerates ios/android tooling; the folders ARE committed)
 cd apps/mobile && flutter create --org com.gotribely --platforms=ios,android .
 
 # 6. Download the brand fonts

@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
-    "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.1065.0",
     "@hono/node-server": "^2.0.2",
     "@hono/zod-validator": "^0.8.0",
     "@paralleldrive/cuid2": "^3.3.0",
@@ -50,12 +50,12 @@
     "@types/node": "^25.8.0",
     "@types/pg": "^8.11.10",
     "@vitest/coverage-v8": "^3.2.4",
-    "eslint": "^10.4.0",
+    "eslint": "^10.5.0",
     "prisma": "^7.6.0",
     "tsc-alias": "^1.8.17",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.59.3",
+    "typescript-eslint": "^8.61.0",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^3.2.4"
   }

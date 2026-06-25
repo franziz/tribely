@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/state/auth_state.dart';
+import '../../../auth/presentation/state/sign_in_intent.dart';
+import '../../../auth/presentation/widgets/sign_in_gate_sheet.dart';
 import '../widgets/discover_tab_switcher.dart';
 import '../widgets/filter_chip_row.dart';
 import 'discover_list_tab.dart';
@@ -42,6 +48,28 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
   void _onTabChanged(DiscoverTab tab) {
     if (_selectedTab == tab) return;
     setState(() => _selectedTab = tab);
+  }
+
+  // TRI-72 Brief C: intercept signed-out create-event taps with the sign-in
+  // gate sheet. On successful auth, push /events/new so the phone-gate redirect
+  // in app_router.dart fires as normal. Auth-walled entry points (my_events,
+  // hosting_tab) use context.push('/events/new') directly — no gate needed.
+  //
+  // Branch order: authenticated path first (no await) so the analyzer's
+  // async-gap check is satisfied. State.mounted (no context. prefix) guards
+  // after the await — valid here because _onCreateEvent is a ConsumerState method.
+  Future<void> _onCreateEvent() async {
+    final session = ref.read(sessionControllerProvider);
+    if (session is! SessionUnauthenticated) {
+      unawaited(context.push('/events/new'));
+      return;
+    }
+    final didSignIn = await showSignInGateSheet(
+      context,
+      intent: const SignInIntentCreateEvent(),
+    );
+    if (!mounted) return;
+    if (didSignIn) unawaited(context.push('/events/new'));
   }
 
   @override
@@ -86,7 +114,7 @@ class _DiscoverPageState extends ConsumerState<DiscoverPage> {
             _StickyBottomContainer(
               selectedTab: _selectedTab,
               onTabChanged: _onTabChanged,
-              onCreateEvent: () => context.push('/events/new'),
+              onCreateEvent: _onCreateEvent,
               borderSubtle: borderSubtle,
               surface: surface,
               dark: dark,
@@ -125,7 +153,7 @@ class _StickyBottomContainer extends StatelessWidget {
 
   final DiscoverTab selectedTab;
   final ValueChanged<DiscoverTab> onTabChanged;
-  final VoidCallback onCreateEvent;
+  final Future<void> Function() onCreateEvent;
   final Color borderSubtle;
   final Color surface;
   final bool dark;
@@ -150,7 +178,7 @@ class _StickyBottomContainer extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: PrimaryButton(
               label: 'Create event',
-              onPressed: onCreateEvent,
+              onPressed: () => onCreateEvent(),
             ),
           ),
           Padding(

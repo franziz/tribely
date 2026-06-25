@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
 import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
+import { requireVerifiedSelfie } from '@/core/middleware/require-verified-selfie.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
 import type { JoinRequestController } from '../controllers/join-request.controller.js';
@@ -29,9 +30,10 @@ export const buildJoinRequestRoutes = (
   const auth = requireAuth(deps.accessTokens);
   const verifiedEmail = requireVerifiedEmail(deps.userRepository);
   const verifiedPhone = requireVerifiedPhone(deps.userRepository);
+  const verifiedSelfie = requireVerifiedSelfie(deps.userRepository);
 
   return new Hono<{ Variables: AuthVariables }>()
-    .post('/:id/approve', auth, verifiedEmail, verifiedPhone, (c) =>
+    .post('/:id/approve', auth, verifiedEmail, verifiedPhone, verifiedSelfie, (c) =>
       deps.controller.approveAction(c, c.req.param('id'), c.get('userId')),
     )
     .post(
@@ -39,11 +41,12 @@ export const buildJoinRequestRoutes = (
       auth,
       verifiedEmail,
       verifiedPhone,
+      verifiedSelfie,
       zValidator('json', rejectJoinRequestBodySchema),
       (c) =>
         deps.controller.rejectAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
     )
-    .delete('/:id', auth, verifiedEmail, verifiedPhone, (c) =>
+    .delete('/:id', auth, verifiedEmail, verifiedPhone, verifiedSelfie, (c) =>
       deps.controller.cancelAction(c, c.req.param('id'), c.get('userId')),
     );
 };

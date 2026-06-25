@@ -36,12 +36,13 @@ class EventModel extends Equatable {
     required this.endsAt,
     required this.capacity,
     required this.category,
-    required this.costSplit,
     required this.approvalMode,
     required this.status,
     required this.createdAt,
     required this.hostIsVerified,
+    this.costNotes,
     this.hostDisplayName,
+    this.coverPhotoUrl,
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
@@ -60,7 +61,9 @@ class EventModel extends Equatable {
       endsAt: DateTime.parse(json['endsAt'] as String).toLocal(),
       capacity: (json['capacity'] as num).toInt(),
       category: EventCategory.fromWire(json['category'] as String),
-      costSplit: json['costSplit'] as String,
+      // costNotes is nullable on the wire (z.string().nullable()). Crash-safe
+      // nullable cast — absent or null both map to null on the entity.
+      costNotes: json['costNotes'] as String?,
       approvalMode: json['approvalMode'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
@@ -70,6 +73,8 @@ class EventModel extends Equatable {
       // detail only (TRI-66 scope is /events/:id).
       hostIsVerified: (json['hostIsVerified'] as bool?) ?? false,
       hostDisplayName: json['hostDisplayName'] as String?,
+      // Nullable — absent when the host has not uploaded a cover photo.
+      coverPhotoUrl: json['coverPhotoUrl'] as String?,
     );
   }
 
@@ -82,7 +87,9 @@ class EventModel extends Equatable {
   final DateTime endsAt;
   final int capacity;
   final EventCategory category;
-  final String costSplit;
+
+  /// Nullable on the wire — absent when host left the field blank.
+  final String? costNotes;
   final String approvalMode;
   final String status;
   final DateTime createdAt;
@@ -100,6 +107,10 @@ class EventModel extends Equatable {
   /// deferred to TRI-19.
   final String? hostDisplayName;
 
+  /// URL of the event's cover photo (TRI-49). Nullable — absent when the host
+  /// has not uploaded a cover photo.
+  final String? coverPhotoUrl;
+
   /// Map to the domain [Event] entity. The domain field is named [hostId];
   /// the server wire field is [hostUserId] — translation lives here.
   Event toEntity() => Event(
@@ -112,12 +123,13 @@ class EventModel extends Equatable {
     endsAt: endsAt,
     capacity: capacity,
     category: category,
-    costSplit: costSplit,
+    costNotes: costNotes,
     approvalMode: approvalMode,
     status: status,
     createdAt: createdAt,
     hostIsVerified: hostIsVerified,
     hostDisplayName: hostDisplayName,
+    coverPhotoUrl: coverPhotoUrl,
   );
 
   @override
@@ -131,12 +143,13 @@ class EventModel extends Equatable {
     endsAt,
     capacity,
     category,
-    costSplit,
+    costNotes,
     approvalMode,
     status,
     createdAt,
     hostIsVerified,
     hostDisplayName,
+    coverPhotoUrl,
   ];
 }
 

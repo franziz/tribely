@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AppError } from '@/core/errors/app-error.js';
 import { EVENT_CANCELLED } from '../events/event-cancelled.event.js';
 import { EVENT_COMPLETED } from '../events/event-completed.event.js';
+import { EVENT_COVER_PHOTO_REPLACED } from '../events/event-cover-photo-replaced.event.js';
 import { EVENT_CREATED } from '../events/event-created.event.js';
 import { EVENT_PUBLISHED } from '../events/event-published.event.js';
 import { EVENT_UPDATED } from '../events/event-updated.event.js';
@@ -447,6 +448,67 @@ describe('Event', () => {
       e.edit({ venueCategory: VenueCategory.create('hawker_centre') }, editNow);
       expect(e.pullEvents()).toHaveLength(0);
       expect(e.updatedAt).toEqual(NOW);
+    });
+  });
+
+  describe('setCoverPhoto', () => {
+    const coverNow = new Date(NOW.getTime() + 1000);
+
+    it('sets a new key, bumps updatedAt, records eventCoverPhotoReplaced', () => {
+      const e = draftEvent();
+      e.pullEvents(); // drain create event
+      const key = 'events/user_1/abc.jpg';
+      e.setCoverPhoto(key, coverNow);
+      expect(e.coverPhotoStorageKey).toBe(key);
+      expect(e.updatedAt).toEqual(coverNow);
+      const events = e.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(EVENT_COVER_PHOTO_REPLACED);
+      expect(events[0]?.payload).toMatchObject({
+        eventId: 'evt_1',
+        hostUserId: 'user_1',
+        coverPhotoStorageKey: key,
+      });
+    });
+
+    it('is a no-op when the key is unchanged — no event, no updatedAt bump', () => {
+      const existingKey = 'events/user_1/existing.jpg';
+      const e = draftEvent({ coverPhotoStorageKey: existingKey });
+      e.pullEvents();
+      e.setCoverPhoto(existingKey, coverNow);
+      expect(e.pullEvents()).toHaveLength(0);
+      expect(e.updatedAt).toEqual(NOW);
+    });
+
+    it('works on a published event', () => {
+      const e = draftEvent();
+      e.publish(new Date(NOW.getTime() + 500));
+      e.pullEvents();
+      const key = 'events/user_1/published.jpg';
+      e.setCoverPhoto(key, coverNow);
+      expect(e.coverPhotoStorageKey).toBe(key);
+      const events = e.pullEvents();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.type).toBe(EVENT_COVER_PHOTO_REPLACED);
+    });
+
+    it('throws conflict on a cancelled event', () => {
+      const e = draftEvent();
+      e.cancel('weather', new Date(NOW.getTime() + 500));
+      e.pullEvents();
+      expect(() => {
+        e.setCoverPhoto('events/user_1/new.jpg', coverNow);
+      }).toThrowError(/Cannot replace cover photo in status: cancelled/);
+    });
+
+    it('throws conflict on a completed event', () => {
+      const e = draftEvent();
+      e.publish(new Date(NOW.getTime() + 500));
+      e.markCompleted(new Date(NOW.getTime() + 700));
+      e.pullEvents();
+      expect(() => {
+        e.setCoverPhoto('events/user_1/new.jpg', coverNow);
+      }).toThrowError(/Cannot replace cover photo in status: completed/);
     });
   });
 

@@ -37,7 +37,7 @@ final _testEvent = Event(
   endsAt: DateTime.utc(2026, 6, 1, 21, 0),
   capacity: 10,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),

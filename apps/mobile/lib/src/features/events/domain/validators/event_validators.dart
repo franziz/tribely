@@ -189,6 +189,17 @@ String? validateApprovalMode(String? value) {
   return null;
 }
 
+/// Cost notes are optional (null / empty → valid). Defense-in-depth max-length
+/// check mirrors [costNotesMaxLen]; the UI [maxLength] guard already prevents
+/// the 201st character from being typed.
+String? validateCostNotes(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  if (value.trim().length > costNotesMaxLen) {
+    return 'Cost notes must be at most $costNotesMaxLen characters';
+  }
+  return null;
+}
+
 /// Description is required by the form (UI-only minimum [descriptionMinLenUi]).
 /// The server allows null; we tighten here per AC #6.
 String? validateDescription(String? value) {
@@ -201,6 +212,15 @@ String? validateDescription(String? value) {
   }
   if (trimmed.length > descriptionMaxLen) {
     return 'Description must be at most $descriptionMaxLen characters';
+  }
+  return null;
+}
+
+/// Cover photo is required by the wizard (Step 0). The user must upload a
+/// cover photo before advancing. Null storage key → not yet uploaded.
+String? validateCoverPhotoStorageKey(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Add a cover photo to continue';
   }
   return null;
 }

@@ -10,7 +10,7 @@ import '../entities/event_draft.dart';
 // Params
 // ---------------------------------------------------------------------------
 
-/// Domain-side params for creating an event. All fields are non-nullable —
+/// Domain-side params for creating an event. Required fields are non-nullable —
 /// the form gates progression to submit until each step is complete.
 /// Maps to the server's POST /events request body via the data layer.
 class CreateEventParams extends Equatable {
@@ -26,6 +26,8 @@ class CreateEventParams extends Equatable {
     required this.capacity,
     required this.approvalMode,
     required this.description,
+    this.costNotes,
+    this.coverPhotoStorageKey,
   });
 
   final String title;
@@ -49,6 +51,17 @@ class CreateEventParams extends Equatable {
   final String approvalMode;
   final String description;
 
+  /// Optional host-authored free-text cost note. Omitted from the POST body
+  /// when null or empty (server schema is `.optional()`). Never structured —
+  /// CEO guardrail: plain String only, no numeric/split-type primitives.
+  final String? costNotes;
+
+  /// Storage key (object path) for the uploaded cover photo. Set by the
+  /// cover-photo wizard step (Step 0) after a successful upload. Null until
+  /// the user selects and uploads a photo; optional on the wire (omitted when
+  /// null — server schema is `.optional()`).
+  final String? coverPhotoStorageKey;
+
   @override
   List<Object?> get props => [
     title,
@@ -62,6 +75,8 @@ class CreateEventParams extends Equatable {
     capacity,
     approvalMode,
     description,
+    costNotes,
+    coverPhotoStorageKey,
   ];
 }
 
@@ -74,8 +89,8 @@ class CreateEventParams extends Equatable {
 /// the canonical shape.
 abstract class EventRepository {
   /// Create an event on the server. Returns the newly-created [Event] on
-  /// success. The data layer hardcodes costSplit='own' and city='Singapore'
-  /// for the v1 MVP.
+  /// success. The data layer hardcodes city='Singapore' for the v1 MVP;
+  /// [CreateEventParams.costNotes] is forwarded when present.
   Future<Either<Failure, Event>> createEvent(CreateEventParams params);
 
   /// Load a locally-persisted draft. Returns [null] when no draft exists.

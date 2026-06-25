@@ -9,6 +9,10 @@
 //   6. Event past (status=cancelled) → disabled CTA + "Event has ended" label
 //   7. EmailNotVerifiedFailure → BannerMessage with "Verify now" link
 //   8. Withdraw flow: tapping "Withdraw request" shows AlertDialog
+//   9. TRI-72 sign-in gate: signed-out tap opens gate sheet (not /welcome)
+//  10. TRI-72 sign-in gate: successful auth resumes join sheet
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,9 +21,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tribely/src/core/error/failures.dart';
 import 'package:tribely/src/core/widgets/primary_button.dart';
 import 'package:tribely/src/core/widgets/status_pill.dart';
-import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
+import 'package:tribely/src/features/auth/domain/entities/auth_session.dart';
+import 'package:tribely/src/features/auth/domain/entities/user.dart';
 import 'package:tribely/src/features/auth/presentation/controllers/session_controller.dart';
+import 'package:tribely/src/features/auth/presentation/providers/auth_providers.dart';
 import 'package:tribely/src/features/auth/presentation/state/auth_state.dart';
+import 'package:tribely/src/features/auth/presentation/string_assets/sign_in_gate_copy.dart';
 import 'package:tribely/src/features/discover/presentation/controllers/event_detail_controller.dart';
 import 'package:tribely/src/features/discover/presentation/pages/event_detail_page.dart';
 import 'package:tribely/src/features/discover/presentation/providers/event_detail_providers.dart';
@@ -48,6 +55,39 @@ class _FakeMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
   Future<UserCapabilities> build() async => _caps;
 }
 
+/// Notifier that emits an error state synchronously by returning an already-
+/// rejected future — simulates capabilities unreachable at the resume-read
+/// moment (TRI-294 AC#3 fallback).
+///
+/// NOTE — Riverpod 3 AsyncNotifierProvider retry behaviour:
+/// When build() returns a rejected future, Riverpod enters exponential-backoff
+/// retry. `provider.future` awaits each retry, so it NEVER settles in the
+/// test's fake-async clock (confirmed by local debug run: 30s timeout,
+/// "provider disposed during loading state"). To make the future settle
+/// without real time, we use `Future.error` wrapped in a notifier that also
+/// sets `state = AsyncError(...)` immediately after the initial load — this
+/// forces `.future` to a completed error without waiting for retries.
+///
+/// Implementation: override build() to return a rejected future AND schedule
+/// a synchronous state set so the provider transitions out of loading before
+/// the retry timer fires.
+class _ThrowingMyCapabilitiesNotifier extends MyCapabilitiesNotifier {
+  @override
+  Future<UserCapabilities> build() async {
+    // Schedule the error state immediately so provider.future rejects on the
+    // next microtask, before Riverpod's retry backoff timer is armed.
+    unawaited(
+      Future.microtask(() {
+        state = AsyncError<UserCapabilities>(
+          Exception('capabilities unreachable'),
+          StackTrace.current,
+        );
+      }),
+    );
+    throw Exception('capabilities unreachable');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -71,7 +111,7 @@ final _testEvent = Event(
   endsAt: DateTime.utc(2099, 6, 1, 21, 0),
   capacity: 8,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 1, 1),
@@ -89,6 +129,31 @@ final _pastEvent = _testEvent.copyWith(
 
 // Cancelled event
 final _cancelledEvent = _testEvent.copyWith(status: 'cancelled');
+
+// ---------------------------------------------------------------------------
+// Authenticated session fixture — required by TRI-290 tests where CTA tap must
+// route to ConfirmJoinSheet (authed path). Mirrors the fixture in
+// event_detail_page_test.dart.
+// ---------------------------------------------------------------------------
+
+final _verifiedUser = User(
+  id: 'test-user-1',
+  email: 'test@tribely.com',
+  displayName: 'Test User',
+  createdAt: DateTime.utc(2024),
+  updatedAt: DateTime.utc(2024),
+  emailVerifiedAt: DateTime.utc(2024),
+);
+
+final _verifiedSession = AuthSession(
+  user: _verifiedUser,
+  accessToken: 'access-token',
+  accessTokenExpiresAt: DateTime.utc(2099),
+  refreshToken: 'refresh-token',
+  refreshTokenExpiresAt: DateTime.utc(2099),
+);
+
+final _authenticatedState = SessionAuthenticated(_verifiedSession);
 
 final _pendingRequest = JoinRequest(
   id: 'jr-1',
@@ -457,6 +522,9 @@ void main() {
           tester,
           event: _testEvent,
           ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+          // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+          // unauthenticated tap opens the sign-in gate sheet.
+          sessionState: _authenticatedState,
         );
 
         await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
@@ -475,6 +543,9 @@ void main() {
           tester,
           event: _testEvent,
           ctaState: RequestToJoinIdle(existingRequest: _withdrawnRequest),
+          // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+          // unauthenticated tap opens the sign-in gate sheet.
+          sessionState: _authenticatedState,
           onSubmitCalled: () => submitCalled = true,
         );
 
@@ -487,6 +558,249 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(submitCalled, isTrue);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TRI-72: sign-in gate interception (Brief B)
+  //
+  // Verifies that a signed-out tap on "Request to join" opens the in-place
+  // sign-in gate sheet instead of bouncing to /welcome (TRI-290 interim).
+  //
+  //  9. Signed-out tap → gate sheet appears (not /welcome)
+  // 10. Successful auth result → join sheet resumes (ConfirmJoinSheet shown)
+  // ---------------------------------------------------------------------------
+  group('TRI-72 sign-in gate interception (Brief B)', () {
+    // -----------------------------------------------------------------------
+    // 9. Signed-out tap → gate sheet appears (Tier 1)
+    // -----------------------------------------------------------------------
+    testWidgets(
+      'signed-out tap opens sign-in gate sheet, not /welcome navigation',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          event: _testEvent,
+          ctaState: const RequestToJoinIdle(),
+          sessionState: const SessionUnauthenticated(),
+        );
+
+        // CTA is present and enabled.
+        final button = tester.widget<PrimaryButton>(
+          find.widgetWithText(PrimaryButton, 'Request to join'),
+        );
+        expect(button.onPressed, isNotNull);
+
+        await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+        await tester.pumpAndSettle();
+
+        // The sign-in gate sheet's context-aware headline for requestJoin intent
+        // must appear — confirms the sheet opened in-place rather than routing
+        // to /welcome.
+        expect(
+          find.text(SignInGateCopy.joinHeadlineLine1),
+          findsOneWidget,
+          reason:
+              'Signed-out CTA tap must open the sign-in gate sheet '
+              '(${SignInGateCopy.joinHeadlineLine1}) instead of navigating '
+              'to /welcome.',
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 10. Successful auth → join sheet resumes (Tier 2)
+    // -----------------------------------------------------------------------
+    testWidgets('successful auth from gate sheet resumes join (opens join sheet)', (
+      tester,
+    ) async {
+      // Session remains SessionUnauthenticated in the provider — the session
+      // controller is a fixed fake. safetyReminderSeen: false simulates a
+      // first-timer who has never seen the safety reminder. With TRI-294, the
+      // resume path now awaits myCapabilitiesProvider.future; setting false
+      // here means that re-read also returns false → _openJoinSheet calls
+      // showSafetyReminderSheet, not showConfirmJoinSheet.
+      // We assert on SafetyReminderSheet's CTA ("Got it, send my request").
+      await _pumpPage(
+        tester,
+        event: _testEvent,
+        ctaState: const RequestToJoinIdle(),
+        sessionState: const SessionUnauthenticated(),
+        safetyReminderSeen: false,
+      );
+
+      // Open the gate sheet.
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+      await tester.pumpAndSettle();
+
+      // Gate sheet is open — headline is visible.
+      expect(find.text(SignInGateCopy.joinHeadlineLine1), findsOneWidget);
+
+      // Simulate a successful auth by popping the modal with true, which is
+      // what the sheet does after SignInGateSuccess + TribelyMotion.short delay.
+      // We pop directly rather than driving the form through a real network
+      // call — the resume logic under test is in event_detail_page.dart, not
+      // in the sheet itself.
+      final NavigatorState navigator = tester.state(
+        find.byType(Navigator).last,
+      );
+      navigator.pop(true);
+      // Walk the two sequential modal transitions deterministically:
+      //   1. gate-sheet exit (~200ms reverseTransitionDuration)
+      //   2. frame hop → _openJoinSheet → showSafetyReminderSheet schedules
+      //   3. SafetyReminderSheet entrance (~250ms transitionDuration)
+      // 10×100ms = 1000ms provides margin; each step flushes a frame so the
+      // sequence completes without risking a pumpAndSettle hang on codec frames.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      // After auth success + resume, SafetyReminderSheet must be open.
+      // TRI-294: the resume path re-reads myCapabilitiesProvider.future; with
+      // safetyReminderSeen: false the re-read returns false → safety sheet.
+      expect(
+        find.text('Got it, send my request'),
+        findsOneWidget,
+        reason:
+            'After a successful sign-in the gate sheet should close and '
+            '_openJoinSheet should open SafetyReminderSheet '
+            '("Got it, send my request") because safetyReminderSeen is '
+            'false (first-timer path).',
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // TRI-294 post-auth capabilities re-read on resume
+  // -----------------------------------------------------------------------
+  group('TRI-294 post-auth capabilities re-read on resume', () {
+    // Simulate gate-sheet success: pop the topmost Navigator with true, then
+    // walk through dismiss→open frame transitions deterministically (1000ms
+    // total). Mirrors the bounded pump walk from test #10.
+    Future<void> simulateGateSuccess(WidgetTester tester) async {
+      final NavigatorState navigator = tester.state(
+        find.byType(Navigator).last,
+      );
+      navigator.pop(true);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    // AC#1 — Returning user (safetyReminderSeen: true) resumes join via
+    // sign-in gate → capabilities re-read returns true → straight to
+    // ConfirmJoinSheet, no re-show of safety reminder.
+    testWidgets('AC#1 returning user skips safety reminder after resume auth', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        event: _testEvent,
+        ctaState: const RequestToJoinIdle(),
+        sessionState: const SessionUnauthenticated(),
+        // The fake capabilities notifier returns safetyReminderSeen: true.
+        // The prod fix reads this via myCapabilitiesProvider.future after
+        // didSignIn == true.
+        safetyReminderSeen: true,
+      );
+
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+      await tester.pumpAndSettle();
+
+      // Gate sheet is open.
+      expect(find.text(SignInGateCopy.joinHeadlineLine1), findsOneWidget);
+
+      await simulateGateSuccess(tester);
+
+      // ConfirmJoinSheet must be open — "Send request" button is the
+      // sentinel (sheet title, not the CTA on the underlying page).
+      expect(
+        find.text('Send request'),
+        findsOneWidget,
+        reason:
+            'Returning user (safetyReminderSeen=true) must skip the '
+            'safety reminder and land directly on ConfirmJoinSheet.',
+      );
+      // Safety reminder CTA must NOT be visible.
+      expect(
+        find.text('Got it, send my request'),
+        findsNothing,
+        reason: 'SafetyReminderSheet must not appear for a returning user.',
+      );
+    });
+
+    // AC#3 — Capabilities future throws (network error / timeout) → fallback
+    // to showing safety reminder. Never silently skip on error.
+    testWidgets(
+      'AC#3 capabilities unreachable on resume → fallback shows safety reminder',
+      (tester) async {
+        // _ThrowingMyCapabilitiesNotifier always throws — simulates network
+        // unreachable at the resume-read moment.
+        final throwingNotifier = _ThrowingMyCapabilitiesNotifier();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              eventDetailControllerProvider(_testEventId).overrideWith(
+                () =>
+                    _FixedEventDetailController(EventDetailLoaded(_testEvent)),
+              ),
+              sessionControllerProvider.overrideWith(
+                () => _FixedSessionController(const SessionUnauthenticated()),
+              ),
+              requestToJoinControllerProvider(_testEventId).overrideWith(
+                () => _FixedRequestToJoinController(const RequestToJoinIdle()),
+              ),
+              selfieGatingStateProvider.overrideWithValue(
+                const SelfieGatingApproved(),
+              ),
+              myCapabilitiesProvider.overrideWith(() => throwingNotifier),
+            ],
+            child: const MaterialApp(
+              home: EventDetailPage(eventId: _testEventId),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.widgetWithText(PrimaryButton, 'Request to join'));
+        // Bounded pump — avoids pumpAndSettle hang on error-retry frames from
+        // the throwing provider. Same pattern as AC#1's gate-sheet open.
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+
+        // Gate sheet is open.
+        expect(find.text(SignInGateCopy.joinHeadlineLine1), findsOneWidget);
+
+        final NavigatorState navigator = tester.state(
+          find.byType(Navigator).last,
+        );
+        navigator.pop(true);
+        // Extended walk: throw-catch path has an extra microtask frame on top
+        // of the normal dismiss→open sequence, so 20×100ms covers both the
+        // gate-sheet exit animation AND the safety-sheet entrance after the
+        // catch resolves.
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+
+        // Safety reminder must be shown — fail-safe on unreachable caps.
+        expect(
+          find.text('Got it, send my request'),
+          findsOneWidget,
+          reason:
+              'When capabilities.future throws, the prod fix catches and '
+              'sets resumeSafetyReminderSeen=false → safety reminder shown.',
+        );
+        // ConfirmJoinSheet must NOT be shown.
+        expect(
+          find.text('Send request'),
+          findsNothing,
+          reason:
+              'ConfirmJoinSheet must not open when capabilities are '
+              'unreachable — reminder must be shown first.',
+        );
       },
     );
   });

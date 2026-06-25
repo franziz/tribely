@@ -24,6 +24,7 @@ export interface EventCreatedPayload {
   category: EventCategoryValue;
   venueCategory: VenueCategoryValue;
   costNotes: string | null;
+  coverPhotoStorageKey: string | null;
   approvalMode: 'auto' | 'manual';
   createdAt: string;
 }

@@ -10,15 +10,24 @@ import '../../../../core/design/typography.dart';
 /// [CreateEventController.acknowledgeResume] and
 /// [CreateEventController.discardDraft] respectively. The dialog dismisses
 /// itself after either action.
+///
+/// When [hasCoverPhoto] is true, a "Cover photo attached" indicator row is
+/// rendered beneath the draft summary text and above the action buttons.
+/// The indicator is informational only — no action is bound to it.
 class ResumeDraftDialog extends StatelessWidget {
   const ResumeDraftDialog({
     required this.onResume,
     required this.onDiscard,
+    this.hasCoverPhoto = false,
     super.key,
   });
 
   final VoidCallback onResume;
   final VoidCallback onDiscard;
+
+  /// Whether the saved draft has a non-null [EventDraft.coverPhotoStorageKey].
+  /// When true, a "Cover photo attached" indicator row is rendered.
+  final bool hasCoverPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -41,9 +50,32 @@ class ResumeDraftDialog extends StatelessWidget {
       backgroundColor: surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text('Resume your draft?', style: TribelyType.headline(ink)),
-      content: Text(
-        'You have an unfinished event draft. Continue where you left off, or start fresh.',
-        style: TribelyType.bodyM(inkSecondary),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'You have an unfinished event draft. Continue where you left off, or start fresh.',
+            style: TribelyType.bodyM(inkSecondary),
+          ),
+          // Cover-photo indicator — rendered only when draft has a stored key.
+          // The key is an object-path (not a URL), so a literal thumbnail is
+          // not available without a separate presign round-trip. Per EL ruling:
+          // show a text indicator instead.
+          if (hasCoverPhoto) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.image_outlined, size: 16, color: inkSecondary),
+                const SizedBox(width: 6),
+                Text(
+                  'Cover photo attached',
+                  style: TribelyType.caption(inkSecondary),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
       actions: [
         TextButton(

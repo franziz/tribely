@@ -134,6 +134,26 @@ class ProviderFailure extends Failure {
   const ProviderFailure(super.message, {super.code});
 }
 
+/// 503 SELFIE_INTAKE_DISABLED — selfie intake is temporarily paused by ops.
+///
+/// The consent screen renders the maintenance-mode variant and never opens
+/// the camera.
+class SelfieIntakeDisabledFailure extends Failure {
+  const SelfieIntakeDisabledFailure([
+    super.message = 'Selfie intake is temporarily unavailable',
+  ]) : super(code: 'SELFIE_INTAKE_DISABLED');
+}
+
+/// 403 SELFIE_NOT_VERIFIED — an action requires a verified selfie.
+///
+/// Distinct from generic [ServerFailure] so the presentation layer can route
+/// the user to the selfie consent flow rather than showing a generic error.
+class SelfieNotVerifiedFailure extends Failure {
+  const SelfieNotVerifiedFailure([
+    super.message = 'Selfie verification required',
+  ]) : super(code: 'SELFIE_NOT_VERIFIED');
+}
+
 /// 422 UNPROCESSABLE with subcode FIRST_EVENT_MUST_BE_PUBLIC.
 ///
 /// The server rejects the create/update call because the user's first event

@@ -20,6 +20,7 @@
 
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +28,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mocktail/mocktail.dart';
 import 'package:tribely/src/core/router/app_shell.dart';
+import 'package:tribely/src/core/widgets/category_image_placeholder.dart';
 import 'package:tribely/src/core/widgets/verified_pill.dart';
 import 'package:tribely/src/core/services/location_service.dart';
 import 'package:tribely/src/core/services/location_service_providers.dart';
@@ -96,7 +98,7 @@ final _testEvent = Event(
   endsAt: DateTime.now().toUtc().add(const Duration(days: 365, hours: 3)),
   capacity: 12,
   category: EventCategory.drinks,
-  costSplit: 'own',
+  costNotes: null,
   approvalMode: 'manual',
   status: 'published',
   createdAt: DateTime.utc(2026, 5, 1),
@@ -497,6 +499,9 @@ void main() {
         tester,
         eventId: _testEventId,
         initialState: EventDetailLoaded(_testEvent),
+        // TRI-72: CTA tap routes to ConfirmJoinSheet when authenticated;
+        // unauthenticated tap opens the sign-in gate sheet.
+        sessionState: _authenticatedState,
       );
 
       await tester.tap(find.byType(PrimaryButton));
@@ -713,6 +718,59 @@ void main() {
         expect(find.bySemanticsLabel('Verified'), findsNothing);
         // Host row text still renders.
         expect(find.text('Hosted by Alice'), findsOneWidget);
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 9. _HeroImage cover-photo render (TRI-49 Brief 4)
+    // -----------------------------------------------------------------------
+
+    testWidgets('coverPhotoUrl present → CachedNetworkImage rendered in hero', (
+      tester,
+    ) async {
+      final eventWithPhoto = _testEvent.copyWith(
+        coverPhotoUrl: 'https://cdn.tribely.com/events/photo.jpg',
+      );
+
+      await _pumpPage(
+        tester,
+        eventId: _testEventId,
+        initialState: EventDetailLoaded(eventWithPhoto),
+      );
+      // bounded pump — detail page has map-bearing tree, never use pumpAndSettle.
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(CachedNetworkImage), findsOneWidget);
+    });
+
+    testWidgets(
+      'coverPhotoUrl null → CategoryImagePlaceholder rendered in hero',
+      (tester) async {
+        // _testEvent has no coverPhotoUrl.
+        await _pumpPage(
+          tester,
+          eventId: _testEventId,
+          initialState: EventDetailLoaded(_testEvent),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.byType(CategoryImagePlaceholder), findsOneWidget);
+        expect(find.byType(CachedNetworkImage), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'category badge still renders correct display name from category_visuals',
+      (tester) async {
+        await _pumpPage(
+          tester,
+          eventId: _testEventId,
+          initialState: EventDetailLoaded(_testEvent), // category = drinks
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Category badge text rendered by _CategoryBadge in _HeroImage.
+        expect(find.text('Drinks'), findsOneWidget);
       },
     );
   });

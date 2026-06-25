@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,14 +9,21 @@ import '../../../../core/design/motion.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/banner_message.dart';
+import '../../../../core/widgets/category_image_placeholder.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../../core/widgets/secondary_button.dart';
 import '../../../../core/widgets/skeleton_loader.dart';
 import '../../../../core/widgets/status_pill.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/state/auth_state.dart';
+import '../../../auth/presentation/state/sign_in_intent.dart';
+import '../../../auth/presentation/widgets/sign_in_gate_sheet.dart';
 import '../../../events/domain/entities/event.dart';
 import '../../../events/presentation/string_assets/cancel_event_copy.dart';
 import '../../../events/presentation/widgets/cancel_event_sheet.dart';
+import '../controllers/replace_cover_photo_controller.dart';
+import '../state/replace_cover_photo_state.dart';
+import '../widgets/cover_photo_replace_button.dart';
 import '../../../join_requests/domain/entities/join_request.dart';
 import '../../../join_requests/domain/entities/join_request_with_requester.dart';
 import '../../../join_requests/presentation/controllers/host_pending_list_controller.dart';
@@ -32,6 +40,8 @@ import '../../../join_requests/presentation/widgets/pending_request_row.dart';
 import '../../../join_requests/presentation/widgets/remove_attendee_sheet.dart';
 import '../../../join_requests/presentation/widgets/safety_reminder_sheet.dart';
 import '../../../my_events/presentation/controllers/hosting_tab_controller.dart';
+import '../../../reviews/domain/entities/review_eligibility.dart';
+import '../../../reviews/presentation/providers/review_providers.dart';
 import '../../../users/presentation/providers/capability_providers.dart';
 import '../../../../core/widgets/requester_profile_sheet.dart';
 import '../../../../core/widgets/verified_pill.dart';
@@ -194,8 +204,8 @@ class _LoadingSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    // Hero: full-width 3:2 aspect ratio.
-    final heroHeight = screenWidth * (2 / 3);
+    // Hero: full-width 16:9 aspect ratio (designer-confirmed TRI-49 Brief 4).
+    final heroHeight = screenWidth * 9 / 16;
 
     // SingleChildScrollView prevents RenderFlex overflow when the skeleton
     // content (hero + metadata) exceeds the available Scaffold body height.
@@ -266,7 +276,7 @@ class _LoadingSkeleton extends StatelessWidget {
 // Loaded body
 // ---------------------------------------------------------------------------
 
-class _LoadedBody extends StatelessWidget {
+class _LoadedBody extends ConsumerWidget {
   const _LoadedBody({
     required this.event,
     required this.isHostViewer,
@@ -281,7 +291,19 @@ class _LoadedBody extends StatelessWidget {
   final String eventId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Listen for successful cover-photo replacement and invalidate providers.
+    // ref.listen must be called inside build() — this is the correct place for
+    // a side-effect listener in a ConsumerWidget.
+    ref.listen<ReplaceCoverPhotoState>(
+      replaceCoverPhotoControllerProvider(eventId),
+      (previous, next) {
+        if (next is ReplaceCoverPhotoSuccess) {
+          handleReplaceCoverPhotoSuccess(ref, eventId: eventId);
+        }
+      },
+    );
+
     // Scrollable content only — the sticky CTA is now Scaffold.bottomNavigationBar
     // on the outer Scaffold, which auto-insets the body by its exact rendered
     // height. No Stack, no Positioned, no manual height estimation.
@@ -290,7 +312,11 @@ class _LoadedBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _HeroImage(event: event),
+          _HeroImage(
+            event: event,
+            isHostViewer: isHostViewer,
+            eventId: eventId,
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
             child: Column(
@@ -332,29 +358,52 @@ class _LoadedBody extends StatelessWidget {
   }
 }
 
-/// Full-width hero image with a 3:2 aspect ratio (§E).
+/// Full-width hero image with a 16:9 aspect ratio (designer-confirmed TRI-49).
 /// Category badge sits bottom-left overlaid on the image.
+/// When [isHostViewer] is true, a camera-icon replace button sits bottom-right
+/// (TRI-306, fifth sanctioned cross-feature exception).
 class _HeroImage extends StatelessWidget {
-  const _HeroImage({required this.event});
+  const _HeroImage({
+    required this.event,
+    required this.isHostViewer,
+    required this.eventId,
+  });
 
   final Event event;
 
+  /// True when the authenticated user is the event's host — gates the
+  /// camera overlay button (AC1: host sees it, non-host sees nothing).
+  final bool isHostViewer;
+
+  final String eventId;
+
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 3 / 2,
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    // 16:9 matches the feed card thumbnail ratio (designer-confirmed).
+    final heroHeight = screenWidth * 9 / 16;
+
+    return SizedBox(
+      width: double.infinity,
+      height: heroHeight,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Placeholder backdrop — v1 has no imageUrl on the Event entity.
-          // When the API ships imageUrl, swap in Image.network(...) here.
-          Container(
-            color: TribelyColors.paperBorderSubtle,
-            child: Icon(
-              Icons.image_outlined,
-              size: 64,
-              color: TribelyColors.paperInkSecondary.withValues(alpha: 0.4),
-            ),
+          // Cover photo: cross-fade wrapper drives the 250ms transition when
+          // the URL changes after a successful replace (TRI-306).
+          CoverPhotoCrossFade(
+            imageKey: ValueKey(event.coverPhotoUrl),
+            child: event.coverPhotoUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: event.coverPhotoUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) =>
+                        CategoryImagePlaceholder(category: event.category),
+                    errorWidget: (context, url, error) =>
+                        CategoryImagePlaceholder(category: event.category),
+                    fadeInDuration: const Duration(milliseconds: 200),
+                  )
+                : CategoryImagePlaceholder(category: event.category),
           ),
           // Gradient scrim so the AppBar back button stays legible.
           Positioned(
@@ -375,12 +424,17 @@ class _HeroImage extends StatelessWidget {
               ),
             ),
           ),
-          // Category badge — bottom-left (§E).
+          // Category badge — bottom-left (§E). No text overlay on hero per AC.
           Positioned(
             bottom: 12,
             left: 12,
             child: _CategoryBadge(category: event.category.displayName),
           ),
+          // Host-only cover-photo replace button — bottom-right (TRI-306, AC1).
+          // Gated on isHostViewer: non-host viewers see nothing here.
+          // The widget itself renders as uploading overlay / failure overlay /
+          // camera button depending on ReplaceCoverPhotoController state.
+          if (isHostViewer) CoverPhotoReplaceButton(eventId: eventId),
         ],
       ),
     );
@@ -1027,17 +1081,41 @@ class _StickyJoinBar extends ConsumerWidget {
     final now = DateTime.now().toUtc();
     final isEventPast = event.endsAt.toUtc().isBefore(now);
 
+    // TRI-290: read session here so we can (a) guard the myCapabilitiesProvider
+    // read and (b) branch the CTA tap handler on signed-out vs signed-in.
+    final session = ref.watch(sessionControllerProvider);
+    final isSignedOut = session is SessionUnauthenticated;
+
     // Sanctioned cross-feature import per CLAUDE.md mobile rules —
     // myCapabilitiesProvider is app-global session state in users/.
     // Default false when unreachable → show safety sheet (safer: over-show
     // a safety reminder than skip it — Brief G offline ruling).
-    final safetyReminderSeen = ref
-        .watch(myCapabilitiesProvider)
-        .when(
-          data: (caps) => caps.safetyReminderSeen,
-          loading: () => false,
-          error: (e, st) => false,
-        );
+    //
+    // TRI-290: skip reading myCapabilitiesProvider when signed out — the
+    // provider fires GET /users/me/capabilities which returns 401. Signed-out
+    // viewers never reach the safety-vs-confirm branch so false is correct.
+    final safetyReminderSeen = isSignedOut
+        ? false // signed-out: never reaches the safety-reminder branch
+        : ref
+              .watch(myCapabilitiesProvider)
+              .when(
+                data: (caps) => caps.safetyReminderSeen,
+                loading: () => false,
+                error: (e, st) => false,
+              );
+
+    // TRI-302: review eligibility — signed-out viewers never fire the GET.
+    // The provider is autoDispose + family so it is created only on demand here.
+    // loading → null (fall through to existing bar); error → null (fall through).
+    final ReviewEligibility? eligibility = isSignedOut
+        ? null
+        : ref
+              .watch(reviewEligibilityProvider(event.id))
+              .when(
+                data: (e) => e,
+                loading: () => null,
+                error: (e, st) => null,
+              );
 
     Widget content;
 
@@ -1059,6 +1137,12 @@ class _StickyJoinBar extends ConsumerWidget {
         controller: controller,
         failure: verificationFailure!,
       );
+    } else if (eligibility != null && eligibility.eligible) {
+      // TRI-302: eligible reviewer — replace join/ended bar with review entry.
+      // Sanctioned cross-feature import: reviews/presentation/providers (4th
+      // exception) read from discover/ event-detail (same verb-view-read shape
+      // as the sanctioned discover→join_requests import).
+      content = _ReviewEntryBar(event: event, eligibility: eligibility);
     } else if (effectiveRequest != null &&
         effectiveRequest!.status == JoinRequestStatus.withdrawn &&
         !isEventPast) {
@@ -1098,6 +1182,9 @@ class _StickyJoinBar extends ConsumerWidget {
       content = const _DisabledCta(reason: 'Event has ended');
     } else {
       // No existing request: show the primary CTA.
+      // TRI-72: signed-out tap opens the in-place sign-in gate sheet; on
+      // successful auth the join sheet opens immediately (Tier 1 + Tier 2).
+      // No POST is fired before auth — preserved from TRI-290.
       final isSubmitting = joinState is RequestToJoinSubmitting;
       content = PrimaryButton(
         label: 'Request to join',
@@ -1106,6 +1193,55 @@ class _StickyJoinBar extends ConsumerWidget {
             : PrimaryButtonState.idle,
         onPressed: isSubmitting
             ? null
+            : isSignedOut
+            ? () async {
+                final didSignIn = await showSignInGateSheet(
+                  context,
+                  intent: SignInIntentRequestJoin(
+                    eventId: event.id,
+                    eventTitle: event.title,
+                    hostName: hostName,
+                    startsAt: event.startsAt,
+                    endsAt: event.endsAt,
+                  ),
+                );
+                if (!context.mounted) return;
+                if (didSignIn) {
+                  // TRI-294: re-read capabilities now that the user is
+                  // authenticated — the top-of-build safetyReminderSeen was
+                  // computed while signed-out (hardcoded false). A returning
+                  // user who already acknowledged the reminder would otherwise
+                  // be shown it again.
+                  //
+                  // .future is required: myCapabilitiesProvider.build() has not
+                  // run yet (signed-out guard skipped ref.watch above), so a
+                  // bare ref.read() returns AsyncLoading — not data. .future
+                  // awaits build() and yields the real UserCapabilities.
+                  //
+                  // Fail-safe: ANY outcome other than a confirmed
+                  // safetyReminderSeen == true resolves to false → show the
+                  // reminder. Never silently skip on error or loading.
+                  bool resumeSafetyReminderSeen;
+                  try {
+                    final caps = await ref.read(myCapabilitiesProvider.future);
+                    resumeSafetyReminderSeen = caps.safetyReminderSeen;
+                  } catch (_) {
+                    resumeSafetyReminderSeen = false;
+                  }
+                  // Second mounted guard — the await above is a new suspension
+                  // point; the widget may have been disposed since the first.
+                  if (!context.mounted) return;
+                  _openJoinSheet(
+                    context,
+                    eventId: event.id,
+                    hostName: hostName,
+                    eventTitle: event.title,
+                    startsAt: event.startsAt,
+                    endsAt: event.endsAt,
+                    safetyReminderSeen: resumeSafetyReminderSeen,
+                  );
+                }
+              }
             : () => _openJoinSheet(
                 context,
                 eventId: event.id,
@@ -1127,6 +1263,171 @@ class _StickyJoinBar extends ConsumerWidget {
         ),
       ),
       child: content,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Review entry bar (TRI-302) — eligible reviewer affordance
+// ---------------------------------------------------------------------------
+
+/// Sticky bar content rendered when the signed-in user is within the 24h–7d
+/// review window for this event's host.
+///
+/// States:
+///   (A) not-reviewed → [SecondaryButton] "Write a review"
+///   (B) already-reviewed → non-interactive "✓ You reviewed this host" row
+///   Transition A→B via [AnimatedSwitcher] keyed on [_hasReviewed].
+///
+/// State-B trigger: after `context.push('/reviews/write?...')` returns,
+/// [_hasReviewed] flips true (immediate visual) and
+/// `ref.invalidate(reviewEligibilityProvider)` triggers a server re-fetch
+/// (durable state-B confirmation — eligible=false from server causes the
+/// outer [_StickyJoinBar] to eventually swap away from this widget entirely).
+///
+/// Session-expired/signed-out tap → [showSignInGateSheet] with
+/// [SignInIntentWriteReview]; on success → re-check eligibility and push
+/// composer; if no longer eligible → snackbar notice.
+///
+/// Feature-local widget; NOT promoted to core/.
+class _ReviewEntryBar extends ConsumerStatefulWidget {
+  const _ReviewEntryBar({required this.event, required this.eligibility});
+
+  final Event event;
+  final ReviewEligibility eligibility;
+
+  @override
+  ConsumerState<_ReviewEntryBar> createState() => _ReviewEntryBarState();
+}
+
+class _ReviewEntryBarState extends ConsumerState<_ReviewEntryBar> {
+  bool _hasReviewed = false;
+
+  Future<void> _pushComposer(
+    String ratedUserId,
+    String hostName, {
+    bool requiresAuth = false,
+  }) async {
+    if (requiresAuth) {
+      // Session-expired / signed-out path: show gate first.
+      final didSignIn = await showSignInGateSheet(
+        context,
+        intent: SignInIntentWriteReview(
+          eventId: widget.event.id,
+          hostId: ratedUserId,
+          hostDisplayName: hostName,
+        ),
+      );
+      if (!mounted) return;
+      if (!didSignIn) return; // dismissed — no action
+
+      // Re-check eligibility after auth (the 24h–7d window may have closed).
+      ReviewEligibility? fresh;
+      try {
+        fresh = await ref.read(
+          reviewEligibilityProvider(widget.event.id).future,
+        );
+      } catch (_) {
+        fresh = null;
+      }
+      if (!mounted) return;
+      if (fresh == null || !fresh.eligible) {
+        // Window closed while the user was at the sign-in gate.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This review is no longer available.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+      // Proceed with the authenticated ratedUserId from the fresh eligibility.
+      final freshRatedUserId = fresh.ratedUserId ?? ratedUserId;
+      await context.push(
+        '/reviews/write?eventId=${widget.event.id}&ratedUserId=$freshRatedUserId',
+      );
+    } else {
+      await context.push(
+        '/reviews/write?eventId=${widget.event.id}&ratedUserId=$ratedUserId',
+      );
+    }
+    if (!mounted) return;
+    // State-B immediate visual update + durable cache invalidation.
+    setState(() => _hasReviewed = true);
+    ref.invalidate(reviewEligibilityProvider(widget.event.id));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ratedUserId = widget.eligibility.ratedUserId ?? '';
+    final hostName = widget.eligibility.hostDisplayName ?? 'Host';
+    final session = ref.watch(sessionControllerProvider);
+    final isSignedOut = session is SessionUnauthenticated;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSwitcher(
+          duration: TribelyMotion.short,
+          child: _hasReviewed
+              ? const _ReviewedConfirmationRow(key: ValueKey('reviewed'))
+              : Semantics(
+                  key: const ValueKey('write-review'),
+                  label: 'Write a review for $hostName',
+                  child: SecondaryButton(
+                    label: 'Write a review',
+                    onPressed: () => _pushComposer(
+                      ratedUserId,
+                      hostName,
+                      requiresAuth: isSignedOut,
+                    ),
+                    fullWidth: true,
+                  ),
+                ),
+        ),
+        if (!_hasReviewed) ...[
+          const SizedBox(height: 6),
+          ExcludeSemantics(
+            child: Text(
+              'Share how your meetup went.',
+              textAlign: TextAlign.center,
+              style: TribelyType.caption(TribelyColors.paperInkSecondary),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Non-interactive "✓ reviewed" confirmation row shown after the user
+/// submits a review and the eligibility provider is invalidated.
+///
+/// Displayed via [AnimatedSwitcher] inside [_ReviewEntryBarState].
+class _ReviewedConfirmationRow extends StatelessWidget {
+  const _ReviewedConfirmationRow({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'You have already reviewed this host',
+      liveRegion: true,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.check_circle_outline,
+            size: 20,
+            color: TribelyColors.paperSuccess,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'You reviewed this host',
+            style: TribelyType.caption(TribelyColors.paperInkSecondary),
+          ),
+        ],
+      ),
     );
   }
 }

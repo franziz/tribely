@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/di/service_locator.dart';
+import '../../data/datasources/avatar_picker_datasource.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/user_profile_repository.dart';
 import '../../domain/usecases/get_user_profile_usecase.dart';
 import '../../domain/usecases/update_my_profile_usecase.dart';
+import '../../domain/usecases/upload_avatar_usecase.dart';
 import '../controllers/edit_profile_controller.dart';
 import '../controllers/my_profile_controller.dart';
 import '../controllers/user_profile_controller.dart';
@@ -27,6 +29,14 @@ final getUserProfileUseCaseProvider = Provider<GetUserProfileUseCase>(
 
 final updateMyProfileUseCaseProvider = Provider<UpdateMyProfileUseCase>(
   (ref) => UpdateMyProfileUseCase(ref.read(_userProfileRepositoryProvider)),
+);
+
+final uploadAvatarUseCaseProvider = Provider<UploadAvatarUseCase>(
+  (_) => sl<UploadAvatarUseCase>(),
+);
+
+final avatarPickerDatasourceProvider = Provider<AvatarPickerDatasource>(
+  (_) => sl<AvatarPickerDatasource>(),
 );
 
 /// Provides the currently loaded own-profile entity to seed the edit form.

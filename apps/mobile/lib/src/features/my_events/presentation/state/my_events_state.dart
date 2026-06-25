@@ -7,13 +7,27 @@ import 'package:equatable/equatable.dart';
 /// badge. The controller owns fetching those IDs via
 /// [ListMyHostedEventsUseCase]; the page only reads the result.
 ///
-/// State progression: Loading → (Loaded | Error).
-/// Mirrors [HostingTabState] which also has no Initial variant.
+/// State progression:
+///   SignedOut (session unauthenticated — no fetch fires)
+///   Loading   (session restoring or authed fetch in progress)
+///   Loaded    (authed fetch succeeded)
+///   Error     (authed fetch failed)
 sealed class MyEventsState extends Equatable {
   const MyEventsState();
 }
 
-/// Fetch is in progress.
+/// Session is unauthenticated — no fetch fires.
+///
+/// The controller returns this immediately when [SessionUnauthenticated] is
+/// observed; the page renders the signed-out empty state.
+final class MyEventsSignedOut extends MyEventsState {
+  const MyEventsSignedOut();
+
+  @override
+  List<Object?> get props => const [];
+}
+
+/// Fetch is in progress (or session is restoring — silent hold).
 final class MyEventsLoading extends MyEventsState {
   const MyEventsLoading();
 

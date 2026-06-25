@@ -51,14 +51,9 @@ export type UserResponse = z.infer<typeof userResponseSchema>;
 
 export const updateUserProfileSchema = z.object({
   bio: z.string().trim().min(1).max(300).nullable().optional(),
-  avatarUrl: z
-    .string()
-    .trim()
-    .url()
-    .max(2048)
-    .refine((u) => u.startsWith('https://'), { message: 'Avatar URL must use HTTPS' })
-    .nullable()
-    .optional(),
+  // avatarUrl is intentionally absent: avatar updates go through the dedicated
+  // POST /users/me/avatar + POST /users/me/avatar/confirm pipeline (TRI-24).
+  // Accepting an arbitrary URL on the PATCH endpoint is closed (Q1).
   languages: z.array(z.enum(LANGUAGE_CODES)).optional(),
   interests: z.array(z.enum(INTEREST_CODES)).optional(),
   currentCity: z.string().trim().min(1).max(80).nullable().optional(),

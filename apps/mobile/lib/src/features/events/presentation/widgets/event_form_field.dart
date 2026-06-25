@@ -21,6 +21,8 @@ class EventFormField extends StatelessWidget {
     this.minLines,
     this.enabled = true,
     this.hint,
+    this.maxLength,
+    this.buildCounter,
     super.key,
   });
 
@@ -34,6 +36,21 @@ class EventFormField extends StatelessWidget {
   final int? minLines;
   final bool enabled;
   final String? hint;
+
+  /// Optional character limit passed to [TextFormField.maxLength].
+  /// When null, no limit is enforced and no built-in counter is shown.
+  final int? maxLength;
+
+  /// Optional counter builder forwarded to [TextFormField.buildCounter].
+  /// Matches the Flutter [InputCounterWidgetBuilder] signature. When null
+  /// (and [maxLength] is also null) the default counter behaviour applies.
+  final Widget? Function(
+    BuildContext, {
+    required int currentLength,
+    required bool isFocused,
+    required int? maxLength,
+  })?
+  buildCounter;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +85,8 @@ class EventFormField extends StatelessWidget {
       textInputAction: textInputAction,
       maxLines: maxLines,
       minLines: minLines,
+      maxLength: maxLength,
+      buildCounter: buildCounter,
       style: TribelyType.bodyM(ink),
       onChanged: onChanged,
       decoration: InputDecoration(

@@ -4,6 +4,7 @@ import { rateLimit } from '@/core/middleware/rate-limit.js';
 import { requireAuth, type AuthVariables } from '@/core/middleware/require-auth.js';
 import { requireVerifiedEmail } from '@/core/middleware/require-verified-email.js';
 import { requireVerifiedPhone } from '@/core/middleware/require-verified-phone.js';
+import { requireVerifiedSelfie } from '@/core/middleware/require-verified-selfie.js';
 import type { RateLimiter } from '@/core/security/rate-limiter.port.js';
 import type { AccessTokenIssuer } from '@/features/auth/domain/ports/access-token-issuer.port.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
@@ -12,6 +13,7 @@ import {
   cancelEventBodySchema,
   createEventBodySchema,
   listEventsQuerySchema,
+  replaceCoverPhotoBodySchema,
   updateEventBodySchema,
 } from '../schemas/event.schemas.js';
 
@@ -27,6 +29,7 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
   const auth = requireAuth(deps.accessTokens);
   const verifiedEmail = requireVerifiedEmail(deps.userRepository);
   const verifiedPhone = requireVerifiedPhone(deps.userRepository);
+  const verifiedSelfie = requireVerifiedSelfie(deps.userRepository);
 
   // Per the AC: 5 creates per hour per user. Per-user (not per-IP) because the
   // event-create action is meaningful only after auth, and we want the cap to
@@ -40,34 +43,68 @@ export const buildEventRoutes = (deps: EventRouteDeps): Hono<{ Variables: AuthVa
     keyFor: userKey,
   });
 
-  return new Hono<{ Variables: AuthVariables }>()
-    .post(
-      '/',
-      auth,
-      verifiedEmail,
-      verifiedPhone,
-      limitCreate,
-      zValidator('json', createEventBodySchema),
-      (c) => controller.createAction(c, c.get('userId'), c.req.valid('json')),
-    )
-    .get('/', zValidator('query', listEventsQuerySchema), (c) =>
-      controller.listAction(c, c.req.valid('query')),
-    )
-    .get('/:id', (c) => controller.getAction(c, c.req.param('id')))
-    .patch(
-      '/:id',
-      auth,
-      verifiedEmail,
-      verifiedPhone,
-      zValidator('json', updateEventBodySchema),
-      (c) => controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
-    )
-    .delete(
-      '/:id',
-      auth,
-      verifiedEmail,
-      verifiedPhone,
-      zValidator('json', cancelEventBodySchema),
-      (c) => controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
-    );
+  return (
+    new Hono<{ Variables: AuthVariables }>()
+      // POST /events/cover-photo — presign a cover photo upload URL.
+      // Registered before /:id so Hono's literal-segment `/cover-photo` is not
+      // shadowed by the `:id` wildcard (literal segments always win in Hono, but
+      // explicit ordering makes the intent clear).
+      // No zValidator('json') — empty-body POST trap (see CLAUDE.md gotcha).
+      // contentType is passed as a query param: ?contentType=image/jpeg.
+      .post('/cover-photo', auth, (c) =>
+        controller.requestCoverPhotoUploadAction(c, c.get('userId')),
+      )
+      .post(
+        '/',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        limitCreate,
+        zValidator('json', createEventBodySchema),
+        (c) => controller.createAction(c, c.get('userId'), c.req.valid('json')),
+      )
+      .get('/', zValidator('query', listEventsQuerySchema), (c) =>
+        controller.listAction(c, c.req.valid('query')),
+      )
+      .get('/:id', (c) => controller.getAction(c, c.req.param('id')))
+      .patch(
+        '/:id',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        zValidator('json', updateEventBodySchema),
+        (c) => controller.updateAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+      )
+      .delete(
+        '/:id',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        zValidator('json', cancelEventBodySchema),
+        (c) => controller.cancelAction(c, c.req.param('id'), c.get('userId'), c.req.valid('json')),
+      )
+      // PUT /events/:id/cover-photo — replace cover photo on an existing event.
+      // Registered after /:id (PATCH/DELETE) so the literal `/cover-photo` suffix
+      // on a PUT does not collide with any existing routes — Hono distinguishes
+      // by both method AND path. No collision with POST /events/cover-photo (different
+      // method + no /:id prefix) or PATCH /events/:id (different method).
+      .put(
+        '/:id/cover-photo',
+        auth,
+        verifiedEmail,
+        verifiedPhone,
+        verifiedSelfie,
+        zValidator('json', replaceCoverPhotoBodySchema),
+        (c) =>
+          controller.replaceCoverPhotoAction(
+            c,
+            c.req.param('id'),
+            c.get('userId'),
+            c.req.valid('json'),
+          ),
+      )
+  );
 };
