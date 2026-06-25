@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
+import '../../domain/entities/event.dart';
 import '../../domain/repositories/cover_photo_repository.dart'
     show CoverPhotoProgressCallback, CoverPhotoRepository;
 import '../datasources/event_remote_datasource.dart';
@@ -100,12 +101,37 @@ class CoverPhotoRepositoryImpl implements CoverPhotoRepository {
     return Right(storageKey);
   }
 
+  @override
+  Future<Either<Failure, Event>> replaceCoverPhoto({
+    required String eventId,
+    required String storageKey,
+  }) async {
+    try {
+      final model = await _remote.replaceCoverPhoto(
+        eventId: eventId,
+        storageKey: storageKey,
+      );
+      return Right(model.toEntity());
+    } on DioException catch (e) {
+      return Left(_mapDioError(e));
+    } catch (e) {
+      return Left(UnknownFailure(e.toString()));
+    }
+  }
+
   Failure _mapDioError(DioException e) {
     final inner = e.error;
     if (inner is ServerException) {
       return switch (inner.statusCode) {
         400 => ValidationFailure(inner.message, code: inner.code),
         401 => AuthFailure(inner.message, code: inner.code),
+        403 => ServerFailure(inner.message, statusCode: 403, code: inner.code),
+        404 => NotFoundFailure(inner.message, code: inner.code),
+        409 => ConflictFailure(
+          inner.message,
+          subcode: inner.code ?? 'CONFLICT',
+          code: inner.code,
+        ),
         413 => ValidationFailure(inner.message, code: 'COVER_PHOTO_TOO_LARGE'),
         _ => ServerFailure(
           inner.message,
