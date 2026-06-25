@@ -119,6 +119,9 @@ export const buildApp = (): { app: Hono; container: Container } => {
     container.getEventUseCase,
     container.updateEventUseCase,
     container.cancelEventUseCase,
+    container.requestCoverPhotoUploadUseCase,
+    container.replaceCoverPhotoUseCase,
+    container.fileStorage,
   );
   app.route(
     '/events',

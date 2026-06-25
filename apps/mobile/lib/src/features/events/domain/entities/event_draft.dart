@@ -31,6 +31,7 @@ class EventDraft extends Equatable {
     this.venueAddress,
     this.rawProviderCategory,
     this.venueDisplayNameOverride,
+    this.coverPhotoStorageKey,
   });
 
   final String? title;
@@ -84,6 +85,12 @@ class EventDraft extends Equatable {
   /// selection. Does NOT affect [venueName] used for API submission.
   final String? venueDisplayNameOverride;
 
+  /// Storage key (object path, not a URL) for the uploaded cover photo.
+  /// Set by the cover-photo wizard step (TRI-49 Brief 5) after a successful
+  /// upload. Null until the user selects and uploads a photo.
+  /// The URL is resolved by the API at publish time, not stored in the draft.
+  final String? coverPhotoStorageKey;
+
   EventDraft copyWith({
     String? title,
     EventCategory? category,
@@ -103,6 +110,7 @@ class EventDraft extends Equatable {
     String? venueAddress,
     String? rawProviderCategory,
     String? venueDisplayNameOverride,
+    String? coverPhotoStorageKey,
   }) => EventDraft(
     title: title ?? this.title,
     category: category ?? this.category,
@@ -123,6 +131,7 @@ class EventDraft extends Equatable {
     rawProviderCategory: rawProviderCategory ?? this.rawProviderCategory,
     venueDisplayNameOverride:
         venueDisplayNameOverride ?? this.venueDisplayNameOverride,
+    coverPhotoStorageKey: coverPhotoStorageKey ?? this.coverPhotoStorageKey,
   );
 
   @override
@@ -145,5 +154,6 @@ class EventDraft extends Equatable {
     venueAddress,
     rawProviderCategory,
     venueDisplayNameOverride,
+    coverPhotoStorageKey,
   ];
 }

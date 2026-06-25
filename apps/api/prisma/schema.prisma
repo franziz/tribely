@@ -198,7 +198,8 @@ model Event {
   capacity           Int
   category           String // drinks | food | hike | museum | sports | nightlife | other
   venueCategory      String @default("other") // hawker_centre | park | museum | ... | other (CHECK enforced by migration)
-  costNotes          String? @db.VarChar(200) // optional host-supplied free-text cost notes
+  costNotes               String? @db.VarChar(200) // optional host-supplied free-text cost notes
+  coverPhotoStorageKey    String? // optional host-supplied cover photo; storage key in the `events/` prefix
   approvalMode       String // auto | manual
   status             String // draft | published | cancelled | completed
   cancellationReason String?

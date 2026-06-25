@@ -98,6 +98,8 @@ import { CreateEventUseCase } from '@/features/events/application/usecases/creat
 import { GetEventUseCase } from '@/features/events/application/usecases/get-event.usecase.js';
 import { ListEventsUseCase } from '@/features/events/application/usecases/list-events.usecase.js';
 import { PseudonymiseEventsHostForUserUseCase } from '@/features/events/application/usecases/pseudonymise-events-host-for-user.usecase.js';
+import { ReplaceCoverPhotoUseCase } from '@/features/events/application/usecases/replace-cover-photo.usecase.js';
+import { RequestCoverPhotoUploadUseCase } from '@/features/events/application/usecases/request-cover-photo-upload.usecase.js';
 import { UpdateEventUseCase } from '@/features/events/application/usecases/update-event.usecase.js';
 import { EventPrismaRepository } from '@/features/events/infrastructure/persistence/event.prisma-repository.js';
 import { registerEventsConsumers } from '@/features/events/presentation/events/index.js';
@@ -374,6 +376,8 @@ export interface Container {
   getEventUseCase: GetEventUseCase;
   updateEventUseCase: UpdateEventUseCase;
   cancelEventUseCase: CancelEventUseCase;
+  requestCoverPhotoUploadUseCase: RequestCoverPhotoUploadUseCase;
+  replaceCoverPhotoUseCase: ReplaceCoverPhotoUseCase;
   pseudonymiseEventsHostForUserUseCase: PseudonymiseEventsHostForUserUseCase;
 
   // Join Requests
@@ -756,6 +760,15 @@ export const buildContainer = (): Container => {
     getUserCapabilitiesUseCase,
   );
   const cancelEventUseCase = new CancelEventUseCase(unitOfWork, eventRepository, publisher, clock);
+  // TRI-49 Brief 1 — cover photo presign (mirrors requestAvatarUploadUseCase pattern).
+  const requestCoverPhotoUploadUseCase = new RequestCoverPhotoUploadUseCase(fileStorage);
+  // TRI-306 Brief 1 — replace cover photo on an existing event.
+  const replaceCoverPhotoUseCase = new ReplaceCoverPhotoUseCase(
+    unitOfWork,
+    eventRepository,
+    publisher,
+    clock,
+  );
   const pseudonymiseEventsHostForUserUseCase = new PseudonymiseEventsHostForUserUseCase(
     eventRepository,
   );
@@ -1178,6 +1191,8 @@ export const buildContainer = (): Container => {
     getEventUseCase,
     updateEventUseCase,
     cancelEventUseCase,
+    requestCoverPhotoUploadUseCase,
+    replaceCoverPhotoUseCase,
     pseudonymiseEventsHostForUserUseCase,
     joinRequestRepository,
     cascadePendingBlocksPort,
