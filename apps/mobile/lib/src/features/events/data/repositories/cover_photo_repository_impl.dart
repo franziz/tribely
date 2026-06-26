@@ -135,16 +135,14 @@ class CoverPhotoRepositoryImpl implements CoverPhotoRepository {
         // 413 is a legacy path from an earlier server-side size gate. The
         // current API returns 422 UNPROCESSABLE with subcode COVER_PHOTO_TOO_LARGE
         // for both create-event and replace-cover-photo. TRI-305.
-        413 => ValidationFailure(
-          inner.message,
-          code: 'COVER_PHOTO_TOO_LARGE',
-        ),
-        422 => inner.code == 'COVER_PHOTO_TOO_LARGE'
-            ? const ValidationFailure(
-                'Cover photo must be under 5 MB.',
-                code: 'COVER_PHOTO_TOO_LARGE',
-              )
-            : ValidationFailure(inner.message, code: inner.code),
+        413 => ValidationFailure(inner.message, code: 'COVER_PHOTO_TOO_LARGE'),
+        422 =>
+          inner.code == 'COVER_PHOTO_TOO_LARGE'
+              ? const ValidationFailure(
+                  'Cover photo must be under 5 MB.',
+                  code: 'COVER_PHOTO_TOO_LARGE',
+                )
+              : ValidationFailure(inner.message, code: inner.code),
         _ => ServerFailure(
           inner.message,
           statusCode: inner.statusCode,

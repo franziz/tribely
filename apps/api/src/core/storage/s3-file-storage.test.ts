@@ -370,7 +370,9 @@ describe('getObjectSize', () => {
   it('returns ContentLength as a number', async () => {
     send.mockResolvedValueOnce({ ContentLength: 5_242_880 });
     const adapter = makeAdapter(client);
-    await expect(adapter.getObjectSize({ key: 'events/user-1/cover.jpg' })).resolves.toBe(5_242_880);
+    await expect(adapter.getObjectSize({ key: 'events/user-1/cover.jpg' })).resolves.toBe(
+      5_242_880,
+    );
   });
 
   it('throws AppError.notFound when the object is missing (NoSuchKey)', async () => {
