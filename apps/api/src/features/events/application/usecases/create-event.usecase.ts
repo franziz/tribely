@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { AppError } from '@/core/errors/app-error.js';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { UserCapabilitiesPort } from '@/features/users/application/ports/user-capabilities.port.js';
 import { Event, type ApprovalMode } from '../../domain/entities/event.js';
@@ -51,6 +52,8 @@ export class CreateEventUseCase {
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
     private readonly getUserCapabilities: UserCapabilitiesPort,
+    private readonly fileStorage: FileStorage,
+    private readonly coverPhotoMaxBytes: number,
   ) {}
 
   async execute(input: CreateEventInput): Promise<Event> {
@@ -106,6 +109,18 @@ export class CreateEventUseCase {
         throw AppError.forbidden('coverPhotoStorageKey does not belong to this host', {
           hostUserId: input.hostUserId,
           coverPhotoStorageKey: input.coverPhotoStorageKey,
+        });
+      }
+
+      // Defense-in-depth byte-cap check (TRI-305): the mobile client downscales
+      // before upload, but a bypassed client could PUT an arbitrarily large object
+      // to the presigned URL. Reject the event if the stored object is over the cap.
+      const sizeBytes = await this.fileStorage.getObjectSize({ key: input.coverPhotoStorageKey });
+      if (sizeBytes > this.coverPhotoMaxBytes) {
+        throw AppError.unprocessable('Cover photo exceeds maximum size', {
+          subcode: 'COVER_PHOTO_TOO_LARGE',
+          maxBytes: this.coverPhotoMaxBytes,
+          actualBytes: sizeBytes,
         });
       }
     }

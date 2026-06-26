@@ -8,6 +8,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
+import { FakeFileStorage } from '@/features/events/application/usecases/fakes.js';
 import { buildApp } from '../../../../../app.js';
 
 const dbUrl = process.env.DATABASE_URL;
@@ -223,5 +224,109 @@ describe.skipIf(!dbUrl)('Event response includes coverPhotoUrl (integration)', (
     for (const event of body.events) {
       expect('coverPhotoUrl' in event).toBe(true);
     }
+  });
+});
+
+describe.skipIf(!dbUrl)('POST /events — cover photo byte-cap enforcement (TRI-305)', () => {
+  let db: PrismaClient;
+  let tokens: JwtAccessTokenIssuer;
+  let hostUserId: string;
+  let hostToken: string;
+  const maxBytes = 5_242_880;
+
+  const validBody = (coverPhotoStorageKey: string | null) => ({
+    title: 'Cap Test Event',
+    description: null,
+    venue: {
+      address: '18 Raffles Quay',
+      city: 'Singapore',
+      latitude: 1.2806,
+      longitude: 103.8504,
+      category: 'cafe',
+    },
+    startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000).toISOString(),
+    capacity: 6,
+    category: 'food',
+    approvalMode: 'manual',
+    ...(coverPhotoStorageKey !== null && { coverPhotoStorageKey }),
+  });
+
+  beforeAll(async () => {
+    if (!dbUrl) return;
+    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
+    tokens = new JwtAccessTokenIssuer();
+
+    hostUserId = createId();
+    const hostEmail = `cover-photo-cap-test-${hostUserId}@test.local`;
+    await db.user.create({
+      data: {
+        id: hostUserId,
+        email: hostEmail,
+        displayName: 'Cover Photo Cap Test Host',
+        emailVerifiedAt: new Date(),
+        phoneVerifiedAt: new Date(),
+        selfieStatus: 'approved',
+      },
+    });
+    const issued = await tokens.issue({ userId: hostUserId, email: hostEmail });
+    hostToken = issued.value;
+  });
+
+  afterAll(async () => {
+    if (!dbUrl) return;
+    await db.event.deleteMany({ where: { hostUserId } }).catch(() => null);
+    await db.user.delete({ where: { id: hostUserId } }).catch(() => null);
+    await db.$disconnect();
+  });
+
+  it('POST /events rejects an oversized cover photo with 422 COVER_PHOTO_TOO_LARGE', async () => {
+    const key = `events/${hostUserId}/oversized.jpg`;
+    const fileStorage = new FakeFileStorage();
+    fileStorage.setSize(key, maxBytes + 1);
+    const { app } = buildApp({ fileStorage });
+
+    const res = await app.request('/events', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${hostToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(validBody(key)),
+    });
+
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as {
+      error: { code: string; details: { subcode: string; maxBytes: number; actualBytes: number } };
+    };
+    expect(body.error.code).toBe('UNPROCESSABLE');
+    expect(body.error.details.subcode).toBe('COVER_PHOTO_TOO_LARGE');
+    expect(body.error.details.maxBytes).toBe(maxBytes);
+    expect(body.error.details.actualBytes).toBe(maxBytes + 1);
+
+    // No event must have been created.
+    const created = await db.event.findFirst({ where: { hostUserId } });
+    expect(created).toBeNull();
+  });
+
+  it('POST /events accepts a cover photo within the byte cap', async () => {
+    const key = `events/${hostUserId}/within-cap.jpg`;
+    const fileStorage = new FakeFileStorage();
+    fileStorage.setSize(key, maxBytes);
+    const { app } = buildApp({ fileStorage });
+
+    const res = await app.request('/events', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${hostToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(validBody(key)),
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { id: string; coverPhotoUrl: unknown };
+    expect(body.id).toBeTruthy();
+    expect(body.coverPhotoUrl).not.toBeNull();
   });
 });

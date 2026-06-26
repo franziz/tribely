@@ -7,19 +7,34 @@ import { EventCategory } from '../../domain/value-objects/event-category.js';
 import { VenueCategory } from '../../domain/value-objects/venue-category.js';
 import { Venue } from '../../domain/value-objects/venue.js';
 import { ReplaceCoverPhotoUseCase } from './replace-cover-photo.usecase.js';
-import { FakeEventPublisher, FakeEventRepository, FakeUnitOfWork, FixedClock } from './fakes.js';
+import {
+  FakeEventPublisher,
+  FakeEventRepository,
+  FakeFileStorage,
+  FakeUnitOfWork,
+  FixedClock,
+} from './fakes.js';
 
 const NOW = new Date('2026-06-01T00:00:00Z');
 const HOST_ID = 'user_host_1';
 const OTHER_ID = 'user_other_1';
+const DEFAULT_MAX_BYTES = 5_242_880;
 
 const buildSut = () => {
   const repo = new FakeEventRepository();
   const publisher = new FakeEventPublisher();
   const uow = new FakeUnitOfWork();
   const clock = new FixedClock(NOW);
-  const useCase = new ReplaceCoverPhotoUseCase(uow, repo, publisher, clock);
-  return { repo, publisher, useCase };
+  const fileStorage = new FakeFileStorage();
+  const useCase = new ReplaceCoverPhotoUseCase(
+    uow,
+    repo,
+    publisher,
+    clock,
+    fileStorage,
+    DEFAULT_MAX_BYTES,
+  );
+  return { repo, publisher, useCase, fileStorage };
 };
 
 const seedPublishedEvent = (repo: FakeEventRepository, hostUserId = HOST_ID): Event => {
@@ -95,9 +110,10 @@ describe('ReplaceCoverPhotoUseCase', () => {
   });
 
   it('happy path: persists new key and publishes eventCoverPhotoReplaced', async () => {
-    const { repo, publisher, useCase } = buildSut();
+    const { repo, publisher, useCase, fileStorage } = buildSut();
     seedPublishedEvent(repo);
     const newKey = `events/${HOST_ID}/new-cover.jpg`;
+    fileStorage.setSize(newKey, DEFAULT_MAX_BYTES);
 
     const result = await useCase.execute({
       eventId: 'evt_1',
@@ -119,13 +135,14 @@ describe('ReplaceCoverPhotoUseCase', () => {
   });
 
   it('no-op when the same key is supplied — no event published', async () => {
-    const { repo, publisher, useCase } = buildSut();
+    const { repo, publisher, useCase, fileStorage } = buildSut();
     const existingKey = `events/${HOST_ID}/existing.jpg`;
     const event = seedPublishedEvent(repo);
     // Set the key via the domain method to pre-load it, then drain.
     event.setCoverPhoto(existingKey, new Date(NOW.getTime() + 100));
     event.pullEvents();
     repo.put(event);
+    fileStorage.setSize(existingKey, DEFAULT_MAX_BYTES);
 
     const result = await useCase.execute({
       eventId: 'evt_1',
@@ -135,5 +152,40 @@ describe('ReplaceCoverPhotoUseCase', () => {
 
     expect(publisher.published).toHaveLength(0);
     expect(result.coverPhotoStorageKey).toBe(existingKey);
+  });
+
+  // --- TRI-305: cover photo byte-cap enforcement ---
+
+  it('throws 422 when cover photo exceeds byte cap (event unchanged, no event emitted)', async () => {
+    const { repo, publisher, useCase, fileStorage } = buildSut();
+    const originalKey = `events/${HOST_ID}/existing.jpg`;
+    const event = seedPublishedEvent(repo);
+    event.setCoverPhoto(originalKey, new Date(NOW.getTime() + 100));
+    event.pullEvents();
+    repo.put(event);
+
+    const oversizedKey = `events/${HOST_ID}/too-big.jpg`;
+    fileStorage.setSize(oversizedKey, DEFAULT_MAX_BYTES + 1);
+
+    const err = await useCase
+      .execute({
+        eventId: 'evt_1',
+        actorUserId: HOST_ID,
+        coverPhotoStorageKey: oversizedKey,
+      })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AppError);
+    const appErr = err as AppError;
+    expect(appErr.status).toBe(422);
+    expect(appErr.code).toBe('UNPROCESSABLE');
+    const details = appErr.details as Record<string, unknown>;
+    expect(details.subcode).toBe('COVER_PHOTO_TOO_LARGE');
+    expect(details.maxBytes).toBe(DEFAULT_MAX_BYTES);
+    expect(details.actualBytes).toBe(DEFAULT_MAX_BYTES + 1);
+
+    expect(publisher.published).toHaveLength(0);
+    const saved = await repo.findById('evt_1');
+    expect(saved?.coverPhotoStorageKey).toBe(originalKey);
   });
 });

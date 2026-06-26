@@ -292,6 +292,7 @@ export interface Container {
   fileStorage: FileStorage;
   phoneHasher: PhoneHasher;
   logger: Logger;
+  coverPhotoMaxBytes: number;
 
   // Users
   userRepository: UserRepository;
@@ -431,7 +432,12 @@ export interface Container {
   reportController: ReportController;
 }
 
-export const buildContainer = (): Container => {
+export interface BuildContainerOptions {
+  /** Replace the default FileStorage adapter (used by tests). */
+  fileStorage?: FileStorage;
+}
+
+export const buildContainer = (options: BuildContainerOptions = {}): Container => {
   // --- Core ---
   const db = prisma;
   const consumerRegistry = new ConsumerRegistry();
@@ -441,7 +447,8 @@ export const buildContainer = (): Container => {
   const rateLimiter = new InMemoryRateLimiter();
   const emailSender = buildEmailSender();
   const phoneVerifier = buildPhoneVerifier();
-  const fileStorage = buildFileStorage();
+  const fileStorage = options.fileStorage ?? buildFileStorage();
+  const coverPhotoMaxBytes = env.STORAGE_COVER_PHOTO_MAX_BYTES;
   // Outbox event repository — used only for the account-deletion cascade (TRI-134).
   const outboxEventRepository = new OutboxEventPrismaRepository(db);
   // Zod's superRefine on env guarantees PHONE_HASH_SALT is set when
@@ -745,6 +752,8 @@ export const buildContainer = (): Container => {
     publisher,
     clock,
     getUserCapabilitiesUseCase,
+    fileStorage,
+    coverPhotoMaxBytes,
   );
   const listEventsUseCase = new ListEventsUseCase(eventRepository, clock);
   const getEventUseCase = new GetEventUseCase(
@@ -768,6 +777,8 @@ export const buildContainer = (): Container => {
     eventRepository,
     publisher,
     clock,
+    fileStorage,
+    coverPhotoMaxBytes,
   );
   const pseudonymiseEventsHostForUserUseCase = new PseudonymiseEventsHostForUserUseCase(
     eventRepository,
@@ -1127,6 +1138,7 @@ export const buildContainer = (): Container => {
     fileStorage,
     phoneHasher,
     logger,
+    coverPhotoMaxBytes,
     userRepository,
     getUserUseCase,
     updateUserProfileUseCase,

@@ -23,6 +23,10 @@ class FakeFileStorage implements FileStorage {
   deleteObject(_input: { key: string }): Promise<void> {
     return Promise.resolve();
   }
+
+  getObjectSize(_input: { key: string }): Promise<number> {
+    return Promise.resolve(1);
+  }
 }
 
 const buildSut = () => {
