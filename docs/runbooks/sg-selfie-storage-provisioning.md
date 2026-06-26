@@ -213,3 +213,23 @@ To execute the swap after legal sign-off:
 - **Scheduled-deletion cron + account-deletion cascade:** implement the daily deletion job and account-deletion cascade described in policy §7–§8. Currently unscheduled.
 - **Reviewer access logging:** implement per-URL-signing-event audit log per policy §6 ("Every read of a selfie image... is logged"). Currently unimplemented.
 - **Optional Terraform adoption post-launch:** consider codifying the bucket, BPA, encryption, and IAM resources in Terraform for repeatable infra. Deferred until post-launch; manual provisioning per this runbook is sufficient for v1.
+
+---
+
+## 12. Storage key namespace used in this bucket
+
+The single production bucket configured by this runbook (`tribely-selfies-prod-sg-ap-southeast-1`) is shared across three image classes. Prefix isolation keeps each class logically separated; IAM policy and S3 lifecycle rules operate on these prefixes.
+
+| Feature | Key prefix | Example | Source |
+|---|---|---|---|
+| Avatars | `avatars/<userId>/` | `avatars/usr_abc123/xyz789.jpg` | `users/application/usecases/request-avatar-upload.usecase.ts` |
+| Selfie verification | `uploads/<userId>/` | `uploads/usr_abc123/xyz789.jpg` | `selfies/application/usecases/request-selfie-upload.usecase.ts` |
+| Event cover photos | `events/<hostUserId>/` | `events/usr_abc123/xyz789.jpg` | `events/application/usecases/request-cover-photo-upload.usecase.ts` |
+
+**Lifecycle / cleanup ownership:**
+- `avatars/`: the previous avatar object is best-effort deleted synchronously when a new avatar is confirmed (`ConfirmAvatarUploadUseCase`). No lifecycle rule is required for v1.
+- `uploads/`: deleted by the scheduled selfie-retention sweep and account-deletion cascade; see `docs/runbooks/selfie-retention-sweep.md` and `docs/policies/selfie-retention.md` §7–§8.
+- `events/`: orphaned draft uploads are expired by the S3 lifecycle rule documented in `docs/runbooks/sg-event-cover-photo-lifecycle.md` (TRI-304). Replaced cover photos are also orphaned until the lifecycle rule expires them.
+
+(End of file - total 239 lines)
+
