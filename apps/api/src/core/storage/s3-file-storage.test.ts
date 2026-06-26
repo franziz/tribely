@@ -338,6 +338,74 @@ describe('getSignedUploadUrl', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getObjectSize
+// ---------------------------------------------------------------------------
+
+describe('getObjectSize', () => {
+  let send: ReturnType<typeof vi.fn>;
+  let client: FakeS3Client;
+
+  beforeEach(() => {
+    client = makeClientStub();
+    send = client.send;
+  });
+
+  it('sends a HeadObjectCommand with Bucket and Key', async () => {
+    send.mockResolvedValueOnce({ ContentLength: 1_048_576 });
+    const adapter = makeAdapter(client);
+    const size = await adapter.getObjectSize({ key: 'events/user-1/cover.jpg' });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const callArg: unknown = send.mock.calls[0]?.[0];
+    expect((callArg as { constructor: { name: string } }).constructor.name).toBe(
+      'HeadObjectCommand',
+    );
+    expect((callArg as { input: unknown }).input).toMatchObject({
+      Bucket: BUCKET,
+      Key: 'events/user-1/cover.jpg',
+    });
+    expect(size).toBe(1_048_576);
+  });
+
+  it('returns ContentLength as a number', async () => {
+    send.mockResolvedValueOnce({ ContentLength: 5_242_880 });
+    const adapter = makeAdapter(client);
+    await expect(adapter.getObjectSize({ key: 'events/user-1/cover.jpg' })).resolves.toBe(5_242_880);
+  });
+
+  it('throws AppError.notFound when the object is missing (NoSuchKey)', async () => {
+    const notFound = Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' });
+    send.mockRejectedValueOnce(notFound);
+    const adapter = makeAdapter(client);
+
+    await expect(adapter.getObjectSize({ key: 'events/user-1/cover.jpg' })).rejects.toThrow(
+      /Storage object not found/,
+    );
+  });
+
+  it('throws AppError.notFound when S3 returns 404 metadata', async () => {
+    const notFound = Object.assign(new Error('NotFound'), {
+      $metadata: { httpStatusCode: 404 },
+    });
+    send.mockRejectedValueOnce(notFound);
+    const adapter = makeAdapter(client);
+
+    await expect(adapter.getObjectSize({ key: 'events/user-1/cover.jpg' })).rejects.toThrow(
+      /Storage object not found/,
+    );
+  });
+
+  it('rethrows non-404 errors', async () => {
+    send.mockRejectedValueOnce(new Error('network timeout'));
+    const adapter = makeAdapter(client);
+
+    await expect(adapter.getObjectSize({ key: 'events/user-1/cover.jpg' })).rejects.toThrow(
+      'network timeout',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // verifyReachable
 // ---------------------------------------------------------------------------
 

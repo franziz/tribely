@@ -43,6 +43,9 @@ const noopFileStorage: FileStorage = {
   getSignedUploadUrl(): Promise<string> {
     return Promise.resolve('');
   },
+  getObjectSize(): Promise<number> {
+    return Promise.resolve(0);
+  },
 };
 
 describe.skipIf(!dbUrl)('SweepRetainedSelfiesUseCase (integration)', () => {

@@ -146,6 +146,10 @@ class FakeFileStorage implements FileStorage {
   }): Promise<string> {
     return Promise.resolve('https://example.com/signed-upload');
   }
+
+  getObjectSize(_input: { key: string }): Promise<number> {
+    return Promise.resolve(0);
+  }
 }
 
 const noopLogger: Logger = {
@@ -393,6 +397,9 @@ describe('SweepRetainedSelfiesUseCase', () => {
         },
         getSignedUploadUrl(): Promise<string> {
           return Promise.resolve('');
+        },
+        getObjectSize(): Promise<number> {
+          return Promise.resolve(0);
         },
       };
 

@@ -8,6 +8,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { JwtAccessTokenIssuer } from '@/features/auth/infrastructure/adapters/jwt-access-token-issuer.js';
+import { FakeFileStorage } from '@/features/events/application/usecases/fakes.js';
 import { buildApp } from '../../../../../app.js';
 
 const dbUrl = process.env.DATABASE_URL;
@@ -29,6 +30,7 @@ describe.skipIf(!dbUrl)('PUT /events/:id/cover-photo (integration)', () => {
   let nonHostUserId: string;
   let nonHostToken: string;
   let eventId: string;
+  let initialKey: string;
 
   const now = new Date();
   const futureStart = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -73,7 +75,7 @@ describe.skipIf(!dbUrl)('PUT /events/:id/cover-photo (integration)', () => {
 
     // Seed a published event owned by the host
     eventId = createId();
-    const initialKey = `events/${hostUserId}/${createId()}.jpg`;
+    initialKey = `events/${hostUserId}/${createId()}.jpg`;
     await db.event.create({
       data: {
         id: eventId,
@@ -222,5 +224,35 @@ describe.skipIf(!dbUrl)('PUT /events/:id/cover-photo (integration)', () => {
     expect(res.status).toBe(409);
 
     await db.event.delete({ where: { id: cancelledId } }).catch(() => null);
+  });
+
+  it('returns 422 COVER_PHOTO_TOO_LARGE when the new cover photo exceeds the byte cap', async () => {
+    if (!dbUrl) return;
+    const oversizedKey = `events/${hostUserId}/oversized-replacement.jpg`;
+    const fileStorage = new FakeFileStorage();
+    fileStorage.setSize(oversizedKey, 5_242_881);
+    const { app } = buildApp({ fileStorage });
+
+    const res = await app.request(`/events/${eventId}/cover-photo`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${hostToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ coverPhotoStorageKey: oversizedKey }),
+    });
+
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as {
+      error: { code: string; details: { subcode: string; maxBytes: number; actualBytes: number } };
+    };
+    expect(body.error.code).toBe('UNPROCESSABLE');
+    expect(body.error.details.subcode).toBe('COVER_PHOTO_TOO_LARGE');
+    expect(body.error.details.maxBytes).toBe(5_242_880);
+    expect(body.error.details.actualBytes).toBe(5_242_881);
+
+    // Original key must remain unchanged in the DB.
+    const saved = await db.event.findUnique({ where: { id: eventId } });
+    expect(saved?.coverPhotoStorageKey).toBe(initialKey);
   });
 });

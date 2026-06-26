@@ -1,5 +1,6 @@
 import type { TxContext } from '@/core/db/unit-of-work.port.js';
 import type { PhoneNumber } from '@/core/sms/phone-number.js';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
 import type { User } from '@/features/users/domain/entities/user.js';
 import type { Email } from '@/features/users/domain/value-objects/email.js';
 import type { UserRepository } from '@/features/users/domain/repositories/user.repository.js';
@@ -14,6 +15,39 @@ import type {
 // Core-port fakes — shared across features. Re-exported here for convenience
 // so existing events test imports remain at `./fakes.js`.
 export { FakeEventPublisher, FakeUnitOfWork, FixedClock, TEST_TX } from '@/core/testing/fakes.js';
+
+export class FakeFileStorage implements FileStorage {
+  private readonly sizes = new Map<string, number>();
+
+  setSize(key: string, bytes: number): void {
+    this.sizes.set(key, bytes);
+  }
+
+  getObjectSize(input: { key: string }): Promise<number> {
+    const size = this.sizes.get(input.key);
+    if (size === undefined) {
+      // Returning a deterministic "object not found" shape mirrors real S3.
+      return Promise.reject(new Error(`FakeFileStorage: key not found: ${input.key}`));
+    }
+    return Promise.resolve(size);
+  }
+
+  putObject(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  deleteObject(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  getSignedUrl(): Promise<string> {
+    return Promise.resolve('https://storage.local/signed-url');
+  }
+
+  getSignedUploadUrl(): Promise<string> {
+    return Promise.resolve('https://storage.local/signed-upload-url');
+  }
+}
 
 export class FakeUserRepository implements UserRepository {
   private readonly byId = new Map<string, User>();

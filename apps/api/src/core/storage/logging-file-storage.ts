@@ -40,4 +40,12 @@ export class LoggingFileStorage implements FileStorage {
       `https://storage.local/${input.key}?upload=1&expires=${String(input.expiresInSeconds)}`,
     );
   }
+
+  getObjectSize(input: { key: string }): Promise<number> {
+    logger.info({ key: input.key }, 'storage.getObjectSize (DEV — returns 1 byte)');
+    // Always report a tiny fake size so the dev path "just works" regardless of
+    // whether the key was ever written. The logging transport is intentionally
+    // not a real object store, so a literal size check is meaningless here.
+    return Promise.resolve(1);
+  }
 }

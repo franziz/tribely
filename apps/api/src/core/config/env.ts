@@ -113,6 +113,11 @@ export const envSchema = z
     // Hard cap for upload (PUT) presigned URLs. The DI factory applies a
     // default of 300 (5m) when this var is absent.
     STORAGE_UPLOAD_URL_MAX_SECONDS: z.coerce.number().int().positive().max(3600).optional(),
+    // Maximum stored size (in bytes) allowed for an event cover photo.
+    // Default is 5 MiB (5,242,880 bytes), which is generous compared to the
+    // mobile client's downscaled output (~0.3-2 MB) while still acting as a
+    // defense-in-depth cap against bypassed clients. TRI-305.
+    STORAGE_COVER_PHOTO_MAX_BYTES: z.coerce.number().int().positive().default(5_242_880),
 
     // Salt for one-way hashing of phone numbers before they appear in
     // long-lived outbox events (e.g. userPhoneVerificationRevoked). Must be at
