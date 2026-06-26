@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger as honoLogger } from 'hono/logger';
 import { buildContainer, type Container } from './core/di/container.js';
+import type { FileStorage } from './core/storage/file-storage.port.js';
 import { errorHandler } from './core/middleware/error-handler.js';
 import { requestContext } from './core/middleware/request-context.js';
 import { auditHttp } from './features/audit/presentation/middleware/audit-http.js';
@@ -32,8 +33,17 @@ import { buildUserBlockRoutes } from './features/user-blocks/presentation/http/r
 import { buildSelfieIntakeRoutes } from './features/selfies/presentation/http/routes/selfie-intake.routes.js';
 import { buildSupportRoutes } from './features/support/presentation/http/routes/support.routes.js';
 
-export const buildApp = (): { app: Hono; container: Container } => {
-  const container = buildContainer();
+export interface BuildAppOptions {
+  /**
+   * Optional FileStorage override for tests. When supplied, the container's
+   * real FileStorage adapter is replaced with this instance, allowing tests to
+   * control object sizes without env tricks or global state.
+   */
+  fileStorage?: FileStorage;
+}
+
+export const buildApp = (options: BuildAppOptions = {}): { app: Hono; container: Container } => {
+  const container = buildContainer(options);
   const app = new Hono();
 
   app.use('*', cors());

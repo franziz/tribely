@@ -10,6 +10,7 @@ import { CreateEventUseCase, type CreateEventInput } from './create-event.usecas
 import {
   FakeEventPublisher,
   FakeEventRepository,
+  FakeFileStorage,
   FakeGetUserCapabilitiesUseCase,
   FakeUnitOfWork,
   FixedClock,
@@ -37,6 +38,8 @@ const baseInput: CreateEventInput = {
   approvalMode: 'manual',
 };
 
+const DEFAULT_MAX_BYTES = 5_242_880;
+
 const buildSut = (canPostPrivateVenue = false) => {
   const repo = new FakeEventRepository();
   const publisher = new FakeEventPublisher();
@@ -44,8 +47,17 @@ const buildSut = (canPostPrivateVenue = false) => {
   const clock = new FixedClock(NOW);
   const fakeCapabilities = new FakeGetUserCapabilitiesUseCase();
   fakeCapabilities.setCanPostPrivateVenue(canPostPrivateVenue);
-  const useCase = new CreateEventUseCase(uow, repo, publisher, clock, fakeCapabilities);
-  return { repo, publisher, clock, useCase, fakeCapabilities };
+  const fileStorage = new FakeFileStorage();
+  const useCase = new CreateEventUseCase(
+    uow,
+    repo,
+    publisher,
+    clock,
+    fakeCapabilities,
+    fileStorage,
+    DEFAULT_MAX_BYTES,
+  );
+  return { repo, publisher, clock, useCase, fakeCapabilities, fileStorage };
 };
 
 describe('CreateEventUseCase', () => {
@@ -188,8 +200,9 @@ describe('CreateEventUseCase', () => {
   });
 
   it('own-prefixed coverPhotoStorageKey → passes guard, stored on event', async () => {
-    const { repo, useCase } = buildSut(true);
+    const { repo, fileStorage, useCase } = buildSut(true);
     const ownKey = `events/${baseInput.hostUserId}/someimage.jpg`;
+    fileStorage.setSize(ownKey, 1);
     const event = await useCase.execute({ ...baseInput, coverPhotoStorageKey: ownKey });
 
     expect(event.coverPhotoStorageKey).toBe(ownKey);
@@ -223,5 +236,52 @@ describe('CreateEventUseCase', () => {
 
     expect(err).toBeInstanceOf(AppError);
     expect((err as AppError).status).toBe(403);
+  });
+
+  // --- TRI-305: cover photo byte-cap enforcement ---
+
+  it('cover photo within the byte cap → event created successfully', async () => {
+    const { repo, fileStorage, useCase } = buildSut(true);
+    const key = `events/${baseInput.hostUserId}/cover.jpg`;
+    fileStorage.setSize(key, DEFAULT_MAX_BYTES);
+
+    const event = await useCase.execute({ ...baseInput, coverPhotoStorageKey: key });
+
+    expect(event.coverPhotoStorageKey).toBe(key);
+    expect(repo.all()).toHaveLength(1);
+  });
+
+  it('cover photo exactly at the byte cap → event created successfully', async () => {
+    const { repo, fileStorage, useCase } = buildSut(true);
+    const key = `events/${baseInput.hostUserId}/cover.jpg`;
+    fileStorage.setSize(key, DEFAULT_MAX_BYTES);
+
+    const event = await useCase.execute({ ...baseInput, coverPhotoStorageKey: key });
+
+    expect(event.coverPhotoStorageKey).toBe(key);
+    expect(repo.all()).toHaveLength(1);
+  });
+
+  it('cover photo over the byte cap → 422 UNPROCESSABLE, no event persisted', async () => {
+    const { repo, publisher, fileStorage, useCase } = buildSut(true);
+    const key = `events/${baseInput.hostUserId}/cover.jpg`;
+    fileStorage.setSize(key, DEFAULT_MAX_BYTES + 1);
+
+    const err = await useCase
+      .execute({ ...baseInput, coverPhotoStorageKey: key })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AppError);
+    const appErr = err as AppError;
+    expect(appErr.status).toBe(422);
+    expect(appErr.code).toBe('UNPROCESSABLE');
+    const details = appErr.details as Record<string, unknown>;
+    expect(details.subcode).toBe('COVER_PHOTO_TOO_LARGE');
+    expect(details.maxBytes).toBe(DEFAULT_MAX_BYTES);
+    expect(details.actualBytes).toBe(DEFAULT_MAX_BYTES + 1);
+
+    expect(repo.all()).toHaveLength(0);
+    expect(publisher.published.map((e) => e.type)).not.toContain(EVENT_CREATED);
+    expect(publisher.published.map((e) => e.type)).not.toContain(EVENT_PUBLISHED);
   });
 });

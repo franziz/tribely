@@ -1,6 +1,7 @@
 import { AppError } from '@/core/errors/app-error.js';
 import type { UnitOfWork } from '@/core/db/unit-of-work.port.js';
 import type { EventPublisher } from '@/core/events/event-publisher.port.js';
+import type { FileStorage } from '@/core/storage/file-storage.port.js';
 import type { Clock } from '@/features/auth/domain/ports/clock.port.js';
 import type { Event } from '../../domain/entities/event.js';
 import type { EventRepository } from '../../domain/repositories/event.repository.js';
@@ -32,6 +33,8 @@ export class ReplaceCoverPhotoUseCase {
     private readonly events: EventRepository,
     private readonly publisher: EventPublisher,
     private readonly clock: Clock,
+    private readonly fileStorage: FileStorage,
+    private readonly coverPhotoMaxBytes: number,
   ) {}
 
   async execute(input: ReplaceCoverPhotoInput): Promise<Event> {
@@ -50,6 +53,17 @@ export class ReplaceCoverPhotoUseCase {
       throw AppError.forbidden('coverPhotoStorageKey does not belong to this host', {
         hostUserId: input.actorUserId,
         coverPhotoStorageKey: input.coverPhotoStorageKey,
+      });
+    }
+
+    // Defense-in-depth byte-cap check (TRI-305): reject over-sized cover photos
+    // before mutating the aggregate.
+    const sizeBytes = await this.fileStorage.getObjectSize({ key: input.coverPhotoStorageKey });
+    if (sizeBytes > this.coverPhotoMaxBytes) {
+      throw AppError.unprocessable('Cover photo exceeds maximum size', {
+        subcode: 'COVER_PHOTO_TOO_LARGE',
+        maxBytes: this.coverPhotoMaxBytes,
+        actualBytes: sizeBytes,
       });
     }
 

@@ -32,4 +32,12 @@ export interface FileStorage {
     contentType: string;
     expiresInSeconds: number;
   }): Promise<string>;
+
+  /**
+   * Return the stored object's size in bytes.
+   *
+   * Throws `AppError.notFound` if the object does not exist or cannot be
+   * resolved by the underlying store.
+   */
+  getObjectSize(input: { key: string }): Promise<number>;
 }

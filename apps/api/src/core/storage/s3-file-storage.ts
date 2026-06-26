@@ -42,10 +42,12 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl as awsGetSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { AppError } from '@/core/errors/app-error.js';
 import type { FileStorage } from './file-storage.port.js';
 
 // ---------------------------------------------------------------------------
@@ -184,6 +186,26 @@ export class S3FileStorageAdapter implements FileStorage {
         signableHeaders: new Set(['content-type']),
       },
     );
+  }
+
+  async getObjectSize(input: { key: string }): Promise<number> {
+    try {
+      const result = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: input.key }),
+      );
+      // ContentLength is typed as number | undefined by the SDK. A successful
+      // HEAD on an existing object must return it; treat its absence as an
+      // internal error rather than returning 0 and silently hiding a problem.
+      if (result.ContentLength === undefined) {
+        throw new Error(`HeadObject for "${input.key}" returned no ContentLength`);
+      }
+      return result.ContentLength;
+    } catch (e: unknown) {
+      if (isS3NotFoundError(e)) {
+        throw AppError.notFound(`Storage object not found: ${input.key}`, { key: input.key });
+      }
+      throw e;
+    }
   }
 
   async verifyReachable(): Promise<void> {
