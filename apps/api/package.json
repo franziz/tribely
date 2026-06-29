@@ -28,7 +28,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.1065.0",
-    "@hono/node-server": "^2.0.2",
+    "@hono/node-server": "^2.0.6",
     "@hono/zod-validator": "^0.8.0",
     "@paralleldrive/cuid2": "^3.3.0",
     "@prisma/adapter-pg": "^7.6.0",
@@ -36,7 +36,7 @@
     "@sentry/node": "^8.55.2",
     "argon2": "^0.44.0",
     "dotenv": "^17.2.3",
-    "hono": "^4.12.19",
+    "hono": "^4.12.27",
     "jose": "^6.1.0",
     "pg": "^8.21.0",
     "pino": "^10.1.0",
